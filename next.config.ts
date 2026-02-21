@@ -1,7 +1,14 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
+import { copyFileSync, existsSync } from 'fs'
+import { join } from 'path'
 
-const nextConfig: NextConfig = {
-  /* config options here */
-};
+// Copia il PDF.js worker in public/ ad ogni build/dev start
+const workerSrc = join(process.cwd(), 'node_modules', 'pdfjs-dist', 'build', 'pdf.worker.min.mjs')
+const workerDst = join(process.cwd(), 'public', 'pdf.worker.min.mjs')
+if (existsSync(workerSrc) && !existsSync(workerDst)) {
+  copyFileSync(workerSrc, workerDst)
+}
 
-export default nextConfig;
+const nextConfig: NextConfig = {}
+
+export default nextConfig
