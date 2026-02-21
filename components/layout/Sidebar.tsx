@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   PlusCircle,
@@ -24,7 +25,12 @@ const NAV_ITEMS = [
   { href: '/impostazioni', label: 'Impostazioni', icon: Settings },
 ]
 
-export default function Sidebar() {
+interface Props {
+  logoUrl: string | null
+  denominazione: string | null
+}
+
+export default function Sidebar({ logoUrl, denominazione }: Props) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -35,10 +41,17 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-64 min-h-screen bg-white border-r border-gray-200 flex flex-col">
+    <aside className="w-64 min-h-screen bg-white border-r border-gray-200 flex flex-col shrink-0">
       {/* Logo / Header */}
-      <div className="p-6 border-b border-gray-200">
-        <h1 className="text-lg font-bold text-gray-900">A.L.M. Infissi</h1>
+      <div className="p-5 border-b border-gray-200">
+        {logoUrl ? (
+          <div className="relative h-12 w-full mb-2">
+            <Image src={logoUrl} alt="Logo" fill className="object-contain object-left" />
+          </div>
+        ) : null}
+        <p className="text-base font-bold text-gray-900 truncate">
+          {denominazione || 'A.L.M. Infissi'}
+        </p>
         <p className="text-xs text-gray-500 mt-0.5">Gestionale</p>
       </div>
 
