@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getSettings, getLogoSignedUrl } from '@/actions/impostazioni'
-import Sidebar from '@/components/layout/Sidebar'
+import LayoutShell from '@/components/layout/LayoutShell'
 
 export default async function DashboardLayout({
   children,
@@ -21,13 +21,8 @@ export default async function DashboardLayout({
     : null
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar logoUrl={logoUrl} denominazione={settings?.denominazione ?? null} />
-      <main className="flex-1 overflow-auto">
-        <div className="p-6">
-          {children}
-        </div>
-      </main>
-    </div>
+    <LayoutShell logoUrl={logoUrl} denominazione={settings?.denominazione ?? null}>
+      {children}
+    </LayoutShell>
   )
 }
