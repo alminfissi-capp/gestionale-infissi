@@ -9,6 +9,16 @@ if (existsSync(workerSrc) && !existsSync(workerDst)) {
   copyFileSync(workerSrc, workerDst)
 }
 
-const nextConfig: NextConfig = {}
+const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'xawyrtqclpeylxnhwhwo.supabase.co',
+        pathname: '/storage/v1/object/**',
+      },
+    ],
+  },
+}
 
 export default nextConfig
