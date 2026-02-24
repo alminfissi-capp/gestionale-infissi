@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import ScontoSelect from './ScontoSelect'
+import IconaCategoria from '@/components/listini/IconaCategoria'
 import type { CategoriaConListini } from '@/types/listino'
 import type { ArticoloWizard } from '@/types/preventivo'
 
@@ -156,7 +157,7 @@ export default function FormArticolo({ listini, onAdd }: Props) {
                 : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
             }`}
           >
-            {cat.icona} {cat.nome}
+            <IconaCategoria icona={cat.icona} size="sm" /> {cat.nome}
           </button>
         ))}
       </div>

@@ -27,6 +27,7 @@ import {
 import TabellaGriglia from './TabellaGriglia'
 import DialogCategoria from './DialogCategoria'
 import DialogListino from './DialogListino'
+import IconaCategoria from './IconaCategoria'
 import type { CategoriaConListini, ListinoCompleto } from '@/types/listino'
 
 interface Props {
@@ -101,7 +102,7 @@ export default function CategoriaCard({ categoria }: Props) {
           ) : (
             <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
           )}
-          <span className="text-lg">{categoria.icona}</span>
+          <IconaCategoria icona={categoria.icona} size="md" />
           <span className="font-semibold text-gray-900">{categoria.nome}</span>
           <Badge variant="secondary" className="ml-1 text-xs">
             {categoria.listini.length} listini

@@ -19,6 +19,11 @@ async function getOrgId(): Promise<string> {
   return profile.organization_id
 }
 
+// Esposto per i Client Component che necessitano dell'orgId (es. upload Storage)
+export async function getCurrentOrgId(): Promise<string> {
+  return getOrgId()
+}
+
 // ---- Categorie ----
 
 export async function getCategorie(): Promise<CategoriaConListini[]> {
