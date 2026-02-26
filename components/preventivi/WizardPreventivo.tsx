@@ -99,8 +99,15 @@ export default function WizardPreventivo({ clienti, listini, preventivo }: Props
   const [numero, setNumero] = useState(preventivo?.numero ?? '')
 
   // Step 2 — articoli
+  // Nota: strippiamo i campi DB-only (id, preventivo_id, organization_id, created_at)
+  // per evitare che finiscano nel payload dell'INSERT durante updatePreventivo.
   const [articoli, setArticoli] = useState<ArticoloWizard[]>(
-    preventivo?.articoli.map((a) => ({ ...a, tempId: a.id })) ?? []
+    preventivo?.articoli.map(
+      ({ id, preventivo_id: _pv, organization_id: _org, created_at: _ca, ...fields }) => ({
+        ...fields,
+        tempId: id,
+      })
+    ) ?? []
   )
 
   // Step 3 — note/sconto globale
