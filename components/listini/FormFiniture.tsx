@@ -38,6 +38,7 @@ export default function FormFiniture({ finiture, onChange }: Props) {
         </div>
       )}
 
+      <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
       {finiture.map((f, i) => (
         <div key={i} className="grid grid-cols-[1fr_80px_80px_32px] gap-2 items-center">
           <Input
@@ -79,6 +80,7 @@ export default function FormFiniture({ finiture, onChange }: Props) {
           </Button>
         </div>
       ))}
+      </div>
 
       <Button type="button" variant="outline" size="sm" onClick={add}>
         <Plus className="h-4 w-4 mr-1" />

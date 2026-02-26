@@ -146,6 +146,7 @@ export async function createListino(data: {
   altezze: number[]
   griglia: Record<string, Record<string, number>>
   finiture: { nome: string; aumento: number; aumento_euro: number }[]
+  immagine_url?: string | null
 }): Promise<{ id: string }> {
   const supabase = await createClient()
   const orgId = await getOrgId()
@@ -178,6 +179,7 @@ export async function updateListino(
     altezze: number[]
     griglia: Record<string, Record<string, number>>
     finiture: { nome: string; aumento: number; aumento_euro: number }[]
+    immagine_url?: string | null
   }
 ): Promise<void> {
   const supabase = await createClient()

@@ -25,6 +25,7 @@ export type ArticoloPreventivoRow = {
   finitura_nome: string | null
   finitura_aumento: number
   finitura_aumento_euro: number
+  immagine_url: string | null
   quantita: number
   prezzo_base: number
   prezzo_unitario: number

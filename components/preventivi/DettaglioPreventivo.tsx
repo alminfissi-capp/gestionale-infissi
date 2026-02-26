@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -186,16 +187,27 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
               {p.articoli.map((a) => (
                 <TableRow key={a.id}>
                   <TableCell>
-                    <div>
-                      <p className="font-medium text-sm">{a.tipologia}</p>
-                      {a.categoria_nome && (
-                        <p className="text-xs text-gray-400">{a.categoria_nome}</p>
+                    <div className="flex items-start gap-2">
+                      {a.immagine_url && (
+                        <Image
+                          src={a.immagine_url}
+                          alt={a.tipologia}
+                          width={48}
+                          height={36}
+                          className="rounded border object-cover shrink-0 mt-0.5"
+                        />
                       )}
-                      {a.misura_arrotondata && (
-                        <Badge variant="outline" className="text-[10px] mt-0.5 text-amber-600 border-amber-300">
-                          arrotondata
-                        </Badge>
-                      )}
+                      <div>
+                        <p className="font-medium text-sm">{a.tipologia}</p>
+                        {a.categoria_nome && (
+                          <p className="text-xs text-gray-400">{a.categoria_nome}</p>
+                        )}
+                        {a.misura_arrotondata && (
+                          <Badge variant="outline" className="text-[10px] mt-0.5 text-amber-600 border-amber-300">
+                            arrotondata
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="text-sm whitespace-nowrap">

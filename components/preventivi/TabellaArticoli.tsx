@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -80,16 +81,27 @@ export default function TabellaArticoli({ articoli, onChange }: Props) {
           {articoli.map((a) => (
             <TableRow key={a.tempId}>
               <TableCell>
-                <div>
-                  <p className="font-medium text-sm">{a.tipologia}</p>
-                  {a.categoria_nome && (
-                    <p className="text-xs text-gray-400">{a.categoria_nome}</p>
+                <div className="flex items-start gap-2">
+                  {a.immagine_url && (
+                    <Image
+                      src={a.immagine_url}
+                      alt={a.tipologia}
+                      width={40}
+                      height={32}
+                      className="rounded border object-cover shrink-0 mt-0.5"
+                    />
                   )}
-                  {a.misura_arrotondata && (
-                    <Badge variant="outline" className="text-[10px] mt-0.5 text-amber-600 border-amber-300">
-                      arrotondata
-                    </Badge>
-                  )}
+                  <div>
+                    <p className="font-medium text-sm">{a.tipologia}</p>
+                    {a.categoria_nome && (
+                      <p className="text-xs text-gray-400">{a.categoria_nome}</p>
+                    )}
+                    {a.misura_arrotondata && (
+                      <Badge variant="outline" className="text-[10px] mt-0.5 text-amber-600 border-amber-300">
+                        arrotondata
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </TableCell>
               <TableCell className="text-sm whitespace-nowrap">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import Image from 'next/image'
 import { Plus, AlertTriangle, Tag } from 'lucide-react'
 import {
   calcolaPrezzoBase,
@@ -153,6 +154,7 @@ export default function FormArticolo({ listini, onAdd }: Props) {
       finitura_nome: finitura?.nome ?? null,
       finitura_aumento: finitura?.aumento ?? 0,
       finitura_aumento_euro: finitura?.aumento_euro ?? 0,
+      immagine_url: listinoSelezionato.immagine_url ?? null,
       quantita: qty,
       prezzo_base: calcolo.prezzoBase,
       prezzo_unitario: calcolo.prezzoUnitario,
@@ -211,6 +213,20 @@ export default function FormArticolo({ listini, onAdd }: Props) {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Anteprima immagine listino */}
+          {listinoSelezionato?.immagine_url && (
+            <div className="col-span-2 flex items-center gap-3">
+              <Image
+                src={listinoSelezionato.immagine_url}
+                alt={listinoSelezionato.tipologia}
+                width={80}
+                height={60}
+                className="rounded border object-cover shrink-0"
+              />
+              <p className="text-xs text-gray-400">Immagine prodotto</p>
+            </div>
+          )}
 
           {/* Finitura */}
           {listinoSelezionato && finitureDisponibili.length > 0 && (
