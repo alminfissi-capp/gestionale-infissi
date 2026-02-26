@@ -8,6 +8,7 @@ import { createCategoria, updateCategoria, getCurrentOrgId } from '@/actions/lis
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import IconaCategoria from './IconaCategoria'
+import FormFiniture, { type FinituraInput } from './FormFiniture'
 import type { Categoria } from '@/types/listino'
 
 const EMOJIS = [
@@ -28,7 +30,7 @@ type Mode = 'emoji' | 'immagine'
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-  categoria?: Categoria
+  categoria?: Categoria & { finiture_categoria?: { nome: string; aumento_percentuale: number; aumento_euro: number }[] }
   onSuccess: () => void
 }
 
@@ -68,7 +70,16 @@ async function resizeToIcon(file: File): Promise<{ blob: Blob; preview: string }
   })
 }
 
+function initFiniture(categoria?: Props['categoria']): FinituraInput[] {
+  return (categoria?.finiture_categoria ?? []).map((f) => ({
+    nome: f.nome,
+    aumento: f.aumento_percentuale,
+    aumento_euro: f.aumento_euro,
+  }))
+}
+
 export default function DialogCategoria({ open, onOpenChange, categoria, onSuccess }: Props) {
+  // Tab Generale
   const [nome, setNome] = useState(categoria?.nome ?? '')
   const [icona, setIcona] = useState(categoria?.icona ?? '📂')
   const [mode, setMode] = useState<Mode>(
@@ -78,8 +89,25 @@ export default function DialogCategoria({ open, onOpenChange, categoria, onSucce
   const [imagePreview, setImagePreview] = useState<string | null>(
     categoria?.icona?.startsWith('http') ? (categoria.icona ?? null) : null
   )
-  const [saving, setSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Tab Finiture
+  const [finiture, setFiniture] = useState<FinituraInput[]>(initFiniture(categoria))
+
+  // Tab Prezzi & Regole
+  const [trasportoCostoUnitario, setTrasportoCostoUnitario] = useState(
+    categoria?.trasporto_costo_unitario ?? 0
+  )
+  const [trasportoCostoMinimo, setTrasportoCostoMinimo] = useState(
+    categoria?.trasporto_costo_minimo ?? 0
+  )
+  const [trasportoMinimoPezzi, setTrasportoMinimoPezzi] = useState(
+    categoria?.trasporto_minimo_pezzi ?? 0
+  )
+  const [scontoFornitore, setScontoFornitore] = useState(categoria?.sconto_fornitore ?? 0)
+  const [scontoMassimo, setScontoMassimo] = useState(categoria?.sconto_massimo ?? 50)
+
+  const [saving, setSaving] = useState(false)
 
   const handleOpenChange = (val: boolean) => {
     if (val) {
@@ -89,6 +117,12 @@ export default function DialogCategoria({ open, onOpenChange, categoria, onSucce
       setMode(isUrl ? 'immagine' : 'emoji')
       setImageBlob(null)
       setImagePreview(isUrl ? (categoria?.icona ?? null) : null)
+      setFiniture(initFiniture(categoria))
+      setTrasportoCostoUnitario(categoria?.trasporto_costo_unitario ?? 0)
+      setTrasportoCostoMinimo(categoria?.trasporto_costo_minimo ?? 0)
+      setTrasportoMinimoPezzi(categoria?.trasporto_minimo_pezzi ?? 0)
+      setScontoFornitore(categoria?.sconto_fornitore ?? 0)
+      setScontoMassimo(categoria?.sconto_massimo ?? 50)
     }
     onOpenChange(val)
   }
@@ -105,7 +139,6 @@ export default function DialogCategoria({ open, onOpenChange, categoria, onSucce
     const file = e.target.files?.[0]
     if (!file) return
     if (fileInputRef.current) fileInputRef.current.value = ''
-
     try {
       const { blob, preview } = await resizeToIcon(file)
       setImageBlob(blob)
@@ -113,11 +146,6 @@ export default function DialogCategoria({ open, onOpenChange, categoria, onSucce
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Errore nel caricamento immagine')
     }
-  }
-
-  const handleRemoveImage = () => {
-    setImageBlob(null)
-    setImagePreview(null)
   }
 
   const handleSave = async () => {
@@ -129,6 +157,11 @@ export default function DialogCategoria({ open, onOpenChange, categoria, onSucce
       toast.error("Seleziona un'immagine oppure passa alla modalità Emoji")
       return
     }
+    const finitureInvalide = finiture.filter((f) => !f.nome.trim())
+    if (finitureInvalide.length > 0) {
+      toast.error('Alcune finiture hanno il nome vuoto')
+      return
+    }
 
     setSaving(true)
     try {
@@ -136,7 +169,6 @@ export default function DialogCategoria({ open, onOpenChange, categoria, onSucce
 
       if (mode === 'immagine') {
         if (imageBlob) {
-          // Nuova immagine da caricare
           const orgId = await getCurrentOrgId()
           const supabase = createClient()
           const fileName = `${orgId}/${crypto.randomUUID()}.webp`
@@ -149,16 +181,30 @@ export default function DialogCategoria({ open, onOpenChange, categoria, onSucce
             .getPublicUrl(data.path)
           iconaFinale = publicUrl
         } else {
-          // Nessun nuovo file: mantieni l'URL esistente
           iconaFinale = icona
         }
       }
 
+      const payload = {
+        nome: nome.trim(),
+        icona: iconaFinale,
+        trasporto_costo_unitario: trasportoCostoUnitario,
+        trasporto_costo_minimo: trasportoCostoMinimo,
+        trasporto_minimo_pezzi: trasportoMinimoPezzi,
+        sconto_fornitore: scontoFornitore,
+        sconto_massimo: scontoMassimo,
+        finiture_categoria: finiture.map((f) => ({
+          nome: f.nome.trim(),
+          aumento_percentuale: f.aumento,
+          aumento_euro: f.aumento_euro,
+        })),
+      }
+
       if (categoria) {
-        await updateCategoria(categoria.id, { nome: nome.trim(), icona: iconaFinale })
+        await updateCategoria(categoria.id, payload)
         toast.success('Categoria aggiornata')
       } else {
-        await createCategoria({ nome: nome.trim(), icona: iconaFinale })
+        await createCategoria(payload)
         toast.success('Categoria creata')
       }
       onSuccess()
@@ -172,142 +218,249 @@ export default function DialogCategoria({ open, onOpenChange, categoria, onSucce
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{categoria ? 'Modifica categoria' : 'Nuova categoria'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Nome */}
-          <div className="space-y-1.5">
-            <Label>Nome</Label>
-            <Input
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              placeholder="es. Finestre PVC"
-              onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-            />
-          </div>
+        <Tabs defaultValue="generale" className="w-full">
+          <TabsList className="w-full">
+            <TabsTrigger value="generale" className="flex-1">Generale</TabsTrigger>
+            <TabsTrigger value="finiture" className="flex-1">Finiture</TabsTrigger>
+            <TabsTrigger value="regole" className="flex-1">Prezzi & Regole</TabsTrigger>
+          </TabsList>
 
-          {/* Icona */}
-          <div className="space-y-2">
-            <Label>Icona</Label>
-
-            {/* Switcher Emoji / Immagine */}
-            <div className="flex rounded-md border overflow-hidden w-fit text-sm">
-              <button
-                type="button"
-                onClick={() => handleModeSwitch('emoji')}
-                className={`px-3 py-1.5 transition-colors ${
-                  mode === 'emoji'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                Emoji
-              </button>
-              <button
-                type="button"
-                onClick={() => handleModeSwitch('immagine')}
-                className={`px-3 py-1.5 transition-colors border-l ${
-                  mode === 'immagine'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                Immagine
-              </button>
+          {/* ── Tab Generale ─────────────────────────────────── */}
+          <TabsContent value="generale" className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label>Nome</Label>
+              <Input
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                placeholder="es. Finestre PVC"
+                onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+              />
             </div>
 
-            {/* Grid emoji */}
-            {mode === 'emoji' && (
-              <div className="flex flex-wrap gap-2">
-                {EMOJIS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => setIcona(emoji)}
-                    className={`text-xl w-9 h-9 rounded-md border transition-colors ${
-                      icona === emoji
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-400'
-                    }`}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label>Icona</Label>
 
-            {/* Upload immagine */}
-            {mode === 'immagine' && (
-              <div className="space-y-2">
-                {imagePreview ? (
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={imagePreview}
-                      alt=""
-                      className="w-16 h-16 rounded-md object-cover border border-gray-200"
-                    />
-                    <div className="space-y-1">
-                      <p className="text-xs text-gray-500">128 × 128 px</p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRemoveImage}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Rimuovi
-                      </Button>
+              {/* Switcher Emoji / Immagine */}
+              <div className="flex rounded-md border overflow-hidden w-fit text-sm">
+                <button
+                  type="button"
+                  onClick={() => handleModeSwitch('emoji')}
+                  className={`px-3 py-1.5 transition-colors ${
+                    mode === 'emoji'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Emoji
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleModeSwitch('immagine')}
+                  className={`px-3 py-1.5 transition-colors border-l ${
+                    mode === 'immagine'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Immagine
+                </button>
+              </div>
+
+              {mode === 'emoji' && (
+                <div className="flex flex-wrap gap-2">
+                  {EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => setIcona(emoji)}
+                      className={`text-xl w-9 h-9 rounded-md border transition-colors ${
+                        icona === emoji
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {mode === 'immagine' && (
+                <div className="space-y-2">
+                  {imagePreview ? (
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={imagePreview}
+                        alt=""
+                        className="w-16 h-16 rounded-md object-cover border border-gray-200"
+                      />
+                      <div className="space-y-1">
+                        <p className="text-xs text-gray-500">128 × 128 px</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => { setImageBlob(null); setImagePreview(null) }}
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Rimuovi
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div
-                    className="flex flex-col items-center justify-center h-24 w-full rounded-md border-2 border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-gray-400 transition-colors"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Upload className="h-5 w-5 text-gray-400 mb-1" />
-                    <span className="text-xs text-gray-500">Clicca per selezionare</span>
-                    <span className="text-xs text-gray-400 mt-0.5">
-                      PNG, JPG, WEBP — ridimensionata a 128 × 128
-                    </span>
-                  </div>
-                )}
+                  ) : (
+                    <div
+                      className="flex flex-col items-center justify-center h-24 w-full rounded-md border-2 border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-gray-400 transition-colors"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="h-5 w-5 text-gray-400 mb-1" />
+                      <span className="text-xs text-gray-500">Clicca per selezionare</span>
+                      <span className="text-xs text-gray-400 mt-0.5">
+                        PNG, JPG, WEBP — ridimensionata a 128 × 128
+                      </span>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+                  {!imagePreview && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="h-4 w-4 mr-1" />
+                      Scegli immagine
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
 
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
+            {/* Anteprima */}
+            <div className="flex items-center gap-2 pt-1 text-sm text-gray-500">
+              {mode === 'immagine' && imagePreview ? (
+                <img src={imagePreview} alt="" className="w-7 h-7 rounded object-cover shrink-0" />
+              ) : (
+                <IconaCategoria icona={icona} size="lg" />
+              )}
+              <span>{nome || 'Nuova categoria'}</span>
+            </div>
+          </TabsContent>
 
-                {!imagePreview && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Upload className="h-4 w-4 mr-1" />
-                    Scegli immagine
-                  </Button>
-                )}
+          {/* ── Tab Finiture ─────────────────────────────────── */}
+          <TabsContent value="finiture" className="pt-2 space-y-3">
+            <p className="text-xs text-gray-500">
+              Queste finiture sono condivise da tutti i listini della categoria.
+              I singoli listini possono aggiungerne di specifiche.
+            </p>
+            <FormFiniture finiture={finiture} onChange={setFiniture} />
+          </TabsContent>
+
+          {/* ── Tab Prezzi & Regole ───────────────────────────── */}
+          <TabsContent value="regole" className="pt-2 space-y-5">
+
+            {/* Trasporto */}
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-700">Trasporto</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Costo per pezzo</Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={trasportoCostoUnitario}
+                      onChange={(e) => setTrasportoCostoUnitario(parseFloat(e.target.value) || 0)}
+                      className="text-right"
+                    />
+                    <span className="text-xs text-gray-400 shrink-0">€</span>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Costo minimo</Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={trasportoCostoMinimo}
+                      onChange={(e) => setTrasportoCostoMinimo(parseFloat(e.target.value) || 0)}
+                      className="text-right"
+                    />
+                    <span className="text-xs text-gray-400 shrink-0">€</span>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Fino a pezzi</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={trasportoMinimoPezzi}
+                    onChange={(e) => setTrasportoMinimoPezzi(parseInt(e.target.value) || 0)}
+                    className="text-right"
+                  />
+                </div>
               </div>
-            )}
-          </div>
+              {trasportoCostoMinimo > 0 && trasportoMinimoPezzi > 0 && (
+                <p className="text-xs text-gray-400">
+                  Fino a {trasportoMinimoPezzi} pz → €{trasportoCostoMinimo} fissi
+                  {trasportoCostoUnitario > 0 && ` · oltre → €${trasportoCostoMinimo} + €${trasportoCostoUnitario}/pz extra`}
+                </p>
+              )}
+            </div>
 
-          {/* Anteprima */}
-          <div className="flex items-center gap-2 pt-1 text-sm text-gray-500">
-            {mode === 'immagine' && imagePreview ? (
-              <img src={imagePreview} alt="" className="w-7 h-7 rounded object-cover shrink-0" />
-            ) : (
-              <IconaCategoria icona={icona} size="lg" />
-            )}
-            <span>{nome || 'Nuova categoria'}</span>
-          </div>
-        </div>
+            {/* Sconti */}
+            <div className="space-y-3 border-t pt-4">
+              <p className="text-sm font-medium text-gray-700">Sconti</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Sconto acquisto fornitore</Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      value={scontoFornitore}
+                      onChange={(e) => setScontoFornitore(parseFloat(e.target.value) || 0)}
+                      className="text-right"
+                    />
+                    <span className="text-xs text-gray-400 shrink-0">%</span>
+                  </div>
+                  <p className="text-xs text-gray-400">Solo uso interno — non appare nel preventivo</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Sconto massimo applicabile</Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={scontoMassimo}
+                      onChange={(e) => setScontoMassimo(parseFloat(e.target.value) || 0)}
+                      className="text-right"
+                    />
+                    <span className="text-xs text-gray-400 shrink-0">%</span>
+                  </div>
+                  <p className="text-xs text-gray-400">Limite massimo negli articoli del preventivo</p>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>

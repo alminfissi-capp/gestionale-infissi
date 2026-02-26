@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Plus, AlertTriangle } from 'lucide-react'
+import { Plus, AlertTriangle, Tag } from 'lucide-react'
 import {
   calcolaPrezzoBase,
   applicaFinitura,
@@ -28,6 +28,14 @@ interface Props {
   onAdd: (articolo: ArticoloWizard) => void
 }
 
+// Finitura unificata (categoria + listino)
+type FinituraUnita = {
+  nome: string
+  aumento: number       // %
+  aumento_euro: number  // €
+  source: 'categoria' | 'listino'
+}
+
 export default function FormArticolo({ listini, onAdd }: Props) {
   const [categoriaId, setCategoriaId] = useState<string>('')
   const [listinoId, setListinoId] = useState<string>('')
@@ -47,11 +55,44 @@ export default function FormArticolo({ listini, onAdd }: Props) {
     [categoriaSelezionata, listinoId]
   )
 
-  const finitura = useMemo(() => {
+  // Finiture unite: categoria (ereditate) + listino (specifiche)
+  const finitureDisponibili = useMemo((): FinituraUnita[] => {
+    if (!categoriaSelezionata) return []
+    const catFin: FinituraUnita[] = (categoriaSelezionata.finiture_categoria ?? []).map((f) => ({
+      nome: f.nome,
+      aumento: f.aumento_percentuale,
+      aumento_euro: f.aumento_euro,
+      source: 'categoria' as const,
+    }))
+    const listinoFin: FinituraUnita[] = (listinoSelezionato?.finiture ?? []).map((f) => ({
+      nome: f.nome,
+      aumento: f.aumento,
+      aumento_euro: f.aumento_euro ?? 0,
+      source: 'listino' as const,
+    }))
+    return [...catFin, ...listinoFin]
+  }, [categoriaSelezionata, listinoSelezionato])
+
+  const finitura = useMemo((): FinituraUnita | null => {
     const idx = parseInt(finituraIndex)
-    if (idx < 0 || !listinoSelezionato) return null
-    return listinoSelezionato.finiture[idx] ?? null
-  }, [finituraIndex, listinoSelezionato])
+    if (idx < 0) return null
+    return finitureDisponibili[idx] ?? null
+  }, [finituraIndex, finitureDisponibili])
+
+  const scontoMax = categoriaSelezionata?.sconto_massimo ?? 50
+
+  // Reset sconto se supera il nuovo limite
+  const handleCategoriaChange = (id: string) => {
+    setCategoriaId(id)
+    setListinoId('')
+    setFinituraIndex('-1')
+    setScontoArticolo(0)
+  }
+
+  const handleListinoChange = (id: string) => {
+    setListinoId(id)
+    setFinituraIndex('-1')
+  }
 
   // Calcolo prezzo in real-time
   const calcolo = useMemo(() => {
@@ -70,7 +111,7 @@ export default function FormArticolo({ listini, onAdd }: Props) {
           H
         )
       const prezzoUnitario = finitura
-        ? applicaFinitura(prezzo, finitura.aumento)
+        ? applicaFinitura(prezzo, finitura.aumento, finitura.aumento_euro)
         : prezzo
       const qty = Math.max(1, parseInt(quantita) || 1)
       const totalRiga = calcolaTotaleRiga(prezzoUnitario, qty, scontoArticolo)
@@ -111,6 +152,7 @@ export default function FormArticolo({ listini, onAdd }: Props) {
       misura_arrotondata: calcolo.arrotondata,
       finitura_nome: finitura?.nome ?? null,
       finitura_aumento: finitura?.aumento ?? 0,
+      finitura_aumento_euro: finitura?.aumento_euro ?? 0,
       quantita: qty,
       prezzo_base: calcolo.prezzoBase,
       prezzo_unitario: calcolo.prezzoUnitario,
@@ -129,17 +171,6 @@ export default function FormArticolo({ listini, onAdd }: Props) {
     setFinituraIndex('-1')
   }
 
-  const handleCategoriaChange = (id: string) => {
-    setCategoriaId(id)
-    setListinoId('')
-    setFinituraIndex('-1')
-  }
-
-  const handleListinoChange = (id: string) => {
-    setListinoId(id)
-    setFinituraIndex('-1')
-  }
-
   return (
     <div className="rounded-lg border bg-white p-4 space-y-4">
       <p className="text-sm font-semibold text-gray-700">Aggiungi articolo</p>
@@ -151,7 +182,7 @@ export default function FormArticolo({ listini, onAdd }: Props) {
             key={cat.id}
             type="button"
             onClick={() => handleCategoriaChange(cat.id)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors flex items-center gap-1.5 ${
               categoriaId === cat.id
                 ? 'bg-blue-600 text-white border-blue-600'
                 : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
@@ -182,7 +213,7 @@ export default function FormArticolo({ listini, onAdd }: Props) {
           </div>
 
           {/* Finitura */}
-          {listinoSelezionato && listinoSelezionato.finiture.length > 0 && (
+          {listinoSelezionato && finitureDisponibili.length > 0 && (
             <div className="col-span-2 space-y-1.5">
               <Label>Finitura</Label>
               <Select value={finituraIndex} onValueChange={setFinituraIndex}>
@@ -191,9 +222,16 @@ export default function FormArticolo({ listini, onAdd }: Props) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="-1">Standard (nessuna maggiorazione)</SelectItem>
-                  {listinoSelezionato.finiture.map((f, i) => (
+                  {finitureDisponibili.map((f, i) => (
                     <SelectItem key={i} value={i.toString()}>
-                      {f.nome} +{f.aumento}%
+                      <span className="flex items-center gap-1.5">
+                        {f.source === 'categoria' && (
+                          <Tag className="h-3 w-3 text-gray-400 shrink-0" />
+                        )}
+                        {f.nome}
+                        {f.aumento > 0 && ` +${f.aumento}%`}
+                        {f.aumento_euro > 0 && ` +€${f.aumento_euro}`}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -232,8 +270,8 @@ export default function FormArticolo({ listini, onAdd }: Props) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Sconto</Label>
-            <ScontoSelect value={scontoArticolo} onChange={setScontoArticolo} max={50} />
+            <Label>Sconto{scontoMax < 50 ? ` (max ${scontoMax}%)` : ''}</Label>
+            <ScontoSelect value={scontoArticolo} onChange={setScontoArticolo} max={scontoMax} />
           </div>
         </div>
       )}

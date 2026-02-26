@@ -24,6 +24,7 @@ export type ArticoloPreventivoRow = {
   misura_arrotondata: boolean
   finitura_nome: string | null
   finitura_aumento: number
+  finitura_aumento_euro: number
   quantita: number
   prezzo_base: number
   prezzo_unitario: number

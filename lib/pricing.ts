@@ -44,9 +44,9 @@ export function calcolaPrezzoBase(
   }
 }
 
-/** Applica la percentuale di finitura al prezzo base */
-export function applicaFinitura(prezzoBase: number, percentuale: number): number {
-  return prezzoBase * (1 + percentuale / 100)
+/** Applica la percentuale e/o l'importo fisso di finitura al prezzo base */
+export function applicaFinitura(prezzoBase: number, percentuale: number, euro = 0): number {
+  return prezzoBase * (1 + percentuale / 100) + euro
 }
 
 /** Prezzo totale di una riga: unitario × qty × (1 - sconto%) */
@@ -63,19 +63,29 @@ export function calcolaSubtotale(articoli: { prezzo_totale_riga: number }[]): nu
   return articoli.reduce((sum, a) => sum + a.prezzo_totale_riga, 0)
 }
 
-/** Somma delle quantità (pezzi totali, usata per il trasporto) */
+/** Somma delle quantità (pezzi totali) */
 export function calcolaTotalePezzi(articoli: { quantita: number }[]): number {
   return articoli.reduce((sum, a) => sum + a.quantita, 0)
 }
 
 /**
- * Spese di trasporto:
- * 0 pezzi → €0 | 1-10 pezzi → €350 fissi | >10 pezzi → €350 + €30/pz oltre i 10
+ * Calcola spese di trasporto per una singola categoria con regole configurabili.
+ *
+ * - 0 pezzi              → €0
+ * - pezzi <= minPezzi    → costoMinimo (flat)
+ * - pezzi >  minPezzi    → costoMinimo + (pezzi - minPezzi) × costoUnitario
+ *
+ * Con valori default (tutti 0): trasporto = €0.
  */
-export function calcolaSpeseTrasporto(totalePezzi: number): number {
-  if (totalePezzi === 0) return 0
-  if (totalePezzi <= 10) return 350
-  return 350 + (totalePezzi - 10) * 30
+export function calcolaSpeseTrasportoPezzi(
+  pezzi: number,
+  costoUnitario: number,
+  costoMinimo: number,
+  minPezzi: number
+): number {
+  if (pezzi === 0) return 0
+  if (pezzi <= minPezzi) return costoMinimo
+  return costoMinimo + (pezzi - minPezzi) * costoUnitario
 }
 
 /** Calcola sconto globale, totale articoli e totale finale */

@@ -43,7 +43,7 @@ export default function DialogListino({
     griglia: listino?.griglia ?? {},
   })
   const [finiture, setFiniture] = useState<FinituraInput[]>(
-    listino?.finiture?.map((f) => ({ nome: f.nome, aumento: f.aumento })) ?? []
+    listino?.finiture?.map((f) => ({ nome: f.nome, aumento: f.aumento, aumento_euro: f.aumento_euro ?? 0 })) ?? []
   )
   const [saving, setSaving] = useState(false)
 
@@ -56,7 +56,7 @@ export default function DialogListino({
         griglia: listino?.griglia ?? {},
       })
       setFiniture(
-        listino?.finiture?.map((f) => ({ nome: f.nome, aumento: f.aumento })) ?? []
+        listino?.finiture?.map((f) => ({ nome: f.nome, aumento: f.aumento, aumento_euro: f.aumento_euro ?? 0 })) ?? []
       )
     }
     onOpenChange(val)

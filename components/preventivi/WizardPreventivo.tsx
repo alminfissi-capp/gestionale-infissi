@@ -7,9 +7,8 @@ import { ChevronLeft, ChevronRight, Save, Loader2 } from 'lucide-react'
 import { createPreventivo, updatePreventivo } from '@/actions/preventivi'
 import {
   calcolaSubtotale,
-  calcolaSpeseTrasporto,
+  calcolaSpeseTrasportoPezzi,
   calcolaTotalePreventivo,
-  calcolaTotalePezzi,
   formatEuro,
 } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
@@ -47,6 +46,46 @@ interface Props {
   preventivo?: PreventivoCompleto
 }
 
+/** Calcola spese trasporto raggruppando gli articoli per categoria */
+function calcolaTrasportoPerCategoria(
+  articoli: ArticoloWizard[],
+  listini: CategoriaConListini[]
+): { totale: number; dettaglio: { nome: string; pezzi: number; costo: number }[] } {
+  const pezziPerCat = new Map<
+    string,
+    { nome: string; pezzi: number; unitario: number; minimo: number; minPezzi: number }
+  >()
+
+  for (const articolo of articoli) {
+    if (!articolo.listino_id) continue
+    const cat = listini.find((c) => c.listini.some((l) => l.id === articolo.listino_id))
+    if (!cat) continue
+    const existing = pezziPerCat.get(cat.id)
+    if (existing) {
+      existing.pezzi += articolo.quantita
+    } else {
+      pezziPerCat.set(cat.id, {
+        nome: cat.nome,
+        pezzi: articolo.quantita,
+        unitario: cat.trasporto_costo_unitario,
+        minimo: cat.trasporto_costo_minimo,
+        minPezzi: cat.trasporto_minimo_pezzi,
+      })
+    }
+  }
+
+  const dettaglio: { nome: string; pezzi: number; costo: number }[] = []
+  let totale = 0
+
+  for (const { nome, pezzi, unitario, minimo, minPezzi } of pezziPerCat.values()) {
+    const costo = calcolaSpeseTrasportoPezzi(pezzi, unitario, minimo, minPezzi)
+    dettaglio.push({ nome, pezzi, costo })
+    totale += costo
+  }
+
+  return { totale, dettaglio }
+}
+
 export default function WizardPreventivo({ clienti, listini, preventivo }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -70,19 +109,20 @@ export default function WizardPreventivo({ clienti, listini, preventivo }: Props
 
   // Calcoli riepilogo
   const totali = useMemo(() => {
-    const totalePezzi = calcolaTotalePezzi(articoli)
     const subtotale = calcolaSubtotale(articoli)
-    const speseTrasporto = calcolaSpeseTrasporto(totalePezzi)
+    const { totale: speseTrasporto, dettaglio: dettaglioTrasporto } =
+      calcolaTrasportoPerCategoria(articoli, listini)
     const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
       subtotale,
       scontoGlobale,
       speseTrasporto
     )
-    return { totalePezzi, subtotale, speseTrasporto, importoSconto, totaleArticoli, totaleFinale }
-  }, [articoli, scontoGlobale])
+    const totalePezzi = articoli.reduce((s, a) => s + a.quantita, 0)
+    return { totalePezzi, subtotale, speseTrasporto, dettaglioTrasporto, importoSconto, totaleArticoli, totaleFinale }
+  }, [articoli, scontoGlobale, listini])
 
   const canGoNext = () => {
-    if (step === 0) return true // cliente opzionale
+    if (step === 0) return true
     if (step === 1) return articoli.length > 0
     return true
   }
@@ -164,7 +204,7 @@ export default function WizardPreventivo({ clienti, listini, preventivo }: Props
 
         {step === 2 && (
           <div className="space-y-6">
-            {/* Riepilogo articoli (read-only) */}
+            {/* Riepilogo articoli */}
             <div>
               <p className="text-sm font-semibold text-gray-700 mb-2">
                 Articoli ({articoli.length})
@@ -213,17 +253,37 @@ export default function WizardPreventivo({ clienti, listini, preventivo }: Props
                 <span>Totale articoli</span>
                 <span>€ {formatEuro(totali.totaleArticoli)}</span>
               </div>
-              <div className="flex justify-between text-gray-600">
-                <span>
-                  Spese trasporto
-                  {totali.totalePezzi > 0 && totali.totalePezzi <= 10
-                    ? ' (forfait)'
-                    : totali.totalePezzi > 10
-                    ? ` (10 pz base + ${totali.totalePezzi - 10} pz extra)`
-                    : ''}
-                </span>
-                <span>€ {formatEuro(totali.speseTrasporto)}</span>
-              </div>
+
+              {/* Trasporto per categoria */}
+              {totali.dettaglioTrasporto.length === 0 && (
+                <div className="flex justify-between text-gray-600">
+                  <span>Spese trasporto</span>
+                  <span>€ {formatEuro(0)}</span>
+                </div>
+              )}
+              {totali.dettaglioTrasporto.length === 1 && (
+                <div className="flex justify-between text-gray-600">
+                  <span>
+                    Spese trasporto ({totali.dettaglioTrasporto[0].pezzi} pz)
+                  </span>
+                  <span>€ {formatEuro(totali.dettaglioTrasporto[0].costo)}</span>
+                </div>
+              )}
+              {totali.dettaglioTrasporto.length > 1 && (
+                <>
+                  {totali.dettaglioTrasporto.map((d, i) => (
+                    <div key={i} className="flex justify-between text-gray-500 text-xs pl-2">
+                      <span>Trasporto {d.nome} ({d.pezzi} pz)</span>
+                      <span>€ {formatEuro(d.costo)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-gray-600">
+                    <span>Spese trasporto totale</span>
+                    <span>€ {formatEuro(totali.speseTrasporto)}</span>
+                  </div>
+                </>
+              )}
+
               <div className="flex justify-between font-bold text-base border-t pt-2 mt-2">
                 <span>Totale finale</span>
                 <span>€ {formatEuro(totali.totaleFinale)}</span>

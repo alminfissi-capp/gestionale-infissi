@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import {
   calcolaSubtotale,
-  calcolaSpeseTrasporto,
+  calcolaSpeseTrasportoPezzi,
   calcolaTotalePreventivo,
   calcolaTotalePezzi,
 } from '@/lib/pricing'
@@ -28,6 +28,73 @@ async function getOrgId(): Promise<string> {
 
   if (!profile) throw new Error('Profilo non trovato')
   return profile.organization_id
+}
+
+type RegolaCategoria = {
+  categoriaId: string
+  unitario: number
+  minimo: number
+  minPezzi: number
+}
+
+/** Recupera le regole di trasporto per un set di listino_id */
+async function getRegoleTrasporto(
+  listinoIds: string[]
+): Promise<Map<string, RegolaCategoria>> {
+  if (listinoIds.length === 0) return new Map()
+
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('listini')
+    .select('id, categoria_id, categorie_listini!inner(trasporto_costo_unitario, trasporto_costo_minimo, trasporto_minimo_pezzi)')
+    .in('id', listinoIds)
+
+  const result = new Map<string, RegolaCategoria>()
+  for (const l of data ?? []) {
+    const cat = l.categorie_listini as unknown as {
+      trasporto_costo_unitario: number
+      trasporto_costo_minimo: number
+      trasporto_minimo_pezzi: number
+    }
+    result.set(l.id, {
+      categoriaId: l.categoria_id,
+      unitario: cat.trasporto_costo_unitario,
+      minimo: cat.trasporto_costo_minimo,
+      minPezzi: cat.trasporto_minimo_pezzi,
+    })
+  }
+  return result
+}
+
+/** Calcola spese trasporto totali raggruppando per categoria */
+async function calcolaSpeseTrasportoInput(
+  articoli: PreventivoInput['articoli']
+): Promise<number> {
+  const listinoIds = [...new Set(
+    articoli.map((a) => a.listino_id).filter((id): id is string => !!id)
+  )]
+
+  const regole = await getRegoleTrasporto(listinoIds)
+
+  // Raggruppa pezzi per categoria
+  const pezziPerCat = new Map<string, { pezzi: number; regola: RegolaCategoria }>()
+  for (const articolo of articoli) {
+    if (!articolo.listino_id) continue
+    const regola = regole.get(articolo.listino_id)
+    if (!regola) continue
+    const existing = pezziPerCat.get(regola.categoriaId)
+    if (existing) {
+      existing.pezzi += articolo.quantita
+    } else {
+      pezziPerCat.set(regola.categoriaId, { pezzi: articolo.quantita, regola })
+    }
+  }
+
+  let totale = 0
+  for (const { pezzi, regola } of pezziPerCat.values()) {
+    totale += calcolaSpeseTrasportoPezzi(pezzi, regola.unitario, regola.minimo, regola.minPezzi)
+  }
+  return totale
 }
 
 export async function getPreventivi(): Promise<Preventivo[]> {
@@ -76,10 +143,10 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
   const supabase = await createClient()
   const orgId = await getOrgId()
 
-  // Ricalcola tutti i totali server-side
+  // Ricalcola tutti i totali server-side con trasporto per-categoria
   const totalePezzi = calcolaTotalePezzi(input.articoli)
   const subtotale = calcolaSubtotale(input.articoli)
-  const speseTrasporto = calcolaSpeseTrasporto(totalePezzi)
+  const speseTrasporto = await calcolaSpeseTrasportoInput(input.articoli)
   const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
     subtotale,
     input.scontoGlobale,
@@ -136,7 +203,7 @@ export async function updatePreventivo(
 
   const totalePezzi = calcolaTotalePezzi(input.articoli)
   const subtotale = calcolaSubtotale(input.articoli)
-  const speseTrasporto = calcolaSpeseTrasporto(totalePezzi)
+  const speseTrasporto = await calcolaSpeseTrasportoInput(input.articoli)
   const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
     subtotale,
     input.scontoGlobale,
