@@ -1,0 +1,2 @@
+ALTER TABLE articoli_preventivo
+  ADD COLUMN IF NOT EXISTS note TEXT DEFAULT NULL;

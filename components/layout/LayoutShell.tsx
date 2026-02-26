@@ -25,24 +25,26 @@ export default function LayoutShell({ children, logoUrl, denominazione }: Props)
     <div className="flex min-h-screen bg-gray-50">
       {/* Overlay scuro per mobile */}
       <div
-        className={`fixed inset-0 z-20 bg-black/50 transition-opacity duration-300 lg:hidden ${
+        className={`fixed inset-0 z-20 bg-black/50 transition-opacity duration-300 lg:hidden print:hidden ${
           mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
         onClick={() => setMobileOpen(false)}
       />
 
-      <Sidebar
-        logoUrl={logoUrl}
-        denominazione={denominazione}
-        collapsed={collapsed}
-        onToggleCollapse={() => setCollapsed(c => !c)}
-        mobileOpen={mobileOpen}
-        onMobileClose={() => setMobileOpen(false)}
-      />
+      <div className="print:hidden">
+        <Sidebar
+          logoUrl={logoUrl}
+          denominazione={denominazione}
+          collapsed={collapsed}
+          onToggleCollapse={() => setCollapsed(c => !c)}
+          mobileOpen={mobileOpen}
+          onMobileClose={() => setMobileOpen(false)}
+        />
+      </div>
 
-      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden print:ml-0">
         {/* Top bar mobile */}
-        <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 shrink-0">
+        <header className="lg:hidden print:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 shrink-0">
           <button
             onClick={() => setMobileOpen(true)}
             className="p-1.5 rounded-md text-gray-600 hover:bg-gray-100 active:bg-gray-200"

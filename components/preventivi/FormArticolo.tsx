@@ -45,6 +45,7 @@ export default function FormArticolo({ listini, onAdd }: Props) {
   const [altezza, setAltezza] = useState<string>('')
   const [quantita, setQuantita] = useState<string>('1')
   const [scontoArticolo, setScontoArticolo] = useState(0)
+  const [note, setNote] = useState<string>('')
 
   const categoriaSelezionata = useMemo(
     () => listini.find((c) => c.id === categoriaId),
@@ -155,6 +156,7 @@ export default function FormArticolo({ listini, onAdd }: Props) {
       finitura_aumento: finitura?.aumento ?? 0,
       finitura_aumento_euro: finitura?.aumento_euro ?? 0,
       immagine_url: listinoSelezionato.immagine_url ?? null,
+      note: note || null,
       quantita: qty,
       prezzo_base: calcolo.prezzoBase,
       prezzo_unitario: calcolo.prezzoUnitario,
@@ -171,6 +173,7 @@ export default function FormArticolo({ listini, onAdd }: Props) {
     setQuantita('1')
     setScontoArticolo(0)
     setFinituraIndex('-1')
+    setNote('')
   }
 
   return (
@@ -288,6 +291,15 @@ export default function FormArticolo({ listini, onAdd }: Props) {
           <div className="space-y-1.5">
             <Label>Sconto{scontoMax < 50 ? ` (max ${scontoMax}%)` : ''}</Label>
             <ScontoSelect value={scontoArticolo} onChange={setScontoArticolo} max={scontoMax} />
+          </div>
+          <div className="col-span-2 space-y-1.5">
+            <Label>Note articolo</Label>
+            <Input
+              type="text"
+              placeholder="es. Profili, Vetri, Accessori..."
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
           </div>
         </div>
       )}

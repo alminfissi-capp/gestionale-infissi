@@ -99,9 +99,11 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={() => window.print()}>
-            <Printer className="h-4 w-4 mr-1" />
-            Stampa
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/preventivi/${p.id}/stampa`}>
+              <Printer className="h-4 w-4 mr-1" />
+              Stampa
+            </Link>
           </Button>
           <Button variant="outline" size="sm" asChild>
             <Link href={`/preventivi/${p.id}/modifica`}>

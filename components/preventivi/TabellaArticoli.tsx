@@ -58,6 +58,14 @@ export default function TabellaArticoli({ articoli, onChange }: Props) {
     )
   }
 
+  const updateNote = (tempId: string, value: string) => {
+    onChange(
+      articoli.map((a) =>
+        a.tempId !== tempId ? a : { ...a, note: value || null }
+      )
+    )
+  }
+
   const remove = (tempId: string) => {
     onChange(articoli.filter((a) => a.tempId !== tempId))
   }
@@ -101,6 +109,13 @@ export default function TabellaArticoli({ articoli, onChange }: Props) {
                         arrotondata
                       </Badge>
                     )}
+                    <Input
+                      type="text"
+                      placeholder="Note articolo..."
+                      value={a.note ?? ''}
+                      onChange={(e) => updateNote(a.tempId, e.target.value)}
+                      className="text-xs text-gray-400 border-0 px-0 h-6 mt-1 bg-transparent focus-visible:ring-0 shadow-none"
+                    />
                   </div>
                 </div>
               </TableCell>
