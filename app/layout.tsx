@@ -11,6 +11,11 @@ const geistSans = Geist({
 export const metadata: Metadata = {
   title: 'A.L.M. Infissi — Gestionale',
   description: 'Gestionale preventivi e listini A.L.M. Infissi',
+  manifest: '/manifest.webmanifest',
+  icons: {
+    icon: '/icon.svg',
+    apple: '/apple-touch-icon.png',
+  },
 }
 
 export default function RootLayout({

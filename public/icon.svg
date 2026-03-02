@@ -1,0 +1,189 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#20C9D8"/>
+      <stop offset="100%" style="stop-color:#0E8F9C"/>
+    </linearGradient>
+    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#30D655"/>
+      <stop offset="100%" style="stop-color:#179630"/>
+    </linearGradient>
+    <linearGradient id="whiteGrad" x1="0%" y1="0%" x2="5%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF"/>
+      <stop offset="100%" style="stop-color:#EBF9FA"/>
+    </linearGradient>
+    <linearGradient id="darkBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0D2428"/>
+      <stop offset="100%" style="stop-color:#0D1F14"/>
+    </linearGradient>
+    <radialGradient id="badgeGreen" cx="40%" cy="35%" r="65%">
+      <stop offset="0%" style="stop-color:#42E46A"/>
+      <stop offset="100%" style="stop-color:#179630"/>
+    </radialGradient>
+
+    <filter id="docShadow" x="-20%" y="-15%" width="145%" height="145%">
+      <feDropShadow dx="2" dy="8" stdDeviation="14" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+    <filter id="panelShadow" x="-10%" y="-8%" width="125%" height="125%">
+      <feDropShadow dx="4" dy="10" stdDeviation="18" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+    <filter id="badgeShadow">
+      <feDropShadow dx="0" dy="5" stdDeviation="8" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+
+    <!--
+      ALM Logo parallelogram inclination:
+      The logo frame is a parallelogram skewed ~10° horizontally.
+      In a 1024 canvas with padding, the skew offset is about 55px for the height of ~860px.
+      
+      Shape definition (skew = 55px shift):
+      Top-left:  (skew, pad)      = (110, 82)
+      Top-right: (1024-pad, pad)  = (942, 82)
+      Bot-right: (1024-pad-skew, 1024-pad) = (887, 942)
+      Bot-left:  (pad, 1024-pad)  = (82, 942)
+      
+      This matches the logo's slight rightward lean on the top edge.
+    -->
+
+    <!-- Main icon outer shape clip -->
+    <clipPath id="iconShape">
+      <polygon points="110,82 942,82 887,942 82,942"/>
+    </clipPath>
+
+    <!-- White inner panel (inset ~50px from outer shape) -->
+    <!-- Same skew, inset: teal ~50px from top+left, green ~50px from bot+right -->
+  </defs>
+
+  <!-- Transparent background -->
+
+  <!-- ============================
+       TEAL PARALLELOGRAM (behind, offset top-left)
+       Outer logo shape shifted up-left by ~48px
+  ============================= -->
+  <polygon
+    points="62,34  894,34  839,894  34,894"
+    fill="url(#tealGrad)"
+    filter="url(#panelShadow)"/>
+
+  <!-- ============================
+       GREEN PARALLELOGRAM (behind, offset bottom-right)
+       Outer logo shape shifted down-right by ~48px
+  ============================= -->
+  <polygon
+    points="158,130  990,130  935,990  130,990"
+    fill="url(#greenGrad)"
+    filter="url(#panelShadow)"/>
+
+  <!-- ============================
+       WHITE MAIN PANEL (center)
+       Follows the logo's parallelogram inclination
+  ============================= -->
+  <polygon
+    points="110,82  942,82  887,942  82,942"
+    fill="url(#whiteGrad)"
+    filter="url(#panelShadow)"/>
+
+  <!-- ============================
+       CONTENT INSIDE WHITE PANEL
+  ============================= -->
+  <g clip-path="url(#iconShape)">
+
+    <!-- Top teal accent band -->
+    <polygon points="110,82 942,82 942,168 110,168" fill="#1EC8D6" opacity="0.12"/>
+
+    <!-- A.L.M. text — scaled to fit comfortably inside panel -->
+    <!-- Panel width ~832px, text at ~78% = ~650px wide -->
+    <text x="512" y="330"
+      font-family="Arial Black, 'Arial Bold', Impact, sans-serif"
+      font-size="210"
+      font-weight="900"
+      fill="#111111"
+      text-anchor="middle"
+      letter-spacing="-2">A.L.M.</text>
+
+    <!-- INDUSTRY -->
+    <text x="512" y="408"
+      font-family="Arial, Helvetica, sans-serif"
+      font-size="56"
+      font-weight="300"
+      fill="#777777"
+      text-anchor="middle"
+      letter-spacing="20">INDUSTRY</text>
+
+    <!-- Teal divider -->
+    <line x1="170" y1="450" x2="854" y2="450" stroke="#1AADBA" stroke-width="3" opacity="0.5"/>
+
+    <!-- PREVENTIVI label in teal -->
+    <text x="512" y="530"
+      font-family="Arial Black, 'Arial Bold', sans-serif"
+      font-size="58"
+      font-weight="900"
+      fill="#0E8F9C"
+      text-anchor="middle"
+      letter-spacing="6">PREVENTIVI</text>
+
+    <!-- ====== Mini document icon ====== -->
+    <g transform="translate(390, 680)" filter="url(#docShadow)">
+      <!-- back doc -->
+      <g transform="rotate(-7) translate(-68,-60)">
+        <rect x="0" y="0" width="136" height="120" rx="10" fill="#1EC8D6" opacity="0.35"/>
+      </g>
+      <!-- front doc -->
+      <g transform="rotate(5) translate(-68,-60)">
+        <rect x="0" y="0" width="136" height="120" rx="10" fill="white"/>
+        <!-- fold corner -->
+        <path d="M 100,0 L 136,36 L 100,36 Z" fill="#D0EEEF"/>
+        <!-- header band -->
+        <rect x="0" y="0" width="100" height="28" rx="10" fill="#1EC8D6" opacity="0.2"/>
+        <rect x="0" y="14" width="100" height="14" fill="#1EC8D6" opacity="0.2"/>
+        <!-- lines -->
+        <rect x="10" y="38" width="75" height="7" rx="3" fill="#333" opacity="0.14"/>
+        <rect x="10" y="52" width="60" height="7" rx="3" fill="#333" opacity="0.11"/>
+        <rect x="10" y="66" width="70" height="7" rx="3" fill="#333" opacity="0.11"/>
+        <!-- total pill -->
+        <rect x="42" y="88" width="54" height="16" rx="5" fill="#2DC44E" opacity="0.9"/>
+      </g>
+    </g>
+
+    <!-- ====== Checkmark badge ====== -->
+    <g transform="translate(650, 684)" filter="url(#badgeShadow)">
+      <circle r="66" fill="url(#badgeGreen)"/>
+      <circle r="53" fill="none" stroke="white" stroke-width="3" opacity="0.25"/>
+      <polyline points="-24,2 -7,21 28,-20"
+        fill="none" stroke="white" stroke-width="13"
+        stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <!-- Bottom green accent band -->
+    <polygon points="82,856 887,856 887,942 82,942" fill="#2DC44E" opacity="0.1"/>
+
+  </g>
+
+  <!-- ============================
+       OUTER BORDER — follows parallelogram inclination exactly
+  ============================= -->
+  <!-- Green outer border (bottom-right layer, like logo) -->
+  <polygon
+    points="158,130  990,130  935,990  130,990"
+    fill="none"
+    stroke="#2DC44E"
+    stroke-width="18"
+    opacity="0.7"/>
+
+  <!-- Teal outer border (top-left layer, like logo) -->
+  <polygon
+    points="62,34  894,34  839,894  34,894"
+    fill="none"
+    stroke="#1EC8D6"
+    stroke-width="18"
+    opacity="0.7"/>
+
+  <!-- White main panel border -->
+  <polygon
+    points="110,82  942,82  887,942  82,942"
+    fill="none"
+    stroke="#FFFFFF"
+    stroke-width="10"
+    opacity="0.9"/>
+
+</svg>
