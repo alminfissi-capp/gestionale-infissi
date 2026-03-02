@@ -26,8 +26,19 @@ export function calcolaPrezzoBase(
   const larghezzeOrd = [...larghezze].sort((a, b) => a - b)
   const altezzeOrd = [...altezze].sort((a, b) => a - b)
 
-  const lEff = larghezzeOrd.find((l) => l >= L) ?? larghezzeOrd[larghezzeOrd.length - 1]
-  const hEff = altezzeOrd.find((h) => h >= H) ?? altezzeOrd[altezzeOrd.length - 1]
+  const lEff = larghezzeOrd.find((l) => l >= L)
+  if (lEff === undefined) {
+    throw new Error(
+      `Larghezza ${L} mm supera il massimo del listino (${larghezzeOrd[larghezzeOrd.length - 1]} mm)`
+    )
+  }
+
+  const hEff = altezzeOrd.find((h) => h >= H)
+  if (hEff === undefined) {
+    throw new Error(
+      `Altezza ${H} mm supera il massimo del listino (${altezzeOrd[altezzeOrd.length - 1]} mm)`
+    )
+  }
 
   // Le chiavi JSON sono sempre stringhe
   const prezzo = griglia[hEff.toString()]?.[lEff.toString()]

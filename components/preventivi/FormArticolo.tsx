@@ -83,6 +83,16 @@ export default function FormArticolo({ listini, onAdd }: Props) {
 
   const scontoMax = categoriaSelezionata?.sconto_massimo ?? 50
 
+  const limiti = useMemo(() => {
+    if (!listinoSelezionato) return null
+    const lArr = [...listinoSelezionato.larghezze].sort((a, b) => a - b)
+    const hArr = [...listinoSelezionato.altezze].sort((a, b) => a - b)
+    return { maxL: lArr[lArr.length - 1], maxH: hArr[hArr.length - 1] }
+  }, [listinoSelezionato])
+
+  const larghezzaFuori = limiti !== null && parseInt(larghezza) > limiti.maxL
+  const altezzaFuori = limiti !== null && parseInt(altezza) > limiti.maxH
+
   // Reset sconto se supera il nuovo limite
   const handleCategoriaChange = (id: string) => {
     setCategoriaId(id)
@@ -260,23 +270,35 @@ export default function FormArticolo({ listini, onAdd }: Props) {
 
           {/* Dimensioni */}
           <div className="space-y-1.5">
-            <Label>Larghezza (mm)</Label>
+            <Label className="flex items-center gap-1.5">
+              Larghezza (mm)
+              {limiti && (
+                <span className="text-xs font-normal text-gray-400">max {limiti.maxL}</span>
+              )}
+            </Label>
             <Input
               type="number"
               min={1}
               value={larghezza}
               onChange={(e) => setLarghezza(e.target.value)}
               placeholder="es. 800"
+              className={larghezzaFuori ? 'border-red-400 focus-visible:ring-red-400' : ''}
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Altezza (mm)</Label>
+            <Label className="flex items-center gap-1.5">
+              Altezza (mm)
+              {limiti && (
+                <span className="text-xs font-normal text-gray-400">max {limiti.maxH}</span>
+              )}
+            </Label>
             <Input
               type="number"
               min={1}
               value={altezza}
               onChange={(e) => setAltezza(e.target.value)}
               placeholder="es. 1200"
+              className={altezzaFuori ? 'border-red-400 focus-visible:ring-red-400' : ''}
             />
           </div>
           <div className="space-y-1.5">
