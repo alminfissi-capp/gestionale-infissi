@@ -103,12 +103,31 @@ export function calcolaSpeseTrasportoPezzi(
 export function calcolaTotalePreventivo(
   subtotale: number,
   scontoGlobale: number,
-  speseTrasporto: number
+  speseTrasporto: number,
+  ivaTotale = 0
 ): { importoSconto: number; totaleArticoli: number; totaleFinale: number } {
   const importoSconto = subtotale * (scontoGlobale / 100)
   const totaleArticoli = subtotale - importoSconto
-  const totaleFinale = totaleArticoli + speseTrasporto
+  const totaleFinale = totaleArticoli + speseTrasporto + ivaTotale
   return { importoSconto, totaleArticoli, totaleFinale }
+}
+
+export type RiepilogoIvaItem = { aliquota: number; imponibile: number; iva: number }
+
+/** Calcola il riepilogo IVA raggruppando per aliquota, applicando lo sconto globale */
+export function calcolaRiepilogoIva(
+  articoli: { prezzo_totale_riga: number; aliquota_iva: number | null }[],
+  scontoGlobale: number
+): RiepilogoIvaItem[] {
+  const factor = 1 - scontoGlobale / 100
+  const map = new Map<number, number>()
+  for (const a of articoli) {
+    if (a.aliquota_iva == null) continue
+    map.set(a.aliquota_iva, (map.get(a.aliquota_iva) ?? 0) + a.prezzo_totale_riga * factor)
+  }
+  return [...map.entries()]
+    .map(([aliquota, imponibile]) => ({ aliquota, imponibile, iva: imponibile * (aliquota / 100) }))
+    .sort((a, b) => b.aliquota - a.aliquota)
 }
 
 /** Formatta un numero come euro (es. 1.234,56) */

@@ -7,6 +7,7 @@ import {
   calcolaSpeseTrasportoPezzi,
   calcolaTotalePreventivo,
   calcolaTotalePezzi,
+  calcolaRiepilogoIva,
 } from '@/lib/pricing'
 import type {
   Preventivo,
@@ -147,10 +148,13 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
   const totalePezzi = calcolaTotalePezzi(input.articoli)
   const subtotale = calcolaSubtotale(input.articoli)
   const speseTrasporto = await calcolaSpeseTrasportoInput(input.articoli)
+  const riepilogoIva = calcolaRiepilogoIva(input.articoli, input.scontoGlobale)
+  const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
   const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
     subtotale,
     input.scontoGlobale,
-    speseTrasporto
+    speseTrasporto,
+    ivaTotale
   )
 
   const { data: prev, error: prevErr } = await supabase
@@ -166,6 +170,8 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
       importo_sconto: importoSconto,
       totale_articoli: totaleArticoli,
       spese_trasporto: speseTrasporto,
+      iva_totale: ivaTotale,
+      riepilogo_iva: riepilogoIva,
       totale_finale: totaleFinale,
       totale_pezzi: totalePezzi,
     })
@@ -204,10 +210,13 @@ export async function updatePreventivo(
   const totalePezzi = calcolaTotalePezzi(input.articoli)
   const subtotale = calcolaSubtotale(input.articoli)
   const speseTrasporto = await calcolaSpeseTrasportoInput(input.articoli)
+  const riepilogoIva = calcolaRiepilogoIva(input.articoli, input.scontoGlobale)
+  const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
   const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
     subtotale,
     input.scontoGlobale,
-    speseTrasporto
+    speseTrasporto,
+    ivaTotale
   )
 
   const { error: prevErr } = await supabase
@@ -222,6 +231,8 @@ export async function updatePreventivo(
       importo_sconto: importoSconto,
       totale_articoli: totaleArticoli,
       spese_trasporto: speseTrasporto,
+      iva_totale: ivaTotale,
+      riepilogo_iva: riepilogoIva,
       totale_finale: totaleFinale,
       totale_pezzi: totalePezzi,
       updated_at: new Date().toISOString(),
@@ -251,6 +262,30 @@ export async function updatePreventivo(
 
 export async function deletePreventivo(id: string): Promise<void> {
   const supabase = await createClient()
+
+  // Cleanup immagini voci libere da Storage prima di eliminare il preventivo
+  const { data: articoliConImg } = await supabase
+    .from('articoli_preventivo')
+    .select('immagine_url')
+    .eq('preventivo_id', id)
+    .eq('tipo', 'libera')
+    .not('immagine_url', 'is', null)
+
+  if (articoliConImg && articoliConImg.length > 0) {
+    const bucket = 'preventivi-allegati'
+    const bucketPrefix = `/storage/v1/object/public/${bucket}/`
+    const paths = articoliConImg
+      .map((a) => {
+        const url = a.immagine_url as string
+        const idx = url.indexOf(bucketPrefix)
+        return idx >= 0 ? url.slice(idx + bucketPrefix.length) : null
+      })
+      .filter((p): p is string => p !== null)
+    if (paths.length > 0) {
+      await supabase.storage.from(bucket).remove(paths)
+    }
+  }
+
   const { error } = await supabase.from('preventivi').delete().eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/preventivi')

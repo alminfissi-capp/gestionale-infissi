@@ -5,6 +5,7 @@ import { Separator } from '@/components/ui/separator'
 import FormAzienda from '@/components/impostazioni/FormAzienda'
 import UploadLogo from '@/components/impostazioni/UploadLogo'
 import TemplateNote from '@/components/impostazioni/TemplateNote'
+import FormAliquoteIva from '@/components/impostazioni/FormAliquoteIva'
 
 export default async function ImpostazioniPage() {
   const supabase = await createClient()
@@ -84,6 +85,17 @@ export default async function ImpostazioniPage() {
         </CardHeader>
         <CardContent>
           <TemplateNote initialTemplates={templates} />
+        </CardContent>
+      </Card>
+
+      {/* Aliquote IVA */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Aliquote IVA</CardTitle>
+          <CardDescription>Aliquote selezionabili nei preventivi.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FormAliquoteIva initialAliquote={settings?.aliquote_iva ?? [22, 10, 4]} />
         </CardContent>
       </Card>
     </div>

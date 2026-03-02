@@ -26,6 +26,7 @@ import type { ArticoloWizard } from '@/types/preventivo'
 
 interface Props {
   listini: CategoriaConListini[]
+  aliquote: number[]
   onAdd: (articolo: ArticoloWizard) => void
 }
 
@@ -37,7 +38,7 @@ type FinituraUnita = {
   source: 'categoria' | 'listino'
 }
 
-export default function FormArticolo({ listini, onAdd }: Props) {
+export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
   const [categoriaId, setCategoriaId] = useState<string>('')
   const [listinoId, setListinoId] = useState<string>('')
   const [finituraIndex, setFinituraIndex] = useState<string>('-1')
@@ -45,6 +46,7 @@ export default function FormArticolo({ listini, onAdd }: Props) {
   const [altezza, setAltezza] = useState<string>('')
   const [quantita, setQuantita] = useState<string>('1')
   const [scontoArticolo, setScontoArticolo] = useState(0)
+  const [aliquotaIva, setAliquotaIva] = useState<number | null>(null)
   const [note, setNote] = useState<string>('')
 
   const categoriaSelezionata = useMemo(
@@ -154,6 +156,7 @@ export default function FormArticolo({ listini, onAdd }: Props) {
 
     const articolo: ArticoloWizard = {
       tempId: crypto.randomUUID(),
+      tipo: 'listino',
       listino_id: listinoSelezionato.id,
       tipologia: listinoSelezionato.tipologia,
       categoria_nome: categoriaSelezionata?.nome ?? null,
@@ -172,6 +175,7 @@ export default function FormArticolo({ listini, onAdd }: Props) {
       prezzo_unitario: calcolo.prezzoUnitario,
       sconto_articolo: scontoArticolo,
       prezzo_totale_riga: calcolo.totalRiga,
+      aliquota_iva: aliquotaIva,
       ordine: 0,
     }
 
@@ -182,6 +186,7 @@ export default function FormArticolo({ listini, onAdd }: Props) {
     setAltezza('')
     setQuantita('1')
     setScontoArticolo(0)
+    setAliquotaIva(null)
     setFinituraIndex('-1')
     setNote('')
   }
@@ -314,6 +319,25 @@ export default function FormArticolo({ listini, onAdd }: Props) {
             <Label>Sconto{scontoMax < 50 ? ` (max ${scontoMax}%)` : ''}</Label>
             <ScontoSelect value={scontoArticolo} onChange={setScontoArticolo} max={scontoMax} />
           </div>
+          {aliquote.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>IVA</Label>
+              <Select
+                value={aliquotaIva != null ? aliquotaIva.toString() : 'none'}
+                onValueChange={(v) => setAliquotaIva(v === 'none' ? null : parseFloat(v))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">—</SelectItem>
+                  {aliquote.map((a) => (
+                    <SelectItem key={a} value={a.toString()}>{a}%</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="col-span-2 space-y-1.5">
             <Label>Note articolo</Label>
             <Input

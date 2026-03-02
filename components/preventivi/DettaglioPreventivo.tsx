@@ -196,11 +196,19 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                           alt={a.tipologia}
                           width={48}
                           height={36}
-                          className="rounded border object-cover shrink-0 mt-0.5"
+                          className={`rounded border shrink-0 mt-0.5 ${a.tipo === 'libera' ? 'object-contain bg-gray-50' : 'object-cover'}`}
+                          unoptimized={a.tipo === 'libera'}
                         />
                       )}
                       <div>
-                        <p className="font-medium text-sm">{a.tipologia}</p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="font-medium text-sm">{a.tipologia}</p>
+                          {a.tipo === 'libera' && (
+                            <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-300">
+                              voce libera
+                            </Badge>
+                          )}
+                        </div>
                         {a.categoria_nome && (
                           <p className="text-xs text-gray-400">{a.categoria_nome}</p>
                         )}
@@ -212,18 +220,26 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm whitespace-nowrap">
-                    {a.larghezza_mm}×{a.altezza_mm}
-                    {a.misura_arrotondata && (
-                      <span className="text-gray-400 text-xs ml-1">
-                        ({a.larghezza_listino_mm}×{a.altezza_listino_mm})
-                      </span>
+                  <TableCell className="text-sm whitespace-nowrap text-gray-500">
+                    {a.tipo === 'libera' ? '—' : (
+                      <>
+                        {a.larghezza_mm}×{a.altezza_mm}
+                        {a.misura_arrotondata && (
+                          <span className="text-gray-400 text-xs ml-1">
+                            ({a.larghezza_listino_mm}×{a.altezza_listino_mm})
+                          </span>
+                        )}
+                      </>
                     )}
                   </TableCell>
                   <TableCell className="text-sm text-gray-600">
-                    {a.finitura_nome ?? '—'}
-                    {a.finitura_nome && (
-                      <span className="text-xs text-gray-400 ml-1">+{a.finitura_aumento}%</span>
+                    {a.tipo === 'libera' ? '—' : (
+                      <>
+                        {a.finitura_nome ?? '—'}
+                        {a.finitura_nome && (
+                          <span className="text-xs text-gray-400 ml-1">+{a.finitura_aumento}%</span>
+                        )}
+                      </>
                     )}
                   </TableCell>
                   <TableCell className="text-center text-sm">{a.quantita}</TableCell>
@@ -257,20 +273,34 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
         <div className="bg-white rounded-lg border p-4 md:ml-auto md:min-w-[300px]">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Riepilogo</p>
           <div className="space-y-1.5 text-sm">
-            <div className="flex justify-between text-gray-600">
-              <span>Subtotale ({p.totale_pezzi} pz)</span>
-              <span>€ {formatEuro(p.subtotale)}</span>
-            </div>
             {p.sconto_globale > 0 && (
-              <div className="flex justify-between text-red-600">
-                <span>Sconto globale {p.sconto_globale}%</span>
-                <span>− € {formatEuro(p.importo_sconto)}</span>
-              </div>
+              <>
+                <div className="flex justify-between text-gray-600">
+                  <span>Subtotale ({p.totale_pezzi} pz)</span>
+                  <span>€ {formatEuro(p.subtotale)}</span>
+                </div>
+                <div className="flex justify-between text-red-600">
+                  <span>Sconto globale {p.sconto_globale}%</span>
+                  <span>− € {formatEuro(p.importo_sconto)}</span>
+                </div>
+              </>
             )}
             <div className="flex justify-between text-gray-600">
-              <span>Totale articoli</span>
+              <span>Totale articoli{p.sconto_globale === 0 ? ` (${p.totale_pezzi} pz)` : ''}</span>
               <span>€ {formatEuro(p.totale_articoli)}</span>
             </div>
+            {p.riepilogo_iva.map((r) => (
+              <div key={r.aliquota} className="flex justify-between text-gray-600">
+                <span>IVA {r.aliquota}% (su € {formatEuro(r.imponibile)})</span>
+                <span>€ {formatEuro(r.iva)}</span>
+              </div>
+            ))}
+            {p.iva_totale > 0 && p.riepilogo_iva.length > 1 && (
+              <div className="flex justify-between text-gray-600">
+                <span>Totale IVA</span>
+                <span>€ {formatEuro(p.iva_totale)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-gray-600">
               <span>Spese trasporto</span>
               <span>€ {formatEuro(p.spese_trasporto)}</span>

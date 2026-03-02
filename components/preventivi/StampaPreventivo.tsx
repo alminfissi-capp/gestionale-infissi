@@ -92,7 +92,7 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
         print:max-w-none print:mx-0 print:shadow-none
         shadow-lg
       "
-      style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
+      style={{ fontFamily: 'Arial, Helvetica, sans-serif', minWidth: 0 }}
     >
       {/* ── Intestazione ── */}
       <div className="flex justify-between gap-4 p-8 print:p-0 pb-4 border-b border-gray-300">
@@ -184,12 +184,14 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
                 <td className="py-2 pr-3">
                   <div className="flex items-start gap-2">
                     {a.immagine_url && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={a.immagine_url}
-                        alt={a.tipologia}
-                        style={{ width: '55px', height: '70px', objectFit: 'cover', border: '1px solid #e5e7eb', borderRadius: '2px', flexShrink: 0 }}
-                      />
+                      <div style={{ width: '60px', height: '60px', flexShrink: 0, overflow: 'hidden', border: '1px solid #e5e7eb', borderRadius: '2px', background: '#f9fafb' }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={a.immagine_url}
+                          alt={a.tipologia}
+                          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                        />
+                      </div>
                     )}
                     <div>
                       <p className="font-semibold text-[11px]">{a.tipologia}</p>
@@ -199,7 +201,7 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
                       {a.finitura_nome && (
                         <p className="text-gray-400 text-[9px]">Finitura: {a.finitura_nome}</p>
                       )}
-                      {a.misura_arrotondata && (
+                      {a.misura_arrotondata && a.larghezza_listino_mm != null && (
                         <p className="text-amber-600 text-[9px]">
                           misura arrotondata a {a.larghezza_listino_mm}×{a.altezza_listino_mm}
                         </p>
@@ -210,8 +212,12 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
                     </div>
                   </div>
                 </td>
-                <td className="py-2 text-right tabular-nums">{a.larghezza_mm}</td>
-                <td className="py-2 text-right tabular-nums">{a.altezza_mm}</td>
+                <td className="py-2 text-right tabular-nums text-gray-500">
+                  {a.tipo === 'libera' ? '—' : a.larghezza_mm}
+                </td>
+                <td className="py-2 text-right tabular-nums text-gray-500">
+                  {a.tipo === 'libera' ? '—' : a.altezza_mm}
+                </td>
                 <td className="py-2 text-right tabular-nums">
                   € {formatEuro(a.prezzo_unitario)}
                   {a.sconto_articolo > 0 && (
@@ -231,20 +237,34 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
       {/* ── Totali ── */}
       <div className="px-8 print:px-0 py-4 border-t-2 border-gray-400">
         <div className="ml-auto max-w-xs space-y-1 text-[11px]">
-          <div className="flex justify-between text-gray-600">
-            <span>Subtotale ({p.totale_pezzi} pz)</span>
-            <span className="tabular-nums">€ {formatEuro(p.subtotale)}</span>
-          </div>
           {p.sconto_globale > 0 && (
-            <div className="flex justify-between text-red-600">
-              <span>Sconto {p.sconto_globale}%</span>
-              <span className="tabular-nums">− € {formatEuro(p.importo_sconto)}</span>
-            </div>
+            <>
+              <div className="flex justify-between text-gray-600">
+                <span>Subtotale ({p.totale_pezzi} pz)</span>
+                <span className="tabular-nums">€ {formatEuro(p.subtotale)}</span>
+              </div>
+              <div className="flex justify-between text-red-600">
+                <span>Sconto {p.sconto_globale}%</span>
+                <span className="tabular-nums">− € {formatEuro(p.importo_sconto)}</span>
+              </div>
+            </>
           )}
           <div className="flex justify-between text-gray-600">
-            <span>Totale articoli</span>
+            <span>Totale articoli{p.sconto_globale === 0 ? ` (${p.totale_pezzi} pz)` : ''}</span>
             <span className="tabular-nums">€ {formatEuro(p.totale_articoli)}</span>
           </div>
+          {p.riepilogo_iva.map((r) => (
+            <div key={r.aliquota} className="flex justify-between text-gray-500">
+              <span>IVA {r.aliquota}% (su € {formatEuro(r.imponibile)})</span>
+              <span className="tabular-nums">€ {formatEuro(r.iva)}</span>
+            </div>
+          ))}
+          {p.iva_totale > 0 && p.riepilogo_iva.length > 1 && (
+            <div className="flex justify-between text-gray-600">
+              <span>Totale IVA</span>
+              <span className="tabular-nums">€ {formatEuro(p.iva_totale)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-gray-600">
             <span>Spese trasporto</span>
             <span className="tabular-nums">€ {formatEuro(p.spese_trasporto)}</span>
@@ -266,7 +286,14 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
 
       {/* ── Piè di pagina fisso (stampa) ── */}
       <style>{`
+        @page {
+          margin: 15mm;
+        }
         @media print {
+          body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
           .stampa-footer {
             position: fixed;
             bottom: 0;
@@ -274,7 +301,7 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
             right: 0;
             border-top: 1px solid #d1d5db;
             background: white;
-            padding: 4px 15mm;
+            padding: 4px 0;
             font-size: 9px;
             color: #6b7280;
             display: flex;

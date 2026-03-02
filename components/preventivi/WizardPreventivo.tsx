@@ -9,6 +9,7 @@ import {
   calcolaSubtotale,
   calcolaSpeseTrasportoPezzi,
   calcolaTotalePreventivo,
+  calcolaRiepilogoIva,
   formatEuro,
 } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import StepCliente from './StepCliente'
 import FormArticolo from './FormArticolo'
+import FormVoceLibera from './FormVoceLibera'
 import TabellaArticoli from './TabellaArticoli'
 import ScontoSelect from './ScontoSelect'
 import type { Cliente } from '@/types/cliente'
@@ -42,6 +44,7 @@ const SNAPSHOT_VUOTO: ClienteSnapshot = {
 interface Props {
   clienti: Cliente[]
   listini: CategoriaConListini[]
+  aliquote: number[]
   /** Se valorizzato: modalità modifica */
   preventivo?: PreventivoCompleto
 }
@@ -86,7 +89,7 @@ function calcolaTrasportoPerCategoria(
   return { totale, dettaglio }
 }
 
-export default function WizardPreventivo({ clienti, listini, preventivo }: Props) {
+export default function WizardPreventivo({ clienti, listini, aliquote, preventivo }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [step, setStep] = useState(0)
@@ -99,6 +102,8 @@ export default function WizardPreventivo({ clienti, listini, preventivo }: Props
   const [numero, setNumero] = useState(preventivo?.numero ?? '')
 
   // Step 2 — articoli
+  const [formMode, setFormMode] = useState<'listino' | 'libera'>('listino')
+
   // Nota: strippiamo i campi DB-only (id, preventivo_id, organization_id, created_at)
   // per evitare che finiscano nel payload dell'INSERT durante updatePreventivo.
   const [articoli, setArticoli] = useState<ArticoloWizard[]>(
@@ -117,15 +122,19 @@ export default function WizardPreventivo({ clienti, listini, preventivo }: Props
   // Calcoli riepilogo
   const totali = useMemo(() => {
     const subtotale = calcolaSubtotale(articoli)
+    const articoliListino = articoli.filter((a) => a.tipo === 'listino')
     const { totale: speseTrasporto, dettaglio: dettaglioTrasporto } =
-      calcolaTrasportoPerCategoria(articoli, listini)
+      calcolaTrasportoPerCategoria(articoliListino, listini)
+    const riepilogoIva = calcolaRiepilogoIva(articoli, scontoGlobale)
+    const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
     const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
       subtotale,
       scontoGlobale,
-      speseTrasporto
+      speseTrasporto,
+      ivaTotale
     )
     const totalePezzi = articoli.reduce((s, a) => s + a.quantita, 0)
-    return { totalePezzi, subtotale, speseTrasporto, dettaglioTrasporto, importoSconto, totaleArticoli, totaleFinale }
+    return { totalePezzi, subtotale, speseTrasporto, dettaglioTrasporto, riepilogoIva, ivaTotale, importoSconto, totaleArticoli, totaleFinale }
   }, [articoli, scontoGlobale, listini])
 
   const canGoNext = () => {
@@ -204,8 +213,38 @@ export default function WizardPreventivo({ clienti, listini, preventivo }: Props
 
         {step === 1 && (
           <div className="space-y-4">
-            <FormArticolo listini={listini} onAdd={(a) => setArticoli((prev) => [...prev, a])} />
-            <TabellaArticoli articoli={articoli} onChange={setArticoli} />
+            {/* Toggle Da listino / Voce libera */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setFormMode('listino')}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                  formMode === 'listino'
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                }`}
+              >
+                Da listino
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormMode('libera')}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                  formMode === 'libera'
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                }`}
+              >
+                Voce libera
+              </button>
+            </div>
+
+            {formMode === 'listino' ? (
+              <FormArticolo listini={listini} aliquote={aliquote} onAdd={(a) => setArticoli((prev) => [...prev, a])} />
+            ) : (
+              <FormVoceLibera aliquote={aliquote} onAdd={(a) => setArticoli((prev) => [...prev, a])} />
+            )}
+            <TabellaArticoli articoli={articoli} aliquote={aliquote} onChange={setArticoli} />
           </div>
         )}
 
@@ -216,7 +255,7 @@ export default function WizardPreventivo({ clienti, listini, preventivo }: Props
               <p className="text-sm font-semibold text-gray-700 mb-2">
                 Articoli ({articoli.length})
               </p>
-              <TabellaArticoli articoli={articoli} onChange={setArticoli} />
+              <TabellaArticoli articoli={articoli} aliquote={aliquote} onChange={setArticoli} />
             </div>
 
             {/* Sconto globale e note */}
@@ -246,20 +285,36 @@ export default function WizardPreventivo({ clienti, listini, preventivo }: Props
 
             {/* Totali */}
             <div className="rounded-lg border bg-gray-50 p-4 space-y-1.5 text-sm">
-              <div className="flex justify-between text-gray-600">
-                <span>Subtotale ({totali.totalePezzi} pz)</span>
-                <span>€ {formatEuro(totali.subtotale)}</span>
-              </div>
               {scontoGlobale > 0 && (
-                <div className="flex justify-between text-red-600">
-                  <span>Sconto globale {scontoGlobale}%</span>
-                  <span>− € {formatEuro(totali.importoSconto)}</span>
-                </div>
+                <>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Subtotale ({totali.totalePezzi} pz)</span>
+                    <span>€ {formatEuro(totali.subtotale)}</span>
+                  </div>
+                  <div className="flex justify-between text-red-600">
+                    <span>Sconto globale {scontoGlobale}%</span>
+                    <span>− € {formatEuro(totali.importoSconto)}</span>
+                  </div>
+                </>
               )}
               <div className="flex justify-between text-gray-600">
-                <span>Totale articoli</span>
+                <span>Totale articoli{scontoGlobale === 0 ? ` (${totali.totalePezzi} pz)` : ''}</span>
                 <span>€ {formatEuro(totali.totaleArticoli)}</span>
               </div>
+
+              {/* IVA per aliquota */}
+              {totali.riepilogoIva.map((r) => (
+                <div key={r.aliquota} className="flex justify-between text-gray-600">
+                  <span>IVA {r.aliquota}% (su € {formatEuro(r.imponibile)})</span>
+                  <span>€ {formatEuro(r.iva)}</span>
+                </div>
+              ))}
+              {totali.ivaTotale > 0 && totali.riepilogoIva.length > 1 && (
+                <div className="flex justify-between text-gray-600">
+                  <span>Totale IVA</span>
+                  <span>€ {formatEuro(totali.ivaTotale)}</span>
+                </div>
+              )}
 
               {/* Trasporto per categoria */}
               {totali.dettaglioTrasporto.length === 0 && (

@@ -14,13 +14,14 @@ export type ArticoloPreventivoRow = {
   id: string
   preventivo_id: string
   organization_id: string
+  tipo: 'listino' | 'libera'
   listino_id: string | null
   tipologia: string
   categoria_nome: string | null
-  larghezza_mm: number
-  altezza_mm: number
-  larghezza_listino_mm: number
-  altezza_listino_mm: number
+  larghezza_mm: number | null
+  altezza_mm: number | null
+  larghezza_listino_mm: number | null
+  altezza_listino_mm: number | null
   misura_arrotondata: boolean
   finitura_nome: string | null
   finitura_aumento: number
@@ -28,10 +29,11 @@ export type ArticoloPreventivoRow = {
   note: string | null
   immagine_url: string | null
   quantita: number
-  prezzo_base: number
+  prezzo_base: number | null
   prezzo_unitario: number
   sconto_articolo: number
   prezzo_totale_riga: number
+  aliquota_iva: number | null
   ordine: number
   created_at: string
 }
@@ -54,6 +56,8 @@ export type Preventivo = {
   importo_sconto: number
   totale_articoli: number
   spese_trasporto: number
+  iva_totale: number
+  riepilogo_iva: { aliquota: number; imponibile: number; iva: number }[]
   totale_finale: number
   totale_pezzi: number
   stato: StatoPreventivo

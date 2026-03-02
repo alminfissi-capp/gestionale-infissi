@@ -8,6 +8,7 @@ export type Settings = {
   telefono: string | null
   email: string | null
   logo_url: string | null
+  aliquote_iva: number[]
   created_at: string
   updated_at: string
 }

@@ -79,6 +79,16 @@ export async function getNoteTemplates(): Promise<NoteTemplate[]> {
   return data ?? []
 }
 
+export async function saveAliquoteIva(aliquote: number[]): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('settings')
+    .upsert({ organization_id: orgId, aliquote_iva: aliquote }, { onConflict: 'organization_id' })
+  if (error) throw new Error(error.message)
+  revalidatePath('/impostazioni')
+}
+
 export async function saveNoteTemplates(
   templates: { testo: string; ordine: number }[]
 ): Promise<void> {
