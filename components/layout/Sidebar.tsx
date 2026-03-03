@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import {
+  LayoutDashboard,
   PlusCircle,
   ClipboardList,
   Users,
@@ -20,6 +21,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 const NAV_ITEMS = [
+  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/preventivi/nuovo', label: 'Nuovo Preventivo', icon: PlusCircle },
   { href: '/preventivi', label: 'Preventivi Salvati', icon: ClipboardList },
   { href: '/clienti', label: 'Gestione Clienti', icon: Users },
@@ -115,8 +117,8 @@ export default function Sidebar({
       <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const isActive =
-            href === '/preventivi'
-              ? pathname === '/preventivi'
+            href === '/' || href === '/preventivi'
+              ? pathname === href
               : pathname.startsWith(href)
 
           return (
