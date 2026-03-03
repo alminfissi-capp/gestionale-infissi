@@ -6,9 +6,12 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: 'A.L.M.',
     description: 'Gestionale preventivi e listini A.L.M. Infissi',
     start_url: '/',
+    scope: '/',
     display: 'standalone',
+    orientation: 'portrait',
     background_color: '#ffffff',
     theme_color: '#0E8F9C',
+    categories: ['business', 'productivity'],
     icons: [
       {
         src: '/icon.svg',

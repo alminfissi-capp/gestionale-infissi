@@ -1,6 +1,7 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Geist } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
+import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration'
 import './globals.css'
 
 const geistSans = Geist({
@@ -16,6 +17,18 @@ export const metadata: Metadata = {
     icon: '/icon.svg',
     apple: '/apple-touch-icon.png',
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'A.L.M. Infissi',
+  },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#0E8F9C',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 }
 
 export default function RootLayout({
@@ -28,6 +41,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} antialiased`}>
         {children}
         <Toaster richColors position="top-right" />
+        <ServiceWorkerRegistration />
       </body>
     </html>
   )
