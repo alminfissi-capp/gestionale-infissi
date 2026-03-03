@@ -54,7 +54,8 @@
     <!-- Same skew, inset: teal ~50px from top+left, green ~50px from bot+right -->
   </defs>
 
-  <!-- Transparent background -->
+  <!-- Solid background for Android adaptive icon compatibility -->
+  <rect width="1024" height="1024" fill="#0E8F9C"/>
 
   <!-- ============================
        TEAL PARALLELOGRAM (behind, offset top-left)

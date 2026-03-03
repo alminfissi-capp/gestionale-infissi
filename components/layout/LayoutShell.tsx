@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { Menu } from 'lucide-react'
 import Sidebar from './Sidebar'
+import DataSync from '@/components/pwa/DataSync'
+import OfflineIndicator from '@/components/pwa/OfflineIndicator'
 
 interface Props {
   children: React.ReactNode
@@ -52,10 +54,12 @@ export default function LayoutShell({ children, logoUrl, denominazione }: Props)
           >
             <Menu className="h-5 w-5" />
           </button>
-          <span className="text-sm font-semibold text-gray-900 truncate">
+          <span className="text-sm font-semibold text-gray-900 truncate flex-1">
             {denominazione || 'A.L.M. Infissi'}
           </span>
+          <OfflineIndicator />
         </header>
+        <DataSync />
 
         <main className="flex-1 overflow-auto">
           <div className="p-4 lg:p-6">

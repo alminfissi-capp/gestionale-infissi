@@ -4,9 +4,11 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Plus, Search, Trash2, Eye } from 'lucide-react'
+import { Plus, Search, Trash2, Eye, Clock } from 'lucide-react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { deletePreventivo } from '@/actions/preventivi'
 import { formatEuro } from '@/lib/pricing'
+import { db } from '@/lib/db'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -57,6 +59,8 @@ export default function TabellaPreventivi({ preventivi }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  const pendingPreventivi = useLiveQuery(() => db.pendingPreventivi.toArray(), []) ?? []
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
     if (!q) return preventivi
@@ -105,7 +109,7 @@ export default function TabellaPreventivi({ preventivi }: Props) {
       </div>
 
       {/* Empty state */}
-      {filtered.length === 0 && (
+      {filtered.length === 0 && pendingPreventivi.length === 0 && (
         <div className="text-center py-16 text-gray-400">
           {preventivi.length === 0 ? (
             <>
@@ -125,7 +129,7 @@ export default function TabellaPreventivi({ preventivi }: Props) {
       )}
 
       {/* Table */}
-      {filtered.length > 0 && (
+      {(filtered.length > 0 || pendingPreventivi.length > 0) && (
         <div className="rounded-md border bg-white overflow-x-auto">
           <Table>
             <TableHeader>
@@ -140,6 +144,43 @@ export default function TabellaPreventivi({ preventivi }: Props) {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {/* Preventivi in attesa di sync (offline) */}
+              {pendingPreventivi.map((p) => {
+                const s = p.input.clienteSnapshot
+                const nome = [s.cognome, s.nome].filter(Boolean).join(' ') || s.telefono || s.email || '—'
+                const totPezzi = p.input.articoli.reduce((sum, a) => sum + a.quantita, 0)
+                return (
+                  <TableRow key={`pending-${p.tempId}`} className="bg-amber-50">
+                    <TableCell className="font-mono text-sm text-gray-500">
+                      {p.input.numero || '—'}
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-sm">{nome}</p>
+                        {s.cantiere && (
+                          <p className="text-xs text-gray-400">{s.cantiere}</p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center text-sm text-gray-600">
+                      {totPezzi}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-sm text-gray-400">
+                      —
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge className="text-xs bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-100">
+                        <Clock className="h-3 w-3 mr-1" />
+                        In attesa di sync
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right text-xs text-gray-400 whitespace-nowrap">
+                      {new Date(p.createdAt).toLocaleDateString('it-IT')}
+                    </TableCell>
+                    <TableCell />
+                  </TableRow>
+                )
+              })}
               {filtered.map((p) => {
                 const cfg = STATO_CONFIG[p.stato]
                 return (

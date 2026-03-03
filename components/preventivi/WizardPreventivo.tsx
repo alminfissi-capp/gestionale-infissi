@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, Save, Loader2 } from 'lucide-react'
 import { createPreventivo, updatePreventivo } from '@/actions/preventivi'
+import { db } from '@/lib/db'
+import type { PendingPreventivo } from '@/lib/db'
 import {
   calcolaSubtotale,
   calcolaSpeseTrasportoPezzi,
@@ -155,15 +157,26 @@ export default function WizardPreventivo({ clienti, listini, aliquote, preventiv
           note,
         }
 
+        // Modalità modifica: richiede connessione
         if (preventivo) {
           await updatePreventivo(preventivo.id, input)
           toast.success('Preventivo aggiornato')
           router.push(`/preventivi/${preventivo.id}`)
-        } else {
-          const { id } = await createPreventivo(input)
-          toast.success('Preventivo creato')
-          router.push(`/preventivi/${id}`)
+          return
         }
+
+        // Nuovo preventivo: salva localmente se offline
+        if (!navigator.onLine) {
+          const pending: PendingPreventivo = { input, createdAt: new Date().toISOString() }
+          await db.pendingPreventivi.add(pending)
+          toast.success('Preventivo salvato localmente — verrà sincronizzato quando torni online')
+          router.push('/preventivi')
+          return
+        }
+
+        const { id } = await createPreventivo(input)
+        toast.success('Preventivo creato')
+        router.push(`/preventivi/${id}`)
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Errore durante il salvataggio')
       }
