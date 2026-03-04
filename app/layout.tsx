@@ -10,17 +10,21 @@ const geistSans = Geist({
 })
 
 export const metadata: Metadata = {
-  title: 'A.L.M. Infissi — Gestionale',
-  description: 'Gestionale preventivi e listini A.L.M. Infissi',
-  manifest: '/manifest.webmanifest',
+  title: 'WinStudio',
+  description: 'Gestionale preventivi e listini WinStudio',
+  manifest: '/manifest.json',
   icons: {
-    icon: '/icon.svg',
-    apple: '/apple-touch-icon.png',
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon0.svg', type: 'image/svg+xml' },
+      { url: '/icon1.png', type: 'image/png' },
+    ],
+    apple: '/apple-icon.png',
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'A.L.M. Infissi',
+    title: 'WinStudio',
   },
 }
 
