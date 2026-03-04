@@ -102,4 +102,6 @@
     <!-- Bottom green accent band -->
     <polygon points="82,856 887,856 887,942 82,942" fill="#2DC44E" opacity="0.1"></polygon>
 
-  </g><polygon points="158,130  990,130  935,990  130,990" fill="none" stroke="#2DC44E" stroke-width="18" opacity="0.7"></polygon><polygon points="62,34  894,34  839,894  34,894" fill="none" stroke="#1EC8D6" stroke-width="18" opacity="0.7"></polygon><polygon points="110,82  942,82  887,942  82,942" fill="none" stroke="#FFFFFF" stroke-width="10" opacity="0.9"></polygon></svg>
+  </g><polygon points="158,130  990,130  935,990  130,990" fill="none" stroke="#2DC44E" stroke-width="18" opacity="0.7"></polygon><polygon points="62,34  894,34  839,894  34,894" fill="none" stroke="#1EC8D6" stroke-width="18" opacity="0.7"></polygon><polygon points="110,82  942,82  887,942  82,942" fill="none" stroke="#FFFFFF" stroke-width="10" opacity="0.9"></polygon><style>@media (prefers-color-scheme: light) { :root { filter: none; } }
+@media (prefers-color-scheme: dark) { :root { filter: none; } }
+</style></svg>

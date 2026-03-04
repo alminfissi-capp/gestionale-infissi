@@ -1,14 +1,6 @@
 {
   "name": "WinStudio",
   "short_name": "WinStudio",
-  "description": "Gestionale preventivi e listini WinStudio",
-  "start_url": "/",
-  "scope": "/",
-  "display": "standalone",
-  "orientation": "portrait",
-  "theme_color": "#0E8F9C",
-  "background_color": "#0E8F9C",
-  "categories": ["business", "productivity"],
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
@@ -22,5 +14,10 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "theme_color": "#0E8F9C",
+  "background_color": "#0E8F9C",
+  "display": "standalone",
+  "start_url": "/",
+  "scope": "/"
 }
