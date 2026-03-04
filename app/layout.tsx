@@ -12,7 +12,7 @@ const geistSans = Geist({
 export const metadata: Metadata = {
   title: 'WinStudio',
   description: 'Gestionale preventivi e listini WinStudio',
-  manifest: '/manifest.json',
+  manifest: '/manifest.webmanifest',
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
