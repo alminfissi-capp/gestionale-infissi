@@ -10,12 +10,22 @@ export type ClienteSnapshot = {
   cf_piva: string | null
 }
 
+export type AccessorioSelezionato = {
+  id: string
+  nome: string
+  prezzo: number
+  qty: number
+}
+
 export type ArticoloPreventivoRow = {
   id: string
   preventivo_id: string
   organization_id: string
-  tipo: 'listino' | 'libera'
+  tipo: 'listino' | 'libera' | 'listino_libero'
   listino_id: string | null
+  listino_libero_id: string | null
+  prodotto_id: string | null
+  accessori_selezionati: AccessorioSelezionato[] | null
   tipologia: string
   categoria_nome: string | null
   larghezza_mm: number | null

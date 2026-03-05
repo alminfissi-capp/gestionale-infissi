@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog'
 import IconaCategoria from './IconaCategoria'
 import FormFiniture, { type FinituraInput } from './FormFiniture'
-import type { Categoria } from '@/types/listino'
+import type { Categoria, TipoCategoria } from '@/types/listino'
 
 const EMOJIS = [
   '📂','🪟','🚪','🏠','🏗️','🔩','🪵','🏢',
@@ -80,6 +80,9 @@ function initFiniture(categoria?: Props['categoria']): FinituraInput[] {
 
 export default function DialogCategoria({ open, onOpenChange, categoria, onSuccess }: Props) {
   // Tab Generale
+  const [tipo, setTipo] = useState<TipoCategoria>(
+    (categoria as (Categoria & { tipo?: TipoCategoria }) | undefined)?.tipo ?? 'griglia'
+  )
   const [nome, setNome] = useState(categoria?.nome ?? '')
   const [icona, setIcona] = useState(categoria?.icona ?? '📂')
   const [mode, setMode] = useState<Mode>(
@@ -111,6 +114,7 @@ export default function DialogCategoria({ open, onOpenChange, categoria, onSucce
 
   const handleOpenChange = (val: boolean) => {
     if (val) {
+      setTipo((categoria as (Categoria & { tipo?: TipoCategoria }) | undefined)?.tipo ?? 'griglia')
       setNome(categoria?.nome ?? '')
       const isUrl = categoria?.icona?.startsWith('http') ?? false
       setIcona(categoria?.icona ?? '📂')
@@ -188,6 +192,7 @@ export default function DialogCategoria({ open, onOpenChange, categoria, onSucce
       const payload = {
         nome: nome.trim(),
         icona: iconaFinale,
+        tipo,
         trasporto_costo_unitario: trasportoCostoUnitario,
         trasporto_costo_minimo: trasportoCostoMinimo,
         trasporto_minimo_pezzi: trasportoMinimoPezzi,
@@ -232,6 +237,42 @@ export default function DialogCategoria({ open, onOpenChange, categoria, onSucce
 
           {/* ── Tab Generale ─────────────────────────────────── */}
           <TabsContent value="generale" className="space-y-4 pt-2">
+            {/* Tipo categoria — solo in creazione */}
+            {!categoria && (
+              <div className="space-y-1.5">
+                <Label>Tipo categoria</Label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTipo('griglia')}
+                    className={`flex-1 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors text-left ${
+                      tipo === 'griglia'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="font-semibold">📐 Griglia prezzi</div>
+                    <div className="text-xs font-normal text-gray-500 mt-0.5">
+                      Prezzi calcolati su larghezza × altezza
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTipo('libero')}
+                    className={`flex-1 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors text-left ${
+                      tipo === 'libero'
+                        ? 'border-teal-500 bg-teal-50 text-teal-700'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="font-semibold">📦 Catalogo prodotti</div>
+                    <div className="text-xs font-normal text-gray-500 mt-0.5">
+                      Prodotti con prezzo fisso e accessori
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label>Nome</Label>
               <Input

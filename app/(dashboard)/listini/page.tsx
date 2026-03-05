@@ -6,6 +6,7 @@ import { Plus } from 'lucide-react'
 import { getCategorie } from '@/actions/listini'
 import { Button } from '@/components/ui/button'
 import CategoriaCard from '@/components/listini/CategoriaCard'
+import CategoriaCardLibera from '@/components/listini/CategoriaCardLibera'
 import DialogCategoria from '@/components/listini/DialogCategoria'
 import type { CategoriaConListini } from '@/types/listino'
 
@@ -27,13 +28,18 @@ export default function ListiniPage() {
 
   useEffect(() => { load() }, [])
 
+  const totaleListini = categorie.reduce(
+    (sum, c) => sum + c.listini.length + c.listini_liberi.length,
+    0
+  )
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gestione Listini</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {loading ? '...' : `${categorie.length} categorie · ${categorie.reduce((sum, c) => sum + c.listini.length, 0)} listini`}
+            {loading ? '...' : `${categorie.length} categorie · ${totaleListini} listini`}
           </p>
         </div>
         <Button onClick={() => setNewCatOpen(true)}>
@@ -63,9 +69,13 @@ export default function ListiniPage() {
 
       {!loading && (
         <div className="space-y-4">
-          {categorie.map((cat) => (
-            <CategoriaCard key={cat.id} categoria={cat} />
-          ))}
+          {categorie.map((cat) =>
+            cat.tipo === 'libero' ? (
+              <CategoriaCardLibera key={cat.id} categoria={cat} />
+            ) : (
+              <CategoriaCard key={cat.id} categoria={cat} />
+            )
+          )}
         </div>
       )}
 

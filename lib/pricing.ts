@@ -130,6 +130,17 @@ export function calcolaRiepilogoIva(
     .sort((a, b) => b.aliquota - a.aliquota)
 }
 
+/**
+ * Prezzo unitario per articolo da listino libero:
+ * prodotto.prezzo + Σ(accessorio.prezzo × qty)
+ */
+export function calcolaPrezzoUnitarioLibero(
+  prezzoProdotto: number,
+  accessori: { prezzo: number; qty: number }[]
+): number {
+  return prezzoProdotto + accessori.reduce((sum, a) => sum + a.prezzo * a.qty, 0)
+}
+
 /** Formatta un numero come euro (es. 1.234,56) */
 export function formatEuro(value: number): string {
   return value.toLocaleString('it-IT', {

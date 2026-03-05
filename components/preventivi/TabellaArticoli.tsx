@@ -134,6 +134,11 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
                           voce libera
                         </Badge>
                       )}
+                      {a.tipo === 'listino_libero' && (
+                        <Badge variant="outline" className="text-[10px] text-teal-600 border-teal-200">
+                          catalogo
+                        </Badge>
+                      )}
                     </div>
                     {a.categoria_nome && (
                       <p className="text-xs text-gray-400">{a.categoria_nome}</p>
@@ -154,7 +159,7 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
                 </div>
               </TableCell>
               <TableCell className="text-sm whitespace-nowrap text-gray-500">
-                {a.tipo === 'libera' ? '—' : (
+                {a.tipo === 'libera' || a.tipo === 'listino_libero' ? '—' : (
                   <>
                     {a.larghezza_mm}×{a.altezza_mm}
                     {a.misura_arrotondata && (
@@ -166,7 +171,13 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
                 )}
               </TableCell>
               <TableCell className="text-sm text-gray-600">
-                {a.tipo === 'libera' ? '—' : (
+                {a.tipo === 'libera' ? '—' : a.tipo === 'listino_libero' ? (
+                  a.accessori_selezionati && a.accessori_selezionati.length > 0 ? (
+                    <span className="text-xs text-gray-500">
+                      {a.accessori_selezionati.map((acc) => `${acc.nome}×${acc.qty}`).join(', ')}
+                    </span>
+                  ) : '—'
+                ) : (
                   <>
                     {a.finitura_nome ?? '—'}
                     {a.finitura_nome && (
@@ -198,6 +209,7 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
                   <>€ {formatEuro(a.prezzo_unitario)}</>
                 )}
               </TableCell>
+
               <TableCell>
                 <ScontoSelect
                   value={a.sconto_articolo}

@@ -21,6 +21,7 @@ import { Textarea } from '@/components/ui/textarea'
 import StepCliente from './StepCliente'
 import FormArticolo from './FormArticolo'
 import FormVoceLibera from './FormVoceLibera'
+import FormArticoloLibero from './FormArticoloLibero'
 import TabellaArticoli from './TabellaArticoli'
 import ScontoSelect from './ScontoSelect'
 import type { Cliente } from '@/types/cliente'
@@ -62,8 +63,11 @@ function calcolaTrasportoPerCategoria(
   >()
 
   for (const articolo of articoli) {
-    if (!articolo.listino_id) continue
-    const cat = listini.find((c) => c.listini.some((l) => l.id === articolo.listino_id))
+    let cat = articolo.listino_id
+      ? listini.find((c) => c.listini.some((l) => l.id === articolo.listino_id))
+      : articolo.listino_libero_id
+      ? listini.find((c) => c.listini_liberi.some((l) => l.id === articolo.listino_libero_id))
+      : null
     if (!cat) continue
     const existing = pezziPerCat.get(cat.id)
     if (existing) {
@@ -104,7 +108,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, preventiv
   const [numero, setNumero] = useState(preventivo?.numero ?? '')
 
   // Step 2 — articoli
-  const [formMode, setFormMode] = useState<'listino' | 'libera'>('listino')
+  const [formMode, setFormMode] = useState<'listino' | 'catalogo' | 'libera'>('listino')
 
   // Nota: strippiamo i campi DB-only (id, preventivo_id, organization_id, created_at)
   // per evitare che finiscano nel payload dell'INSERT durante updatePreventivo.
@@ -124,7 +128,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, preventiv
   // Calcoli riepilogo
   const totali = useMemo(() => {
     const subtotale = calcolaSubtotale(articoli)
-    const articoliListino = articoli.filter((a) => a.tipo === 'listino')
+    const articoliListino = articoli.filter((a) => a.tipo === 'listino' || a.tipo === 'listino_libero')
     const { totale: speseTrasporto, dettaglio: dettaglioTrasporto } =
       calcolaTrasportoPerCategoria(articoliListino, listini)
     const riepilogoIva = calcolaRiepilogoIva(articoli, scontoGlobale)
@@ -226,8 +230,8 @@ export default function WizardPreventivo({ clienti, listini, aliquote, preventiv
 
         {step === 1 && (
           <div className="space-y-4">
-            {/* Toggle Da listino / Voce libera */}
-            <div className="flex gap-2">
+            {/* Toggle Da listino / Da catalogo / Voce libera */}
+            <div className="flex gap-2 flex-wrap">
               <button
                 type="button"
                 onClick={() => setFormMode('listino')}
@@ -238,6 +242,17 @@ export default function WizardPreventivo({ clienti, listini, aliquote, preventiv
                 }`}
               >
                 Da listino
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormMode('catalogo')}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                  formMode === 'catalogo'
+                    ? 'bg-teal-600 text-white border-teal-600'
+                    : 'bg-white text-gray-600 border-gray-300 hover:border-teal-400'
+                }`}
+              >
+                Da catalogo
               </button>
               <button
                 type="button"
@@ -254,6 +269,8 @@ export default function WizardPreventivo({ clienti, listini, aliquote, preventiv
 
             {formMode === 'listino' ? (
               <FormArticolo listini={listini} aliquote={aliquote} onAdd={(a) => setArticoli((prev) => [...prev, a])} />
+            ) : formMode === 'catalogo' ? (
+              <FormArticoloLibero listini={listini} aliquote={aliquote} onAdd={(a) => setArticoli((prev) => [...prev, a])} />
             ) : (
               <FormVoceLibera aliquote={aliquote} onAdd={(a) => setArticoli((prev) => [...prev, a])} />
             )}
