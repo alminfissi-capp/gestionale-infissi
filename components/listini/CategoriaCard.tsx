@@ -194,7 +194,15 @@ export default function CategoriaCard({ categoria }: Props) {
                     ) : (
                       <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />
                     )}
-                    <Table2 className="h-4 w-4 text-gray-400 shrink-0" />
+                    {listino.immagine_url ? (
+                      <img
+                        src={listino.immagine_url}
+                        alt={listino.tipologia}
+                        className="h-8 w-8 rounded object-contain shrink-0 border border-gray-200 bg-white"
+                      />
+                    ) : (
+                      <Table2 className="h-4 w-4 text-gray-400 shrink-0" />
+                    )}
                     <span className="font-medium text-gray-800 text-sm">
                       {listino.tipologia}
                     </span>
