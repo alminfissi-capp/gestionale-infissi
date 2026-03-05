@@ -42,7 +42,7 @@ interface Props {
 
 export default function CategoriaCardLibera({ categoria }: Props) {
   const router = useRouter()
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(false)
   const [expandedListini, setExpandedListini] = useState<Set<string>>(new Set())
 
   // Dialogs categoria

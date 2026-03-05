@@ -28,7 +28,7 @@ export default function LoginPage() {
     }
 
     // Il middleware gestisce il redirect
-    window.location.href = '/preventivi'
+    window.location.href = '/'
   }
 
   return (
