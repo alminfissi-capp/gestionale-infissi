@@ -19,9 +19,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import StepCliente from './StepCliente'
-import FormArticolo from './FormArticolo'
-import FormVoceLibera from './FormVoceLibera'
-import FormArticoloLibero from './FormArticoloLibero'
+import ArticoliEditor from './ArticoliEditor'
 import TabellaArticoli from './TabellaArticoli'
 import ScontoSelect from './ScontoSelect'
 import type { Cliente } from '@/types/cliente'
@@ -107,9 +105,6 @@ export default function WizardPreventivo({ clienti, listini, aliquote, preventiv
   )
   const [numero, setNumero] = useState(preventivo?.numero ?? '')
 
-  // Step 2 — articoli
-  const [formMode, setFormMode] = useState<'listino' | 'catalogo' | 'libera'>('listino')
-
   // Nota: strippiamo i campi DB-only (id, preventivo_id, organization_id, created_at)
   // per evitare che finiscano nel payload dell'INSERT durante updatePreventivo.
   const [articoli, setArticoli] = useState<ArticoloWizard[]>(
@@ -188,7 +183,20 @@ export default function WizardPreventivo({ clienti, listini, aliquote, preventiv
   }
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <>
+      {/* Step 1: editor articoli full-screen (copre sidebar) */}
+      {step === 1 && (
+        <ArticoliEditor
+          listini={listini}
+          aliquote={aliquote}
+          articoli={articoli}
+          onArticoliChange={setArticoli}
+          onConferma={() => setStep(2)}
+          onAnnulla={() => setStep(0)}
+        />
+      )}
+
+    <div className={`max-w-4xl space-y-6${step === 1 ? ' hidden' : ''}`}>
       {/* Step indicator */}
       <div className="flex items-center gap-2">
         {STEPS.map((label, i) => (
@@ -226,56 +234,6 @@ export default function WizardPreventivo({ clienti, listini, aliquote, preventiv
             onSnapshotChange={setSnapshot}
             onNumeroChange={setNumero}
           />
-        )}
-
-        {step === 1 && (
-          <div className="space-y-4">
-            {/* Toggle Da listino / Da catalogo / Voce libera */}
-            <div className="flex gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={() => setFormMode('listino')}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                  formMode === 'listino'
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
-                }`}
-              >
-                Da listino
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormMode('catalogo')}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                  formMode === 'catalogo'
-                    ? 'bg-teal-600 text-white border-teal-600'
-                    : 'bg-white text-gray-600 border-gray-300 hover:border-teal-400'
-                }`}
-              >
-                Da catalogo
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormMode('libera')}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                  formMode === 'libera'
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
-                }`}
-              >
-                Voce libera
-              </button>
-            </div>
-
-            {formMode === 'listino' ? (
-              <FormArticolo listini={listini} aliquote={aliquote} onAdd={(a) => setArticoli((prev) => [...prev, a])} />
-            ) : formMode === 'catalogo' ? (
-              <FormArticoloLibero listini={listini} aliquote={aliquote} onAdd={(a) => setArticoli((prev) => [...prev, a])} />
-            ) : (
-              <FormVoceLibera aliquote={aliquote} onAdd={(a) => setArticoli((prev) => [...prev, a])} />
-            )}
-            <TabellaArticoli articoli={articoli} aliquote={aliquote} onChange={setArticoli} />
-          </div>
         )}
 
         {step === 2 && (
@@ -413,5 +371,6 @@ export default function WizardPreventivo({ clienti, listini, aliquote, preventiv
         )}
       </div>
     </div>
+    </>
   )
 }
