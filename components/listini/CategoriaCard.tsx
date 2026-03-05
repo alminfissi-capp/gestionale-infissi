@@ -10,8 +10,9 @@ import {
   Pencil,
   Trash2,
   Table2,
+  Copy,
 } from 'lucide-react'
-import { deleteCategoria, deleteListino } from '@/actions/listini'
+import { deleteCategoria, deleteListino, duplicaListino, duplicaCategoria } from '@/actions/listini'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -49,6 +50,7 @@ export default function CategoriaCard({ categoria }: Props) {
   const [deletingListinoId, setDeletingListinoId] = useState<string | null>(null)
 
   const [deleting, setDeleting] = useState(false)
+  const [copying, setCopying] = useState(false)
 
   const toggleListino = (id: string) => {
     setExpandedListini((prev) => {
@@ -87,6 +89,32 @@ export default function CategoriaCard({ categoria }: Props) {
     }
   }
 
+  const handleDuplicaListino = async (listinoId: string) => {
+    setCopying(true)
+    try {
+      await duplicaListino(listinoId)
+      toast.success('Listino duplicato')
+      router.refresh()
+    } catch {
+      toast.error('Errore nella duplicazione')
+    } finally {
+      setCopying(false)
+    }
+  }
+
+  const handleDuplicaCategoria = async () => {
+    setCopying(true)
+    try {
+      await duplicaCategoria(categoria.id)
+      toast.success('Categoria duplicata')
+      router.refresh()
+    } catch {
+      toast.error('Errore nella duplicazione')
+    } finally {
+      setCopying(false)
+    }
+  }
+
   const refresh = () => router.refresh()
 
   return (
@@ -110,6 +138,15 @@ export default function CategoriaCard({ categoria }: Props) {
         </button>
 
         <div className="flex items-center gap-1 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Duplica categoria"
+            disabled={copying}
+            onClick={handleDuplicaCategoria}
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
           <Button variant="ghost" size="icon" onClick={() => setEditCatOpen(true)}>
             <Pencil className="h-4 w-4" />
           </Button>
@@ -168,6 +205,16 @@ export default function CategoriaCard({ categoria }: Props) {
                   </button>
 
                   <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      title="Duplica listino"
+                      disabled={copying}
+                      onClick={() => handleDuplicaListino(listino.id)}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
