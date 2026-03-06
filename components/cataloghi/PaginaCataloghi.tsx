@@ -4,12 +4,13 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  Upload, Pencil, Check, Trash2, ChevronUp, ChevronDown, FileText, Loader2, X,
+  Upload, Pencil, Check, Trash2, ChevronUp, ChevronDown, FileText, Loader2, X, Search,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentOrgId } from '@/actions/listini'
 import { createCatalogo, deleteCatalogo, reorderCataloghi } from '@/actions/cataloghi'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import type { Catalogo } from '@/types/catalogo'
 
 // ─── Miniatura PDF ────────────────────────────────────────────────────────────
@@ -179,6 +180,7 @@ export default function PaginaCataloghi({ initialCataloghi }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [viewingCatalogo, setViewingCatalogo] = useState<Catalogo | null>(null)
   const [savingOrder, setSavingOrder] = useState(false)
+  const [search, setSearch] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleUpload = useCallback(async (file: File) => {
@@ -249,6 +251,10 @@ export default function PaginaCataloghi({ initialCataloghi }: Props) {
     setCataloghi(initialCataloghi)
   }, [initialCataloghi])
 
+  const cataloghiFiltrati = search.trim()
+    ? cataloghi.filter((c) => c.nome.toLowerCase().includes(search.toLowerCase().trim()))
+    : cataloghi
+
   return (
     <>
       {/* Viewer PDF fullscreen */}
@@ -262,9 +268,20 @@ export default function PaginaCataloghi({ initialCataloghi }: Props) {
 
       <div className="space-y-4">
         {/* Header + azioni */}
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-xl font-bold text-gray-900">Cataloghi e Brochure</h1>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-xl font-bold text-gray-900 shrink-0">Cataloghi e Brochure</h1>
+          {!editMode && cataloghi.length > 0 && (
+            <div className="relative flex-1 min-w-[160px] max-w-xs">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
+              <Input
+                placeholder="Cerca catalogo..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8 h-9"
+              />
+            </div>
+          )}
+          <div className="flex items-center gap-2 ml-auto shrink-0">
             {!editMode ? (
               <>
                 <Button
@@ -336,19 +353,24 @@ export default function PaginaCataloghi({ initialCataloghi }: Props) {
               Carica il primo catalogo
             </Button>
           </div>
+        ) : cataloghiFiltrati.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-gray-400 space-y-2">
+            <Search className="h-8 w-8" />
+            <p className="text-sm">Nessun risultato per &quot;{search}&quot;</p>
+          </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {cataloghi.map((c, i) => (
+            {cataloghiFiltrati.map((c, i) => (
               <CatalogoCard
                 key={c.id}
                 catalogo={c}
                 editMode={editMode}
                 isFirst={i === 0}
-                isLast={i === cataloghi.length - 1}
+                isLast={i === cataloghiFiltrati.length - 1}
                 onView={() => setViewingCatalogo(c)}
                 onDelete={() => handleDelete(c)}
-                onMoveUp={() => moveItem(i, -1)}
-                onMoveDown={() => moveItem(i, 1)}
+                onMoveUp={() => moveItem(cataloghi.indexOf(c), -1)}
+                onMoveDown={() => moveItem(cataloghi.indexOf(c), 1)}
                 deleting={deletingId === c.id}
               />
             ))}
