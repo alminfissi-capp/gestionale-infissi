@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  FolderOpen,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { href: '/preventivi', label: 'Preventivi Salvati', icon: ClipboardList },
   { href: '/clienti', label: 'Gestione Clienti', icon: Users },
   { href: '/listini', label: 'Gestione Listini', icon: BookOpen },
+  { href: '/cataloghi', label: 'Cataloghi e Brochure', icon: FolderOpen },
   { href: '/import-export', label: 'Import / Export', icon: Database },
   { href: '/impostazioni', label: 'Impostazioni', icon: Settings },
 ]
