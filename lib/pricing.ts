@@ -131,6 +131,14 @@ export function calcolaRiepilogoIva(
 }
 
 /**
+ * Costo di acquisto unitario da fornitore (listino griglia):
+ * prezzoBase × (1 - scontoFornitore / 100)
+ */
+export function calcolaCostoAcquistoUnitario(prezzoBase: number, scontoFornitore: number): number {
+  return prezzoBase * (1 - scontoFornitore / 100)
+}
+
+/**
  * Prezzo unitario per articolo da listino libero:
  * prodotto.prezzo + Σ(accessorio.prezzo × qty)
  */

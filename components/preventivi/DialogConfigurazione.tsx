@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Image from 'next/image'
-import { AlertTriangle, Tag, Plus, Package } from 'lucide-react'
+import { AlertTriangle, Tag, Plus, Package, TrendingUp } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -25,6 +25,7 @@ import {
   applicaFinitura,
   calcolaTotaleRiga,
   calcolaPrezzoUnitarioLibero,
+  calcolaCostoAcquistoUnitario,
   formatEuro,
 } from '@/lib/pricing'
 import type {
@@ -78,6 +79,7 @@ function FormGriglia({
   const [scontoArticolo, setScontoArticolo] = useState(0)
   const [aliquotaIva, setAliquotaIva] = useState<number | null>(null)
   const [note, setNote] = useState('')
+  const [costoPosa, setCostoPosa] = useState('')
 
   const finitureDisponibili = useMemo((): FinituraUnita[] => {
     const catFin: FinituraUnita[] = (categoria.finiture_categoria ?? []).map((f) => ({
@@ -177,6 +179,8 @@ function FormGriglia({
       prezzo_unitario: calcolo.prezzoUnitario,
       sconto_articolo: scontoArticolo,
       prezzo_totale_riga: calcolo.totalRiga,
+      costo_acquisto_unitario: 0,
+      costo_posa: parseFloat(costoPosa) || 0,
       aliquota_iva: aliquotaIva,
       ordine: 0,
     })
@@ -317,6 +321,20 @@ function FormGriglia({
         </div>
       </div>
 
+      {/* Costo posa */}
+      <div className="space-y-1.5">
+        <Label className="text-amber-700">Costo posa (€) — uso interno</Label>
+        <Input
+          type="number"
+          min={0}
+          step={0.01}
+          value={costoPosa}
+          onChange={(e) => setCostoPosa(e.target.value)}
+          placeholder="0,00"
+          className="border-amber-200 focus-visible:ring-amber-400"
+        />
+      </div>
+
       {/* Preview prezzo */}
       {calcolo && !calcolo.error && (
         <div className="flex items-center gap-4 p-3 rounded-md bg-blue-50 text-sm flex-wrap">
@@ -338,6 +356,29 @@ function FormGriglia({
             </span>
           </div>
         </div>
+      )}
+
+      {/* Preview costi interni */}
+      {calcolo && !calcolo.error && (
+        (() => {
+          const qty = Math.max(1, parseInt(quantita) || 1)
+          const costoAcqUnit = calcolaCostoAcquistoUnitario(calcolo.prezzoBase, categoria.sconto_fornitore ?? 0)
+          const posaUnit = parseFloat(costoPosa) || 0
+          const costoTot = (costoAcqUnit + posaUnit) * qty
+          const utile = calcolo.totalRiga - costoTot
+          return (
+            <div className="flex items-center gap-3 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs flex-wrap">
+              <TrendingUp className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+              <span className="text-amber-800 font-medium">Interno:</span>
+              <span className="text-gray-600">Acq: <strong>€ {formatEuro(costoAcqUnit)}</strong>/pz</span>
+              {posaUnit > 0 && <span className="text-gray-600">Posa: <strong>€ {formatEuro(posaUnit)}</strong>/pz</span>}
+              <span className="text-gray-600">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
+              <span className={`font-semibold ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                Utile: € {formatEuro(utile)}
+              </span>
+            </div>
+          )
+        })()
       )}
 
       {calcolo?.error && (
@@ -375,13 +416,14 @@ function FormLibero({
   const [scontoArticolo, setScontoArticolo] = useState(0)
   const [aliquotaIva, setAliquotaIva] = useState<number | null>(null)
   const [note, setNote] = useState('')
+  const [costoPosa, setCostoPosa] = useState('')
 
   const scontoMax = categoria.sconto_massimo ?? 50
 
   const accessoriSelezionati = useMemo((): AccessorioSelezionato[] => {
     return listinoLibero.accessori
       .filter((a) => (accessoriQty[a.id] ?? 0) > 0)
-      .map((a) => ({ id: a.id, nome: a.nome, prezzo: a.prezzo, qty: accessoriQty[a.id] ?? 1 }))
+      .map((a) => ({ id: a.id, nome: a.nome, prezzo: a.prezzo, prezzo_acquisto: a.prezzo_acquisto ?? 0, qty: accessoriQty[a.id] ?? 1 }))
   }, [listinoLibero, accessoriQty])
 
   const calcolo = useMemo(() => {
@@ -441,6 +483,8 @@ function FormLibero({
       prezzo_unitario: calcolo.prezzoUnitario,
       sconto_articolo: scontoArticolo,
       prezzo_totale_riga: calcolo.totalRiga,
+      costo_acquisto_unitario: 0,
+      costo_posa: parseFloat(costoPosa) || 0,
       aliquota_iva: aliquotaIva,
       ordine: 0,
     })
@@ -567,6 +611,18 @@ function FormLibero({
             onChange={(e) => setNote(e.target.value)}
           />
         </div>
+        <div className="space-y-1.5">
+          <Label className="text-amber-700">Costo posa (€) — uso interno</Label>
+          <Input
+            type="number"
+            min={0}
+            step={0.01}
+            value={costoPosa}
+            onChange={(e) => setCostoPosa(e.target.value)}
+            placeholder="0,00"
+            className="border-amber-200 focus-visible:ring-amber-400"
+          />
+        </div>
       </div>
 
       {/* Preview prezzo */}
@@ -588,6 +644,29 @@ function FormLibero({
           </span>
         </div>
       </div>
+
+      {/* Preview costi interni */}
+      {(() => {
+        const qty = Math.max(1, parseInt(quantita) || 1)
+        const costoAcqUnit = (prodotto.prezzo_acquisto ?? 0)
+          + accessoriSelezionati.reduce((sum, a) => sum + (a.prezzo_acquisto ?? 0) * a.qty, 0)
+        const posaUnit = parseFloat(costoPosa) || 0
+        const costoTot = (costoAcqUnit + posaUnit) * qty
+        const utile = calcolo.totalRiga - costoTot
+        if (costoAcqUnit === 0 && posaUnit === 0) return null
+        return (
+          <div className="flex items-center gap-3 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs flex-wrap">
+            <TrendingUp className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+            <span className="text-amber-800 font-medium">Interno:</span>
+            <span className="text-gray-600">Acq: <strong>€ {formatEuro(costoAcqUnit)}</strong>/pz</span>
+            {posaUnit > 0 && <span className="text-gray-600">Posa: <strong>€ {formatEuro(posaUnit)}</strong>/pz</span>}
+            <span className="text-gray-600">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
+            <span className={`font-semibold ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+              Utile: € {formatEuro(utile)}
+            </span>
+          </div>
+        )
+      })()}
 
       <Button
         onClick={handleAdd}

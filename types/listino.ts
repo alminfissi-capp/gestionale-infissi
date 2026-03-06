@@ -74,6 +74,7 @@ export type ProdottoListino = {
   listino_libero_id: string
   nome: string
   prezzo: number
+  prezzo_acquisto: number
   descrizione: string | null
   immagine_url: string | null
   ordine: number
@@ -86,6 +87,7 @@ export type AccessorioListino = {
   listino_libero_id: string
   nome: string
   prezzo: number
+  prezzo_acquisto: number
   ordine: number
   created_at: string
 }

@@ -3,7 +3,7 @@
 import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, Save, Loader2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Save, Loader2, Truck } from 'lucide-react'
 import { createPreventivo, updatePreventivo } from '@/actions/preventivi'
 import { db } from '@/lib/db'
 import type { PendingPreventivo } from '@/lib/db'
@@ -119,6 +119,9 @@ export default function WizardPreventivo({ clienti, listini, aliquote, preventiv
   // Step 3 — note/sconto globale
   const [scontoGlobale, setScontoGlobale] = useState(preventivo?.sconto_globale ?? 0)
   const [note, setNote] = useState(preventivo?.note ?? '')
+  const [modalitaTrasporto, setModalitaTrasporto] = useState<'separato' | 'ripartito'>(
+    preventivo?.modalita_trasporto ?? 'separato'
+  )
 
   // Calcoli riepilogo
   const totali = useMemo(() => {
@@ -154,6 +157,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, preventiv
           articoli: articoli.map(({ tempId: _t, ...rest }) => rest),
           scontoGlobale,
           note,
+          modalitaTrasporto,
         }
 
         // Modalità modifica: richiede connessione
@@ -269,6 +273,45 @@ export default function WizardPreventivo({ clienti, listini, aliquote, preventiv
                   rows={3}
                 />
               </div>
+
+              {/* Modalità trasporto — solo se c'è trasporto */}
+              {totali.speseTrasporto > 0 && (
+                <div className="col-span-2 space-y-1.5">
+                  <Label className="flex items-center gap-1.5">
+                    <Truck className="h-3.5 w-3.5 text-gray-500" />
+                    Spese trasporto nel preventivo
+                  </Label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setModalitaTrasporto('separato')}
+                      className={`flex-1 text-sm py-2 px-3 rounded-md border transition-colors ${
+                        modalitaTrasporto === 'separato'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      Voce separata
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModalitaTrasporto('ripartito')}
+                      className={`flex-1 text-sm py-2 px-3 rounded-md border transition-colors ${
+                        modalitaTrasporto === 'ripartito'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      Incluso nel prezzo
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    {modalitaTrasporto === 'separato'
+                      ? 'Il trasporto appare come voce separata nel preventivo cliente.'
+                      : 'Il trasporto è incluso silenziosamente nel totale — il cliente non vede la voce separata.'}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Totali */}
@@ -305,33 +348,41 @@ export default function WizardPreventivo({ clienti, listini, aliquote, preventiv
               )}
 
               {/* Trasporto per categoria */}
-              {totali.dettaglioTrasporto.length === 0 && (
+              {totali.speseTrasporto === 0 && (
                 <div className="flex justify-between text-gray-600">
                   <span>Spese trasporto</span>
                   <span>€ {formatEuro(0)}</span>
                 </div>
               )}
-              {totali.dettaglioTrasporto.length === 1 && (
-                <div className="flex justify-between text-gray-600">
-                  <span>
-                    Spese trasporto ({totali.dettaglioTrasporto[0].pezzi} pz)
-                  </span>
-                  <span>€ {formatEuro(totali.dettaglioTrasporto[0].costo)}</span>
-                </div>
-              )}
-              {totali.dettaglioTrasporto.length > 1 && (
+              {totali.speseTrasporto > 0 && modalitaTrasporto === 'separato' && (
                 <>
-                  {totali.dettaglioTrasporto.map((d, i) => (
-                    <div key={i} className="flex justify-between text-gray-500 text-xs pl-2">
-                      <span>Trasporto {d.nome} ({d.pezzi} pz)</span>
-                      <span>€ {formatEuro(d.costo)}</span>
+                  {totali.dettaglioTrasporto.length === 1 && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>Spese trasporto ({totali.dettaglioTrasporto[0].pezzi} pz)</span>
+                      <span>€ {formatEuro(totali.dettaglioTrasporto[0].costo)}</span>
                     </div>
-                  ))}
-                  <div className="flex justify-between text-gray-600">
-                    <span>Spese trasporto totale</span>
-                    <span>€ {formatEuro(totali.speseTrasporto)}</span>
-                  </div>
+                  )}
+                  {totali.dettaglioTrasporto.length > 1 && (
+                    <>
+                      {totali.dettaglioTrasporto.map((d, i) => (
+                        <div key={i} className="flex justify-between text-gray-500 text-xs pl-2">
+                          <span>Trasporto {d.nome} ({d.pezzi} pz)</span>
+                          <span>€ {formatEuro(d.costo)}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between text-gray-600">
+                        <span>Spese trasporto totale</span>
+                        <span>€ {formatEuro(totali.speseTrasporto)}</span>
+                      </div>
+                    </>
+                  )}
                 </>
+              )}
+              {totali.speseTrasporto > 0 && modalitaTrasporto === 'ripartito' && (
+                <div className="flex justify-between text-gray-500 text-xs italic">
+                  <span>Trasporto (incluso nel totale)</span>
+                  <span>€ {formatEuro(totali.speseTrasporto)}</span>
+                </div>
               )}
 
               <div className="flex justify-between font-bold text-base border-t pt-2 mt-2">

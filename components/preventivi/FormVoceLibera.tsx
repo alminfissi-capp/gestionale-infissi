@@ -125,6 +125,8 @@ export default function FormVoceLibera({ aliquote, onAdd }: Props) {
         prezzo_unitario: prezzo,
         sconto_articolo: sconto,
         prezzo_totale_riga: totaleRiga,
+        costo_acquisto_unitario: 0,
+        costo_posa: 0,
         aliquota_iva: aliquotaIva,
         ordine: 0,
       }

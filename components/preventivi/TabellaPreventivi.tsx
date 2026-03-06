@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Plus, Search, Trash2, Eye, Clock } from 'lucide-react'
+import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { deletePreventivo } from '@/actions/preventivi'
 import { formatEuro } from '@/lib/pricing'
@@ -140,7 +140,7 @@ export default function TabellaPreventivi({ preventivi }: Props) {
                 <TableHead className="text-right">Totale</TableHead>
                 <TableHead className="text-center">Stato</TableHead>
                 <TableHead className="text-right text-xs text-gray-400">Data</TableHead>
-                <TableHead className="w-20" />
+                <TableHead className="w-36" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -212,9 +212,19 @@ export default function TabellaPreventivi({ preventivi }: Props) {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" asChild title="Apri">
                           <Link href={`/preventivi/${p.id}`}>
                             <Eye className="h-3.5 w-3.5" />
+                          </Link>
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" asChild title="Stampa preventivo">
+                          <Link href={`/preventivi/${p.id}/stampa`}>
+                            <Printer className="h-3.5 w-3.5" />
+                          </Link>
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-600 hover:text-amber-800" asChild title="Stampa calcoli">
+                          <Link href={`/preventivi/${p.id}/stampa-calcoli`}>
+                            <BarChart2 className="h-3.5 w-3.5" />
                           </Link>
                         </Button>
                         <Button
@@ -222,6 +232,7 @@ export default function TabellaPreventivi({ preventivi }: Props) {
                           size="icon"
                           className="h-8 w-8 text-red-400 hover:text-red-600"
                           onClick={() => setDeletingId(p.id)}
+                          title="Elimina"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>

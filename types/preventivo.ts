@@ -14,6 +14,7 @@ export type AccessorioSelezionato = {
   id: string
   nome: string
   prezzo: number
+  prezzo_acquisto: number
   qty: number
 }
 
@@ -43,6 +44,8 @@ export type ArticoloPreventivoRow = {
   prezzo_unitario: number
   sconto_articolo: number
   prezzo_totale_riga: number
+  costo_acquisto_unitario: number
+  costo_posa: number
   aliquota_iva: number | null
   ordine: number
   created_at: string
@@ -66,6 +69,8 @@ export type Preventivo = {
   importo_sconto: number
   totale_articoli: number
   spese_trasporto: number
+  modalita_trasporto: 'separato' | 'ripartito'
+  totale_costi_acquisto: number
   iva_totale: number
   riepilogo_iva: { aliquota: number; imponibile: number; iva: number }[]
   totale_finale: number
@@ -87,4 +92,5 @@ export type PreventivoInput = {
   articoli: Omit<ArticoloWizard, 'tempId'>[]
   scontoGlobale: number
   note: string
+  modalitaTrasporto: 'separato' | 'ripartito'
 }

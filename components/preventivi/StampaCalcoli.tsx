@@ -13,7 +13,7 @@ interface Props {
   logoUrl: string | null
 }
 
-export default function StampaPreventivo({ preventivo: p, settings, logoUrl }: Props) {
+export default function StampaCalcoli({ preventivo: p, settings, logoUrl }: Props) {
   const s = p.cliente_snapshot
   const nomeCliente = [s.cognome, s.nome].filter(Boolean).join(' ') || s.email || s.telefono || '—'
   const dataFormattata = new Date(p.created_at).toLocaleDateString('it-IT', {
@@ -21,7 +21,7 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl }: P
     month: '2-digit',
     year: 'numeric',
   })
-  const titolo = p.numero ? `Offerta N. ${p.numero}` : 'Preventivo'
+  const titolo = p.numero ? `Calcolo costi — Offerta N. ${p.numero}` : 'Calcolo costi — Preventivo'
 
   return (
     <>
@@ -36,13 +36,13 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl }: P
         <div className="flex-1" />
         <Button size="sm" onClick={() => window.print()}>
           <Printer className="h-4 w-4 mr-1.5" />
-          Stampa
+          Stampa calcoli
         </Button>
       </div>
 
-      {/* Sfondo grigio schermo — nascosto in stampa */}
+      {/* Sfondo grigio schermo */}
       <div className="print:hidden bg-gray-100 min-h-screen py-8 px-4">
-        <DocumentoA4
+        <DocumentoCalcoli
           p={p}
           s={s}
           nomeCliente={nomeCliente}
@@ -55,7 +55,7 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl }: P
 
       {/* Documento puro per la stampa */}
       <div className="hidden print:block">
-        <DocumentoA4
+        <DocumentoCalcoli
           p={p}
           s={s}
           nomeCliente={nomeCliente}
@@ -69,7 +69,7 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl }: P
   )
 }
 
-// ─── Documento A4 ────────────────────────────────────────────────────────────
+// ─── Documento A4 ─────────────────────────────────────────────────────────────
 
 interface DocProps {
   p: PreventivoCompleto
@@ -81,8 +81,10 @@ interface DocProps {
   logoUrl: string | null
 }
 
-function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logoUrl }: DocProps) {
+function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings, logoUrl }: DocProps) {
   const articoliOrdinati = [...p.articoli].sort((a, b) => a.ordine - b.ordine)
+  const totalePosa = articoliOrdinati.reduce((sum, a) => sum + a.costo_posa * a.quantita, 0)
+  const utile = p.totale_articoli - p.totale_costi_acquisto - totalePosa - p.spese_trasporto
 
   return (
     <div
@@ -96,7 +98,6 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
     >
       {/* ── Intestazione ── */}
       <div className="flex justify-between gap-4 p-8 print:p-0 pb-4 border-b border-gray-300">
-        {/* Colonna azienda */}
         <div className="flex items-start gap-4">
           {logoUrl && (
             // eslint-disable-next-line @next/next/no-img-element
@@ -128,20 +129,20 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
           </div>
         </div>
 
-        {/* Colonna cliente */}
+        {/* Cliente */}
         <div className="text-right min-w-[180px]">
           <p className="font-semibold text-sm">{nomeCliente}</p>
           {s.indirizzo && <p className="text-gray-600">{s.indirizzo}</p>}
-          {s.cf_piva && <p className="text-gray-600">CF/P.IVA: {s.cf_piva}</p>}
-          {s.telefono && <p className="text-gray-600">Tel. {s.telefono}</p>}
-          {s.email && <p className="text-gray-600">{s.email}</p>}
           {s.cantiere && <p className="text-gray-500 text-[10px] mt-1">Cantiere: {s.cantiere}</p>}
         </div>
       </div>
 
-      {/* ── Titolo preventivo ── */}
+      {/* ── Titolo ── */}
       <div className="px-8 print:px-0 py-3 border-b border-gray-300">
         <p className="text-center font-bold text-[13px] tracking-wide">{titolo}</p>
+        <p className="text-center text-[9px] text-amber-700 mt-1 uppercase tracking-widest">
+          Documento riservato — uso interno aziendale — non divulgare al cliente
+        </p>
       </div>
 
       {/* ── Metadati ── */}
@@ -156,120 +157,97 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
         </span>
       </div>
 
-      {/* ── Testo introduttivo ── */}
-      <div className="px-8 print:px-0 py-3 border-b border-gray-300 text-[10px] text-gray-600 italic">
-        Le proponiamo la nostra migliore offerta per i seguenti serramenti.
-      </div>
-
-      {/* ── Tabella articoli ── */}
-      <div className="px-8 print:px-0">
+      {/* ── Tabella costi per articolo ── */}
+      <div className="px-8 print:px-0 py-4">
         <table className="w-full border-collapse text-[10px]">
           <thead>
             <tr className="border-b-2 border-gray-400 bg-gray-50 print:bg-gray-100">
               <th className="py-2 text-center w-7">#</th>
-              <th className="py-2 text-left">Descrizione</th>
-              <th className="py-2 text-right w-14">L (mm)</th>
-              <th className="py-2 text-right w-14">A (mm)</th>
-              <th className="py-2 text-right w-20">P. Unit.</th>
+              <th className="py-2 text-left">Articolo</th>
               <th className="py-2 text-center w-9">Qtà</th>
-              <th className="py-2 text-right w-24">P. Totale</th>
+              <th className="py-2 text-right w-24">Ricavo unit.</th>
+              <th className="py-2 text-right w-24">C. Acq. unit.</th>
+              <th className="py-2 text-right w-20">Posa unit.</th>
+              <th className="py-2 text-right w-24">Costo totale</th>
+              <th className="py-2 text-right w-24">Margine</th>
             </tr>
           </thead>
           <tbody>
-            {articoliOrdinati.map((a, i) => (
-              <tr key={a.id} className="border-b border-gray-200 align-top">
-                <td className="py-2 text-center text-gray-500 font-mono">
-                  {String(i + 1).padStart(2, '0')}
-                </td>
-                <td className="py-2 pr-3">
-                  <div className="flex items-start gap-2">
-                    {a.immagine_url && (
-                      <div style={{ width: '60px', height: '60px', flexShrink: 0, overflow: 'hidden', border: '1px solid #e5e7eb', borderRadius: '2px', background: '#f9fafb' }}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={a.immagine_url}
-                          alt={a.tipologia}
-                          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
-                        />
-                      </div>
+            {articoliOrdinati.map((a, i) => {
+              const costoTotRiga = (a.costo_acquisto_unitario + a.costo_posa) * a.quantita
+              const margineRiga = a.prezzo_totale_riga - costoTotRiga
+              return (
+                <tr key={a.id} className="border-b border-gray-200 align-top">
+                  <td className="py-2 text-center text-gray-500 font-mono">
+                    {String(i + 1).padStart(2, '0')}
+                  </td>
+                  <td className="py-2 pr-3">
+                    <p className="font-semibold">{a.tipologia}</p>
+                    {a.categoria_nome && (
+                      <p className="text-gray-400 text-[9px]">{a.categoria_nome}</p>
                     )}
-                    <div>
-                      <p className="font-semibold text-[11px]">{a.tipologia}</p>
-                      {a.categoria_nome && (
-                        <p className="text-gray-400 text-[9px]">{a.categoria_nome}</p>
-                      )}
-                      {a.finitura_nome && (
-                        <p className="text-gray-400 text-[9px]">Finitura: {a.finitura_nome}</p>
-                      )}
-                      {a.misura_arrotondata && a.larghezza_listino_mm != null && (
-                        <p className="text-amber-600 text-[9px]">
-                          misura arrotondata a {a.larghezza_listino_mm}×{a.altezza_listino_mm}
-                        </p>
-                      )}
-                      {a.note && (
-                        <p className="text-gray-400 text-[9px] italic mt-0.5">{a.note}</p>
-                      )}
-                    </div>
-                  </div>
-                </td>
-                <td className="py-2 text-right tabular-nums text-gray-500">
-                  {a.tipo === 'libera' ? '—' : a.larghezza_mm}
-                </td>
-                <td className="py-2 text-right tabular-nums text-gray-500">
-                  {a.tipo === 'libera' ? '—' : a.altezza_mm}
-                </td>
-                <td className="py-2 text-right tabular-nums">
-                  € {formatEuro(a.prezzo_unitario)}
-                </td>
-                <td className="py-2 text-center tabular-nums">{a.quantita}</td>
-                <td className="py-2 text-right font-semibold tabular-nums">
-                  € {formatEuro(a.prezzo_totale_riga)}
-                </td>
-              </tr>
-            ))}
+                    {a.tipo !== 'libera' && a.larghezza_mm && (
+                      <p className="text-gray-400 text-[9px]">{a.larghezza_mm}×{a.altezza_mm} mm</p>
+                    )}
+                  </td>
+                  <td className="py-2 text-center tabular-nums">{a.quantita}</td>
+                  <td className="py-2 text-right tabular-nums text-gray-600">
+                    € {formatEuro(a.prezzo_unitario)}
+                  </td>
+                  <td className="py-2 text-right tabular-nums text-gray-700">
+                    {a.costo_acquisto_unitario > 0 ? `€ ${formatEuro(a.costo_acquisto_unitario)}` : '—'}
+                  </td>
+                  <td className="py-2 text-right tabular-nums text-gray-700">
+                    {a.costo_posa > 0 ? `€ ${formatEuro(a.costo_posa)}` : '—'}
+                  </td>
+                  <td className="py-2 text-right tabular-nums font-medium text-gray-800">
+                    {costoTotRiga > 0 ? `€ ${formatEuro(costoTotRiga)}` : '—'}
+                  </td>
+                  <td className={`py-2 text-right tabular-nums font-semibold ${margineRiga >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                    € {formatEuro(margineRiga)}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
 
-      {/* ── Totali ── */}
+      {/* ── Riepilogo economico ── */}
       <div className="px-8 print:px-0 py-4 border-t-2 border-gray-400">
-        <div className="ml-auto max-w-xs space-y-1 text-[11px]">
+        <div className="ml-auto max-w-xs space-y-1.5 text-[11px]">
           <div className="flex justify-between text-gray-600">
-            <span>Totale articoli ({p.totale_pezzi} pz)</span>
+            <span>Ricavo netto (IVA esclusa)</span>
             <span className="tabular-nums">€ {formatEuro(p.totale_articoli)}</span>
           </div>
-          {p.riepilogo_iva.map((r) => (
-            <div key={r.aliquota} className="flex justify-between text-gray-500">
-              <span>IVA {r.aliquota}% (su € {formatEuro(r.imponibile)})</span>
-              <span className="tabular-nums">€ {formatEuro(r.iva)}</span>
+          <div className="border-t border-gray-200 pt-1.5 space-y-1">
+            <div className="flex justify-between text-gray-700">
+              <span>— Costi acquisto fornitore</span>
+              <span className="tabular-nums">€ {formatEuro(p.totale_costi_acquisto)}</span>
             </div>
-          ))}
-          {p.iva_totale > 0 && p.riepilogo_iva.length > 1 && (
-            <div className="flex justify-between text-gray-600">
-              <span>Totale IVA</span>
+            {totalePosa > 0 && (
+              <div className="flex justify-between text-gray-700">
+                <span>— Costi posa</span>
+                <span className="tabular-nums">€ {formatEuro(totalePosa)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-gray-700">
+              <span>— Spese trasporto</span>
+              <span className="tabular-nums">€ {formatEuro(p.spese_trasporto)}</span>
+            </div>
+          </div>
+          <div className={`flex justify-between font-bold text-[13px] border-t border-gray-400 pt-2 mt-2 ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+            <span>UTILE LORDO</span>
+            <span className="tabular-nums">€ {formatEuro(utile)}</span>
+          </div>
+          {p.iva_totale > 0 && (
+            <div className="flex justify-between text-gray-500 text-[10px]">
+              <span>IVA totale (non è ricavo)</span>
               <span className="tabular-nums">€ {formatEuro(p.iva_totale)}</span>
             </div>
           )}
-          {p.modalita_trasporto === 'separato' && (
-            <div className="flex justify-between text-gray-600">
-              <span>Spese trasporto</span>
-              <span className="tabular-nums">€ {formatEuro(p.spese_trasporto)}</span>
-            </div>
-          )}
-          <div className="flex justify-between font-bold text-[13px] border-t border-gray-400 pt-2 mt-2">
-            <span>TOTALE FINALE</span>
-            <span className="tabular-nums">€ {formatEuro(p.totale_finale)}</span>
-          </div>
         </div>
       </div>
-
-      {/* ── Note preventivo ── */}
-      {p.note && (
-        <div className="px-8 print:px-0 py-3 border-t border-gray-200">
-          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Note</p>
-          <p className="text-[10px] text-gray-700 whitespace-pre-wrap">{p.note}</p>
-        </div>
-      )}
 
       {/* ── Piè di pagina fisso (stampa) ── */}
       <style>{`
@@ -281,7 +259,7 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-          .stampa-footer {
+          .calcoli-footer {
             position: fixed;
             bottom: 0;
             left: 0;
@@ -296,15 +274,15 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
           }
         }
         @media screen {
-          .stampa-footer {
+          .calcoli-footer {
             display: none;
           }
         }
       `}</style>
-      <div className="stampa-footer">
+      <div className="calcoli-footer">
         <span>Data: {dataFormattata}</span>
         {p.numero && <span>{p.numero}</span>}
-        {settings?.denominazione && <span>{settings.denominazione}</span>}
+        <span>USO INTERNO — RISERVATO</span>
       </div>
     </div>
   )

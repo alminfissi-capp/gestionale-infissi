@@ -19,6 +19,7 @@ import type { ListinoLiberoCompleto } from '@/types/listino'
 interface ProdottoInput {
   nome: string
   prezzo: string
+  prezzo_acquisto: string
   descrizione: string
   immagine_url: string | null
   // solo per upload temporaneo
@@ -29,6 +30,7 @@ interface ProdottoInput {
 interface AccessorioInput {
   nome: string
   prezzo: string
+  prezzo_acquisto: string
 }
 
 interface Props {
@@ -86,6 +88,7 @@ function initProdotti(listino?: ListinoLiberoCompleto): ProdottoInput[] {
   return (listino?.prodotti ?? []).map((p) => ({
     nome: p.nome,
     prezzo: p.prezzo.toString(),
+    prezzo_acquisto: (p.prezzo_acquisto ?? 0).toString(),
     descrizione: p.descrizione ?? '',
     immagine_url: p.immagine_url ?? null,
   }))
@@ -95,6 +98,7 @@ function initAccessori(listino?: ListinoLiberoCompleto): AccessorioInput[] {
   return (listino?.accessori ?? []).map((a) => ({
     nome: a.nome,
     prezzo: a.prezzo.toString(),
+    prezzo_acquisto: (a.prezzo_acquisto ?? 0).toString(),
   }))
 }
 
@@ -122,7 +126,7 @@ export default function DialogListinoLibero({
 
   // ---- Prodotti ----
   const addProdotto = () =>
-    setProdotti((prev) => [...prev, { nome: '', prezzo: '0', descrizione: '', immagine_url: null }])
+    setProdotti((prev) => [...prev, { nome: '', prezzo: '0', prezzo_acquisto: '0', descrizione: '', immagine_url: null }])
 
   const removeProdotto = (i: number) =>
     setProdotti((prev) => prev.filter((_, idx) => idx !== i))
@@ -154,12 +158,12 @@ export default function DialogListinoLibero({
 
   // ---- Accessori ----
   const addAccessorio = () =>
-    setAccessori((prev) => [...prev, { nome: '', prezzo: '0' }])
+    setAccessori((prev) => [...prev, { nome: '', prezzo: '0', prezzo_acquisto: '0' }])
 
   const removeAccessorio = (i: number) =>
     setAccessori((prev) => prev.filter((_, idx) => idx !== i))
 
-  const updateAccessorio = (i: number, field: 'nome' | 'prezzo', value: string) =>
+  const updateAccessorio = (i: number, field: 'nome' | 'prezzo' | 'prezzo_acquisto', value: string) =>
     setAccessori((prev) =>
       prev.map((a, idx) => (idx === i ? { ...a, [field]: value } : a))
     )
@@ -208,6 +212,7 @@ export default function DialogListinoLibero({
           return {
             nome: p.nome.trim(),
             prezzo: parseFloat(p.prezzo) || 0,
+            prezzo_acquisto: parseFloat(p.prezzo_acquisto) || 0,
             descrizione: p.descrizione.trim() || null,
             immagine_url: imageUrl,
           }
@@ -217,6 +222,7 @@ export default function DialogListinoLibero({
       const accessoriDati = accessori.map((a) => ({
         nome: a.nome.trim(),
         prezzo: parseFloat(a.prezzo) || 0,
+        prezzo_acquisto: parseFloat(a.prezzo_acquisto) || 0,
       }))
 
       if (listino) {
@@ -321,7 +327,7 @@ export default function DialogListinoLibero({
                     </div>
 
                     {/* Campi prodotto */}
-                    <div className="flex-1 grid grid-cols-3 gap-2">
+                    <div className="flex-1 grid grid-cols-4 gap-2">
                       <div className="col-span-2 space-y-1">
                         <Label className="text-xs">Nome</Label>
                         <Input
@@ -332,7 +338,7 @@ export default function DialogListinoLibero({
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Prezzo (€)</Label>
+                        <Label className="text-xs">P. Vendita (€)</Label>
                         <Input
                           type="number"
                           min={0}
@@ -342,7 +348,18 @@ export default function DialogListinoLibero({
                           className="h-8 text-sm text-right"
                         />
                       </div>
-                      <div className="col-span-3 space-y-1">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-amber-700">P. Acquisto (€)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={p.prezzo_acquisto}
+                          onChange={(e) => updateProdotto(i, 'prezzo_acquisto', e.target.value)}
+                          className="h-8 text-sm text-right border-amber-200 focus:border-amber-400"
+                        />
+                      </div>
+                      <div className="col-span-4 space-y-1">
                         <Label className="text-xs">Descrizione (opzionale)</Label>
                         <Input
                           value={p.descrizione}
@@ -402,8 +419,21 @@ export default function DialogListinoLibero({
                       value={a.prezzo}
                       onChange={(e) => updateAccessorio(i, 'prezzo', e.target.value)}
                       className="h-8 text-sm text-right"
+                      title="Prezzo vendita (€)"
                     />
                     <span className="text-xs text-gray-400 shrink-0">€</span>
+                  </div>
+                  <div className="flex items-center gap-1 w-28">
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={a.prezzo_acquisto}
+                      onChange={(e) => updateAccessorio(i, 'prezzo_acquisto', e.target.value)}
+                      className="h-8 text-sm text-right border-amber-200 focus:border-amber-400"
+                      title="Prezzo acquisto (€)"
+                    />
+                    <span className="text-xs text-amber-600 shrink-0">acq</span>
                   </div>
                   <Button
                     type="button"

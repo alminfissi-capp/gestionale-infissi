@@ -379,12 +379,14 @@ export type ListinoLiberoInput = {
   prodotti: {
     nome: string
     prezzo: number
+    prezzo_acquisto: number
     descrizione?: string | null
     immagine_url?: string | null
   }[]
   accessori: {
     nome: string
     prezzo: number
+    prezzo_acquisto: number
   }[]
 }
 
@@ -414,6 +416,7 @@ export async function createListinoLibero(data: ListinoLiberoInput): Promise<{ i
           listino_libero_id: result.id,
           nome: p.nome,
           prezzo: p.prezzo,
+          prezzo_acquisto: p.prezzo_acquisto,
           descrizione: p.descrizione ?? null,
           immagine_url: p.immagine_url ?? null,
           ordine: i,
@@ -431,6 +434,7 @@ export async function createListinoLibero(data: ListinoLiberoInput): Promise<{ i
           listino_libero_id: result.id,
           nome: a.nome,
           prezzo: a.prezzo,
+          prezzo_acquisto: a.prezzo_acquisto,
           ordine: i,
         }))
       )
@@ -468,6 +472,7 @@ export async function updateListinoLibero(
           listino_libero_id: id,
           nome: p.nome,
           prezzo: p.prezzo,
+          prezzo_acquisto: p.prezzo_acquisto,
           descrizione: p.descrizione ?? null,
           immagine_url: p.immagine_url ?? null,
           ordine: i,
@@ -485,6 +490,7 @@ export async function updateListinoLibero(
           listino_libero_id: id,
           nome: a.nome,
           prezzo: a.prezzo,
+          prezzo_acquisto: a.prezzo_acquisto,
           ordine: i,
         }))
       )
@@ -543,11 +549,12 @@ export async function duplicaListinoLibero(id: string): Promise<{ id: string }> 
     const { error: pErr } = await supabase
       .from('prodotti_listino')
       .insert(
-        ll.prodotti_listino.map((p: { nome: string; prezzo: number; descrizione: string | null; immagine_url: string | null; ordine: number }) => ({
+        ll.prodotti_listino.map((p: { nome: string; prezzo: number; prezzo_acquisto: number; descrizione: string | null; immagine_url: string | null; ordine: number }) => ({
           organization_id: orgId,
           listino_libero_id: newLl.id,
           nome: p.nome,
           prezzo: p.prezzo,
+          prezzo_acquisto: p.prezzo_acquisto ?? 0,
           descrizione: p.descrizione,
           immagine_url: p.immagine_url,
           ordine: p.ordine,
@@ -560,11 +567,12 @@ export async function duplicaListinoLibero(id: string): Promise<{ id: string }> 
     const { error: aErr } = await supabase
       .from('accessori_listino')
       .insert(
-        ll.accessori_listino.map((a: { nome: string; prezzo: number; ordine: number }) => ({
+        ll.accessori_listino.map((a: { nome: string; prezzo: number; prezzo_acquisto: number; ordine: number }) => ({
           organization_id: orgId,
           listino_libero_id: newLl.id,
           nome: a.nome,
           prezzo: a.prezzo,
+          prezzo_acquisto: a.prezzo_acquisto ?? 0,
           ordine: a.ordine,
         }))
       )
@@ -625,11 +633,12 @@ export async function duplicaCategoriaLibera(id: string): Promise<{ id: string }
       const { error: pErr } = await supabase
         .from('prodotti_listino')
         .insert(
-          ll.prodotti_listino.map((p: { nome: string; prezzo: number; descrizione: string | null; immagine_url: string | null; ordine: number }) => ({
+          ll.prodotti_listino.map((p: { nome: string; prezzo: number; prezzo_acquisto: number; descrizione: string | null; immagine_url: string | null; ordine: number }) => ({
             organization_id: orgId,
             listino_libero_id: newLl.id,
             nome: p.nome,
             prezzo: p.prezzo,
+            prezzo_acquisto: p.prezzo_acquisto ?? 0,
             descrizione: p.descrizione,
             immagine_url: p.immagine_url,
             ordine: p.ordine,

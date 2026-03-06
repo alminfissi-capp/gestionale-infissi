@@ -8,6 +8,7 @@ import {
   calcolaTotalePreventivo,
   calcolaTotalePezzi,
   calcolaRiepilogoIva,
+  calcolaCostoAcquistoUnitario,
 } from '@/lib/pricing'
 import type {
   Preventivo,
@@ -36,9 +37,10 @@ type RegolaCategoria = {
   unitario: number
   minimo: number
   minPezzi: number
+  scontoFornitore: number
 }
 
-/** Recupera le regole di trasporto per un set di listino_id */
+/** Recupera le regole di trasporto (e sconto fornitore) per un set di listino_id (griglia) */
 async function getRegoleTrasporto(
   listinoIds: string[]
 ): Promise<Map<string, RegolaCategoria>> {
@@ -47,7 +49,7 @@ async function getRegoleTrasporto(
   const supabase = await createClient()
   const { data } = await supabase
     .from('listini')
-    .select('id, categoria_id, categorie_listini!inner(trasporto_costo_unitario, trasporto_costo_minimo, trasporto_minimo_pezzi)')
+    .select('id, categoria_id, categorie_listini!inner(trasporto_costo_unitario, trasporto_costo_minimo, trasporto_minimo_pezzi, sconto_fornitore)')
     .in('id', listinoIds)
 
   const result = new Map<string, RegolaCategoria>()
@@ -56,28 +58,42 @@ async function getRegoleTrasporto(
       trasporto_costo_unitario: number
       trasporto_costo_minimo: number
       trasporto_minimo_pezzi: number
+      sconto_fornitore: number
     }
     result.set(l.id, {
       categoriaId: l.categoria_id,
       unitario: cat.trasporto_costo_unitario,
       minimo: cat.trasporto_costo_minimo,
       minPezzi: cat.trasporto_minimo_pezzi,
+      scontoFornitore: cat.sconto_fornitore ?? 0,
     })
+  }
+  return result
+}
+
+/** Recupera prezzo_acquisto per un set di prodotto_id (listino libero) */
+async function getPrezzoAcquistoProdotti(
+  prodottoIds: string[]
+): Promise<Map<string, number>> {
+  if (prodottoIds.length === 0) return new Map()
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('prodotti_listino')
+    .select('id, prezzo_acquisto')
+    .in('id', prodottoIds)
+  const result = new Map<string, number>()
+  for (const p of data ?? []) {
+    result.set(p.id, p.prezzo_acquisto ?? 0)
   }
   return result
 }
 
 /** Calcola spese trasporto totali raggruppando per categoria */
 async function calcolaSpeseTrasportoInput(
-  articoli: PreventivoInput['articoli']
+  articoli: PreventivoInput['articoli'],
+  regole: Map<string, RegolaCategoria>
 ): Promise<number> {
-  const listinoIds = [...new Set(
-    articoli.map((a) => a.listino_id).filter((id): id is string => !!id)
-  )]
-
-  const regole = await getRegoleTrasporto(listinoIds)
-
-  // Raggruppa pezzi per categoria
+  // Raggruppa pezzi per categoria (solo articoli griglia)
   const pezziPerCat = new Map<string, { pezzi: number; regola: RegolaCategoria }>()
   for (const articolo of articoli) {
     if (!articolo.listino_id) continue
@@ -96,6 +112,45 @@ async function calcolaSpeseTrasportoInput(
     totale += calcolaSpeseTrasportoPezzi(pezzi, regola.unitario, regola.minimo, regola.minPezzi)
   }
   return totale
+}
+
+/** Calcola costo_acquisto_unitario per ogni articolo e totale_costi_acquisto */
+async function calcolaCostiAcquistoInput(
+  articoli: PreventivoInput['articoli'],
+  regole: Map<string, RegolaCategoria>
+): Promise<{ articoliConCosto: (PreventivoInput['articoli'][number] & { costo_acquisto_unitario: number })[]; totaleCostiAcquisto: number }> {
+  const prodottoIds = [...new Set(
+    articoli.map((a) => a.prodotto_id).filter((id): id is string => !!id)
+  )]
+  const prezziAcquistoProdotti = await getPrezzoAcquistoProdotti(prodottoIds)
+
+  // Valida che tutti i prodotto_id esistano ancora in DB (il listino potrebbe essere stato aggiornato)
+  for (const a of articoli) {
+    if (a.tipo === 'listino_libero' && a.prodotto_id && !prezziAcquistoProdotti.has(a.prodotto_id)) {
+      throw new Error(
+        'Uno o più prodotti del catalogo sono stati aggiornati nel listino. Torna alla lista preventivi, riapri questo preventivo in modifica e riseleziona gli articoli interessati.'
+      )
+    }
+  }
+
+  let totaleCostiAcquisto = 0
+  const articoliConCosto = articoli.map((a) => {
+    let costoUnitario = 0
+    if (a.tipo === 'listino' && a.listino_id && a.prezzo_base != null) {
+      const regola = regole.get(a.listino_id)
+      costoUnitario = calcolaCostoAcquistoUnitario(a.prezzo_base, regola?.scontoFornitore ?? 0)
+    } else if (a.tipo === 'listino_libero' && a.prodotto_id) {
+      const costoProdotto = prezziAcquistoProdotti.get(a.prodotto_id) ?? 0
+      const costoAccessori = (a.accessori_selezionati ?? []).reduce(
+        (sum, acc) => sum + (acc.prezzo_acquisto ?? 0) * acc.qty, 0
+      )
+      costoUnitario = costoProdotto + costoAccessori
+    }
+    totaleCostiAcquisto += costoUnitario * a.quantita
+    return { ...a, costo_acquisto_unitario: costoUnitario }
+  })
+
+  return { articoliConCosto, totaleCostiAcquisto }
 }
 
 export async function getPreventivi(): Promise<Preventivo[]> {
@@ -144,10 +199,14 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
   const supabase = await createClient()
   const orgId = await getOrgId()
 
-  // Ricalcola tutti i totali server-side con trasporto per-categoria
+  // Fetch regole una sola volta (trasporto + sconto fornitore)
+  const listinoIds = [...new Set(input.articoli.map((a) => a.listino_id).filter((id): id is string => !!id))]
+  const regole = await getRegoleTrasporto(listinoIds)
+
   const totalePezzi = calcolaTotalePezzi(input.articoli)
   const subtotale = calcolaSubtotale(input.articoli)
-  const speseTrasporto = await calcolaSpeseTrasportoInput(input.articoli)
+  const speseTrasporto = await calcolaSpeseTrasportoInput(input.articoli, regole)
+  const { articoliConCosto, totaleCostiAcquisto } = await calcolaCostiAcquistoInput(input.articoli, regole)
   const riepilogoIva = calcolaRiepilogoIva(input.articoli, input.scontoGlobale)
   const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
   const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
@@ -170,6 +229,8 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
       importo_sconto: importoSconto,
       totale_articoli: totaleArticoli,
       spese_trasporto: speseTrasporto,
+      modalita_trasporto: input.modalitaTrasporto,
+      totale_costi_acquisto: totaleCostiAcquisto,
       iva_totale: ivaTotale,
       riepilogo_iva: riepilogoIva,
       totale_finale: totaleFinale,
@@ -180,9 +241,9 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
 
   if (prevErr) throw new Error(prevErr.message)
 
-  if (input.articoli.length > 0) {
+  if (articoliConCosto.length > 0) {
     const { error: artErr } = await supabase.from('articoli_preventivo').insert(
-      input.articoli.map((a, i) => ({
+      articoliConCosto.map((a, i) => ({
         ...a,
         preventivo_id: prev.id,
         organization_id: orgId,
@@ -207,9 +268,13 @@ export async function updatePreventivo(
   const supabase = await createClient()
   const orgId = await getOrgId()
 
+  const listinoIds = [...new Set(input.articoli.map((a) => a.listino_id).filter((id): id is string => !!id))]
+  const regole = await getRegoleTrasporto(listinoIds)
+
   const totalePezzi = calcolaTotalePezzi(input.articoli)
   const subtotale = calcolaSubtotale(input.articoli)
-  const speseTrasporto = await calcolaSpeseTrasportoInput(input.articoli)
+  const speseTrasporto = await calcolaSpeseTrasportoInput(input.articoli, regole)
+  const { articoliConCosto, totaleCostiAcquisto } = await calcolaCostiAcquistoInput(input.articoli, regole)
   const riepilogoIva = calcolaRiepilogoIva(input.articoli, input.scontoGlobale)
   const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
   const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
@@ -231,6 +296,8 @@ export async function updatePreventivo(
       importo_sconto: importoSconto,
       totale_articoli: totaleArticoli,
       spese_trasporto: speseTrasporto,
+      modalita_trasporto: input.modalitaTrasporto,
+      totale_costi_acquisto: totaleCostiAcquisto,
       iva_totale: ivaTotale,
       riepilogo_iva: riepilogoIva,
       totale_finale: totaleFinale,
@@ -244,9 +311,9 @@ export async function updatePreventivo(
   // Sostituisce tutti gli articoli
   await supabase.from('articoli_preventivo').delete().eq('preventivo_id', id)
 
-  if (input.articoli.length > 0) {
+  if (articoliConCosto.length > 0) {
     const { error: artErr } = await supabase.from('articoli_preventivo').insert(
-      input.articoli.map((a, i) => ({
+      articoliConCosto.map((a, i) => ({
         ...a,
         preventivo_id: id,
         organization_id: orgId,
