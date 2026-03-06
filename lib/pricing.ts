@@ -149,10 +149,10 @@ export function calcolaPrezzoUnitarioLibero(
   return prezzoProdotto + accessori.reduce((sum, a) => sum + a.prezzo * a.qty, 0)
 }
 
-/** Formatta un numero come euro (es. 1.234,56) */
+/** Formatta un numero come euro italiano (es. 1.234,56) — non dipende dalla locale di sistema */
 export function formatEuro(value: number): string {
-  return value.toLocaleString('it-IT', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
+  const fixed = Math.abs(value).toFixed(2)
+  const [intPart, decPart] = fixed.split('.')
+  const intFormatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  return `${value < 0 ? '-' : ''}${intFormatted},${decPart}`
 }

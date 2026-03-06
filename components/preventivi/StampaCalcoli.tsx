@@ -214,13 +214,17 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
       </div>
 
       {/* ── Riepilogo economico ── */}
-      <div className="px-8 print:px-0 py-4 border-t-2 border-gray-400">
-        <div className="ml-auto max-w-xs space-y-1.5 text-[11px]">
+      <div className="px-8 print:px-0 py-4">
+        <div
+          className="ml-auto max-w-sm rounded-lg space-y-1.5 text-[11px] p-4"
+          style={{ background: '#fffbeb', border: '1px solid #fcd34d' }}
+        >
+          <p className="text-[9px] font-bold uppercase tracking-widest text-amber-700 mb-2">Riepilogo costi — uso interno</p>
           <div className="flex justify-between text-gray-600">
             <span>Ricavo netto (IVA esclusa)</span>
             <span className="tabular-nums">€ {formatEuro(p.totale_articoli)}</span>
           </div>
-          <div className="border-t border-gray-200 pt-1.5 space-y-1">
+          <div className="border-t border-amber-200 pt-1.5 space-y-1">
             <div className="flex justify-between text-gray-700">
               <span>— Costi acquisto fornitore</span>
               <span className="tabular-nums">€ {formatEuro(p.totale_costi_acquisto)}</span>
@@ -236,12 +240,12 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
               <span className="tabular-nums">€ {formatEuro(p.spese_trasporto)}</span>
             </div>
           </div>
-          <div className={`flex justify-between font-bold text-[13px] border-t border-gray-400 pt-2 mt-2 ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+          <div className={`flex justify-between font-bold text-[13px] border-t border-amber-300 pt-2 mt-1 ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
             <span>UTILE LORDO</span>
             <span className="tabular-nums">€ {formatEuro(utile)}</span>
           </div>
           {p.iva_totale > 0 && (
-            <div className="flex justify-between text-gray-500 text-[10px]">
+            <div className="flex justify-between text-gray-500 text-[10px] pt-1">
               <span>IVA totale (non è ricavo)</span>
               <span className="tabular-nums">€ {formatEuro(p.iva_totale)}</span>
             </div>
