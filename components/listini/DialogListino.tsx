@@ -151,8 +151,14 @@ export default function DialogListino({
       }
       onSuccess()
       onOpenChange(false)
-    } catch {
-      toast.error('Errore nel salvataggio del listino')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : ''
+      if (msg.includes('unique') || msg.includes('duplicate')) {
+        toast.error('Esiste già un listino con questo nome nella categoria')
+      } else {
+        toast.error('Errore nel salvataggio del listino')
+        console.error(err)
+      }
     } finally {
       setSaving(false)
     }

@@ -6,13 +6,14 @@ import { toast } from 'sonner'
 import {
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Plus,
   Pencil,
   Trash2,
   Table2,
   Copy,
 } from 'lucide-react'
-import { deleteCategoria, deleteListino, duplicaListino, duplicaCategoria } from '@/actions/listini'
+import { deleteCategoria, deleteListino, duplicaListino, duplicaCategoria, updateOrdiniListini } from '@/actions/listini'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -51,6 +52,7 @@ export default function CategoriaCard({ categoria }: Props) {
 
   const [deleting, setDeleting] = useState(false)
   const [copying, setCopying] = useState(false)
+  const [reordering, setReordering] = useState(false)
 
   const toggleListino = (id: string) => {
     setExpandedListini((prev) => {
@@ -112,6 +114,24 @@ export default function CategoriaCard({ categoria }: Props) {
       toast.error('Errore nella duplicazione')
     } finally {
       setCopying(false)
+    }
+  }
+
+  const handleSposta = async (index: number, direction: 'up' | 'down') => {
+    const listini = categoria.listini
+    const swapIndex = direction === 'up' ? index - 1 : index + 1
+    if (swapIndex < 0 || swapIndex >= listini.length) return
+    setReordering(true)
+    try {
+      await updateOrdiniListini([
+        { id: listini[index].id, ordine: listini[swapIndex].ordine },
+        { id: listini[swapIndex].id, ordine: listini[index].ordine },
+      ])
+      router.refresh()
+    } catch {
+      toast.error('Errore nel riordinamento')
+    } finally {
+      setReordering(false)
     }
   }
 
@@ -179,7 +199,7 @@ export default function CategoriaCard({ categoria }: Props) {
             </p>
           )}
 
-          {categoria.listini.map((listino) => {
+          {categoria.listini.map((listino, idx) => {
             const isExpanded = expandedListini.has(listino.id)
             return (
               <div key={listino.id} className="bg-gray-50/50">
@@ -213,6 +233,28 @@ export default function CategoriaCard({ categoria }: Props) {
                   </button>
 
                   <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex flex-col">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-4 w-7"
+                        title="Sposta su"
+                        disabled={reordering || idx === 0}
+                        onClick={() => handleSposta(idx, 'up')}
+                      >
+                        <ChevronUp className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-4 w-7"
+                        title="Sposta giù"
+                        disabled={reordering || idx === categoria.listini.length - 1}
+                        onClick={() => handleSposta(idx, 'down')}
+                      >
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
+                    </div>
                     <Button
                       variant="ghost"
                       size="icon"

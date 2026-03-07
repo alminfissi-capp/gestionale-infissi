@@ -165,9 +165,14 @@ export async function createListino(data: {
   const orgId = await getOrgId()
   const { finiture, ...listinoData } = data
 
+  const { count } = await supabase
+    .from('listini')
+    .select('id', { count: 'exact', head: true })
+    .eq('categoria_id', data.categoria_id)
+
   const { data: result, error } = await supabase
     .from('listini')
-    .insert({ ...listinoData, organization_id: orgId })
+    .insert({ ...listinoData, organization_id: orgId, ordine: count ?? 0 })
     .select('id')
     .single()
 
@@ -215,6 +220,14 @@ export async function updateListino(
     if (fErr) throw new Error(fErr.message)
   }
 
+  revalidatePath('/listini')
+}
+
+export async function updateOrdiniListini(updates: { id: string; ordine: number }[]): Promise<void> {
+  const supabase = await createClient()
+  await Promise.all(
+    updates.map(({ id, ordine }) => supabase.from('listini').update({ ordine }).eq('id', id))
+  )
   revalidatePath('/listini')
 }
 

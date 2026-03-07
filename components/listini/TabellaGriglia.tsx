@@ -1,11 +1,8 @@
+import { formatEuro } from '@/lib/pricing'
 import type { GrigliaData } from '@/types/listino'
 
 interface Props {
   data: GrigliaData
-}
-
-function formatEuro(n: number) {
-  return n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 export default function TabellaGriglia({ data }: Props) {
