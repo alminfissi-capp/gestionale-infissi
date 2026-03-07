@@ -14,6 +14,7 @@ import {
   Copy,
   Download,
   FolderDown,
+  FolderInput,
 } from 'lucide-react'
 import {
   DndContext,
@@ -47,6 +48,7 @@ import {
 import TabellaGriglia from './TabellaGriglia'
 import DialogCategoria from './DialogCategoria'
 import DialogListino from './DialogListino'
+import DialogImportaMultiplo from './DialogImportaMultiplo'
 import IconaCategoria from './IconaCategoria'
 import type { CategoriaConListini, ListinoCompleto } from '@/types/listino'
 
@@ -195,6 +197,7 @@ export default function CategoriaCard({ categoria }: Props) {
   const [deleteCatId, setDeleteCatId] = useState<string | null>(null)
 
   const [newListinoOpen, setNewListinoOpen] = useState(false)
+  const [importMultiploOpen, setImportMultiploOpen] = useState(false)
   const [editingListino, setEditingListino] = useState<ListinoCompleto | null>(null)
   const [deletingListinoId, setDeletingListinoId] = useState<string | null>(null)
 
@@ -365,6 +368,16 @@ export default function CategoriaCard({ categoria }: Props) {
           <Button
             size="sm"
             variant="outline"
+            title="Importa più listini da file"
+            className="ml-1"
+            onClick={() => setImportMultiploOpen(true)}
+          >
+            <FolderInput className="h-4 w-4 mr-1" />
+            Importa
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
             className="ml-1"
             onClick={() => setNewListinoOpen(true)}
           >
@@ -402,6 +415,14 @@ export default function CategoriaCard({ categoria }: Props) {
           </DndContext>
         </div>
       )}
+
+      {/* Dialog importa multiplo */}
+      <DialogImportaMultiplo
+        open={importMultiploOpen}
+        onOpenChange={setImportMultiploOpen}
+        categoriaId={categoria.id}
+        onSuccess={refresh}
+      />
 
       {/* Dialog edit categoria */}
       <DialogCategoria
