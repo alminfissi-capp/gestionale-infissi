@@ -223,6 +223,14 @@ export async function updateListino(
   revalidatePath('/listini')
 }
 
+export async function updateOrdiniCategorie(updates: { id: string; ordine: number }[]): Promise<void> {
+  const supabase = await createClient()
+  await Promise.all(
+    updates.map(({ id, ordine }) => supabase.from('categorie_listini').update({ ordine }).eq('id', id))
+  )
+  revalidatePath('/listini')
+}
+
 export async function updateOrdiniListini(updates: { id: string; ordine: number }[]): Promise<void> {
   const supabase = await createClient()
   await Promise.all(

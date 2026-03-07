@@ -2,19 +2,71 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus } from 'lucide-react'
-import { getCategorie } from '@/actions/listini'
+import { Plus, GripVertical } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { getCategorie, updateOrdiniCategorie } from '@/actions/listini'
 import { Button } from '@/components/ui/button'
 import CategoriaCard from '@/components/listini/CategoriaCard'
 import CategoriaCardLibera from '@/components/listini/CategoriaCardLibera'
 import DialogCategoria from '@/components/listini/DialogCategoria'
+import { toast } from 'sonner'
 import type { CategoriaConListini } from '@/types/listino'
+
+function SortableCategoriaWrapper({ categoria, onSuccess }: { categoria: CategoriaConListini; onSuccess: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: categoria.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 10 : undefined,
+    position: isDragging ? ('relative' as const) : undefined,
+  }
+
+  const dragHandle = (
+    <button
+      {...attributes}
+      {...listeners}
+      className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 shrink-0 touch-none"
+      tabIndex={-1}
+    >
+      <GripVertical className="h-4 w-4" />
+    </button>
+  )
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      {categoria.tipo === 'libero' ? (
+        <CategoriaCardLibera categoria={categoria} dragHandle={dragHandle} />
+      ) : (
+        <CategoriaCard categoria={categoria} dragHandle={dragHandle} />
+      )}
+    </div>
+  )
+}
 
 export default function ListiniPage() {
   const router = useRouter()
   const [categorie, setCategorie] = useState<CategoriaConListini[]>([])
   const [loading, setLoading] = useState(true)
   const [newCatOpen, setNewCatOpen] = useState(false)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  )
 
   const load = async () => {
     setLoading(true)
@@ -27,6 +79,24 @@ export default function ListiniPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const oldIndex = categorie.findIndex((c) => c.id === active.id)
+    const newIndex = categorie.findIndex((c) => c.id === over.id)
+    const reordered = arrayMove(categorie, oldIndex, newIndex)
+
+    setCategorie(reordered)
+    try {
+      await updateOrdiniCategorie(reordered.map((c, i) => ({ id: c.id, ordine: i })))
+      router.refresh()
+    } catch {
+      setCategorie(categorie)
+      toast.error('Errore nel riordinamento')
+    }
+  }
 
   const totaleListini = categorie.reduce(
     (sum, c) => sum + c.listini.length + c.listini_liberi.length,
@@ -67,16 +137,16 @@ export default function ListiniPage() {
         </div>
       )}
 
-      {!loading && (
-        <div className="space-y-4">
-          {categorie.map((cat) =>
-            cat.tipo === 'libero' ? (
-              <CategoriaCardLibera key={cat.id} categoria={cat} />
-            ) : (
-              <CategoriaCard key={cat.id} categoria={cat} />
-            )
-          )}
-        </div>
+      {!loading && categorie.length > 0 && (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={categorie.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-4">
+              {categorie.map((cat) => (
+                <SortableCategoriaWrapper key={cat.id} categoria={cat} onSuccess={load} />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       <DialogCategoria

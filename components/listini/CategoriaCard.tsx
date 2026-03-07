@@ -183,9 +183,10 @@ function SortableListinoRow({ listino, isExpanded, copying, onToggle, onEdit, on
 
 interface Props {
   categoria: CategoriaConListini
+  dragHandle?: React.ReactNode
 }
 
-export default function CategoriaCard({ categoria }: Props) {
+export default function CategoriaCard({ categoria, dragHandle }: Props) {
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const [expandedListini, setExpandedListini] = useState<Set<string>>(new Set())
@@ -319,6 +320,7 @@ export default function CategoriaCard({ categoria }: Props) {
     <div className="rounded-lg border bg-white shadow-sm">
       {/* Header categoria */}
       <div className="flex items-center gap-3 p-4">
+        {dragHandle}
         <button
           onClick={() => setExpanded(!expanded)}
           className="flex items-center gap-2 flex-1 text-left"
