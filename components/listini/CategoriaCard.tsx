@@ -1,18 +1,33 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   ChevronDown,
   ChevronRight,
-  ChevronUp,
+  GripVertical,
   Plus,
   Pencil,
   Trash2,
   Table2,
   Copy,
 } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { deleteCategoria, deleteListino, duplicaListino, duplicaCategoria, updateOrdiniListini } from '@/actions/listini'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -32,6 +47,125 @@ import DialogListino from './DialogListino'
 import IconaCategoria from './IconaCategoria'
 import type { CategoriaConListini, ListinoCompleto } from '@/types/listino'
 
+// ---- Riga sortable ----
+
+interface RowProps {
+  listino: ListinoCompleto
+  isExpanded: boolean
+  copying: boolean
+  onToggle: (id: string) => void
+  onEdit: (l: ListinoCompleto) => void
+  onDelete: (id: string) => void
+  onDuplica: (id: string) => void
+}
+
+function SortableListinoRow({ listino, isExpanded, copying, onToggle, onEdit, onDelete, onDuplica }: RowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: listino.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 10 : undefined,
+    position: isDragging ? ('relative' as const) : undefined,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} className="bg-gray-50/50">
+      <div className="flex items-center gap-3 px-4 py-3">
+        {/* Drag handle */}
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 shrink-0 touch-none"
+          tabIndex={-1}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+
+        {/* Expand button */}
+        <button
+          onClick={() => onToggle(listino.id)}
+          className="flex items-center gap-2 flex-1 text-left"
+        >
+          {isExpanded ? (
+            <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+          )}
+          {listino.immagine_url ? (
+            <img
+              src={listino.immagine_url}
+              alt={listino.tipologia}
+              className="h-8 w-8 rounded object-contain shrink-0 border border-gray-200 bg-white"
+            />
+          ) : (
+            <Table2 className="h-4 w-4 text-gray-400 shrink-0" />
+          )}
+          <span className="font-medium text-gray-800 text-sm">{listino.tipologia}</span>
+          <span className="text-xs text-gray-400 ml-1">
+            {listino.altezze.length}H × {listino.larghezze.length}L
+            {listino.finiture.length > 0 && ` · ${listino.finiture.length} finiture`}
+          </span>
+        </button>
+
+        {/* Actions */}
+        <div className="flex items-center gap-1 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            title="Duplica listino"
+            disabled={copying}
+            onClick={() => onDuplica(listino.id)}
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => onEdit(listino)}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-red-400 hover:text-red-600"
+            onClick={() => onDelete(listino.id)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Griglia espansa */}
+      {isExpanded && (
+        <div className="px-6 pb-4">
+          <TabellaGriglia
+            data={{
+              larghezze: listino.larghezze,
+              altezze: listino.altezze,
+              griglia: listino.griglia,
+            }}
+          />
+          {listino.finiture.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {listino.finiture.map((f) => (
+                <Badge key={f.id} variant="outline" className="text-xs">
+                  {f.nome} +{f.aumento}%
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---- Componente principale ----
+
 interface Props {
   categoria: CategoriaConListini
 }
@@ -40,6 +174,10 @@ export default function CategoriaCard({ categoria }: Props) {
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const [expandedListini, setExpandedListini] = useState<Set<string>>(new Set())
+
+  // Stato locale per aggiornamento ottimistico dell'ordine
+  const [localListini, setLocalListini] = useState(categoria.listini)
+  useEffect(() => { setLocalListini(categoria.listini) }, [categoria.listini])
 
   // Dialogs categorie
   const [editCatOpen, setEditCatOpen] = useState(false)
@@ -52,7 +190,10 @@ export default function CategoriaCard({ categoria }: Props) {
 
   const [deleting, setDeleting] = useState(false)
   const [copying, setCopying] = useState(false)
-  const [reordering, setReordering] = useState(false)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  )
 
   const toggleListino = (id: string) => {
     setExpandedListini((prev) => {
@@ -60,6 +201,24 @@ export default function CategoriaCard({ categoria }: Props) {
       next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
+  }
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const oldIndex = localListini.findIndex((l) => l.id === active.id)
+    const newIndex = localListini.findIndex((l) => l.id === over.id)
+    const reordered = arrayMove(localListini, oldIndex, newIndex)
+
+    setLocalListini(reordered) // ottimistico
+    try {
+      await updateOrdiniListini(reordered.map((l, i) => ({ id: l.id, ordine: i })))
+      router.refresh()
+    } catch {
+      setLocalListini(categoria.listini) // ripristino
+      toast.error('Errore nel riordinamento')
+    }
   }
 
   const handleDeleteCategoria = async () => {
@@ -117,24 +276,6 @@ export default function CategoriaCard({ categoria }: Props) {
     }
   }
 
-  const handleSposta = async (index: number, direction: 'up' | 'down') => {
-    const listini = categoria.listini
-    const swapIndex = direction === 'up' ? index - 1 : index + 1
-    if (swapIndex < 0 || swapIndex >= listini.length) return
-    setReordering(true)
-    try {
-      await updateOrdiniListini([
-        { id: listini[index].id, ordine: listini[swapIndex].ordine },
-        { id: listini[swapIndex].id, ordine: listini[index].ordine },
-      ])
-      router.refresh()
-    } catch {
-      toast.error('Errore nel riordinamento')
-    } finally {
-      setReordering(false)
-    }
-  }
-
   const refresh = () => router.refresh()
 
   return (
@@ -153,7 +294,7 @@ export default function CategoriaCard({ categoria }: Props) {
           <IconaCategoria icona={categoria.icona} size="md" />
           <span className="font-semibold text-gray-900">{categoria.nome}</span>
           <Badge variant="secondary" className="ml-1 text-xs">
-            {categoria.listini.length} listini
+            {localListini.length} listini
           </Badge>
         </button>
 
@@ -193,121 +334,28 @@ export default function CategoriaCard({ categoria }: Props) {
       {/* Listini */}
       {expanded && (
         <div className="border-t divide-y">
-          {categoria.listini.length === 0 && (
+          {localListini.length === 0 && (
             <p className="px-6 py-4 text-sm text-gray-400 italic">
               Nessun listino in questa categoria.
             </p>
           )}
 
-          {categoria.listini.map((listino, idx) => {
-            const isExpanded = expandedListini.has(listino.id)
-            return (
-              <div key={listino.id} className="bg-gray-50/50">
-                {/* Row listino */}
-                <div className="flex items-center gap-3 px-6 py-3">
-                  <button
-                    onClick={() => toggleListino(listino.id)}
-                    className="flex items-center gap-2 flex-1 text-left"
-                  >
-                    {isExpanded ? (
-                      <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                    ) : (
-                      <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                    )}
-                    {listino.immagine_url ? (
-                      <img
-                        src={listino.immagine_url}
-                        alt={listino.tipologia}
-                        className="h-8 w-8 rounded object-contain shrink-0 border border-gray-200 bg-white"
-                      />
-                    ) : (
-                      <Table2 className="h-4 w-4 text-gray-400 shrink-0" />
-                    )}
-                    <span className="font-medium text-gray-800 text-sm">
-                      {listino.tipologia}
-                    </span>
-                    <span className="text-xs text-gray-400 ml-1">
-                      {listino.altezze.length}H × {listino.larghezze.length}L
-                      {listino.finiture.length > 0 && ` · ${listino.finiture.length} finiture`}
-                    </span>
-                  </button>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    <div className="flex flex-col">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-4 w-7"
-                        title="Sposta su"
-                        disabled={reordering || idx === 0}
-                        onClick={() => handleSposta(idx, 'up')}
-                      >
-                        <ChevronUp className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-4 w-7"
-                        title="Sposta giù"
-                        disabled={reordering || idx === categoria.listini.length - 1}
-                        onClick={() => handleSposta(idx, 'down')}
-                      >
-                        <ChevronDown className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      title="Duplica listino"
-                      disabled={copying}
-                      onClick={() => handleDuplicaListino(listino.id)}
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setEditingListino(listino)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-red-400 hover:text-red-600"
-                      onClick={() => setDeletingListinoId(listino.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Griglia espansa */}
-                {isExpanded && (
-                  <div className="px-6 pb-4">
-                    <TabellaGriglia
-                      data={{
-                        larghezze: listino.larghezze,
-                        altezze: listino.altezze,
-                        griglia: listino.griglia,
-                      }}
-                    />
-                    {listino.finiture.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {listino.finiture.map((f) => (
-                          <Badge key={f.id} variant="outline" className="text-xs">
-                            {f.nome} +{f.aumento}%
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={localListini.map((l) => l.id)} strategy={verticalListSortingStrategy}>
+              {localListini.map((listino) => (
+                <SortableListinoRow
+                  key={listino.id}
+                  listino={listino}
+                  isExpanded={expandedListini.has(listino.id)}
+                  copying={copying}
+                  onToggle={toggleListino}
+                  onEdit={setEditingListino}
+                  onDelete={setDeletingListinoId}
+                  onDuplica={handleDuplicaListino}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
         </div>
       )}
 
@@ -345,7 +393,7 @@ export default function CategoriaCard({ categoria }: Props) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminare la categoria "{categoria.nome}"?</AlertDialogTitle>
+            <AlertDialogTitle>Eliminare la categoria &quot;{categoria.nome}&quot;?</AlertDialogTitle>
             <AlertDialogDescription>
               Verranno eliminati anche tutti i listini e le finiture contenuti in questa
               categoria. L&apos;operazione è irreversibile.
