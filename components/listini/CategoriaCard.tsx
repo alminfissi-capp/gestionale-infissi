@@ -12,6 +12,8 @@ import {
   Trash2,
   Table2,
   Copy,
+  Download,
+  FolderDown,
 } from 'lucide-react'
 import {
   DndContext,
@@ -29,6 +31,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { deleteCategoria, deleteListino, duplicaListino, duplicaCategoria, updateOrdiniListini } from '@/actions/listini'
+import { grigliaToCsv, downloadCsv, downloadZipCsv } from '@/lib/exportListino'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -57,9 +60,10 @@ interface RowProps {
   onEdit: (l: ListinoCompleto) => void
   onDelete: (id: string) => void
   onDuplica: (id: string) => void
+  onExportCsv: (l: ListinoCompleto) => void
 }
 
-function SortableListinoRow({ listino, isExpanded, copying, onToggle, onEdit, onDelete, onDuplica }: RowProps) {
+function SortableListinoRow({ listino, isExpanded, copying, onToggle, onEdit, onDelete, onDuplica, onExportCsv }: RowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: listino.id })
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -110,6 +114,15 @@ function SortableListinoRow({ listino, isExpanded, copying, onToggle, onEdit, on
 
         {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            title="Esporta CSV"
+            onClick={() => onExportCsv(listino)}
+          >
+            <Download className="h-3.5 w-3.5" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -175,15 +188,12 @@ export default function CategoriaCard({ categoria }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [expandedListini, setExpandedListini] = useState<Set<string>>(new Set())
 
-  // Stato locale per aggiornamento ottimistico dell'ordine
   const [localListini, setLocalListini] = useState(categoria.listini)
   useEffect(() => { setLocalListini(categoria.listini) }, [categoria.listini])
 
-  // Dialogs categorie
   const [editCatOpen, setEditCatOpen] = useState(false)
   const [deleteCatId, setDeleteCatId] = useState<string | null>(null)
 
-  // Dialogs listini
   const [newListinoOpen, setNewListinoOpen] = useState(false)
   const [editingListino, setEditingListino] = useState<ListinoCompleto | null>(null)
   const [deletingListinoId, setDeletingListinoId] = useState<string | null>(null)
@@ -211,12 +221,12 @@ export default function CategoriaCard({ categoria }: Props) {
     const newIndex = localListini.findIndex((l) => l.id === over.id)
     const reordered = arrayMove(localListini, oldIndex, newIndex)
 
-    setLocalListini(reordered) // ottimistico
+    setLocalListini(reordered)
     try {
       await updateOrdiniListini(reordered.map((l, i) => ({ id: l.id, ordine: i })))
       router.refresh()
     } catch {
-      setLocalListini(categoria.listini) // ripristino
+      setLocalListini(categoria.listini)
       toast.error('Errore nel riordinamento')
     }
   }
@@ -276,6 +286,30 @@ export default function CategoriaCard({ categoria }: Props) {
     }
   }
 
+  const handleExportCsv = (listino: ListinoCompleto) => {
+    const csv = grigliaToCsv({
+      larghezze: listino.larghezze,
+      altezze: listino.altezze,
+      griglia: listino.griglia,
+    })
+    downloadCsv(csv, listino.tipologia)
+  }
+
+  const handleExportAllCsv = async () => {
+    if (localListini.length === 0) return
+    if (localListini.length === 1) {
+      handleExportCsv(localListini[0])
+      return
+    }
+    await downloadZipCsv(
+      localListini.map((l) => ({
+        tipologia: l.tipologia,
+        griglia: { larghezze: l.larghezze, altezze: l.altezze, griglia: l.griglia },
+      })),
+      categoria.nome
+    )
+  }
+
   const refresh = () => router.refresh()
 
   return (
@@ -299,6 +333,15 @@ export default function CategoriaCard({ categoria }: Props) {
         </button>
 
         <div className="flex items-center gap-1 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Esporta tutti i listini CSV"
+            disabled={localListini.length === 0}
+            onClick={handleExportAllCsv}
+          >
+            <FolderDown className="h-4 w-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -352,6 +395,7 @@ export default function CategoriaCard({ categoria }: Props) {
                   onEdit={setEditingListino}
                   onDelete={setDeletingListinoId}
                   onDuplica={handleDuplicaListino}
+                  onExportCsv={handleExportCsv}
                 />
               ))}
             </SortableContext>

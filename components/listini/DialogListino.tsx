@@ -3,9 +3,10 @@
 import { useState, useRef } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
-import { ImagePlus, X } from 'lucide-react'
+import { ImagePlus, X, Download } from 'lucide-react'
 import { createListino, updateListino, getCurrentOrgId } from '@/actions/listini'
 import { createClient } from '@/lib/supabase/client'
+import { grigliaToCsv, downloadCsv } from '@/lib/exportListino'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -116,6 +117,11 @@ export default function DialogListino({
     }
   }
 
+  const handleExportCsv = () => {
+    const csv = grigliaToCsv(grigliaData)
+    downloadCsv(csv, `${tipologia.trim() || 'listino'}.csv`)
+  }
+
   const handleSave = async () => {
     if (!tipologia.trim()) {
       toast.error('Inserisci il nome del prodotto / tipologia')
@@ -126,7 +132,6 @@ export default function DialogListino({
       return
     }
 
-    // Valida finiture
     const finitureInvalide = finiture.filter((f) => !f.nome.trim())
     if (finitureInvalide.length > 0) {
       toast.error('Alcune finiture hanno il nome vuoto')
@@ -168,12 +173,12 @@ export default function DialogListino({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-5xl w-[95vw] h-[92vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
           <DialogTitle>{listino ? 'Modifica listino' : 'Nuovo listino'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5">
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
           {/* Tipologia */}
           <div className="space-y-1.5">
             <Label htmlFor="tipologia">Nome prodotto / Tipologia</Label>
@@ -189,7 +194,7 @@ export default function DialogListino({
 
           {/* Import griglia */}
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-3">Griglia prezzi</p>
+            <p className="text-sm font-medium text-gray-700 mb-3">Importa griglia prezzi</p>
             <Tabs defaultValue="csv">
               <TabsList className="mb-3">
                 <TabsTrigger value="csv">CSV</TabsTrigger>
@@ -208,13 +213,20 @@ export default function DialogListino({
             </Tabs>
           </div>
 
-          {/* Preview griglia */}
+          {/* Griglia editabile */}
           {hasGriglia && (
             <div>
-              <p className="text-xs text-gray-500 mb-2">
-                Anteprima: {grigliaData.altezze.length} altezze × {grigliaData.larghezze.length} larghezze
-              </p>
-              <TabellaGriglia data={grigliaData} />
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-500">
+                  {grigliaData.altezze.length} altezze × {grigliaData.larghezze.length} larghezze
+                  <span className="ml-2 text-gray-400">— clicca su una cella per modificare il prezzo</span>
+                </p>
+                <Button variant="ghost" size="sm" onClick={handleExportCsv}>
+                  <Download className="h-3.5 w-3.5 mr-1" />
+                  Esporta CSV
+                </Button>
+              </div>
+              <TabellaGriglia data={grigliaData} editable onChange={setGrigliaData} />
             </div>
           )}
 
@@ -280,7 +292,7 @@ export default function DialogListino({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-4">
+        <div className="px-6 py-4 border-t shrink-0 flex justify-end gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Annulla
           </Button>
