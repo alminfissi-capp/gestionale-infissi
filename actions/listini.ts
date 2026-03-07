@@ -82,9 +82,14 @@ export async function createCategoria(
   const orgId = await getOrgId()
   const { finiture_categoria, ...categoriaData } = data
 
+  const { count: catCount } = await supabase
+    .from('categorie_listini')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', orgId)
+
   const { data: result, error } = await supabase
     .from('categorie_listini')
-    .insert({ ...categoriaData, tipo: categoriaData.tipo ?? 'griglia', organization_id: orgId })
+    .insert({ ...categoriaData, tipo: categoriaData.tipo ?? 'griglia', organization_id: orgId, ordine: catCount ?? 0 })
     .select('id')
     .single()
 
@@ -415,13 +420,18 @@ export async function createListinoLibero(data: ListinoLiberoInput): Promise<{ i
   const supabase = await createClient()
   const orgId = await getOrgId()
 
+  const { count: llCount } = await supabase
+    .from('listini_liberi')
+    .select('id', { count: 'exact', head: true })
+    .eq('categoria_id', data.categoria_id)
+
   const { data: result, error } = await supabase
     .from('listini_liberi')
     .insert({
       organization_id: orgId,
       categoria_id: data.categoria_id,
       tipologia: data.tipologia,
-      ordine: 0,
+      ordine: llCount ?? 0,
     })
     .select('id')
     .single()
