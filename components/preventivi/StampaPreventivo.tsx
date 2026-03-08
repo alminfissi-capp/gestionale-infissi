@@ -201,6 +201,14 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
                       {a.finitura_nome && (
                         <p className="text-gray-400 text-[9px]">Finitura: {a.finitura_nome}</p>
                       )}
+                      {(a.accessori_griglia?.length || a.accessori_selezionati?.length) ? (
+                        <p className="text-gray-500 text-[9px] mt-0.5">
+                          {[
+                            ...(a.accessori_griglia ?? []).map((acc) => acc.nome),
+                            ...(a.accessori_selezionati ?? []).map((acc) => acc.qty > 1 ? `${acc.nome} ×${acc.qty}` : acc.nome),
+                          ].join(' · ')}
+                        </p>
+                      ) : null}
                       {a.misura_arrotondata && a.larghezza_listino_mm != null && (
                         <p className="text-amber-600 text-[9px]">
                           misura arrotondata a {a.larghezza_listino_mm}×{a.altezza_listino_mm}

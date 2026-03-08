@@ -223,6 +223,23 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                             arrotondata
                           </Badge>
                         )}
+                        {(a.accessori_griglia?.length || a.accessori_selezionati?.length) ? (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {(a.accessori_griglia ?? []).map((acc) => (
+                              <span key={acc.id} className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 rounded px-1.5 py-0.5 leading-none">
+                                {acc.nome}
+                              </span>
+                            ))}
+                            {(a.accessori_selezionati ?? []).map((acc) => (
+                              <span key={acc.id} className="text-[10px] bg-teal-50 text-teal-700 border border-teal-200 rounded px-1.5 py-0.5 leading-none">
+                                {acc.nome}{acc.qty > 1 ? ` ×${acc.qty}` : ''}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                        {a.note && (
+                          <p className="text-xs text-gray-400 italic mt-0.5">{a.note}</p>
+                        )}
                       </div>
                     </div>
                   </TableCell>
