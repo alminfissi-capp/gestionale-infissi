@@ -49,6 +49,8 @@ export type ItemSel =
 interface Props {
   item: ItemSel | null
   aliquote: number[]
+  initialValues?: ArticoloWizard
+  isEditing?: boolean
   onAdd: (a: ArticoloWizard) => void
   onClose: () => void
 }
@@ -66,22 +68,35 @@ function FormGriglia({
   listino,
   categoria,
   aliquote,
+  initialValues,
+  isEditing,
   onAdd,
 }: {
   listino: ListinoCompleto
   categoria: CategoriaConListini
   aliquote: number[]
+  initialValues?: ArticoloWizard
+  isEditing?: boolean
   onAdd: (a: ArticoloWizard) => void
 }) {
-  const [finituraIndex, setFinituraIndex] = useState('-1')
-  const [larghezza, setLarghezza] = useState('')
-  const [altezza, setAltezza] = useState('')
-  const [quantita, setQuantita] = useState('1')
-  const [scontoArticolo, setScontoArticolo] = useState(0)
-  const [aliquotaIva, setAliquotaIva] = useState<number | null>(null)
-  const [note, setNote] = useState('')
-  const [costoPosa, setCostoPosa] = useState('')
-  const [accessoriSelezionati, setAccessoriSelezionati] = useState<AccessorioGrigliaSelezionato[]>([])
+  const [finituraIndex, setFinituraIndex] = useState(() => {
+    if (!initialValues?.finitura_nome) return '-1'
+    const catFin = (categoria.finiture_categoria ?? []).map((f) => f.nome)
+    const listinoFin = (listino.finiture ?? []).map((f) => f.nome)
+    const allNames = [...catFin, ...listinoFin]
+    const idx = allNames.findIndex((n) => n === initialValues.finitura_nome)
+    return idx >= 0 ? idx.toString() : '-1'
+  })
+  const [larghezza, setLarghezza] = useState(initialValues?.larghezza_mm?.toString() ?? '')
+  const [altezza, setAltezza] = useState(initialValues?.altezza_mm?.toString() ?? '')
+  const [quantita, setQuantita] = useState(initialValues?.quantita?.toString() ?? '1')
+  const [scontoArticolo, setScontoArticolo] = useState(initialValues?.sconto_articolo ?? 0)
+  const [aliquotaIva, setAliquotaIva] = useState<number | null>(initialValues?.aliquota_iva ?? null)
+  const [note, setNote] = useState(initialValues?.note ?? '')
+  const [costoPosa, setCostoPosa] = useState(initialValues?.costo_posa?.toString() ?? '')
+  const [accessoriSelezionati, setAccessoriSelezionati] = useState<AccessorioGrigliaSelezionato[]>(
+    initialValues?.accessori_griglia ?? []
+  )
 
   const gruppiAccessori = useMemo(() => {
     if (!listino.accessori_griglia?.length) return []
@@ -180,7 +195,7 @@ function FormGriglia({
     const L = parseInt(larghezza)
     const H = parseInt(altezza)
     onAdd({
-      tempId: crypto.randomUUID(),
+      tempId: isEditing && initialValues ? initialValues.tempId : crypto.randomUUID(),
       tipo: 'listino',
       listino_id: listino.id,
       listino_libero_id: null,
@@ -484,7 +499,7 @@ function FormGriglia({
 
       <Button onClick={handleAdd} disabled={!canAdd} className="w-full" size="lg">
         <Plus className="h-4 w-4 mr-1" />
-        Aggiungi al preventivo
+        {isEditing ? 'Aggiorna articolo' : 'Aggiungi al preventivo'}
       </Button>
     </div>
   )
@@ -497,20 +512,27 @@ function FormLibero({
   listinoLibero,
   categoria,
   aliquote,
+  initialValues,
+  isEditing,
   onAdd,
 }: {
   prodotto: ProdottoListino
   listinoLibero: ListinoLiberoCompleto
   categoria: CategoriaConListini
   aliquote: number[]
+  initialValues?: ArticoloWizard
+  isEditing?: boolean
   onAdd: (a: ArticoloWizard) => void
 }) {
-  const [accessoriQty, setAccessoriQty] = useState<Record<string, number>>({})
-  const [quantita, setQuantita] = useState('1')
-  const [scontoArticolo, setScontoArticolo] = useState(0)
-  const [aliquotaIva, setAliquotaIva] = useState<number | null>(null)
-  const [note, setNote] = useState('')
-  const [costoPosa, setCostoPosa] = useState('')
+  const [accessoriQty, setAccessoriQty] = useState<Record<string, number>>(() => {
+    if (!initialValues?.accessori_selezionati) return {}
+    return Object.fromEntries(initialValues.accessori_selezionati.map((a) => [a.id, a.qty]))
+  })
+  const [quantita, setQuantita] = useState(initialValues?.quantita?.toString() ?? '1')
+  const [scontoArticolo, setScontoArticolo] = useState(initialValues?.sconto_articolo ?? 0)
+  const [aliquotaIva, setAliquotaIva] = useState<number | null>(initialValues?.aliquota_iva ?? null)
+  const [note, setNote] = useState(initialValues?.note ?? '')
+  const [costoPosa, setCostoPosa] = useState(initialValues?.costo_posa?.toString() ?? '')
 
   const scontoMax = categoria.sconto_massimo ?? 50
 
@@ -554,7 +576,7 @@ function FormLibero({
     if (!canAdd) return
     const qty = Math.max(1, parseInt(quantita) || 1)
     onAdd({
-      tempId: crypto.randomUUID(),
+      tempId: isEditing && initialValues ? initialValues.tempId : crypto.randomUUID(),
       tipo: 'listino_libero',
       listino_id: null,
       listino_libero_id: listinoLibero.id,
@@ -770,7 +792,7 @@ function FormLibero({
         size="lg"
       >
         <Plus className="h-4 w-4 mr-1" />
-        Aggiungi al preventivo
+        {isEditing ? 'Aggiorna articolo' : 'Aggiungi al preventivo'}
       </Button>
     </div>
   )
@@ -778,7 +800,7 @@ function FormLibero({
 
 // ─── Dialog wrapper ───────────────────────────────────────────────────────────
 
-export default function DialogConfigurazione({ item, aliquote, onAdd, onClose }: Props) {
+export default function DialogConfigurazione({ item, aliquote, initialValues, isEditing, onAdd, onClose }: Props) {
   const title =
     item?.tipo === 'griglia'
       ? item.listino.tipologia
@@ -790,26 +812,30 @@ export default function DialogConfigurazione({ item, aliquote, onAdd, onClose }:
     <Dialog open={!!item} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>{isEditing ? `Modifica: ${title}` : title}</DialogTitle>
         </DialogHeader>
 
         {item?.tipo === 'griglia' && (
           <FormGriglia
-            key={item.listino.id}
+            key={`${item.listino.id}-${initialValues?.tempId ?? 'new'}`}
             listino={item.listino}
             categoria={item.categoria}
             aliquote={aliquote}
+            initialValues={initialValues}
+            isEditing={isEditing}
             onAdd={onAdd}
           />
         )}
 
         {item?.tipo === 'libero' && (
           <FormLibero
-            key={item.prodotto.id}
+            key={`${item.prodotto.id}-${initialValues?.tempId ?? 'new'}`}
             prodotto={item.prodotto}
             listinoLibero={item.listinoLibero}
             categoria={item.categoria}
             aliquote={aliquote}
+            initialValues={initialValues}
+            isEditing={isEditing}
             onAdd={onAdd}
           />
         )}

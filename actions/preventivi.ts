@@ -223,7 +223,9 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
       .eq('organization_id', orgId)
 
     const s = input.clienteSnapshot
-    const nomeCliente = [s.cognome, s.nome].filter(Boolean).join(' ') || s.email || s.telefono || ''
+    const nomeCliente = s.tipo === 'azienda'
+      ? s.ragione_sociale || s.email || s.telefono || ''
+      : [s.nome, s.cognome].filter(Boolean).join(' ') || s.email || s.telefono || ''
 
     numeroFinale = generaNumeroPreventivo(
       settingsRow.num_prefisso,

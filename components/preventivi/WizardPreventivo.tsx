@@ -33,11 +33,20 @@ import type {
 const STEPS = ['Cliente', 'Articoli', 'Riepilogo']
 
 const SNAPSHOT_VUOTO: ClienteSnapshot = {
+  tipo: 'privato',
+  ragione_sociale: null,
   nome: null,
   cognome: null,
   telefono: null,
   email: null,
   indirizzo: null,
+  via: null,
+  civico: null,
+  cap: null,
+  citta: null,
+  provincia: null,
+  nazione: null,
+  codice_sdi: null,
   cantiere: null,
   cf_piva: null,
 }

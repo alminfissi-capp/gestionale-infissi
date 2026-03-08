@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, FileText, Table2, Package, Trash2, Plus, Search, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileText, Table2, Package, Trash2, Pencil, Plus, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import FormVoceLibera from './FormVoceLibera'
@@ -32,6 +32,7 @@ export default function ArticoliEditor({
   const [categoriaSel, setCategoriaSel] = useState<string | 'libera'>(listini[0]?.id ?? 'libera')
   const [itemConfig, setItemConfig] = useState<ItemSel | null>(null)
   const [ricerca, setRicerca] = useState('')
+  const [editingTempId, setEditingTempId] = useState<string | null>(null)
 
   const categoria = listini.find((c) => c.id === categoriaSel)
 
@@ -40,12 +41,43 @@ export default function ArticoliEditor({
     setRicerca('')
   }
 
-  const handleAdd = (a: ArticoloWizard) => {
-    onArticoliChange([...articoli, a])
+  const findItemSel = (article: ArticoloWizard): ItemSel | null => {
+    if (article.tipo === 'listino') {
+      for (const cat of listini) {
+        const listino = cat.listini.find((l) => l.id === article.listino_id)
+        if (listino) return { tipo: 'griglia', listino, categoria: cat }
+      }
+    } else if (article.tipo === 'listino_libero') {
+      for (const cat of listini) {
+        const ll = cat.listini_liberi.find((l) => l.id === article.listino_libero_id)
+        if (ll) {
+          const prodotto = ll.prodotti.find((p) => p.id === article.prodotto_id)
+          if (prodotto) return { tipo: 'libero', prodotto, listinoLibero: ll, categoria: cat }
+        }
+      }
+    }
+    return null
+  }
+
+  const handleEdit = (article: ArticoloWizard) => {
+    const item = findItemSel(article)
+    if (!item) return
+    setEditingTempId(article.tempId)
+    setItemConfig(item)
+  }
+
+  const handleAddOrEdit = (a: ArticoloWizard) => {
+    if (editingTempId) {
+      onArticoliChange(articoli.map((art) => art.tempId === editingTempId ? a : art))
+      setEditingTempId(null)
+    } else {
+      onArticoliChange([...articoli, a])
+    }
     setItemConfig(null)
   }
 
   const handleRemove = (tempId: string) => {
+    if (editingTempId === tempId) setEditingTempId(null)
     onArticoliChange(articoli.filter((a) => a.tempId !== tempId))
   }
 
@@ -154,7 +186,7 @@ export default function ArticoliEditor({
           <div className="flex-1 overflow-y-auto">
             {categoriaSel === 'libera' ? (
               <div className="p-4 max-w-xl">
-                <FormVoceLibera aliquote={aliquote} onAdd={handleAdd} />
+                <FormVoceLibera aliquote={aliquote} onAdd={handleAddOrEdit} />
               </div>
             ) : !categoria ? null : categoria.tipo === 'griglia' ? (
               <GrigliaList
@@ -190,7 +222,12 @@ export default function ArticoliEditor({
             <>
               <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
                 {articoli.map((a) => (
-                  <ArticoloCard key={a.tempId} articolo={a} onRemove={() => handleRemove(a.tempId)} />
+                  <ArticoloCard
+                    key={a.tempId}
+                    articolo={a}
+                    onRemove={() => handleRemove(a.tempId)}
+                    onEdit={a.tipo !== 'libera' ? () => handleEdit(a) : undefined}
+                  />
                 ))}
               </div>
 
@@ -222,8 +259,10 @@ export default function ArticoliEditor({
       <DialogConfigurazione
         item={itemConfig}
         aliquote={aliquote}
-        onAdd={handleAdd}
-        onClose={() => setItemConfig(null)}
+        initialValues={editingTempId ? articoli.find((a) => a.tempId === editingTempId) : undefined}
+        isEditing={!!editingTempId}
+        onAdd={handleAddOrEdit}
+        onClose={() => { setItemConfig(null); setEditingTempId(null) }}
       />
     </div>
   )
@@ -405,9 +444,11 @@ function LiberoList({
 function ArticoloCard({
   articolo,
   onRemove,
+  onEdit,
 }: {
   articolo: ArticoloWizard
   onRemove: () => void
+  onEdit?: () => void
 }) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-2 flex items-start gap-2">
@@ -445,13 +486,23 @@ function ArticoloCard({
         </div>
       </div>
 
-      {/* Elimina */}
-      <button
-        onClick={onRemove}
-        className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
+      {/* Azioni */}
+      <div className="flex flex-col gap-0.5 shrink-0">
+        <button
+          onClick={onRemove}
+          className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+        {onEdit && (
+          <button
+            onClick={onEdit}
+            className="p-1 rounded text-gray-300 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
     </div>
   )
 }

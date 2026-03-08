@@ -50,7 +50,7 @@ export default function TabellaClienti({ clienti }: Props) {
     const q = search.toLowerCase().trim()
     if (!q) return clienti
     return clienti.filter((c) =>
-      [c.nome, c.cognome, c.telefono, c.email, c.cf_piva].some((f) =>
+      [c.ragione_sociale, c.nome, c.cognome, c.telefono, c.email, c.cf_piva].some((f) =>
         f?.toLowerCase().includes(q)
       )
     )
@@ -86,8 +86,10 @@ export default function TabellaClienti({ clienti }: Props) {
     }
   }
 
-  const nomeCompleto = (c: Cliente) =>
-    [c.nome, c.cognome].filter(Boolean).join(' ') || '—'
+  const nomeCompleto = (c: Cliente) => {
+    if (c.tipo === 'azienda') return c.ragione_sociale || '—'
+    return [c.nome, c.cognome].filter(Boolean).join(' ') || '—'
+  }
 
   return (
     <div className="space-y-4">
@@ -166,7 +168,7 @@ export default function TabellaClienti({ clienti }: Props) {
 
       {/* Dialog create / edit */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingCliente ? 'Modifica cliente' : 'Nuovo cliente'}

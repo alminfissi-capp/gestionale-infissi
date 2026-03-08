@@ -52,7 +52,9 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
 
   const cfg = STATO_CONFIG[p.stato]
   const s = p.cliente_snapshot
-  const nomeCliente = [s.cognome, s.nome].filter(Boolean).join(' ') || s.telefono || s.email || '—'
+  const nomeCliente = s.tipo === 'azienda'
+    ? s.ragione_sociale || s.telefono || s.email || '—'
+    : [s.nome, s.cognome].filter(Boolean).join(' ') || s.telefono || s.email || '—'
 
   const handleDelete = () => {
     startTransition(async () => {
@@ -148,10 +150,27 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
               <span>{s.email}</span>
             </div>
           )}
-          {s.indirizzo && (
+          {(s.via || s.indirizzo) && (
             <div className="col-span-2">
               <span className="text-gray-500">Indirizzo: </span>
-              <span>{s.indirizzo}</span>
+              <span>
+                {s.via
+                  ? [s.via + (s.civico ? ` ${s.civico}` : ''), s.cap, s.citta, s.provincia].filter(Boolean).join(', ')
+                  : s.indirizzo
+                }
+              </span>
+            </div>
+          )}
+          {s.nazione && (
+            <div className="col-span-2">
+              <span className="text-gray-500">Nazione: </span>
+              <span>{s.nazione}</span>
+            </div>
+          )}
+          {s.codice_sdi && (
+            <div>
+              <span className="text-gray-500">SDI: </span>
+              <span className="font-mono">{s.codice_sdi}</span>
             </div>
           )}
           {s.cantiere && (

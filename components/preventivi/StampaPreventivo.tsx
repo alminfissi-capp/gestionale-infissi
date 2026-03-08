@@ -15,7 +15,9 @@ interface Props {
 
 export default function StampaPreventivo({ preventivo: p, settings, logoUrl }: Props) {
   const s = p.cliente_snapshot
-  const nomeCliente = [s.cognome, s.nome].filter(Boolean).join(' ') || s.email || s.telefono || '—'
+  const nomeCliente = s.tipo === 'azienda'
+    ? s.ragione_sociale || s.email || s.telefono || '—'
+    : [s.nome, s.cognome].filter(Boolean).join(' ') || s.email || s.telefono || '—'
   const dataFormattata = new Date(p.created_at).toLocaleDateString('it-IT', {
     day: '2-digit',
     month: '2-digit',
@@ -131,7 +133,16 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
         {/* Colonna cliente */}
         <div className="text-right min-w-[180px]">
           <p className="font-semibold text-sm">{nomeCliente}</p>
-          {s.indirizzo && <p className="text-gray-600">{s.indirizzo}</p>}
+          {(s.via || s.indirizzo) && (
+            <p className="text-gray-600">
+              {s.via
+                ? [s.via + (s.civico ? ` ${s.civico}` : ''), s.cap, s.citta, s.provincia].filter(Boolean).join(', ')
+                : s.indirizzo
+              }
+            </p>
+          )}
+          {s.nazione && <p className="text-gray-600">{s.nazione}</p>}
+          {s.codice_sdi && <p className="text-gray-600">SDI: {s.codice_sdi}</p>}
           {s.cf_piva && <p className="text-gray-600">CF/P.IVA: {s.cf_piva}</p>}
           {s.telefono && <p className="text-gray-600">Tel. {s.telefono}</p>}
           {s.email && <p className="text-gray-600">{s.email}</p>}

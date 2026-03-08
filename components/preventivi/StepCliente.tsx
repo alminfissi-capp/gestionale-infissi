@@ -40,11 +40,20 @@ export default function StepCliente({
     if (!cliente) return
     onClienteIdChange(id)
     onSnapshotChange({
+      tipo: cliente.tipo,
+      ragione_sociale: cliente.ragione_sociale,
       nome: cliente.nome,
       cognome: cliente.cognome,
       telefono: cliente.telefono,
       email: cliente.email,
       indirizzo: cliente.indirizzo,
+      via: cliente.via,
+      civico: cliente.civico,
+      cap: cliente.cap,
+      citta: cliente.citta,
+      provincia: cliente.provincia,
+      nazione: cliente.nazione,
+      codice_sdi: cliente.codice_sdi,
       cantiere: cliente.cantiere,
       cf_piva: cliente.cf_piva,
     })
@@ -54,8 +63,16 @@ export default function StepCliente({
     onSnapshotChange({ ...clienteSnapshot, [field]: value || null })
   }
 
-  const nomeCompleto = (c: Cliente) =>
-    [c.cognome, c.nome].filter(Boolean).join(' ') || c.telefono || c.email || '—'
+  const setTipo = (t: 'privato' | 'azienda') => {
+    onSnapshotChange({ ...clienteSnapshot, tipo: t })
+  }
+
+  const nomeCompleto = (c: Cliente) => {
+    if (c.tipo === 'azienda') return c.ragione_sociale || c.email || c.telefono || '—'
+    return [c.nome, c.cognome].filter(Boolean).join(' ') || c.telefono || c.email || '—'
+  }
+
+  const tipo = clienteSnapshot.tipo ?? 'privato'
 
   return (
     <div className="space-y-5">
@@ -85,22 +102,52 @@ export default function StepCliente({
         )}
       </div>
 
+      {/* Tipo cliente */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setTipo('privato')}
+          className={`flex-1 py-2 px-3 rounded-md border text-sm font-medium transition-colors ${tipo === 'privato' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+        >
+          Privato
+        </button>
+        <button
+          type="button"
+          onClick={() => setTipo('azienda')}
+          className={`flex-1 py-2 px-3 rounded-md border text-sm font-medium transition-colors ${tipo === 'azienda' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+        >
+          Azienda
+        </button>
+      </div>
+
       {/* Dati cliente */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label>Nome</Label>
-          <Input
-            value={clienteSnapshot.nome ?? ''}
-            onChange={(e) => setField('nome', e.target.value)}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Cognome</Label>
-          <Input
-            value={clienteSnapshot.cognome ?? ''}
-            onChange={(e) => setField('cognome', e.target.value)}
-          />
-        </div>
+        {tipo === 'azienda' ? (
+          <div className="col-span-2 space-y-1.5">
+            <Label>Ragione sociale</Label>
+            <Input
+              value={clienteSnapshot.ragione_sociale ?? ''}
+              onChange={(e) => setField('ragione_sociale', e.target.value)}
+            />
+          </div>
+        ) : (
+          <>
+            <div className="space-y-1.5">
+              <Label>Nome</Label>
+              <Input
+                value={clienteSnapshot.nome ?? ''}
+                onChange={(e) => setField('nome', e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Cognome</Label>
+              <Input
+                value={clienteSnapshot.cognome ?? ''}
+                onChange={(e) => setField('cognome', e.target.value)}
+              />
+            </div>
+          </>
+        )}
         <div className="space-y-1.5">
           <Label>Telefono</Label>
           <Input
@@ -116,13 +163,69 @@ export default function StepCliente({
             onChange={(e) => setField('email', e.target.value)}
           />
         </div>
-        <div className="col-span-2 space-y-1.5">
-          <Label>Indirizzo</Label>
+
+        {/* Indirizzo strutturato */}
+        <div className="col-span-2 flex gap-2">
+          <div className="flex-1 space-y-1.5">
+            <Label>Via / Piazza</Label>
+            <Input
+              value={clienteSnapshot.via ?? ''}
+              onChange={(e) => setField('via', e.target.value)}
+              placeholder="Via Roma"
+            />
+          </div>
+          <div className="w-24 space-y-1.5">
+            <Label>N. civico</Label>
+            <Input
+              value={clienteSnapshot.civico ?? ''}
+              onChange={(e) => setField('civico', e.target.value)}
+              placeholder="10"
+            />
+          </div>
+        </div>
+        <div className="col-span-2 flex gap-2">
+          <div className="w-28 space-y-1.5">
+            <Label>CAP</Label>
+            <Input
+              value={clienteSnapshot.cap ?? ''}
+              onChange={(e) => setField('cap', e.target.value)}
+              placeholder="00100"
+            />
+          </div>
+          <div className="flex-1 space-y-1.5">
+            <Label>Città</Label>
+            <Input
+              value={clienteSnapshot.citta ?? ''}
+              onChange={(e) => setField('citta', e.target.value)}
+              placeholder="Milano"
+            />
+          </div>
+          <div className="w-20 space-y-1.5">
+            <Label>Prov.</Label>
+            <Input
+              value={clienteSnapshot.provincia ?? ''}
+              onChange={(e) => setField('provincia', e.target.value)}
+              placeholder="MI"
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Nazione</Label>
           <Input
-            value={clienteSnapshot.indirizzo ?? ''}
-            onChange={(e) => setField('indirizzo', e.target.value)}
+            value={clienteSnapshot.nazione ?? ''}
+            onChange={(e) => setField('nazione', e.target.value)}
+            placeholder="Italia"
           />
         </div>
+        <div className="space-y-1.5">
+          <Label>Codice SDI / PEC</Label>
+          <Input
+            value={clienteSnapshot.codice_sdi ?? ''}
+            onChange={(e) => setField('codice_sdi', e.target.value)}
+            placeholder="es. XXXXXXX"
+          />
+        </div>
+
         <div className="space-y-1.5">
           <Label>Cantiere / Località</Label>
           <Input
