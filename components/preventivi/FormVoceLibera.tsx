@@ -108,6 +108,7 @@ export default function FormVoceLibera({ aliquote, onAdd }: Props) {
         listino_libero_id: null,
         prodotto_id: null,
         accessori_selezionati: null,
+        accessori_griglia: null,
         tipologia: descrizione.trim(),
         categoria_nome: null,
         larghezza_mm: null,

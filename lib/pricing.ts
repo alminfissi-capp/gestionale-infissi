@@ -149,6 +149,31 @@ export function calcolaPrezzoUnitarioLibero(
   return prezzoProdotto + accessori.reduce((sum, a) => sum + a.prezzo * a.qty, 0)
 }
 
+/**
+ * Calcola il costo di un accessorio griglia in base al tipo di prezzo:
+ * - pezzo: prezzo fisso per pezzo
+ * - mq: prezzo × mq effettivi (con eventuale minimo)
+ * - percentuale: percentuale del prezzo base
+ */
+export function calcolaAccessorioGriglia(
+  accessorio: { tipo_prezzo: 'pezzo' | 'mq' | 'percentuale'; prezzo: number; mq_minimo: number | null },
+  larghezza: number,
+  altezza: number,
+  prezzoBase: number
+): number {
+  switch (accessorio.tipo_prezzo) {
+    case 'pezzo':
+      return accessorio.prezzo
+    case 'mq': {
+      const mq = (larghezza * altezza) / 1_000_000
+      const mqEffettivo = accessorio.mq_minimo ? Math.max(mq, accessorio.mq_minimo) : mq
+      return accessorio.prezzo * mqEffettivo
+    }
+    case 'percentuale':
+      return prezzoBase * (accessorio.prezzo / 100)
+  }
+}
+
 /** Formatta un numero come euro italiano (es. 1.234,56) — non dipende dalla locale di sistema */
 export function formatEuro(value: number): string {
   const fixed = Math.abs(value).toFixed(2)

@@ -4,6 +4,16 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { CategoriaConListini, FinituraCategoria, TipoCategoria } from '@/types/listino'
 
+export type AccessorioGrigliaInput = {
+  gruppo: string
+  gruppo_tipo: 'multiplo' | 'unico'
+  nome: string
+  tipo_prezzo: 'pezzo' | 'mq' | 'percentuale'
+  prezzo: number
+  prezzo_acquisto: number
+  mq_minimo: number | null
+}
+
 async function getOrgId(): Promise<string> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -30,7 +40,7 @@ export async function getCategorie(): Promise<CategoriaConListini[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('categorie_listini')
-    .select('*, finiture_categoria(*), listini(*, finiture(*)), listini_liberi(*, prodotti_listino(*), accessori_listino(*))')
+    .select('*, finiture_categoria(*), listini(*, finiture(*), accessori_griglia(*)), listini_liberi(*, prodotti_listino(*), accessori_listino(*))')
     .order('ordine')
 
   if (error) throw new Error(error.message)
@@ -43,9 +53,12 @@ export async function getCategorie(): Promise<CategoriaConListini[]> {
     ),
     listini: (cat.listini ?? [])
       .sort((a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine)
-      .map((l: { finiture: { ordine: number }[] }) => ({
+      .map((l: { finiture: { ordine: number }[]; accessori_griglia: { ordine: number }[] }) => ({
         ...l,
         finiture: (l.finiture ?? []).sort(
+          (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
+        ),
+        accessori_griglia: (l.accessori_griglia ?? []).sort(
           (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
         ),
       })),
@@ -164,11 +177,12 @@ export async function createListino(data: {
   altezze: number[]
   griglia: Record<string, Record<string, number>>
   finiture: { nome: string; aumento: number; aumento_euro: number }[]
+  accessori?: AccessorioGrigliaInput[]
   immagine_url?: string | null
 }): Promise<{ id: string }> {
   const supabase = await createClient()
   const orgId = await getOrgId()
-  const { finiture, ...listinoData } = data
+  const { finiture, accessori, ...listinoData } = data
 
   const { count } = await supabase
     .from('listini')
@@ -190,6 +204,13 @@ export async function createListino(data: {
     if (fErr) throw new Error(fErr.message)
   }
 
+  if (accessori && accessori.length > 0) {
+    const { error: aErr } = await supabase
+      .from('accessori_griglia')
+      .insert(accessori.map((a, i) => ({ ...a, listino_id: result.id, organization_id: orgId, ordine: i })))
+    if (aErr) throw new Error(aErr.message)
+  }
+
   revalidatePath('/listini')
   return { id: result.id }
 }
@@ -202,11 +223,13 @@ export async function updateListino(
     altezze: number[]
     griglia: Record<string, Record<string, number>>
     finiture: { nome: string; aumento: number; aumento_euro: number }[]
+    accessori?: AccessorioGrigliaInput[]
     immagine_url?: string | null
   }
 ): Promise<void> {
   const supabase = await createClient()
-  const { finiture, ...listinoData } = data
+  const orgId = await getOrgId()
+  const { finiture, accessori, ...listinoData } = data
 
   const { error } = await supabase
     .from('listini')
@@ -223,6 +246,16 @@ export async function updateListino(
       .from('finiture')
       .insert(finiture.map((f, i) => ({ ...f, listino_id: id, ordine: i })))
     if (fErr) throw new Error(fErr.message)
+  }
+
+  // Sostituisce tutti gli accessori
+  await supabase.from('accessori_griglia').delete().eq('listino_id', id)
+
+  if (accessori && accessori.length > 0) {
+    const { error: aErr } = await supabase
+      .from('accessori_griglia')
+      .insert(accessori.map((a, i) => ({ ...a, listino_id: id, organization_id: orgId, ordine: i })))
+    if (aErr) throw new Error(aErr.message)
   }
 
   revalidatePath('/listini')
@@ -257,7 +290,7 @@ export async function duplicaListino(id: string): Promise<{ id: string }> {
 
   const { data: listino, error } = await supabase
     .from('listini')
-    .select('*, finiture(*)')
+    .select('*, finiture(*), accessori_griglia(*)')
     .eq('id', id)
     .single()
 
@@ -308,6 +341,26 @@ export async function duplicaListino(id: string): Promise<{ id: string }> {
     if (fErr) throw new Error(fErr.message)
   }
 
+  if (listino.accessori_griglia && listino.accessori_griglia.length > 0) {
+    const { error: aErr } = await supabase
+      .from('accessori_griglia')
+      .insert(
+        listino.accessori_griglia.map((a: { gruppo: string; gruppo_tipo: string; nome: string; tipo_prezzo: string; prezzo: number; prezzo_acquisto: number; mq_minimo: number | null; ordine: number }) => ({
+          listino_id: newListino.id,
+          organization_id: orgId,
+          gruppo: a.gruppo,
+          gruppo_tipo: a.gruppo_tipo,
+          nome: a.nome,
+          tipo_prezzo: a.tipo_prezzo,
+          prezzo: a.prezzo,
+          prezzo_acquisto: a.prezzo_acquisto,
+          mq_minimo: a.mq_minimo,
+          ordine: a.ordine,
+        }))
+      )
+    if (aErr) throw new Error(aErr.message)
+  }
+
   revalidatePath('/listini')
   return { id: newListino.id }
 }
@@ -318,7 +371,7 @@ export async function duplicaCategoria(id: string): Promise<{ id: string }> {
 
   const { data: categoria, error } = await supabase
     .from('categorie_listini')
-    .select('*, finiture_categoria(*), listini(*, finiture(*))')
+    .select('*, finiture_categoria(*), listini(*, finiture(*), accessori_griglia(*))')
     .eq('id', id)
     .single()
 
@@ -390,6 +443,26 @@ export async function duplicaCategoria(id: string): Promise<{ id: string }> {
           }))
         )
       if (fErr) throw new Error(fErr.message)
+    }
+
+    if (listino.accessori_griglia?.length > 0) {
+      const { error: aErr } = await supabase
+        .from('accessori_griglia')
+        .insert(
+          listino.accessori_griglia.map((a: { gruppo: string; gruppo_tipo: string; nome: string; tipo_prezzo: string; prezzo: number; prezzo_acquisto: number; mq_minimo: number | null; ordine: number }) => ({
+            listino_id: newListino.id,
+            organization_id: orgId,
+            gruppo: a.gruppo,
+            gruppo_tipo: a.gruppo_tipo,
+            nome: a.nome,
+            tipo_prezzo: a.tipo_prezzo,
+            prezzo: a.prezzo,
+            prezzo_acquisto: a.prezzo_acquisto,
+            mq_minimo: a.mq_minimo,
+            ordine: a.ordine,
+          }))
+        )
+      if (aErr) throw new Error(aErr.message)
     }
   }
 

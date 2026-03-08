@@ -4,7 +4,7 @@ import { useState, useRef } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
 import { ImagePlus, X, Download } from 'lucide-react'
-import { createListino, updateListino, getCurrentOrgId } from '@/actions/listini'
+import { createListino, updateListino, getCurrentOrgId, type AccessorioGrigliaInput } from '@/actions/listini'
 import { createClient } from '@/lib/supabase/client'
 import { grigliaToCsv, downloadCsv } from '@/lib/exportListino'
 import { Button } from '@/components/ui/button'
@@ -23,7 +23,8 @@ import FormFiniture, { type FinituraInput } from './FormFiniture'
 import ImportCSV from './ImportCSV'
 import ImportExcel from './ImportExcel'
 import ImportPDF from './ImportPDF'
-import type { GrigliaData, ListinoCompleto } from '@/types/listino'
+import type { GrigliaData, ListinoCompleto, AccessorioGriglia } from '@/types/listino'
+import FormAccessoriGriglia from './FormAccessoriGriglia'
 
 /** Ridimensiona un'immagine mantenendo le proporzioni, max maxDim px su lato maggiore, formato WebP */
 async function resizeImage(file: File, maxDim = 600): Promise<Blob> {
@@ -75,6 +76,18 @@ export default function DialogListino({
   const [uploadingImg, setUploadingImg] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [saving, setSaving] = useState(false)
+  const [accessori, setAccessori] = useState<AccessorioGrigliaInput[]>(
+    listino?.accessori_griglia?.map((a: AccessorioGriglia) => ({
+      gruppo: a.gruppo,
+      gruppo_tipo: a.gruppo_tipo,
+      nome: a.nome,
+      tipo_prezzo: a.tipo_prezzo,
+      prezzo: a.prezzo,
+      prezzo_acquisto: a.prezzo_acquisto,
+      mq_minimo: a.mq_minimo,
+    })) ?? []
+  )
+  const [accessoriKey, setAccessoriKey] = useState(0)
 
   const handleOpenChange = (val: boolean) => {
     if (val) {
@@ -88,6 +101,18 @@ export default function DialogListino({
         listino?.finiture?.map((f) => ({ nome: f.nome, aumento: f.aumento, aumento_euro: f.aumento_euro ?? 0 })) ?? []
       )
       setImmagineUrl(listino?.immagine_url ?? null)
+      setAccessori(
+        listino?.accessori_griglia?.map((a: AccessorioGriglia) => ({
+          gruppo: a.gruppo,
+          gruppo_tipo: a.gruppo_tipo,
+          nome: a.nome,
+          tipo_prezzo: a.tipo_prezzo,
+          prezzo: a.prezzo,
+          prezzo_acquisto: a.prezzo_acquisto,
+          mq_minimo: a.mq_minimo,
+        })) ?? []
+      )
+      setAccessoriKey((k) => k + 1)
     }
     onOpenChange(val)
   }
@@ -144,6 +169,7 @@ export default function DialogListino({
         tipologia: tipologia.trim(),
         ...grigliaData,
         finiture,
+        accessori,
         immagine_url: immagineUrl,
       }
 
@@ -236,6 +262,20 @@ export default function DialogListino({
           <div>
             <p className="text-sm font-medium text-gray-700 mb-3">Finiture</p>
             <FormFiniture finiture={finiture} onChange={setFiniture} />
+          </div>
+
+          {/* Accessori */}
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-1">Accessori</p>
+            <p className="text-xs text-gray-400 mb-3">
+              Configura gruppi di accessori opzionali selezionabili nel preventivo.
+              Ogni gruppo può essere "Multiplo" (selezione multipla) o "Unico" (una sola scelta).
+            </p>
+            <FormAccessoriGriglia
+              key={accessoriKey}
+              initialAccessori={accessori}
+              onChange={setAccessori}
+            />
           </div>
 
           <Separator />

@@ -141,6 +141,7 @@ export default function FormArticoloLibero({ listini, aliquote, onAdd }: Props) 
       listino_libero_id: listinoSelezionato.id,
       prodotto_id: prodottoSelezionato.id,
       accessori_selezionati: accessoriSelezionati.length > 0 ? accessoriSelezionati : null,
+      accessori_griglia: null,
       tipologia: `${listinoSelezionato.tipologia} — ${prodottoSelezionato.nome}`,
       categoria_nome: categoriaSelezionata?.nome ?? null,
       larghezza_mm: null,

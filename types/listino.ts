@@ -38,6 +38,21 @@ export type Finitura = {
   created_at: string
 }
 
+export type AccessorioGriglia = {
+  id: string
+  listino_id: string
+  organization_id: string
+  gruppo: string
+  gruppo_tipo: 'multiplo' | 'unico'
+  nome: string
+  tipo_prezzo: 'pezzo' | 'mq' | 'percentuale'
+  prezzo: number
+  prezzo_acquisto: number
+  mq_minimo: number | null
+  ordine: number
+  created_at: string
+}
+
 export type Listino = {
   id: string
   organization_id: string
@@ -54,6 +69,7 @@ export type Listino = {
 
 export type ListinoCompleto = Listino & {
   finiture: Finitura[]
+  accessori_griglia: AccessorioGriglia[]
 }
 
 // ---- Listino libero (catalogo prodotti) ----

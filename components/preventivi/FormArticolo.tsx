@@ -8,6 +8,7 @@ import {
   applicaFinitura,
   calcolaTotaleRiga,
   calcolaCostoAcquistoUnitario,
+  calcolaAccessorioGriglia,
   formatEuro,
 } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
@@ -23,7 +24,7 @@ import {
 import ScontoSelect from './ScontoSelect'
 import IconaCategoria from '@/components/listini/IconaCategoria'
 import type { CategoriaConListini } from '@/types/listino'
-import type { ArticoloWizard } from '@/types/preventivo'
+import type { ArticoloWizard, AccessorioGrigliaSelezionato } from '@/types/preventivo'
 
 interface Props {
   listini: CategoriaConListini[]
@@ -50,6 +51,7 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
   const [aliquotaIva, setAliquotaIva] = useState<number | null>(null)
   const [note, setNote] = useState<string>('')
   const [costoPosa, setCostoPosa] = useState<string>('')
+  const [accessoriGrigliaSelezionati, setAccessoriGrigliaSelezionati] = useState<AccessorioGrigliaSelezionato[]>([])
 
   const categoriaSelezionata = useMemo(
     () => listini.find((c) => c.id === categoriaId),
@@ -85,6 +87,21 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
     return finitureDisponibili[idx] ?? null
   }, [finituraIndex, finitureDisponibili])
 
+  // Gruppi accessori del listino selezionato
+  const gruppiAccessori = useMemo(() => {
+    if (!listinoSelezionato?.accessori_griglia?.length) return []
+    const map = new Map<string, { tipo: 'multiplo' | 'unico'; accessori: typeof listinoSelezionato.accessori_griglia }>()
+    const order: string[] = []
+    for (const a of listinoSelezionato.accessori_griglia) {
+      if (!map.has(a.gruppo)) {
+        map.set(a.gruppo, { tipo: a.gruppo_tipo, accessori: [] })
+        order.push(a.gruppo)
+      }
+      map.get(a.gruppo)!.accessori.push(a)
+    }
+    return order.map((g) => ({ gruppo: g, tipo: map.get(g)!.tipo, accessori: map.get(g)!.accessori }))
+  }, [listinoSelezionato])
+
   const scontoMax = categoriaSelezionata?.sconto_massimo ?? 50
 
   const limiti = useMemo(() => {
@@ -108,6 +125,7 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
   const handleListinoChange = (id: string) => {
     setListinoId(id)
     setFinituraIndex('-1')
+    setAccessoriGrigliaSelezionati([])
   }
 
   // Calcolo prezzo in real-time
@@ -126,14 +144,21 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
           L,
           H
         )
-      const prezzoUnitario = finitura
+      const prezzoConFinitura = finitura
         ? applicaFinitura(prezzo, finitura.aumento, finitura.aumento_euro)
         : prezzo
+      const prezzoAccessori = accessoriGrigliaSelezionati.reduce(
+        (sum, a) => sum + calcolaAccessorioGriglia(a, L, H, prezzo),
+        0
+      )
+      const prezzoUnitario = prezzoConFinitura + prezzoAccessori
       const qty = Math.max(1, parseInt(quantita) || 1)
       const totalRiga = calcolaTotaleRiga(prezzoUnitario, qty, scontoArticolo)
 
       return {
         prezzoBase: prezzo,
+        prezzoConFinitura,
+        prezzoAccessori,
         prezzoUnitario,
         totalRiga,
         larghezzaEffettiva,
@@ -142,9 +167,9 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
         error: null,
       }
     } catch (e: unknown) {
-      return { error: e instanceof Error ? e.message : 'Errore calcolo', prezzoBase: 0, prezzoUnitario: 0, totalRiga: 0, larghezzaEffettiva: 0, altezzaEffettiva: 0, arrotondata: false }
+      return { error: e instanceof Error ? e.message : 'Errore calcolo', prezzoBase: 0, prezzoConFinitura: 0, prezzoAccessori: 0, prezzoUnitario: 0, totalRiga: 0, larghezzaEffettiva: 0, altezzaEffettiva: 0, arrotondata: false }
     }
-  }, [listinoSelezionato, larghezza, altezza, finitura, quantita, scontoArticolo])
+  }, [listinoSelezionato, larghezza, altezza, finitura, quantita, scontoArticolo, accessoriGrigliaSelezionati])
 
   const canAdd =
     listinoSelezionato && calcolo && !calcolo.error && parseInt(quantita) > 0
@@ -163,6 +188,7 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
       listino_libero_id: null,
       prodotto_id: null,
       accessori_selezionati: null,
+      accessori_griglia: accessoriGrigliaSelezionati.length > 0 ? accessoriGrigliaSelezionati : null,
       tipologia: listinoSelezionato.tipologia,
       categoria_nome: categoriaSelezionata?.nome ?? null,
       larghezza_mm: L,
@@ -197,6 +223,7 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
     setFinituraIndex('-1')
     setNote('')
     setCostoPosa('')
+    setAccessoriGrigliaSelezionati([])
   }
 
   return (
@@ -278,6 +305,101 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {/* Accessori griglia */}
+          {listinoSelezionato && gruppiAccessori.length > 0 && (
+            <div className="col-span-2 sm:col-span-4 space-y-2">
+              <Label>Accessori</Label>
+              {gruppiAccessori.map((gruppo) => (
+                <div key={gruppo.gruppo} className="border rounded-md p-3 space-y-1.5 bg-gray-50">
+                  <p className="text-xs font-medium text-gray-700">
+                    {gruppo.gruppo}
+                    <span className="ml-2 text-gray-400 font-normal">
+                      ({gruppo.tipo === 'unico' ? 'scelta singola' : 'selezione multipla'})
+                    </span>
+                  </p>
+                  {gruppo.tipo === 'unico' ? (
+                    // Radio: nessuno + ogni accessorio
+                    <div className="space-y-1">
+                      <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600">
+                        <input
+                          type="radio"
+                          name={`gruppo-${gruppo.gruppo}`}
+                          checked={!accessoriGrigliaSelezionati.some((a) => a.gruppo === gruppo.gruppo)}
+                          onChange={() =>
+                            setAccessoriGrigliaSelezionati((prev) =>
+                              prev.filter((a) => a.gruppo !== gruppo.gruppo)
+                            )
+                          }
+                          className="h-3.5 w-3.5"
+                        />
+                        <span>Nessuno</span>
+                      </label>
+                      {gruppo.accessori.map((acc) => (
+                        <label key={acc.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                          <input
+                            type="radio"
+                            name={`gruppo-${gruppo.gruppo}`}
+                            checked={accessoriGrigliaSelezionati.some((a) => a.id === acc.id)}
+                            onChange={() =>
+                              setAccessoriGrigliaSelezionati((prev) => [
+                                ...prev.filter((a) => a.gruppo !== gruppo.gruppo),
+                                {
+                                  id: acc.id,
+                                  nome: acc.nome,
+                                  gruppo: acc.gruppo,
+                                  tipo_prezzo: acc.tipo_prezzo,
+                                  prezzo: acc.prezzo,
+                                  prezzo_acquisto: acc.prezzo_acquisto,
+                                  mq_minimo: acc.mq_minimo,
+                                },
+                              ])
+                            }
+                            className="h-3.5 w-3.5"
+                          />
+                          <span>{acc.nome}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    // Checkbox: selezione multipla
+                    <div className="space-y-1">
+                      {gruppo.accessori.map((acc) => (
+                        <label key={acc.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                          <input
+                            type="checkbox"
+                            checked={accessoriGrigliaSelezionati.some((a) => a.id === acc.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setAccessoriGrigliaSelezionati((prev) => [
+                                  ...prev,
+                                  {
+                                    id: acc.id,
+                                    nome: acc.nome,
+                                    gruppo: acc.gruppo,
+                                    tipo_prezzo: acc.tipo_prezzo,
+                                    prezzo: acc.prezzo,
+                                    prezzo_acquisto: acc.prezzo_acquisto,
+                                    mq_minimo: acc.mq_minimo,
+                                  },
+                                ])
+                              } else {
+                                setAccessoriGrigliaSelezionati((prev) =>
+                                  prev.filter((a) => a.id !== acc.id)
+                                )
+                              }
+                            }}
+                            className="h-3.5 w-3.5"
+                          />
+                          <span>{acc.nome}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 

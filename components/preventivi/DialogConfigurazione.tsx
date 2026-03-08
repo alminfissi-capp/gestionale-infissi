@@ -26,6 +26,7 @@ import {
   calcolaTotaleRiga,
   calcolaPrezzoUnitarioLibero,
   calcolaCostoAcquistoUnitario,
+  calcolaAccessorioGriglia,
   formatEuro,
 } from '@/lib/pricing'
 import type {
@@ -34,7 +35,7 @@ import type {
   ListinoLiberoCompleto,
   ProdottoListino,
 } from '@/types/listino'
-import type { AccessorioSelezionato, ArticoloWizard } from '@/types/preventivo'
+import type { AccessorioSelezionato, AccessorioGrigliaSelezionato, ArticoloWizard } from '@/types/preventivo'
 
 export type ItemSel =
   | { tipo: 'griglia'; listino: ListinoCompleto; categoria: CategoriaConListini }
@@ -80,6 +81,21 @@ function FormGriglia({
   const [aliquotaIva, setAliquotaIva] = useState<number | null>(null)
   const [note, setNote] = useState('')
   const [costoPosa, setCostoPosa] = useState('')
+  const [accessoriSelezionati, setAccessoriSelezionati] = useState<AccessorioGrigliaSelezionato[]>([])
+
+  const gruppiAccessori = useMemo(() => {
+    if (!listino.accessori_griglia?.length) return []
+    const map = new Map<string, { tipo: 'multiplo' | 'unico'; accessori: typeof listino.accessori_griglia }>()
+    const order: string[] = []
+    for (const a of listino.accessori_griglia) {
+      if (!map.has(a.gruppo)) {
+        map.set(a.gruppo, { tipo: a.gruppo_tipo, accessori: [] })
+        order.push(a.gruppo)
+      }
+      map.get(a.gruppo)!.accessori.push(a)
+    }
+    return order.map((g) => ({ gruppo: g, tipo: map.get(g)!.tipo, accessori: map.get(g)!.accessori }))
+  }, [listino])
 
   const finitureDisponibili = useMemo((): FinituraUnita[] => {
     const catFin: FinituraUnita[] = (categoria.finiture_categoria ?? []).map((f) => ({
@@ -121,13 +137,19 @@ function FormGriglia({
     try {
       const { prezzo, larghezzaEffettiva, altezzaEffettiva, arrotondata } =
         calcolaPrezzoBase(listino.griglia, listino.larghezze, listino.altezze, L, H)
-      const prezzoUnitario = finitura
+      const prezzoConFinitura = finitura
         ? applicaFinitura(prezzo, finitura.aumento, finitura.aumento_euro)
         : prezzo
+      const prezzoAccessori = accessoriSelezionati.reduce(
+        (sum, a) => sum + calcolaAccessorioGriglia(a, L, H, prezzo), 0
+      )
+      const prezzoUnitario = prezzoConFinitura + prezzoAccessori
       const qty = Math.max(1, parseInt(quantita) || 1)
       const totalRiga = calcolaTotaleRiga(prezzoUnitario, qty, scontoArticolo)
       return {
         prezzoBase: prezzo,
+        prezzoConFinitura,
+        prezzoAccessori,
         prezzoUnitario,
         totalRiga,
         larghezzaEffettiva,
@@ -139,6 +161,8 @@ function FormGriglia({
       return {
         error: e instanceof Error ? e.message : 'Errore calcolo',
         prezzoBase: 0,
+        prezzoConFinitura: 0,
+        prezzoAccessori: 0,
         prezzoUnitario: 0,
         totalRiga: 0,
         larghezzaEffettiva: 0,
@@ -146,7 +170,7 @@ function FormGriglia({
         arrotondata: false,
       }
     }
-  }, [listino, larghezza, altezza, finitura, quantita, scontoArticolo])
+  }, [listino, larghezza, altezza, finitura, quantita, scontoArticolo, accessoriSelezionati])
 
   const canAdd = !!(calcolo && !calcolo.error && parseInt(quantita) > 0)
 
@@ -162,6 +186,7 @@ function FormGriglia({
       listino_libero_id: null,
       prodotto_id: null,
       accessori_selezionati: null,
+      accessori_griglia: accessoriSelezionati.length > 0 ? accessoriSelezionati : null,
       tipologia: listino.tipologia,
       categoria_nome: categoria.nome,
       larghezza_mm: L,
@@ -233,6 +258,72 @@ function FormGriglia({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+        )}
+
+        {/* Accessori griglia */}
+        {gruppiAccessori.length > 0 && (
+          <div className="col-span-2 space-y-2">
+            <Label>Accessori</Label>
+            {gruppiAccessori.map((gruppo) => (
+              <div key={gruppo.gruppo} className="border rounded-md p-3 space-y-1.5 bg-gray-50">
+                <p className="text-xs font-medium text-gray-700">
+                  {gruppo.gruppo}
+                  <span className="ml-2 text-gray-400 font-normal">
+                    ({gruppo.tipo === 'unico' ? 'scelta singola' : 'selezione multipla'})
+                  </span>
+                </p>
+                {gruppo.tipo === 'unico' ? (
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600">
+                      <input
+                        type="radio"
+                        name={`grp-${gruppo.gruppo}`}
+                        checked={!accessoriSelezionati.some((a) => a.gruppo === gruppo.gruppo)}
+                        onChange={() => setAccessoriSelezionati((p) => p.filter((a) => a.gruppo !== gruppo.gruppo))}
+                        className="h-3.5 w-3.5"
+                      />
+                      <span>Nessuno</span>
+                    </label>
+                    {gruppo.accessori.map((acc) => (
+                      <label key={acc.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                        <input
+                          type="radio"
+                          name={`grp-${gruppo.gruppo}`}
+                          checked={accessoriSelezionati.some((a) => a.id === acc.id)}
+                          onChange={() => setAccessoriSelezionati((p) => [
+                            ...p.filter((a) => a.gruppo !== gruppo.gruppo),
+                            { id: acc.id, nome: acc.nome, gruppo: acc.gruppo, tipo_prezzo: acc.tipo_prezzo, prezzo: acc.prezzo, prezzo_acquisto: acc.prezzo_acquisto, mq_minimo: acc.mq_minimo },
+                          ])}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span>{acc.nome}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {gruppo.accessori.map((acc) => (
+                      <label key={acc.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                        <input
+                          type="checkbox"
+                          checked={accessoriSelezionati.some((a) => a.id === acc.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setAccessoriSelezionati((p) => [...p, { id: acc.id, nome: acc.nome, gruppo: acc.gruppo, tipo_prezzo: acc.tipo_prezzo, prezzo: acc.prezzo, prezzo_acquisto: acc.prezzo_acquisto, mq_minimo: acc.mq_minimo }])
+                            } else {
+                              setAccessoriSelezionati((p) => p.filter((a) => a.id !== acc.id))
+                            }
+                          }}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span>{acc.nome}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
@@ -345,8 +436,11 @@ function FormGriglia({
             </div>
           )}
           <div className="flex gap-4 ml-auto flex-wrap">
-            {finitura && (
+            {(finitura || calcolo.prezzoAccessori > 0) && (
               <span className="text-gray-500">Base: € {formatEuro(calcolo.prezzoBase)}</span>
+            )}
+            {calcolo.prezzoAccessori > 0 && (
+              <span className="text-gray-500">Acc: +€ {formatEuro(calcolo.prezzoAccessori)}</span>
             )}
             <span className="text-gray-700">
               Unitario: <strong>€ {formatEuro(calcolo.prezzoUnitario)}</strong>
@@ -466,6 +560,7 @@ function FormLibero({
       listino_libero_id: listinoLibero.id,
       prodotto_id: prodotto.id,
       accessori_selezionati: accessoriSelezionati.length > 0 ? accessoriSelezionati : null,
+      accessori_griglia: null,
       tipologia: `${listinoLibero.tipologia} — ${prodotto.nome}`,
       categoria_nome: categoria.nome,
       larghezza_mm: null,
@@ -693,7 +788,7 @@ export default function DialogConfigurazione({ item, aliquote, onAdd, onClose }:
 
   return (
     <Dialog open={!!item} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>

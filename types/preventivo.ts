@@ -18,6 +18,16 @@ export type AccessorioSelezionato = {
   qty: number
 }
 
+export type AccessorioGrigliaSelezionato = {
+  id: string
+  nome: string
+  gruppo: string
+  tipo_prezzo: 'pezzo' | 'mq' | 'percentuale'
+  prezzo: number
+  prezzo_acquisto: number
+  mq_minimo: number | null
+}
+
 export type ArticoloPreventivoRow = {
   id: string
   preventivo_id: string
@@ -27,6 +37,7 @@ export type ArticoloPreventivoRow = {
   listino_libero_id: string | null
   prodotto_id: string | null
   accessori_selezionati: AccessorioSelezionato[] | null
+  accessori_griglia: AccessorioGrigliaSelezionato[] | null
   tipologia: string
   categoria_nome: string | null
   larghezza_mm: number | null
