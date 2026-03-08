@@ -89,6 +89,32 @@ export async function saveAliquoteIva(aliquote: number[]): Promise<void> {
   revalidatePath('/impostazioni')
 }
 
+export type NumerazioneInput = {
+  num_prefisso: string | null
+  num_operatore: string | null
+  num_padding: number
+}
+
+export async function saveNumerazione(input: NumerazioneInput): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { error } = await supabase
+    .from('settings')
+    .upsert(
+      {
+        organization_id: orgId,
+        num_prefisso: input.num_prefisso?.trim() || null,
+        num_operatore: input.num_operatore?.trim().toUpperCase().charAt(0) || null,
+        num_padding: Math.max(1, Math.min(5, input.num_padding)),
+      },
+      { onConflict: 'organization_id' }
+    )
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/impostazioni')
+}
+
 export async function saveNoteTemplates(
   templates: { testo: string; ordine: number }[]
 ): Promise<void> {

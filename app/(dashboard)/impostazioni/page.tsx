@@ -6,6 +6,7 @@ import FormAzienda from '@/components/impostazioni/FormAzienda'
 import UploadLogo from '@/components/impostazioni/UploadLogo'
 import TemplateNote from '@/components/impostazioni/TemplateNote'
 import FormAliquoteIva from '@/components/impostazioni/FormAliquoteIva'
+import FormNumerazione from '@/components/impostazioni/FormNumerazione'
 
 export default async function ImpostazioniPage() {
   const supabase = await createClient()
@@ -96,6 +97,26 @@ export default async function ImpostazioniPage() {
         </CardHeader>
         <CardContent>
           <FormAliquoteIva initialAliquote={settings?.aliquote_iva ?? [22, 10, 4]} />
+        </CardContent>
+      </Card>
+
+      {/* Numerazione preventivi */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Numerazione preventivi</CardTitle>
+          <CardDescription>
+            Configura il formato del numero progressivo assegnato automaticamente a ogni preventivo.
+            Formato: <span className="font-mono text-xs">PREFISSO  NR/ANNO  OPERATORE  CLIENTE</span>
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FormNumerazione
+            initialPrefisso={settings?.num_prefisso ?? null}
+            initialOperatore={settings?.num_operatore ?? null}
+            initialPadding={settings?.num_padding ?? 2}
+            contatore={settings?.num_contatore ?? 0}
+            anno={settings?.num_anno ?? 0}
+          />
         </CardContent>
       </Card>
     </div>

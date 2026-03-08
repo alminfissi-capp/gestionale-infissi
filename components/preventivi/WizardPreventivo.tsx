@@ -46,6 +46,8 @@ interface Props {
   clienti: Cliente[]
   listini: CategoriaConListini[]
   aliquote: number[]
+  /** Se true: il numero viene generato automaticamente dal server — nasconde il campo manuale in creazione */
+  numerazioneAttiva?: boolean
   /** Se valorizzato: modalità modifica */
   preventivo?: PreventivoCompleto
 }
@@ -93,7 +95,7 @@ function calcolaTrasportoPerCategoria(
   return { totale, dettaglio }
 }
 
-export default function WizardPreventivo({ clienti, listini, aliquote, preventivo }: Props) {
+export default function WizardPreventivo({ clienti, listini, aliquote, numerazioneAttiva, preventivo }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [step, setStep] = useState(0)
@@ -258,11 +260,17 @@ export default function WizardPreventivo({ clienti, listini, aliquote, preventiv
               </div>
               <div className="space-y-1.5">
                 <Label>Numero preventivo</Label>
-                <Input
-                  value={numero}
-                  onChange={(e) => setNumero(e.target.value)}
-                  placeholder="es. 2026/001"
-                />
+                {numerazioneAttiva && !preventivo ? (
+                  <p className="text-sm text-gray-400 italic h-9 flex items-center">
+                    Generato automaticamente
+                  </p>
+                ) : (
+                  <Input
+                    value={numero}
+                    onChange={(e) => setNumero(e.target.value)}
+                    placeholder="es. 2026/001"
+                  />
+                )}
               </div>
               <div className="col-span-2 space-y-1.5">
                 <Label>Note</Label>

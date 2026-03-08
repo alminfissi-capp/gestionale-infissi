@@ -13,7 +13,12 @@ export default async function NuovoPreventivoPage() {
         <h1 className="text-2xl font-bold text-gray-900">Nuovo Preventivo</h1>
         <p className="text-sm text-gray-500 mt-1">Compila il modulo passo per passo</p>
       </div>
-      <WizardPreventivo clienti={clienti} listini={listini} aliquote={aliquote} />
+      <WizardPreventivo
+        clienti={clienti}
+        listini={listini}
+        aliquote={aliquote}
+        numerazioneAttiva={!!settings?.num_prefisso}
+      />
     </div>
   )
 }

@@ -30,7 +30,13 @@ export default async function ModificaPreventivoPage({ params }: Props) {
           {preventivo.numero ? `Preventivo ${preventivo.numero}` : 'Preventivo senza numero'}
         </p>
       </div>
-      <WizardPreventivo clienti={clienti} listini={listini} preventivo={preventivo} aliquote={aliquote} />
+      <WizardPreventivo
+        clienti={clienti}
+        listini={listini}
+        preventivo={preventivo}
+        aliquote={aliquote}
+        numerazioneAttiva={!!settings?.num_prefisso}
+      />
     </div>
   )
 }

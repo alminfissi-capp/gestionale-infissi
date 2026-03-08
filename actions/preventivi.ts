@@ -10,6 +10,7 @@ import {
   calcolaRiepilogoIva,
   calcolaCostoAcquistoUnitario,
 } from '@/lib/pricing'
+import { generaNumeroPreventivo } from '@/lib/numerazione'
 import type {
   Preventivo,
   PreventivoCompleto,
@@ -199,6 +200,42 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
   const supabase = await createClient()
   const orgId = await getOrgId()
 
+  // ── Auto-numerazione ────────────────────────────────────────────────────────
+  let numeroFinale = input.numero || null
+
+  // Legge settings per la numerazione
+  const { data: settingsRow } = await supabase
+    .from('settings')
+    .select('num_prefisso, num_operatore, num_contatore, num_anno, num_padding')
+    .eq('organization_id', orgId)
+    .maybeSingle()
+
+  if (settingsRow?.num_prefisso) {
+    const currentYear = new Date().getFullYear()
+    const annoSettings = settingsRow.num_anno ?? 0
+    const nuovoContatore = annoSettings !== currentYear ? 1 : (settingsRow.num_contatore ?? 0) + 1
+    const nuovoAnno = currentYear
+
+    // Aggiorna il contatore (incremento atomico)
+    await supabase
+      .from('settings')
+      .update({ num_contatore: nuovoContatore, num_anno: nuovoAnno })
+      .eq('organization_id', orgId)
+
+    const s = input.clienteSnapshot
+    const nomeCliente = [s.cognome, s.nome].filter(Boolean).join(' ') || s.email || s.telefono || ''
+
+    numeroFinale = generaNumeroPreventivo(
+      settingsRow.num_prefisso,
+      nuovoContatore,
+      nuovoAnno,
+      settingsRow.num_operatore ?? null,
+      settingsRow.num_padding ?? 2,
+      nomeCliente
+    )
+  }
+  // ────────────────────────────────────────────────────────────────────────────
+
   // Fetch regole una sola volta (trasporto + sconto fornitore)
   const listinoIds = [...new Set(input.articoli.map((a) => a.listino_id).filter((id): id is string => !!id))]
   const regole = await getRegoleTrasporto(listinoIds)
@@ -221,7 +258,7 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
     .insert({
       organization_id: orgId,
       cliente_id: input.clienteId || null,
-      numero: input.numero || null,
+      numero: numeroFinale,
       cliente_snapshot: input.clienteSnapshot,
       sconto_globale: input.scontoGlobale,
       note: input.note || null,
