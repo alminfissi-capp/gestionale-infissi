@@ -39,9 +39,10 @@ import type { CategoriaConListini, ListinoLiberoCompleto } from '@/types/listino
 interface Props {
   categoria: CategoriaConListini
   dragHandle?: React.ReactNode
+  onSuccess?: () => void
 }
 
-export default function CategoriaCardLibera({ categoria, dragHandle }: Props) {
+export default function CategoriaCardLibera({ categoria, dragHandle, onSuccess }: Props) {
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const [expandedListini, setExpandedListini] = useState<Set<string>>(new Set())
@@ -71,7 +72,7 @@ export default function CategoriaCardLibera({ categoria, dragHandle }: Props) {
     try {
       await deleteCategoria(categoria.id)
       toast.success('Categoria eliminata')
-      router.refresh()
+      refresh()
     } catch {
       toast.error('Errore nella cancellazione')
     } finally {
@@ -86,7 +87,7 @@ export default function CategoriaCardLibera({ categoria, dragHandle }: Props) {
     try {
       await deleteListinoLibero(deletingListinoId)
       toast.success('Listino eliminato')
-      router.refresh()
+      refresh()
     } catch {
       toast.error('Errore nella cancellazione')
     } finally {
@@ -100,7 +101,7 @@ export default function CategoriaCardLibera({ categoria, dragHandle }: Props) {
     try {
       await duplicaListinoLibero(listinoId)
       toast.success('Listino duplicato')
-      router.refresh()
+      refresh()
     } catch {
       toast.error('Errore nella duplicazione')
     } finally {
@@ -113,7 +114,7 @@ export default function CategoriaCardLibera({ categoria, dragHandle }: Props) {
     try {
       await duplicaCategoriaLibera(categoria.id)
       toast.success('Categoria duplicata')
-      router.refresh()
+      refresh()
     } catch {
       toast.error('Errore nella duplicazione')
     } finally {
@@ -121,7 +122,7 @@ export default function CategoriaCardLibera({ categoria, dragHandle }: Props) {
     }
   }
 
-  const refresh = () => router.refresh()
+  const refresh = () => { router.refresh(); onSuccess?.() }
 
   return (
     <div className="rounded-lg border bg-white shadow-sm">

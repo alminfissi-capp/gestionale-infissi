@@ -50,9 +50,9 @@ function SortableCategoriaWrapper({ categoria, onSuccess }: { categoria: Categor
   return (
     <div ref={setNodeRef} style={style}>
       {categoria.tipo === 'libero' ? (
-        <CategoriaCardLibera categoria={categoria} dragHandle={dragHandle} />
+        <CategoriaCardLibera categoria={categoria} dragHandle={dragHandle} onSuccess={onSuccess} />
       ) : (
-        <CategoriaCard categoria={categoria} dragHandle={dragHandle} />
+        <CategoriaCard categoria={categoria} dragHandle={dragHandle} onSuccess={onSuccess} />
       )}
     </div>
   )

@@ -184,9 +184,10 @@ function SortableListinoRow({ listino, isExpanded, copying, onToggle, onEdit, on
 interface Props {
   categoria: CategoriaConListini
   dragHandle?: React.ReactNode
+  onSuccess?: () => void
 }
 
-export default function CategoriaCard({ categoria, dragHandle }: Props) {
+export default function CategoriaCard({ categoria, dragHandle, onSuccess }: Props) {
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const [expandedListini, setExpandedListini] = useState<Set<string>>(new Set())
@@ -240,7 +241,7 @@ export default function CategoriaCard({ categoria, dragHandle }: Props) {
     try {
       await deleteCategoria(categoria.id)
       toast.success('Categoria eliminata')
-      router.refresh()
+      refresh()
     } catch {
       toast.error('Errore nella cancellazione')
     } finally {
@@ -255,7 +256,7 @@ export default function CategoriaCard({ categoria, dragHandle }: Props) {
     try {
       await deleteListino(deletingListinoId)
       toast.success('Listino eliminato')
-      router.refresh()
+      refresh()
     } catch {
       toast.error('Errore nella cancellazione')
     } finally {
@@ -269,7 +270,7 @@ export default function CategoriaCard({ categoria, dragHandle }: Props) {
     try {
       await duplicaListino(listinoId)
       toast.success('Listino duplicato')
-      router.refresh()
+      refresh()
     } catch {
       toast.error('Errore nella duplicazione')
     } finally {
@@ -282,7 +283,7 @@ export default function CategoriaCard({ categoria, dragHandle }: Props) {
     try {
       await duplicaCategoria(categoria.id)
       toast.success('Categoria duplicata')
-      router.refresh()
+      refresh()
     } catch {
       toast.error('Errore nella duplicazione')
     } finally {
@@ -314,7 +315,7 @@ export default function CategoriaCard({ categoria, dragHandle }: Props) {
     )
   }
 
-  const refresh = () => router.refresh()
+  const refresh = () => { router.refresh(); onSuccess?.() }
 
   return (
     <div className="rounded-lg border bg-white shadow-sm">
