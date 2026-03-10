@@ -128,12 +128,13 @@
 @media print {
   @page {
     size: A4;
-    margin: 0;
+    margin: 15mm;
   }
 
   html, body {
     margin: 0 !important;
     padding: 0 !important;
+    background: white !important;
     width: 100% !important;
     height: auto !important;
     overflow: visible !important;

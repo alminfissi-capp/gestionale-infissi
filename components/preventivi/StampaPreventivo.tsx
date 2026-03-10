@@ -45,8 +45,11 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl }: P
         <div className="flex-1" />
         <Button size="sm" onClick={() => window.print()}>
           <Printer className="h-4 w-4 mr-1.5" />
-          Stampa
+          Stampa / Salva PDF
         </Button>
+        <p className="text-xs text-gray-400">
+          Per rimuovere l&apos;URL in fondo, nella finestra di stampa disabilita <em>Intestazioni e piè di pagina</em>
+        </p>
       </div>
 
       {/* Sfondo grigio schermo — nascosto in stampa */}
@@ -62,8 +65,8 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl }: P
         />
       </div>
 
-      {/* Documento puro per la stampa — padding compensa @page margin:0 */}
-      <div className="hidden print:block" style={{ padding: '12mm 15mm 15mm 15mm' }}>
+      {/* Documento puro per la stampa */}
+      <div className="hidden print:block">
         <DocumentoA4
           p={p}
           s={s}
