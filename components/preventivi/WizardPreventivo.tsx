@@ -234,7 +234,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, numerazio
       </div>
 
       {/* Step content */}
-      <div className="bg-white rounded-lg border p-6">
+      <div className="bg-white rounded-lg border p-3 sm:p-6">
         {step === 0 && (
           <StepCliente
             clienti={clienti}
@@ -250,8 +250,8 @@ export default function WizardPreventivo({ clienti, listini, aliquote, numerazio
         {step === 2 && (
           <div className="space-y-6">
             {/* Riepilogo articoli */}
-            <div>
-              <p className="text-sm font-semibold text-gray-700 mb-2">
+            <div className="-mx-3 sm:-mx-6">
+              <p className="text-sm font-semibold text-gray-700 mb-2 px-3 sm:px-6">
                 Articoli ({articoli.length})
               </p>
               <TabellaArticoli articoli={articoli} aliquote={aliquote} onChange={setArticoli} />

@@ -62,7 +62,7 @@ export default function LayoutShell({ children, logoUrl, denominazione }: Props)
         <DataSync />
 
         <main className="flex-1 overflow-auto">
-          <div className="p-4 lg:p-6">
+          <div className="p-2 sm:p-4 lg:p-6">
             {children}
           </div>
         </main>

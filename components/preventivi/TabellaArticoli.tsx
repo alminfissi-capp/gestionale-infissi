@@ -100,14 +100,14 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="min-w-[180px]">Prodotto</TableHead>
-            <TableHead className="whitespace-nowrap">Dim. (mm)</TableHead>
-            <TableHead>Finitura</TableHead>
-            <TableHead className="w-20">Qtà</TableHead>
-            <TableHead className="text-right whitespace-nowrap">€ Unit.</TableHead>
-            <TableHead className="w-24">Sconto</TableHead>
-            {aliquote.length > 0 && <TableHead className="w-24">IVA</TableHead>}
-            <TableHead className="text-right whitespace-nowrap">€ Totale</TableHead>
+            <TableHead className="min-w-[140px]">Prodotto</TableHead>
+            <TableHead className="whitespace-nowrap w-24">Dim.</TableHead>
+            <TableHead className="w-24">Finitura</TableHead>
+            <TableHead className="w-16">Qtà</TableHead>
+            <TableHead className="text-right whitespace-nowrap w-24">€ Unit.</TableHead>
+            <TableHead className="w-20">Sconto</TableHead>
+            {aliquote.length > 0 && <TableHead className="w-20">IVA</TableHead>}
+            <TableHead className="text-right whitespace-nowrap w-24">€ Tot.</TableHead>
             <TableHead className="w-10" />
           </TableRow>
         </TableHeader>
