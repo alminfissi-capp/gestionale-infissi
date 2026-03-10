@@ -27,6 +27,7 @@ import {
   calcolaPrezzoUnitarioLibero,
   calcolaCostoAcquistoUnitario,
   calcolaAccessorioGriglia,
+  calcolaSpeseTrasportoPezzi,
   formatEuro,
 } from '@/lib/pricing'
 import type {
@@ -473,7 +474,8 @@ function FormGriglia({
           const qty = Math.max(1, parseInt(quantita) || 1)
           const costoAcqUnit = calcolaCostoAcquistoUnitario(calcolo.prezzoBase, categoria.sconto_fornitore ?? 0)
           const posaUnit = parseFloat(costoPosa) || 0
-          const costoTot = (costoAcqUnit + posaUnit) * qty
+          const trasporto = calcolaSpeseTrasportoPezzi(qty, categoria.trasporto_costo_unitario, categoria.trasporto_costo_minimo, categoria.trasporto_minimo_pezzi)
+          const costoTot = (costoAcqUnit + posaUnit) * qty + trasporto
           const utile = calcolo.totalRiga - costoTot
           return (
             <div className="flex items-center gap-3 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs flex-wrap">
@@ -481,6 +483,7 @@ function FormGriglia({
               <span className="text-amber-800 font-medium">Interno:</span>
               <span className="text-gray-600">Acq: <strong>€ {formatEuro(costoAcqUnit)}</strong>/pz</span>
               {posaUnit > 0 && <span className="text-gray-600">Posa: <strong>€ {formatEuro(posaUnit)}</strong>/pz</span>}
+              {trasporto > 0 && <span className="text-gray-600">Trasp: <strong>€ {formatEuro(trasporto)}</strong></span>}
               <span className="text-gray-600">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
               <span className={`font-semibold ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
                 Utile: € {formatEuro(utile)}
@@ -768,15 +771,17 @@ function FormLibero({
         const costoAcqUnit = (prodotto.prezzo_acquisto ?? 0)
           + accessoriSelezionati.reduce((sum, a) => sum + (a.prezzo_acquisto ?? 0) * a.qty, 0)
         const posaUnit = parseFloat(costoPosa) || 0
-        const costoTot = (costoAcqUnit + posaUnit) * qty
+        const trasporto = calcolaSpeseTrasportoPezzi(qty, categoria.trasporto_costo_unitario, categoria.trasporto_costo_minimo, categoria.trasporto_minimo_pezzi)
+        const costoTot = (costoAcqUnit + posaUnit) * qty + trasporto
         const utile = calcolo.totalRiga - costoTot
-        if (costoAcqUnit === 0 && posaUnit === 0) return null
+        if (costoAcqUnit === 0 && posaUnit === 0 && trasporto === 0) return null
         return (
           <div className="flex items-center gap-3 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs flex-wrap">
             <TrendingUp className="h-3.5 w-3.5 text-amber-600 shrink-0" />
             <span className="text-amber-800 font-medium">Interno:</span>
             <span className="text-gray-600">Acq: <strong>€ {formatEuro(costoAcqUnit)}</strong>/pz</span>
             {posaUnit > 0 && <span className="text-gray-600">Posa: <strong>€ {formatEuro(posaUnit)}</strong>/pz</span>}
+            {trasporto > 0 && <span className="text-gray-600">Trasp: <strong>€ {formatEuro(trasporto)}</strong></span>}
             <span className="text-gray-600">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
             <span className={`font-semibold ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
               Utile: € {formatEuro(utile)}
