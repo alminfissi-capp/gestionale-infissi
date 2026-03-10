@@ -258,18 +258,12 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
       .update({ num_contatore: nuovoContatore, num_anno: nuovoAnno })
       .eq('organization_id', orgId)
 
-    const s = input.clienteSnapshot
-    const nomeCliente = s.tipo === 'azienda'
-      ? s.ragione_sociale || s.email || s.telefono || ''
-      : [s.nome, s.cognome].filter(Boolean).join(' ') || s.email || s.telefono || ''
-
     numeroFinale = generaNumeroPreventivo(
       settingsRow.num_prefisso,
       nuovoContatore,
       nuovoAnno,
       settingsRow.num_operatore ?? null,
-      settingsRow.num_padding ?? 2,
-      nomeCliente
+      settingsRow.num_padding ?? 2
     )
   }
   // ────────────────────────────────────────────────────────────────────────────

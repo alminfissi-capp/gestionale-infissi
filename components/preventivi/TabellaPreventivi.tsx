@@ -211,7 +211,7 @@ export default function TabellaPreventivi({ preventivi }: Props) {
                       {new Date(p.created_at).toLocaleDateString('it-IT')}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                         <Button variant="ghost" size="icon" className="h-8 w-8" asChild title="Apri">
                           <Link href={`/preventivi/${p.id}`}>
                             <Eye className="h-3.5 w-3.5" />

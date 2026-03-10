@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import Link from 'next/link'
 import { Printer, ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -24,6 +25,12 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl }: P
     year: 'numeric',
   })
   const titolo = p.numero ? `Offerta N. ${p.numero}` : 'Preventivo'
+
+  useEffect(() => {
+    const prev = document.title
+    document.title = p.numero ? `${p.numero} ${nomeCliente}` : nomeCliente
+    return () => { document.title = prev }
+  }, [p.numero, nomeCliente])
 
   return (
     <>

@@ -38,8 +38,7 @@ export default function FormNumerazione({
         prossimoContatore,
         annoAnteprima,
         operatore || null,
-        padding,
-        'Mario Rossi'
+        padding
       )
     : null
 
