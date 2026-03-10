@@ -24,6 +24,7 @@ import TabellaArticoli from './TabellaArticoli'
 import ScontoSelect from './ScontoSelect'
 import type { Cliente } from '@/types/cliente'
 import type { CategoriaConListini } from '@/types/listino'
+import type { NoteTemplate } from '@/types/impostazioni'
 import type {
   ArticoloWizard,
   ClienteSnapshot,
@@ -55,6 +56,7 @@ interface Props {
   clienti: Cliente[]
   listini: CategoriaConListini[]
   aliquote: number[]
+  noteTemplates?: NoteTemplate[]
   /** Se true: il numero viene generato automaticamente dal server — nasconde il campo manuale in creazione */
   numerazioneAttiva?: boolean
   /** Se valorizzato: modalità modifica */
@@ -104,7 +106,7 @@ function calcolaTrasportoPerCategoria(
   return { totale, dettaglio }
 }
 
-export default function WizardPreventivo({ clienti, listini, aliquote, numerazioneAttiva, preventivo }: Props) {
+export default function WizardPreventivo({ clienti, listini, aliquote, noteTemplates = [], numerazioneAttiva, preventivo }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [step, setStep] = useState(0)
@@ -282,11 +284,26 @@ export default function WizardPreventivo({ clienti, listini, aliquote, numerazio
               </div>
               <div className="col-span-2 space-y-1.5">
                 <Label>Note</Label>
+                {noteTemplates.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-1">
+                    {noteTemplates.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setNote(t.testo)}
+                        className="text-xs px-2.5 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                        title={t.testo}
+                      >
+                        {t.testo.length > 40 ? t.testo.slice(0, 40) + '…' : t.testo}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <Textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Condizioni di pagamento, tempi di consegna, ecc."
-                  rows={3}
+                  rows={4}
                 />
               </div>
 

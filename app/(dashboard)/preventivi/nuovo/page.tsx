@@ -1,10 +1,12 @@
 import { getClienti } from '@/actions/clienti'
 import { getCategorie } from '@/actions/listini'
-import { getSettings } from '@/actions/impostazioni'
+import { getSettings, getNoteTemplates } from '@/actions/impostazioni'
 import WizardPreventivo from '@/components/preventivi/WizardPreventivo'
 
 export default async function NuovoPreventivoPage() {
-  const [clienti, listini, settings] = await Promise.all([getClienti(), getCategorie(), getSettings()])
+  const [clienti, listini, settings, noteTemplates] = await Promise.all([
+    getClienti(), getCategorie(), getSettings(), getNoteTemplates(),
+  ])
   const aliquote = settings?.aliquote_iva ?? [22, 10, 4]
 
   return (
@@ -17,6 +19,7 @@ export default async function NuovoPreventivoPage() {
         clienti={clienti}
         listini={listini}
         aliquote={aliquote}
+        noteTemplates={noteTemplates}
         numerazioneAttiva={!!settings?.num_prefisso}
       />
     </div>
