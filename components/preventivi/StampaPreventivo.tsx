@@ -198,7 +198,7 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
           </thead>
           <tbody>
             {articoliOrdinati.map((a, i) => (
-              <tr key={a.id} className="border-b border-gray-200 align-top">
+              <tr key={a.id} className="border-b border-gray-200 align-top" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                 <td className="py-2 text-center text-gray-500 font-mono">
                   {String(i + 1).padStart(2, '0')}
                 </td>
@@ -261,7 +261,7 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
       </div>
 
       {/* ── Totali ── */}
-      <div className="px-8 print:px-0 py-4 border-t-2 border-gray-400">
+      <div className="stampa-section px-8 print:px-0 py-4 border-t-2 border-gray-400">
         <div className="ml-auto max-w-xs space-y-1 text-[11px]">
           <div className="flex justify-between text-gray-600">
             <span>Totale articoli ({p.totale_pezzi} pz)</span>
@@ -294,7 +294,7 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
 
       {/* ── Note preventivo ── */}
       {p.note && (
-        <div className="px-8 print:px-0 py-3 border-t border-gray-200">
+        <div className="stampa-section px-8 print:px-0 py-3 border-t border-gray-200">
           <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Note</p>
           <p className="text-[10px] text-gray-700 whitespace-pre-wrap">{p.note}</p>
         </div>
