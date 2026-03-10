@@ -114,16 +114,26 @@ export function calcolaTotalePreventivo(
 
 export type RiepilogoIvaItem = { aliquota: number; imponibile: number; iva: number }
 
-/** Calcola il riepilogo IVA raggruppando per aliquota, applicando lo sconto globale */
+/**
+ * Calcola il riepilogo IVA raggruppando per aliquota, applicando lo sconto globale.
+ * Il trasporto viene ripartito proporzionalmente sugli articoli con IVA,
+ * così l'IVA viene applicata anche alle spese di trasporto.
+ */
 export function calcolaRiepilogoIva(
   articoli: { prezzo_totale_riga: number; aliquota_iva: number | null }[],
-  scontoGlobale: number
+  scontoGlobale: number,
+  speseTrasporto = 0
 ): RiepilogoIvaItem[] {
   const factor = 1 - scontoGlobale / 100
+  // Base degli articoli con IVA (per ripartire il trasporto proporzionalmente)
+  const totaleConIva = articoli
+    .filter((a) => a.aliquota_iva != null)
+    .reduce((sum, a) => sum + a.prezzo_totale_riga, 0)
   const map = new Map<number, number>()
   for (const a of articoli) {
     if (a.aliquota_iva == null) continue
-    map.set(a.aliquota_iva, (map.get(a.aliquota_iva) ?? 0) + a.prezzo_totale_riga * factor)
+    const quotaTrasporto = totaleConIva > 0 ? speseTrasporto * (a.prezzo_totale_riga / totaleConIva) : 0
+    map.set(a.aliquota_iva, (map.get(a.aliquota_iva) ?? 0) + (a.prezzo_totale_riga + quotaTrasporto) * factor)
   }
   return [...map.entries()]
     .map(([aliquota, imponibile]) => ({ aliquota, imponibile, iva: imponibile * (aliquota / 100) }))

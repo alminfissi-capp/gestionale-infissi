@@ -343,14 +343,10 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                 <span>€ {formatEuro(p.iva_totale)}</span>
               </div>
             )}
-            {p.modalita_trasporto === 'separato' ? (
+            {/* Trasporto: voce separata solo per vecchi preventivi 'separato'; nei nuovi è ripartito nel totale */}
+            {p.modalita_trasporto === 'separato' && (
               <div className="flex justify-between text-gray-600">
                 <span>Spese trasporto</span>
-                <span>€ {formatEuro(p.spese_trasporto)}</span>
-              </div>
-            ) : p.spese_trasporto > 0 && (
-              <div className="flex justify-between text-gray-400 text-xs italic">
-                <span>Trasporto incluso nel totale</span>
                 <span>€ {formatEuro(p.spese_trasporto)}</span>
               </div>
             )}

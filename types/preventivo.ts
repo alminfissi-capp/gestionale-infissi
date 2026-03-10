@@ -112,5 +112,4 @@ export type PreventivoInput = {
   articoli: Omit<ArticoloWizard, 'tempId'>[]
   scontoGlobale: number
   note: string
-  modalitaTrasporto: 'separato' | 'ripartito'
 }

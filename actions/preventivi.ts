@@ -286,7 +286,7 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
   const subtotale = calcolaSubtotale(input.articoli)
   const speseTrasporto = calcolaSpeseTrasportoInput(input.articoli, regole, regoleLiberi)
   const { articoliConCosto, totaleCostiAcquisto } = await calcolaCostiAcquistoInput(input.articoli, regole)
-  const riepilogoIva = calcolaRiepilogoIva(input.articoli, input.scontoGlobale)
+  const riepilogoIva = calcolaRiepilogoIva(input.articoli, input.scontoGlobale, speseTrasporto)
   const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
   const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
     subtotale,
@@ -308,7 +308,7 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
       importo_sconto: importoSconto,
       totale_articoli: totaleArticoli,
       spese_trasporto: speseTrasporto,
-      modalita_trasporto: input.modalitaTrasporto,
+      modalita_trasporto: 'ripartito',
       totale_costi_acquisto: totaleCostiAcquisto,
       iva_totale: ivaTotale,
       riepilogo_iva: riepilogoIva,
@@ -358,7 +358,7 @@ export async function updatePreventivo(
   const subtotale = calcolaSubtotale(input.articoli)
   const speseTrasporto = calcolaSpeseTrasportoInput(input.articoli, regole, regoleLiberi)
   const { articoliConCosto, totaleCostiAcquisto } = await calcolaCostiAcquistoInput(input.articoli, regole)
-  const riepilogoIva = calcolaRiepilogoIva(input.articoli, input.scontoGlobale)
+  const riepilogoIva = calcolaRiepilogoIva(input.articoli, input.scontoGlobale, speseTrasporto)
   const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
   const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
     subtotale,
@@ -379,7 +379,7 @@ export async function updatePreventivo(
       importo_sconto: importoSconto,
       totale_articoli: totaleArticoli,
       spese_trasporto: speseTrasporto,
-      modalita_trasporto: input.modalitaTrasporto,
+      modalita_trasporto: 'ripartito',
       totale_costi_acquisto: totaleCostiAcquisto,
       iva_totale: ivaTotale,
       riepilogo_iva: riepilogoIva,
