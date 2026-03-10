@@ -98,7 +98,7 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
       className="
         bg-white text-gray-900 text-[11px] leading-relaxed
         max-w-[794px] mx-auto
-        print:max-w-none print:mx-0 print:shadow-none print:w-[210mm] print:min-h-[297mm]
+        print:max-w-none print:mx-0 print:shadow-none print:w-full
         shadow-lg
       "
       style={{ fontFamily: 'Arial, Helvetica, sans-serif', minWidth: 0 }}
