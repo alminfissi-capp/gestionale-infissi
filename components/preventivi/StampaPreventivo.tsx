@@ -182,82 +182,114 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
         Le proponiamo la nostra migliore offerta per i seguenti serramenti.
       </div>
 
-      {/* ── Tabella articoli ── */}
-      <div className="px-8 print:px-0">
-        <table className="w-full border-collapse text-[10px]">
-          <thead>
-            <tr className="border-b-2 border-gray-400 bg-gray-50 print:bg-gray-100">
-              <th className="py-2 text-center w-7">#</th>
-              <th className="py-2 text-left">Descrizione</th>
-              <th className="py-2 text-right w-14">L (mm)</th>
-              <th className="py-2 text-right w-14">A (mm)</th>
-              <th className="py-2 text-right w-20">P. Unit.</th>
-              <th className="py-2 text-center w-9">Qtà</th>
-              <th className="py-2 text-right w-24">P. Totale</th>
-            </tr>
-          </thead>
-          <tbody>
-            {articoliOrdinati.map((a, i) => (
-              <tr key={a.id} className="border-b border-gray-200 align-top" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-                <td className="py-2 text-center text-gray-500 font-mono">
-                  {String(i + 1).padStart(2, '0')}
-                </td>
-                <td className="py-2 pr-3">
-                  <div className="flex items-start gap-2">
-                    {a.immagine_url && (
-                      <div style={{ width: '60px', height: '60px', flexShrink: 0, overflow: 'hidden', border: '1px solid #e5e7eb', borderRadius: '2px', background: '#f9fafb' }}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={a.immagine_url}
-                          alt={a.tipologia}
-                          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
-                        />
-                      </div>
-                    )}
-                    <div>
-                      <p className="font-semibold text-[11px]">{a.tipologia}</p>
-                      {a.categoria_nome && (
-                        <p className="text-gray-400 text-[9px]">{a.categoria_nome}</p>
-                      )}
-                      {a.finitura_nome && (
-                        <p className="text-gray-400 text-[9px]">Finitura: {a.finitura_nome}</p>
-                      )}
-                      {(a.accessori_griglia?.length || a.accessori_selezionati?.length) ? (
-                        <p className="text-gray-500 text-[9px] mt-0.5">
-                          {[
-                            ...(a.accessori_griglia ?? []).map((acc) => acc.nome),
-                            ...(a.accessori_selezionati ?? []).map((acc) => acc.qty > 1 ? `${acc.nome} ×${acc.qty}` : acc.nome),
-                          ].join(' · ')}
-                        </p>
-                      ) : null}
-                      {a.misura_arrotondata && a.larghezza_listino_mm != null && (
-                        <p className="text-amber-600 text-[9px]">
-                          misura arrotondata a {a.larghezza_listino_mm}×{a.altezza_listino_mm}
-                        </p>
-                      )}
-                      {a.note && (
-                        <p className="text-gray-400 text-[9px] italic mt-0.5">{a.note}</p>
-                      )}
-                    </div>
+      {/* ── Tabella articoli (div-grid per break-inside affidabile in Chromium) ── */}
+      <div className="px-8 print:px-0 text-[10px]">
+        {/* Intestazione colonne */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '28px 1fr 52px 52px 76px 32px 88px',
+            borderBottom: '2px solid #9ca3af',
+            background: '#f9fafb',
+            fontWeight: 600,
+            padding: '6px 0',
+          }}
+        >
+          <div style={{ textAlign: 'center' }}>#</div>
+          <div>Descrizione</div>
+          <div style={{ textAlign: 'right' }}>L (mm)</div>
+          <div style={{ textAlign: 'right' }}>A (mm)</div>
+          <div style={{ textAlign: 'right' }}>P. Unit.</div>
+          <div style={{ textAlign: 'center' }}>Qtà</div>
+          <div style={{ textAlign: 'right' }}>P. Totale</div>
+        </div>
+
+        {/* Righe articoli */}
+        {articoliOrdinati.map((a, i) => (
+          <div
+            key={a.id}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '28px 1fr 52px 52px 76px 32px 88px',
+              borderBottom: '1px solid #e5e7eb',
+              alignItems: 'start',
+              padding: '6px 0',
+              breakInside: 'avoid',
+              pageBreakInside: 'avoid',
+            }}
+          >
+            {/* Numero */}
+            <div style={{ textAlign: 'center', color: '#6b7280', fontFamily: 'monospace', paddingTop: '2px' }}>
+              {String(i + 1).padStart(2, '0')}
+            </div>
+
+            {/* Descrizione */}
+            <div style={{ paddingRight: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                {a.immagine_url && (
+                  <div style={{ width: '56px', height: '56px', flexShrink: 0, overflow: 'hidden', border: '1px solid #e5e7eb', borderRadius: '2px', background: '#f9fafb' }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={a.immagine_url}
+                      alt={a.tipologia}
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                    />
                   </div>
-                </td>
-                <td className="py-2 text-right tabular-nums text-gray-500">
-                  {a.tipo === 'libera' ? '—' : a.larghezza_mm}
-                </td>
-                <td className="py-2 text-right tabular-nums text-gray-500">
-                  {a.tipo === 'libera' ? '—' : a.altezza_mm}
-                </td>
-                <td className="py-2 text-right tabular-nums">
-                  € {formatEuro(a.prezzo_unitario)}
-                </td>
-                <td className="py-2 text-center tabular-nums">{a.quantita}</td>
-                <td className="py-2 text-right font-semibold tabular-nums">
-                  € {formatEuro(a.prezzo_totale_riga)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                )}
+                <div>
+                  <p style={{ fontWeight: 600, fontSize: '11px', margin: 0 }}>{a.tipologia}</p>
+                  {a.categoria_nome && (
+                    <p style={{ color: '#9ca3af', fontSize: '9px', margin: 0 }}>{a.categoria_nome}</p>
+                  )}
+                  {a.finitura_nome && (
+                    <p style={{ color: '#9ca3af', fontSize: '9px', margin: 0 }}>Finitura: {a.finitura_nome}</p>
+                  )}
+                  {(a.accessori_griglia?.length || a.accessori_selezionati?.length) ? (
+                    <p style={{ color: '#6b7280', fontSize: '9px', margin: '2px 0 0' }}>
+                      {[
+                        ...(a.accessori_griglia ?? []).map((acc) => acc.nome),
+                        ...(a.accessori_selezionati ?? []).map((acc) => acc.qty > 1 ? `${acc.nome} ×${acc.qty}` : acc.nome),
+                      ].join(' · ')}
+                    </p>
+                  ) : null}
+                  {a.misura_arrotondata && a.larghezza_listino_mm != null && (
+                    <p style={{ color: '#d97706', fontSize: '9px', margin: 0 }}>
+                      misura arrotondata a {a.larghezza_listino_mm}×{a.altezza_listino_mm}
+                    </p>
+                  )}
+                  {a.note && (
+                    <p style={{ color: '#9ca3af', fontSize: '9px', fontStyle: 'italic', margin: '2px 0 0' }}>{a.note}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* L mm */}
+            <div style={{ textAlign: 'right', color: '#6b7280', paddingTop: '2px' }}>
+              {a.tipo === 'libera' ? '—' : a.larghezza_mm}
+            </div>
+
+            {/* A mm */}
+            <div style={{ textAlign: 'right', color: '#6b7280', paddingTop: '2px' }}>
+              {a.tipo === 'libera' ? '—' : a.altezza_mm}
+            </div>
+
+            {/* P. Unit. */}
+            <div style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', paddingTop: '2px' }}>
+              € {formatEuro(a.prezzo_unitario)}
+            </div>
+
+            {/* Qtà */}
+            <div style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums', paddingTop: '2px' }}>
+              {a.quantita}
+            </div>
+
+            {/* P. Totale */}
+            <div style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums', paddingTop: '2px' }}>
+              € {formatEuro(a.prezzo_totale_riga)}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* ── Totali ── */}

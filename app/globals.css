@@ -151,18 +151,7 @@
     width: 0 !important;
   }
 
-  /* Evita che le righe della tabella articoli vengano tagliate */
-  tr {
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-
-  /* Mantieni intestazione tabella su ogni pagina */
-  thead {
-    display: table-header-group;
-  }
-
-  /* Evita interruzioni nelle sezioni finali */
+  /* Evita interruzioni nelle sezioni finali del preventivo */
   .stampa-section {
     break-inside: avoid;
     page-break-inside: avoid;
