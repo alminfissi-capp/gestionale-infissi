@@ -15,7 +15,9 @@ interface Props {
 
 export default function StampaCalcoli({ preventivo: p, settings, logoUrl }: Props) {
   const s = p.cliente_snapshot
-  const nomeCliente = [s.cognome, s.nome].filter(Boolean).join(' ') || s.email || s.telefono || '—'
+  const nomeCliente = s.tipo === 'azienda'
+    ? s.ragione_sociale || s.email || s.telefono || '—'
+    : [s.cognome, s.nome].filter(Boolean).join(' ') || s.email || s.telefono || '—'
   const dataFormattata = new Date(p.created_at).toLocaleDateString('it-IT', {
     day: '2-digit',
     month: '2-digit',

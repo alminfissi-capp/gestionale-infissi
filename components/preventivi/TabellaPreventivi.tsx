@@ -45,8 +45,9 @@ const STATO_CONFIG: Record<
 
 function nomeCliente(p: Preventivo): string {
   const s = p.cliente_snapshot
+  if (s.tipo === 'azienda') return s.ragione_sociale || s.email || s.telefono || '—'
   const nome = [s.cognome, s.nome].filter(Boolean).join(' ')
-  return nome || s.telefono || s.email || '—'
+  return nome || s.email || s.telefono || '—'
 }
 
 interface Props {
@@ -147,7 +148,9 @@ export default function TabellaPreventivi({ preventivi }: Props) {
               {/* Preventivi in attesa di sync (offline) */}
               {pendingPreventivi.map((p) => {
                 const s = p.input.clienteSnapshot
-                const nome = [s.cognome, s.nome].filter(Boolean).join(' ') || s.telefono || s.email || '—'
+                const nome = s.tipo === 'azienda'
+                  ? s.ragione_sociale || s.email || s.telefono || '—'
+                  : [s.cognome, s.nome].filter(Boolean).join(' ') || s.email || s.telefono || '—'
                 const totPezzi = p.input.articoli.reduce((sum, a) => sum + a.quantita, 0)
                 return (
                   <TableRow key={`pending-${p.tempId}`} className="bg-amber-50">
