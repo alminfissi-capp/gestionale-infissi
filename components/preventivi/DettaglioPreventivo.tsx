@@ -69,7 +69,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   }
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -201,9 +201,9 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[180px]">Prodotto</TableHead>
-                <TableHead className="whitespace-nowrap">Dim. (mm)</TableHead>
-                <TableHead>Finitura</TableHead>
+                <TableHead className="min-w-[160px]">Prodotto</TableHead>
+                <TableHead className="hidden lg:table-cell whitespace-nowrap">Dim. (mm)</TableHead>
+                <TableHead className="hidden lg:table-cell">Finitura</TableHead>
                 <TableHead className="text-center">Qtà</TableHead>
                 <TableHead className="text-right whitespace-nowrap">€ Unit.</TableHead>
                 <TableHead className="text-right whitespace-nowrap">Sconto</TableHead>
@@ -237,6 +237,12 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                         {a.categoria_nome && (
                           <p className="text-xs text-gray-400">{a.categoria_nome}</p>
                         )}
+                        {a.tipo !== 'libera' && (
+                          <p className="lg:hidden text-xs text-gray-400 mt-0.5">
+                            {a.larghezza_mm}×{a.altezza_mm} mm
+                            {a.finitura_nome && <> · {a.finitura_nome}</>}
+                          </p>
+                        )}
                         {a.misura_arrotondata && (
                           <Badge variant="outline" className="text-[10px] mt-0.5 text-amber-600 border-amber-300">
                             arrotondata
@@ -262,7 +268,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm whitespace-nowrap text-gray-500">
+                  <TableCell className="hidden lg:table-cell text-sm whitespace-nowrap text-gray-500">
                     {a.tipo === 'libera' ? '—' : (
                       <>
                         {a.larghezza_mm}×{a.altezza_mm}
@@ -274,7 +280,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                       </>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm text-gray-600">
+                  <TableCell className="hidden lg:table-cell text-sm text-gray-600">
                     {a.tipo === 'libera' ? '—' : (
                       <>
                         {a.finitura_nome ?? '—'}
