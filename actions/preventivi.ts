@@ -72,6 +72,37 @@ async function getRegoleTrasporto(
   return result
 }
 
+/** Recupera le regole di trasporto per un set di listino_libero_id (catalogo) */
+async function getRegoleTrasportoLiberi(
+  listinoLiberoIds: string[]
+): Promise<Map<string, RegolaCategoria>> {
+  if (listinoLiberoIds.length === 0) return new Map()
+
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('listini_liberi')
+    .select('id, categoria_id, categorie_listini!inner(trasporto_costo_unitario, trasporto_costo_minimo, trasporto_minimo_pezzi, sconto_fornitore)')
+    .in('id', listinoLiberoIds)
+
+  const result = new Map<string, RegolaCategoria>()
+  for (const l of data ?? []) {
+    const cat = l.categorie_listini as unknown as {
+      trasporto_costo_unitario: number
+      trasporto_costo_minimo: number
+      trasporto_minimo_pezzi: number
+      sconto_fornitore: number
+    }
+    result.set(l.id, {
+      categoriaId: l.categoria_id,
+      unitario: cat.trasporto_costo_unitario,
+      minimo: cat.trasporto_costo_minimo,
+      minPezzi: cat.trasporto_minimo_pezzi,
+      scontoFornitore: cat.sconto_fornitore ?? 0,
+    })
+  }
+  return result
+}
+
 /** Recupera prezzo_acquisto per un set di prodotto_id (listino libero) */
 async function getPrezzoAcquistoProdotti(
   prodottoIds: string[]
@@ -89,16 +120,21 @@ async function getPrezzoAcquistoProdotti(
   return result
 }
 
-/** Calcola spese trasporto totali raggruppando per categoria */
-async function calcolaSpeseTrasportoInput(
+/** Calcola spese trasporto totali raggruppando per categoria (griglia + catalogo) */
+function calcolaSpeseTrasportoInput(
   articoli: PreventivoInput['articoli'],
-  regole: Map<string, RegolaCategoria>
-): Promise<number> {
-  // Raggruppa pezzi per categoria (solo articoli griglia)
+  regole: Map<string, RegolaCategoria>,
+  regoleLiberi: Map<string, RegolaCategoria>
+): number {
+  // Raggruppa pezzi per categoria (articoli griglia e catalogo)
   const pezziPerCat = new Map<string, { pezzi: number; regola: RegolaCategoria }>()
   for (const articolo of articoli) {
-    if (!articolo.listino_id) continue
-    const regola = regole.get(articolo.listino_id)
+    let regola: RegolaCategoria | undefined
+    if (articolo.listino_id) {
+      regola = regole.get(articolo.listino_id)
+    } else if (articolo.listino_libero_id) {
+      regola = regoleLiberi.get(articolo.listino_libero_id)
+    }
     if (!regola) continue
     const existing = pezziPerCat.get(regola.categoriaId)
     if (existing) {
@@ -240,11 +276,15 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
 
   // Fetch regole una sola volta (trasporto + sconto fornitore)
   const listinoIds = [...new Set(input.articoli.map((a) => a.listino_id).filter((id): id is string => !!id))]
-  const regole = await getRegoleTrasporto(listinoIds)
+  const listinoLiberoIds = [...new Set(input.articoli.map((a) => a.listino_libero_id).filter((id): id is string => !!id))]
+  const [regole, regoleLiberi] = await Promise.all([
+    getRegoleTrasporto(listinoIds),
+    getRegoleTrasportoLiberi(listinoLiberoIds),
+  ])
 
   const totalePezzi = calcolaTotalePezzi(input.articoli)
   const subtotale = calcolaSubtotale(input.articoli)
-  const speseTrasporto = await calcolaSpeseTrasportoInput(input.articoli, regole)
+  const speseTrasporto = calcolaSpeseTrasportoInput(input.articoli, regole, regoleLiberi)
   const { articoliConCosto, totaleCostiAcquisto } = await calcolaCostiAcquistoInput(input.articoli, regole)
   const riepilogoIva = calcolaRiepilogoIva(input.articoli, input.scontoGlobale)
   const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
@@ -308,11 +348,15 @@ export async function updatePreventivo(
   const orgId = await getOrgId()
 
   const listinoIds = [...new Set(input.articoli.map((a) => a.listino_id).filter((id): id is string => !!id))]
-  const regole = await getRegoleTrasporto(listinoIds)
+  const listinoLiberoIds = [...new Set(input.articoli.map((a) => a.listino_libero_id).filter((id): id is string => !!id))]
+  const [regole, regoleLiberi] = await Promise.all([
+    getRegoleTrasporto(listinoIds),
+    getRegoleTrasportoLiberi(listinoLiberoIds),
+  ])
 
   const totalePezzi = calcolaTotalePezzi(input.articoli)
   const subtotale = calcolaSubtotale(input.articoli)
-  const speseTrasporto = await calcolaSpeseTrasportoInput(input.articoli, regole)
+  const speseTrasporto = calcolaSpeseTrasportoInput(input.articoli, regole, regoleLiberi)
   const { articoliConCosto, totaleCostiAcquisto } = await calcolaCostiAcquistoInput(input.articoli, regole)
   const riepilogoIva = calcolaRiepilogoIva(input.articoli, input.scontoGlobale)
   const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
