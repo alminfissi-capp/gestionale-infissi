@@ -207,7 +207,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, numerazio
         />
       )}
 
-    <div className={`max-w-4xl space-y-6${step === 1 ? ' hidden' : ''}`}>
+    <div className={`space-y-6${step === 1 ? ' hidden' : ''}`}>
       {/* Step indicator */}
       <div className="flex items-center gap-2">
         {STEPS.map((label, i) => (
