@@ -62,8 +62,8 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl }: P
         />
       </div>
 
-      {/* Documento puro per la stampa */}
-      <div className="hidden print:block">
+      {/* Documento puro per la stampa — padding compensa @page margin:0 */}
+      <div className="hidden print:block" style={{ padding: '12mm 15mm 15mm 15mm' }}>
         <DocumentoA4
           p={p}
           s={s}
@@ -98,7 +98,7 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
       className="
         bg-white text-gray-900 text-[11px] leading-relaxed
         max-w-[794px] mx-auto
-        print:max-w-none print:mx-0 print:shadow-none
+        print:max-w-none print:mx-0 print:shadow-none print:w-[210mm] print:min-h-[297mm]
         shadow-lg
       "
       style={{ fontFamily: 'Arial, Helvetica, sans-serif', minWidth: 0 }}
