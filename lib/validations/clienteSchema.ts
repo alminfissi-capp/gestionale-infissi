@@ -18,7 +18,7 @@ export const clienteSchema = z.object({
   citta: z.string().max(100).optional().nullable(),
   provincia: z.string().max(50).optional().nullable(),
   nazione: z.string().max(100).optional().nullable(),
-  codice_sdi: z.string().max(10).optional().nullable(),
+  codice_sdi: z.string().max(200).optional().nullable(),
   cantiere: z.string().max(200).optional().nullable(),
   cf_piva: z.string().max(20).optional().nullable(),
   note: z.string().optional().nullable(),
