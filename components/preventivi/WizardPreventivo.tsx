@@ -234,31 +234,34 @@ export default function WizardPreventivo({ clienti, listini, aliquote, numerazio
       </div>
 
       {/* Step content */}
-      <div className="bg-white rounded-lg border p-3 sm:p-6">
         {step === 0 && (
-          <StepCliente
-            clienti={clienti}
-            clienteId={clienteId}
-            clienteSnapshot={snapshot}
-            numero={numero}
-            onClienteIdChange={setClienteId}
-            onSnapshotChange={setSnapshot}
-            onNumeroChange={setNumero}
-          />
+          <div className="bg-white rounded-lg border p-4 sm:p-6">
+            <StepCliente
+              clienti={clienti}
+              clienteId={clienteId}
+              clienteSnapshot={snapshot}
+              numero={numero}
+              onClienteIdChange={setClienteId}
+              onSnapshotChange={setSnapshot}
+              onNumeroChange={setNumero}
+            />
+          </div>
         )}
 
         {step === 2 && (
-          <div className="space-y-6">
-            {/* Riepilogo articoli */}
-            <div className="-mx-3 sm:-mx-6">
-              <p className="text-sm font-semibold text-gray-700 mb-2 px-3 sm:px-6">
+          <div className="space-y-4">
+            {/* Tabella articoli — a piena larghezza, senza card wrapper */}
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-2">
                 Articoli ({articoli.length})
               </p>
               <TabellaArticoli articoli={articoli} aliquote={aliquote} onChange={setArticoli} />
             </div>
 
+            {/* Sconto globale, note e totali in card separato */}
+            <div className="bg-white rounded-lg border p-4 sm:p-6 space-y-4">
             {/* Sconto globale e note */}
-            <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Sconto globale sul totale</Label>
                 <ScontoSelect value={scontoGlobale} onChange={setScontoGlobale} max={50} />
@@ -338,9 +341,9 @@ export default function WizardPreventivo({ clienti, listini, aliquote, numerazio
                 <span>€ {formatEuro(totali.totaleFinale)}</span>
               </div>
             </div>
+            </div>{/* fine card dettagli */}
           </div>
         )}
-      </div>
 
       {/* Navigation */}
       <div className="flex items-center justify-between">
