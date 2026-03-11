@@ -527,6 +527,11 @@ function FormLibero({
   isEditing?: boolean
   onAdd: (a: ArticoloWizard) => void
 }) {
+  const [finituraIndex, setFinituraIndex] = useState(() => {
+    if (!initialValues?.finitura_nome) return '-1'
+    const idx = (categoria.finiture_categoria ?? []).findIndex((f) => f.nome === initialValues.finitura_nome)
+    return idx >= 0 ? idx.toString() : '-1'
+  })
   const [accessoriQty, setAccessoriQty] = useState<Record<string, number>>(() => {
     if (!initialValues?.accessori_selezionati) return {}
     return Object.fromEntries(initialValues.accessori_selezionati.map((a) => [a.id, a.qty]))
@@ -539,6 +544,17 @@ function FormLibero({
 
   const scontoMax = categoria.sconto_massimo ?? 50
 
+  const finitureDisponibili = useMemo(
+    () => categoria.finiture_categoria ?? [],
+    [categoria]
+  )
+
+  const finitura = useMemo(() => {
+    const idx = parseInt(finituraIndex)
+    if (idx < 0) return null
+    return finitureDisponibili[idx] ?? null
+  }, [finituraIndex, finitureDisponibili])
+
   const accessoriSelezionati = useMemo((): AccessorioSelezionato[] => {
     return listinoLibero.accessori
       .filter((a) => (accessoriQty[a.id] ?? 0) > 0)
@@ -546,16 +562,20 @@ function FormLibero({
   }, [listinoLibero, accessoriQty])
 
   const calcolo = useMemo(() => {
-    const prezzoUnitario = calcolaPrezzoUnitarioLibero(prodotto.prezzo, accessoriSelezionati)
+    const prezzoConFinitura = finitura
+      ? applicaFinitura(prodotto.prezzo, finitura.aumento_percentuale, finitura.aumento_euro)
+      : prodotto.prezzo
+    const prezzoUnitario = calcolaPrezzoUnitarioLibero(prezzoConFinitura, accessoriSelezionati)
     const qty = Math.max(1, parseInt(quantita) || 1)
     const totalRiga = calcolaTotaleRiga(prezzoUnitario, qty, scontoArticolo)
     return {
       prezzoProdotto: prodotto.prezzo,
-      prezzoAccessori: prezzoUnitario - prodotto.prezzo,
+      prezzoFinitura: prezzoConFinitura - prodotto.prezzo,
+      prezzoAccessori: prezzoUnitario - prezzoConFinitura,
       prezzoUnitario,
       totalRiga,
     }
-  }, [prodotto, accessoriSelezionati, quantita, scontoArticolo])
+  }, [prodotto, finitura, accessoriSelezionati, quantita, scontoArticolo])
 
   const toggleAccessorio = (accId: string, checked: boolean) => {
     setAccessoriQty((prev) => {
@@ -593,9 +613,9 @@ function FormLibero({
       larghezza_listino_mm: null,
       altezza_listino_mm: null,
       misura_arrotondata: false,
-      finitura_nome: null,
-      finitura_aumento: 0,
-      finitura_aumento_euro: 0,
+      finitura_nome: finitura?.nome ?? null,
+      finitura_aumento: finitura?.aumento_percentuale ?? 0,
+      finitura_aumento_euro: finitura?.aumento_euro ?? 0,
       immagine_url: prodotto.immagine_url ?? null,
       note: note || null,
       quantita: qty,
@@ -638,6 +658,31 @@ function FormLibero({
           <p className="text-sm font-bold text-teal-700 mt-1">€ {formatEuro(prodotto.prezzo)}</p>
         </div>
       </div>
+
+      {/* Finitura */}
+      {finitureDisponibili.length > 0 && (
+        <div className="space-y-1.5">
+          <Label>Finitura</Label>
+          <Select value={finituraIndex} onValueChange={setFinituraIndex}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="-1">Standard (nessuna maggiorazione)</SelectItem>
+              {finitureDisponibili.map((f, i) => (
+                <SelectItem key={f.id} value={i.toString()}>
+                  <span className="flex items-center gap-1.5">
+                    <Tag className="h-3 w-3 text-gray-400 shrink-0" />
+                    {f.nome}
+                    {f.aumento_percentuale > 0 && ` +${f.aumento_percentuale}%`}
+                    {f.aumento_euro > 0 && ` +€${formatEuro(f.aumento_euro)}`}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Accessori */}
       {listinoLibero.accessori.length > 0 && (
@@ -751,6 +796,11 @@ function FormLibero({
           <span className="text-gray-500">
             Prodotto: <strong>€ {formatEuro(calcolo.prezzoProdotto)}</strong>
           </span>
+          {calcolo.prezzoFinitura > 0 && (
+            <span className="text-gray-500">
+              Finitura: <strong>+€ {formatEuro(calcolo.prezzoFinitura)}</strong>
+            </span>
+          )}
           {calcolo.prezzoAccessori > 0 && (
             <span className="text-gray-500">
               Accessori: <strong>+€ {formatEuro(calcolo.prezzoAccessori)}</strong>
