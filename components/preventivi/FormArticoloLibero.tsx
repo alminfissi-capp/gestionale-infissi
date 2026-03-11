@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import { Plus, TrendingUp } from 'lucide-react'
-import { calcolaPrezzoUnitarioLibero, calcolaTotaleRiga, formatEuro } from '@/lib/pricing'
+import { applicaFinitura, calcolaPrezzoUnitarioLibero, calcolaTotaleRiga, formatEuro } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,6 +35,7 @@ export default function FormArticoloLibero({ listini, aliquote, onAdd }: Props) 
   const [categoriaId, setCategoriaId] = useState<string>('')
   const [listinoId, setListinoId] = useState<string>('')
   const [prodottoId, setProdottoId] = useState<string>('')
+  const [finituraId, setFinituraId] = useState<string>('')
   const [accessoriQty, setAccessoriQty] = useState<Record<string, number>>({})
   const [quantita, setQuantita] = useState<string>('1')
   const [scontoArticolo, setScontoArticolo] = useState(0)
@@ -57,6 +58,16 @@ export default function FormArticoloLibero({ listini, aliquote, onAdd }: Props) 
     [listinoSelezionato, prodottoId]
   )
 
+  const finitureDisponibili = useMemo(
+    () => categoriaSelezionata?.finiture_categoria ?? [],
+    [categoriaSelezionata]
+  )
+
+  const finituraSelezionata = useMemo(
+    () => finitureDisponibili.find((f) => f.id === finituraId) ?? null,
+    [finitureDisponibili, finituraId]
+  )
+
   const scontoMax = categoriaSelezionata?.sconto_massimo ?? 50
 
   // Accessori selezionati (qty > 0)
@@ -75,24 +86,31 @@ export default function FormArticoloLibero({ listini, aliquote, onAdd }: Props) 
 
   const calcolo = useMemo(() => {
     if (!prodottoSelezionato) return null
-    const prezzoUnitario = calcolaPrezzoUnitarioLibero(
-      prodottoSelezionato.prezzo,
-      accessoriSelezionati
-    )
+    // Applica finitura al prezzo base del prodotto
+    const prezzoConFinitura = finituraSelezionata
+      ? applicaFinitura(
+          prodottoSelezionato.prezzo,
+          finituraSelezionata.aumento_percentuale,
+          finituraSelezionata.aumento_euro
+        )
+      : prodottoSelezionato.prezzo
+    const prezzoUnitario = calcolaPrezzoUnitarioLibero(prezzoConFinitura, accessoriSelezionati)
     const qty = Math.max(1, parseInt(quantita) || 1)
     const totalRiga = calcolaTotaleRiga(prezzoUnitario, qty, scontoArticolo)
     return {
       prezzoProdotto: prodottoSelezionato.prezzo,
-      prezzoAccessori: prezzoUnitario - prodottoSelezionato.prezzo,
+      prezzoFinitura: prezzoConFinitura - prodottoSelezionato.prezzo,
+      prezzoAccessori: prezzoUnitario - prezzoConFinitura,
       prezzoUnitario,
       totalRiga,
     }
-  }, [prodottoSelezionato, accessoriSelezionati, quantita, scontoArticolo])
+  }, [prodottoSelezionato, finituraSelezionata, accessoriSelezionati, quantita, scontoArticolo])
 
   const handleCategoriaChange = (id: string) => {
     setCategoriaId(id)
     setListinoId('')
     setProdottoId('')
+    setFinituraId('')
     setAccessoriQty({})
     setScontoArticolo(0)
   }
@@ -149,9 +167,9 @@ export default function FormArticoloLibero({ listini, aliquote, onAdd }: Props) 
       larghezza_listino_mm: null,
       altezza_listino_mm: null,
       misura_arrotondata: false,
-      finitura_nome: null,
-      finitura_aumento: 0,
-      finitura_aumento_euro: 0,
+      finitura_nome: finituraSelezionata?.nome ?? null,
+      finitura_aumento: finituraSelezionata?.aumento_percentuale ?? 0,
+      finitura_aumento_euro: finituraSelezionata?.aumento_euro ?? 0,
       immagine_url: prodottoSelezionato.immagine_url ?? null,
       note: note || null,
       quantita: qty,
@@ -169,6 +187,7 @@ export default function FormArticoloLibero({ listini, aliquote, onAdd }: Props) 
 
     // Reset mantenendo categoria e listino
     setProdottoId('')
+    setFinituraId('')
     setAccessoriQty({})
     setQuantita('1')
     setScontoArticolo(0)
@@ -258,6 +277,28 @@ export default function FormArticoloLibero({ listini, aliquote, onAdd }: Props) 
               {prodottoSelezionato.descrizione && (
                 <p className="text-xs text-gray-400">{prodottoSelezionato.descrizione}</p>
               )}
+            </div>
+          )}
+
+          {/* Finitura */}
+          {prodottoSelezionato && finitureDisponibili.length > 0 && (
+            <div className="col-span-2 space-y-1.5">
+              <Label>Finitura</Label>
+              <Select value={finituraId} onValueChange={setFinituraId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Nessuna finitura" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Nessuna finitura</SelectItem>
+                  {finitureDisponibili.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.nome}
+                      {f.aumento_percentuale > 0 && ` +${f.aumento_percentuale}%`}
+                      {f.aumento_euro > 0 && ` +€${formatEuro(f.aumento_euro)}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
 
@@ -373,6 +414,11 @@ export default function FormArticoloLibero({ listini, aliquote, onAdd }: Props) 
             <span className="text-gray-500">
               Prodotto: <strong>€ {formatEuro(calcolo.prezzoProdotto)}</strong>
             </span>
+            {calcolo.prezzoFinitura > 0 && (
+              <span className="text-gray-500">
+                Finitura: <strong>+€ {formatEuro(calcolo.prezzoFinitura)}</strong>
+              </span>
+            )}
             {calcolo.prezzoAccessori > 0 && (
               <span className="text-gray-500">
                 Accessori: <strong>+€ {formatEuro(calcolo.prezzoAccessori)}</strong>
