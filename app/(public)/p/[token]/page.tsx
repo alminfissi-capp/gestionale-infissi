@@ -26,13 +26,11 @@ async function getPreventivoByToken(token: string): Promise<PreventivoCompleto |
     .eq('preventivo_id', prev.id)
     .order('ordine')
 
-  // Segna come visualizzato al primo accesso
-  if (!prev.visualizzato_at) {
-    await supabase
-      .from('preventivi')
-      .update({ visualizzato_at: new Date().toISOString() })
-      .eq('share_token', token)
-  }
+  // Aggiorna ad ogni accesso (mostra sempre l'ultimo)
+  await supabase
+    .from('preventivi')
+    .update({ visualizzato_at: new Date().toISOString() })
+    .eq('share_token', token)
 
   return { ...prev, articoli: articoli ?? [] }
 }
