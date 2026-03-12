@@ -607,7 +607,7 @@ function FormLibero({
       accessori_selezionati: accessoriSelezionati.length > 0 ? accessoriSelezionati : null,
       accessori_griglia: null,
       tipologia: `${listinoLibero.tipologia} — ${prodotto.nome}`,
-      categoria_nome: categoria.nome,
+      categoria_nome: prodotto.descrizione ?? null,
       larghezza_mm: null,
       altezza_mm: null,
       larghezza_listino_mm: null,
