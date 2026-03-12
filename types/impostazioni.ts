@@ -11,6 +11,7 @@ export type Settings = {
   aliquote_iva: number[]
   // Numerazione automatica preventivi
   num_prefisso: string | null
+  num_prefisso_calcoli: string | null
   num_operatore: string | null
   num_contatore: number
   num_anno: number

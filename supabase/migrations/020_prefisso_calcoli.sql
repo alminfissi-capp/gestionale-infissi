@@ -1,0 +1,2 @@
+ALTER TABLE settings
+  ADD COLUMN IF NOT EXISTS num_prefisso_calcoli TEXT DEFAULT NULL;

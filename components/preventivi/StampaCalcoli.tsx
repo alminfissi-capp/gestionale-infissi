@@ -26,11 +26,13 @@ export default function StampaCalcoli({ preventivo: p, settings, logoUrl }: Prop
   })
   const titolo = p.numero ? `Calcolo costi — Offerta N. ${p.numero}` : 'Calcolo costi — Preventivo'
 
+  const prefissoCalcoli = settings?.num_prefisso_calcoli?.trim() || 'Calcoli'
+
   useEffect(() => {
     const prev = document.title
-    document.title = p.numero ? `Calcoli ${p.numero} ${nomeCliente}` : `Calcoli ${nomeCliente}`
+    document.title = p.numero ? `${prefissoCalcoli} ${p.numero} ${nomeCliente}` : `${prefissoCalcoli} ${nomeCliente}`
     return () => { document.title = prev }
-  }, [p.numero, nomeCliente])
+  }, [p.numero, nomeCliente, prefissoCalcoli])
 
   return (
     <>

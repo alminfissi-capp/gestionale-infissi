@@ -10,6 +10,7 @@ import { generaNumeroPreventivo } from '@/lib/numerazione'
 
 interface Props {
   initialPrefisso: string | null
+  initialPrefissoCalcoli: string | null
   initialOperatore: string | null
   initialPadding: number
   contatore: number
@@ -18,12 +19,14 @@ interface Props {
 
 export default function FormNumerazione({
   initialPrefisso,
+  initialPrefissoCalcoli,
   initialOperatore,
   initialPadding,
   contatore,
   anno,
 }: Props) {
   const [prefisso, setPrefisso] = useState(initialPrefisso ?? '')
+  const [prefissoCalcoli, setPrefissoCalcoli] = useState(initialPrefissoCalcoli ?? '')
   const [operatore, setOperatore] = useState(initialOperatore ?? '')
   const [padding, setPadding] = useState(initialPadding)
   const [isPending, startTransition] = useTransition()
@@ -47,6 +50,7 @@ export default function FormNumerazione({
       try {
         await saveNumerazione({
           num_prefisso: prefisso || null,
+          num_prefisso_calcoli: prefissoCalcoli || null,
           num_operatore: operatore || null,
           num_padding: padding,
         })
@@ -72,6 +76,20 @@ export default function FormNumerazione({
             placeholder="es. PRE"
             maxLength={10}
             className="uppercase"
+          />
+        </div>
+
+        {/* Campo 1b — Prefisso calcoli */}
+        <div className="space-y-1.5">
+          <Label>
+            Campo 1 — Prefisso calcoli
+            <span className="ml-1 text-xs text-gray-400 font-normal">(nome file PDF calcoli)</span>
+          </Label>
+          <Input
+            value={prefissoCalcoli}
+            onChange={(e) => setPrefissoCalcoli(e.target.value)}
+            placeholder="es. Calcoli"
+            maxLength={20}
           />
         </div>
 

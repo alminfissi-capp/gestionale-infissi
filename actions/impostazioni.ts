@@ -91,6 +91,7 @@ export async function saveAliquoteIva(aliquote: number[]): Promise<void> {
 
 export type NumerazioneInput = {
   num_prefisso: string | null
+  num_prefisso_calcoli: string | null
   num_operatore: string | null
   num_padding: number
 }
@@ -105,6 +106,7 @@ export async function saveNumerazione(input: NumerazioneInput): Promise<void> {
       {
         organization_id: orgId,
         num_prefisso: input.num_prefisso?.trim() || null,
+        num_prefisso_calcoli: input.num_prefisso_calcoli?.trim() || null,
         num_operatore: input.num_operatore?.trim().toUpperCase().charAt(0) || null,
         num_padding: Math.max(1, Math.min(5, input.num_padding)),
       },

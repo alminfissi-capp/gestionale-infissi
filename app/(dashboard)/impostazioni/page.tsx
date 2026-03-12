@@ -112,6 +112,7 @@ export default async function ImpostazioniPage() {
         <CardContent>
           <FormNumerazione
             initialPrefisso={settings?.num_prefisso ?? null}
+            initialPrefissoCalcoli={settings?.num_prefisso_calcoli ?? null}
             initialOperatore={settings?.num_operatore ?? null}
             initialPadding={settings?.num_padding ?? 2}
             contatore={settings?.num_contatore ?? 0}
