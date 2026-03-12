@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createPublicClient } from '@/lib/supabase/public'
+import { createServiceClient } from '@/lib/supabase/service'
 import StampaPreventivo from '@/components/preventivi/StampaPreventivo'
 import type { PreventivoCompleto } from '@/types/preventivo'
 import type { Settings } from '@/types/impostazioni'
@@ -68,11 +69,20 @@ export default async function PreventivoPublicoPage({ params }: Props) {
 
   const settings = await getSettingsPubblici(preventivo.organization_id)
 
+  let logoUrl: string | null = null
+  if (settings?.logo_url) {
+    const service = createServiceClient()
+    const { data } = await service.storage
+      .from('logos')
+      .createSignedUrl(settings.logo_url, 3600)
+    logoUrl = data?.signedUrl ?? null
+  }
+
   return (
     <StampaPreventivo
       preventivo={preventivo}
       settings={settings}
-      logoUrl={null}
+      logoUrl={logoUrl}
       showBack={false}
     />
   )
