@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2 } from 'lucide-react'
+import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle } from 'lucide-react'
 import { deletePreventivo } from '@/actions/preventivi'
 import { formatEuro } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
@@ -55,6 +55,23 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const nomeCliente = s.tipo === 'azienda'
     ? s.ragione_sociale || s.telefono || s.email || '—'
     : [s.nome, s.cognome].filter(Boolean).join(' ') || s.telefono || s.email || '—'
+
+  const whatsappUrl = s.telefono ? (() => {
+    const digits = s.telefono.replace(/\D/g, '')
+    const number = digits.startsWith('39') ? digits : `39${digits}`
+    const testo = p.numero
+      ? `Gentile ${nomeCliente}, le inviamo il preventivo n. ${p.numero}. In allegato troverà il documento.`
+      : `Gentile ${nomeCliente}, le inviamo il preventivo richiesto. In allegato troverà il documento.`
+    return `https://wa.me/${number}?text=${encodeURIComponent(testo)}`
+  })() : null
+
+  const emailUrl = s.email ? (() => {
+    const subject = p.numero ? `Preventivo n. ${p.numero}` : 'Preventivo'
+    const body = p.numero
+      ? `Gentile ${nomeCliente},\n\nle inviamo in allegato il preventivo n. ${p.numero}.\n\nRimanendo a disposizione per qualsiasi informazione,\ncordiamo saluti.`
+      : `Gentile ${nomeCliente},\n\nle inviamo in allegato il preventivo richiesto.\n\nRimanendo a disposizione per qualsiasi informazione,\ncordiamo saluti.`
+    return `mailto:${s.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  })() : null
 
   const handleDelete = () => {
     startTransition(async () => {
@@ -113,6 +130,22 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
               Stampa calcoli
             </Link>
           </Button>
+          {emailUrl && (
+            <Button variant="outline" size="sm" asChild title={`Invia email a ${s.email}`}>
+              <a href={emailUrl}>
+                <Mail className="h-4 w-4 mr-1" />
+                Email
+              </a>
+            </Button>
+          )}
+          {whatsappUrl && (
+            <Button variant="outline" size="sm" asChild className="text-green-700 border-green-300 hover:bg-green-50" title={`Invia WhatsApp a ${s.telefono}`}>
+              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+                <MessageCircle className="h-4 w-4 mr-1" />
+                WhatsApp
+              </a>
+            </Button>
+          )}
           <Button variant="outline" size="sm" asChild>
             <Link href={`/preventivi/${p.id}/modifica`}>
               <Pencil className="h-4 w-4 mr-1" />

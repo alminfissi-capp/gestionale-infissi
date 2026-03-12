@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import Link from 'next/link'
 import { Printer, ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -24,6 +25,12 @@ export default function StampaCalcoli({ preventivo: p, settings, logoUrl }: Prop
     year: 'numeric',
   })
   const titolo = p.numero ? `Calcolo costi — Offerta N. ${p.numero}` : 'Calcolo costi — Preventivo'
+
+  useEffect(() => {
+    const prev = document.title
+    document.title = p.numero ? `Calcoli ${p.numero} ${nomeCliente}` : `Calcoli ${nomeCliente}`
+    return () => { document.title = prev }
+  }, [p.numero, nomeCliente])
 
   return (
     <>
