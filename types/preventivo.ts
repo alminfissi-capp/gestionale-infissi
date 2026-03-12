@@ -96,6 +96,9 @@ export type Preventivo = {
   totale_finale: number
   totale_pezzi: number
   stato: StatoPreventivo
+  share_token: string | null
+  condiviso_at: string | null
+  visualizzato_at: string | null
   created_at: string
   updated_at: string
 }

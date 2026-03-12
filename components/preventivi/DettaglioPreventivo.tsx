@@ -5,8 +5,9 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle } from 'lucide-react'
+import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X } from 'lucide-react'
 import { deletePreventivo } from '@/actions/preventivi'
+import { generaShareToken, revokaShareToken } from '@/actions/condivisione'
 import { formatEuro } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -49,6 +50,10 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [shareToken, setShareToken] = useState(p.share_token)
+  const [condivisoAt, setCondivisoAt] = useState(p.condiviso_at)
+  const [visualizzatoAt, setVisualizzatoAt] = useState(p.visualizzato_at)
+  const [shareLoading, startShareTransition] = useTransition()
 
   const cfg = STATO_CONFIG[p.stato]
   const s = p.cliente_snapshot
@@ -56,12 +61,53 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
     ? s.ragione_sociale || s.telefono || s.email || '—'
     : [s.nome, s.cognome].filter(Boolean).join(' ') || s.telefono || s.email || '—'
 
+  const shareUrl = shareToken ? `${typeof window !== 'undefined' ? window.location.origin : ''}/p/${shareToken}` : null
+
+  const handleGeneraLink = () => {
+    startShareTransition(async () => {
+      try {
+        const token = await generaShareToken(p.id)
+        setShareToken(token)
+        setCondivisoAt(new Date().toISOString())
+        setVisualizzatoAt(null)
+        toast.success('Link generato')
+      } catch {
+        toast.error('Errore nella generazione del link')
+      }
+    })
+  }
+
+  const handleRevokaLink = () => {
+    startShareTransition(async () => {
+      try {
+        await revokaShareToken(p.id)
+        setShareToken(null)
+        setCondivisoAt(null)
+        setVisualizzatoAt(null)
+        toast.success('Link revocato')
+      } catch {
+        toast.error('Errore nella revoca del link')
+      }
+    })
+  }
+
+  const handleCopiaLink = () => {
+    if (!shareUrl) return
+    navigator.clipboard.writeText(shareUrl)
+    toast.success('Link copiato negli appunti')
+  }
+
   const whatsappUrl = s.telefono ? (() => {
     const digits = s.telefono.replace(/\D/g, '')
     const number = digits.startsWith('39') ? digits : `39${digits}`
-    const testo = p.numero
-      ? `Gentile ${nomeCliente}, le inviamo il preventivo n. ${p.numero}. In allegato troverà il documento.`
-      : `Gentile ${nomeCliente}, le inviamo il preventivo richiesto. In allegato troverà il documento.`
+    const link = shareToken ? `${typeof window !== 'undefined' ? window.location.origin : ''}/p/${shareToken}` : null
+    const testo = link
+      ? (p.numero
+          ? `Gentile ${nomeCliente}, le inviamo il preventivo n. ${p.numero}. Può visualizzarlo e scaricarlo al seguente link: ${link}`
+          : `Gentile ${nomeCliente}, le inviamo il preventivo richiesto. Può visualizzarlo e scaricarlo al seguente link: ${link}`)
+      : (p.numero
+          ? `Gentile ${nomeCliente}, le inviamo il preventivo n. ${p.numero}. In allegato troverà il documento.`
+          : `Gentile ${nomeCliente}, le inviamo il preventivo richiesto. In allegato troverà il documento.`)
     return `https://wa.me/${number}?text=${encodeURIComponent(testo)}`
   })() : null
 
@@ -219,6 +265,56 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Condivisione */}
+      <div className="bg-white rounded-lg border p-4">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Condivisione cliente</p>
+        {!shareToken ? (
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-gray-400">Nessun link generato.</p>
+            <Button size="sm" variant="outline" onClick={handleGeneraLink} disabled={shareLoading}>
+              {shareLoading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Link2 className="h-3.5 w-3.5 mr-1" />}
+              Genera link
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <code className="text-xs bg-gray-50 border rounded px-2 py-1 text-gray-600 break-all flex-1 min-w-0">
+                {shareUrl}
+              </code>
+              <Button size="sm" variant="outline" onClick={handleCopiaLink} title="Copia link">
+                <Copy className="h-3.5 w-3.5 mr-1" />
+                Copia
+              </Button>
+              {whatsappUrl && (
+                <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50" asChild>
+                  <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+                    <MessageCircle className="h-3.5 w-3.5 mr-1" />
+                    Invia su WhatsApp
+                  </a>
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-600" onClick={handleRevokaLink} disabled={shareLoading} title="Revoca link">
+                {shareLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
+            <div className="flex items-center gap-4 text-xs text-gray-400">
+              {condivisoAt && (
+                <span>Condiviso il {new Date(condivisoAt).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+              )}
+              {visualizzatoAt ? (
+                <span className="flex items-center gap-1 text-green-600 font-medium">
+                  <Eye className="h-3.5 w-3.5" />
+                  Visionato il {new Date(visualizzatoAt).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              ) : (
+                <span className="text-gray-400">Non ancora visionato</span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Articoli */}

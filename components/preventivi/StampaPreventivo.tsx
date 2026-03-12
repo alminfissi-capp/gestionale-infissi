@@ -12,9 +12,10 @@ interface Props {
   preventivo: PreventivoCompleto
   settings: Settings | null
   logoUrl: string | null
+  showBack?: boolean
 }
 
-export default function StampaPreventivo({ preventivo: p, settings, logoUrl }: Props) {
+export default function StampaPreventivo({ preventivo: p, settings, logoUrl, showBack = true }: Props) {
   const s = p.cliente_snapshot
   const nomeCliente = s.tipo === 'azienda'
     ? s.ragione_sociale || s.email || s.telefono || '—'
@@ -36,12 +37,14 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl }: P
     <>
       {/* Toolbar — solo schermo */}
       <div className="print:hidden sticky top-0 z-10 bg-gray-100 border-b border-gray-200 px-6 py-3 flex items-center gap-3">
-        <Button variant="ghost" size="sm" asChild className="-ml-2">
-          <Link href={`/preventivi/${p.id}`}>
-            <ChevronLeft className="h-4 w-4" />
-            Torna al preventivo
-          </Link>
-        </Button>
+        {showBack && (
+          <Button variant="ghost" size="sm" asChild className="-ml-2">
+            <Link href={`/preventivi/${p.id}`}>
+              <ChevronLeft className="h-4 w-4" />
+              Torna al preventivo
+            </Link>
+          </Button>
+        )}
         <div className="flex-1" />
         <Button size="sm" onClick={() => window.print()}>
           <Printer className="h-4 w-4 mr-1.5" />

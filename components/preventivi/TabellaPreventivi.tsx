@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2 } from 'lucide-react'
+import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { deletePreventivo } from '@/actions/preventivi'
 import { formatEuro } from '@/lib/pricing'
@@ -193,7 +193,14 @@ export default function TabellaPreventivi({ preventivi }: Props) {
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="font-medium text-sm">{nomeCliente(p)}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-medium text-sm">{nomeCliente(p)}</p>
+                          {p.visualizzato_at && (
+                            <span title={`Visionato il ${new Date(p.visualizzato_at).toLocaleDateString('it-IT')}`}>
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                            </span>
+                          )}
+                        </div>
                         {p.cliente_snapshot.cantiere && (
                           <p className="text-xs text-gray-400">{p.cliente_snapshot.cantiere}</p>
                         )}
