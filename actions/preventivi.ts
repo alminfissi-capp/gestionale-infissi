@@ -11,6 +11,7 @@ import {
   calcolaCostoAcquistoUnitario,
 } from '@/lib/pricing'
 import { generaNumeroPreventivo } from '@/lib/numerazione'
+import { clienteSchema } from '@/lib/validations/clienteSchema'
 import type {
   Preventivo,
   PreventivoCompleto,
@@ -268,6 +269,46 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
   }
   // ────────────────────────────────────────────────────────────────────────────
 
+  // ── Auto-salvataggio cliente in anagrafica (solo inserimento manuale) ────────
+  let clienteIdFinale = input.clienteId || null
+  if (!clienteIdFinale) {
+    const snap = input.clienteSnapshot
+    const hasNome = snap.tipo === 'azienda'
+      ? !!snap.ragione_sociale?.trim()
+      : !!(snap.nome?.trim() || snap.cognome?.trim())
+    if (hasNome) {
+      const parsed = clienteSchema.safeParse({
+        tipo: snap.tipo ?? 'privato',
+        ragione_sociale: snap.ragione_sociale ?? null,
+        nome: snap.nome ?? null,
+        cognome: snap.cognome ?? null,
+        telefono: snap.telefono ?? null,
+        email: snap.email || null,
+        via: snap.via ?? null,
+        civico: snap.civico ?? null,
+        cap: snap.cap ?? null,
+        citta: snap.citta ?? null,
+        provincia: snap.provincia ?? null,
+        nazione: snap.nazione ?? null,
+        codice_sdi: snap.codice_sdi ?? null,
+        cantiere: snap.cantiere ?? null,
+        cf_piva: snap.cf_piva ?? null,
+      })
+      if (parsed.success) {
+        const { data: nuovoCliente } = await supabase
+          .from('clienti')
+          .insert({ ...parsed.data, organization_id: orgId })
+          .select('id')
+          .single()
+        if (nuovoCliente) {
+          clienteIdFinale = nuovoCliente.id
+          revalidatePath('/clienti')
+        }
+      }
+    }
+  }
+  // ────────────────────────────────────────────────────────────────────────────
+
   // Fetch regole una sola volta (trasporto + sconto fornitore)
   const listinoIds = [...new Set(input.articoli.map((a) => a.listino_id).filter((id): id is string => !!id))]
   const listinoLiberoIds = [...new Set(input.articoli.map((a) => a.listino_libero_id).filter((id): id is string => !!id))]
@@ -293,7 +334,7 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
     .from('preventivi')
     .insert({
       organization_id: orgId,
-      cliente_id: input.clienteId || null,
+      cliente_id: clienteIdFinale,
       numero: numeroFinale,
       cliente_snapshot: input.clienteSnapshot,
       sconto_globale: input.scontoGlobale,
