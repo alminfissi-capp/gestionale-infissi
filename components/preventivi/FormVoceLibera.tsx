@@ -49,6 +49,8 @@ interface Props {
 export default function FormVoceLibera({ aliquote, onAdd }: Props) {
   const [descrizione, setDescrizione] = useState('')
   const [prezzoUnitario, setPrezzoUnitario] = useState('')
+  const [costoAcquisto, setCostoAcquisto] = useState('')
+  const [costoManodopera, setCostoManodopera] = useState('')
   const [quantita, setQuantita] = useState('1')
   const [sconto, setSconto] = useState(0)
   const [aliquotaIva, setAliquotaIva] = useState<number | null>(null)
@@ -126,8 +128,8 @@ export default function FormVoceLibera({ aliquote, onAdd }: Props) {
         prezzo_unitario: prezzo,
         sconto_articolo: sconto,
         prezzo_totale_riga: totaleRiga,
-        costo_acquisto_unitario: 0,
-        costo_posa: 0,
+        costo_acquisto_unitario: parseFloat(costoAcquisto) || 0,
+        costo_posa: parseFloat(costoManodopera) || 0,
         aliquota_iva: aliquotaIva,
         ordine: 0,
       }
@@ -137,6 +139,8 @@ export default function FormVoceLibera({ aliquote, onAdd }: Props) {
       // Reset
       setDescrizione('')
       setPrezzoUnitario('')
+      setCostoAcquisto('')
+      setCostoManodopera('')
       setQuantita('1')
       setSconto(0)
       setAliquotaIva(null)
@@ -155,11 +159,12 @@ export default function FormVoceLibera({ aliquote, onAdd }: Props) {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2 space-y-1.5">
           <Label>Descrizione</Label>
-          <Input
-            type="text"
+          <textarea
             placeholder="es. Lavorazione speciale, Accessorio, Servizio..."
             value={descrizione}
             onChange={(e) => setDescrizione(e.target.value)}
+            rows={3}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y min-h-[72px]"
           />
         </div>
 
@@ -172,6 +177,30 @@ export default function FormVoceLibera({ aliquote, onAdd }: Props) {
             placeholder="es. 150.00"
             value={prezzoUnitario}
             onChange={(e) => setPrezzoUnitario(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Costo acquisto (€)</Label>
+          <Input
+            type="number"
+            min={0}
+            step={0.01}
+            placeholder="es. 80.00"
+            value={costoAcquisto}
+            onChange={(e) => setCostoAcquisto(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Mano d&apos;opera (€)</Label>
+          <Input
+            type="number"
+            min={0}
+            step={0.01}
+            placeholder="es. 30.00"
+            value={costoManodopera}
+            onChange={(e) => setCostoManodopera(e.target.value)}
           />
         </div>
 
