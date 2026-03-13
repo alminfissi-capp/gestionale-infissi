@@ -566,6 +566,18 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                   <span className="flex items-center gap-1"><Truck className="h-3.5 w-3.5" />Spese trasporto</span>
                   <span className="tabular-nums">€ {formatEuro(p.spese_trasporto)}</span>
                 </div>
+                {p.sconto_globale > 0 && (
+                  <>
+                    <div className="flex justify-between text-gray-500 text-xs">
+                      <span>Ricavo lordo (IVA esclusa)</span>
+                      <span className="tabular-nums">€ {formatEuro(p.subtotale)}</span>
+                    </div>
+                    <div className="flex justify-between text-red-600 text-xs">
+                      <span>Sconto globale {p.sconto_globale}%</span>
+                      <span className="tabular-nums">− € {formatEuro(p.importo_sconto)}</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between text-gray-500 text-xs">
                   <span>Ricavo netto (IVA esclusa)</span>
                   <span className="tabular-nums">€ {formatEuro(p.totale_articoli)}</span>
