@@ -1,15 +1,12 @@
 'use client'
 
-import { Building2, User } from 'lucide-react'
+import { useState } from 'react'
+import { Building2, User, ChevronsUpDown, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import type { Cliente } from '@/types/cliente'
 import type { ClienteSnapshot } from '@/types/preventivo'
 
@@ -32,6 +29,7 @@ export default function StepCliente({
   onSnapshotChange,
   onNumeroChange,
 }: Props) {
+  const [open, setOpen] = useState(false)
   const handleClienteSelect = (id: string) => {
     if (id === '__manual__') {
       onClienteIdChange(null)
@@ -84,25 +82,62 @@ export default function StepCliente({
   return (
     <div className="space-y-5">
 
-      {/* Selezione cliente esistente */}
+      {/* Selezione cliente esistente — combobox con ricerca */}
       <div className="space-y-1.5">
         <Label>Seleziona cliente esistente (opzionale)</Label>
-        <Select
-          value={clienteId ?? '__manual__'}
-          onValueChange={handleClienteSelect}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="— Inserisci manualmente —" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__manual__">— Inserisci manualmente —</SelectItem>
-            {clienti.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {nomeCompleto(c)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2">
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={open}
+                className="flex-1 justify-between font-normal"
+              >
+                <span className="truncate text-left">
+                  {clienteId
+                    ? nomeCompleto(clienti.find((c) => c.id === clienteId)!)
+                    : '— Inserisci manualmente —'}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-gray-400" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
+              <Command>
+                <CommandInput placeholder="Cerca cliente..." />
+                <CommandList>
+                  <CommandEmpty className="py-3 text-center text-sm text-gray-500">
+                    Cliente non in anagrafica
+                  </CommandEmpty>
+                  <CommandGroup>
+                    {clienti.map((c) => (
+                      <CommandItem
+                        key={c.id}
+                        value={nomeCompleto(c)}
+                        onSelect={() => {
+                          handleClienteSelect(c.id)
+                          setOpen(false)
+                        }}
+                      >
+                        {nomeCompleto(c)}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          {clienteId && (
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Deseleziona cliente"
+              onClick={() => handleClienteSelect('__manual__')}
+            >
+              <X className="h-4 w-4 text-gray-400" />
+            </Button>
+          )}
+        </div>
         {clienteId && (
           <p className="text-xs text-blue-600">
             Cliente selezionato — puoi modificare i campi sotto se necessario.
