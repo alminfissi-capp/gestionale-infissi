@@ -771,11 +771,13 @@ export async function duplicaCategoriaLibera(id: string): Promise<{ id: string }
   return { id: newCat.id }
 }
 
-/** Aggiunge un accessorio griglia a tutti i listini di una categoria in una sola operazione */
-export async function addAccessorioATuttiListini(
+/** Aggiunge più accessori griglia a tutti i listini di una categoria in una sola operazione */
+export async function addAccessoriATuttiListini(
   categoriaId: string,
-  accessorio: AccessorioGrigliaInput
+  accessori: AccessorioGrigliaInput[]
 ): Promise<{ count: number }> {
+  if (accessori.length === 0) return { count: 0 }
+
   const supabase = await createClient()
   const orgId = await getOrgId()
 
@@ -804,18 +806,22 @@ export async function addAccessorioATuttiListini(
     }
   }
 
-  const insertData = listinoIds.map((id) => ({
-    listino_id: id,
-    organization_id: orgId,
-    gruppo: accessorio.gruppo,
-    gruppo_tipo: accessorio.gruppo_tipo,
-    nome: accessorio.nome,
-    tipo_prezzo: accessorio.tipo_prezzo,
-    prezzo: accessorio.prezzo,
-    prezzo_acquisto: accessorio.prezzo_acquisto,
-    mq_minimo: accessorio.mq_minimo,
-    ordine: (maxOrdineMap.get(id) ?? -1) + 1,
-  }))
+  // Per ogni listino, inserisce tutti gli accessori con ordine progressivo
+  const insertData = listinoIds.flatMap((id) => {
+    const base = (maxOrdineMap.get(id) ?? -1) + 1
+    return accessori.map((a, i) => ({
+      listino_id: id,
+      organization_id: orgId,
+      gruppo: a.gruppo,
+      gruppo_tipo: a.gruppo_tipo,
+      nome: a.nome,
+      tipo_prezzo: a.tipo_prezzo,
+      prezzo: a.prezzo,
+      prezzo_acquisto: a.prezzo_acquisto,
+      mq_minimo: a.mq_minimo,
+      ordine: base + i,
+    }))
+  })
 
   const { error: iErr } = await supabase.from('accessori_griglia').insert(insertData)
   if (iErr) throw new Error(iErr.message)
