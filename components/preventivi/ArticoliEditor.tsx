@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, FileText, Table2, Package, Trash2, Pencil, Plus, Search, X, Copy } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, FileText, Table2, Package, Trash2, Pencil, Plus, Search, X, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import FormVoceLibera from './FormVoceLibera'
@@ -112,6 +112,22 @@ export default function ArticoliEditor({
       setConfigValues(null)
     }
     onArticoliChange(articoli.filter((a) => a.tempId !== tempId))
+  }
+
+  const handleMoveUp = (tempId: string) => {
+    const idx = articoli.findIndex((a) => a.tempId === tempId)
+    if (idx <= 0) return
+    const next = [...articoli]
+    ;[next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]
+    onArticoliChange(next)
+  }
+
+  const handleMoveDown = (tempId: string) => {
+    const idx = articoli.findIndex((a) => a.tempId === tempId)
+    if (idx < 0 || idx >= articoli.length - 1) return
+    const next = [...articoli]
+    ;[next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]
+    onArticoliChange(next)
   }
 
   const subtotale = calcolaSubtotale(articoli)
@@ -260,13 +276,15 @@ export default function ArticoliEditor({
           ) : (
             <>
               <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-                {articoli.map((a) => (
+                {articoli.map((a, idx) => (
                   <ArticoloCard
                     key={a.tempId}
                     articolo={a}
                     onRemove={() => handleRemove(a.tempId)}
                     onEdit={() => handleEdit(a)}
                     onDuplicate={() => handleDuplicate(a)}
+                    onMoveUp={idx > 0 ? () => handleMoveUp(a.tempId) : undefined}
+                    onMoveDown={idx < articoli.length - 1 ? () => handleMoveDown(a.tempId) : undefined}
                   />
                 ))}
               </div>
@@ -486,11 +504,15 @@ function ArticoloCard({
   onRemove,
   onEdit,
   onDuplicate,
+  onMoveUp,
+  onMoveDown,
 }: {
   articolo: ArticoloWizard
   onRemove: () => void
   onEdit?: () => void
   onDuplicate?: () => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
 }) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-2 flex items-start gap-2">
@@ -530,9 +552,32 @@ function ArticoloCard({
 
       {/* Azioni */}
       <div className="flex flex-col gap-0.5 shrink-0">
+        {onMoveUp ? (
+          <button
+            onClick={onMoveUp}
+            className="p-1 rounded text-gray-300 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            title="Sposta su"
+          >
+            <ChevronUp className="h-3.5 w-3.5" />
+          </button>
+        ) : (
+          <span className="p-1 w-5.5 h-5.5" />
+        )}
+        {onMoveDown ? (
+          <button
+            onClick={onMoveDown}
+            className="p-1 rounded text-gray-300 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            title="Sposta giù"
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+        ) : (
+          <span className="p-1 w-5.5 h-5.5" />
+        )}
         <button
           onClick={onRemove}
           className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+          title="Rimuovi"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>

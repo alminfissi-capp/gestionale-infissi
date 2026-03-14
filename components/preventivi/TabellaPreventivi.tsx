@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2 } from 'lucide-react'
+import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { deletePreventivo } from '@/actions/preventivi'
+import { deletePreventivo, duplicaPreventivo } from '@/actions/preventivi'
 import { formatEuro } from '@/lib/pricing'
 import { db } from '@/lib/db'
 import { Button } from '@/components/ui/button'
@@ -59,6 +59,8 @@ export default function TabellaPreventivi({ preventivi }: Props) {
   const [search, setSearch] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  const [isDuplicating, startDuplicate] = useTransition()
 
   const pendingPreventivi = useLiveQuery(() => db.pendingPreventivi.toArray(), []) ?? []
 
@@ -72,6 +74,21 @@ export default function TabellaPreventivi({ preventivi }: Props) {
       )
     })
   }, [preventivi, search])
+
+  const handleDuplica = (id: string) => {
+    setDuplicatingId(id)
+    startDuplicate(async () => {
+      try {
+        const { id: newId } = await duplicaPreventivo(id)
+        toast.success('Preventivo duplicato')
+        router.push(`/preventivi/${newId}`)
+      } catch {
+        toast.error('Errore durante la duplicazione')
+      } finally {
+        setDuplicatingId(null)
+      }
+    })
+  }
 
   const handleDelete = async () => {
     if (!deletingId) return
@@ -236,6 +253,16 @@ export default function TabellaPreventivi({ preventivi }: Props) {
                           <Link href={`/preventivi/${p.id}/stampa-calcoli`}>
                             <BarChart2 className="h-3.5 w-3.5" />
                           </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-gray-400 hover:text-teal-600"
+                          onClick={() => handleDuplica(p.id)}
+                          disabled={isDuplicating && duplicatingId === p.id}
+                          title="Duplica preventivo"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
                         </Button>
                         <Button
                           variant="ghost"

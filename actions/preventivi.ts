@@ -447,6 +447,93 @@ export async function updatePreventivo(
   revalidatePath(`/preventivi/${id}`)
 }
 
+export async function duplicaPreventivo(id: string): Promise<{ id: string }> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  // Legge preventivo sorgente + articoli
+  const [{ data: src, error: srcErr }, { data: srcArticoli, error: artErr }] = await Promise.all([
+    supabase.from('preventivi').select('*').eq('id', id).single(),
+    supabase.from('articoli_preventivo').select('*').eq('preventivo_id', id).order('ordine'),
+  ])
+  if (srcErr || !src) throw new Error('Preventivo non trovato')
+  if (artErr) throw new Error(artErr.message)
+
+  // ── Genera nuovo numero ───────────────────────────────────────────────────
+  const { data: settingsRow } = await supabase
+    .from('settings')
+    .select('num_prefisso, num_operatore, num_contatore, num_anno, num_padding')
+    .eq('organization_id', orgId)
+    .maybeSingle()
+
+  let numeroFinale: string | null = null
+  if (settingsRow?.num_prefisso) {
+    const currentYear = new Date().getFullYear()
+    const annoSettings = settingsRow.num_anno ?? 0
+    const nuovoContatore = annoSettings !== currentYear ? 1 : (settingsRow.num_contatore ?? 0) + 1
+    await supabase
+      .from('settings')
+      .update({ num_contatore: nuovoContatore, num_anno: currentYear })
+      .eq('organization_id', orgId)
+    numeroFinale = generaNumeroPreventivo(
+      settingsRow.num_prefisso,
+      nuovoContatore,
+      currentYear,
+      settingsRow.num_operatore ?? null,
+      settingsRow.num_padding ?? 2
+    )
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Inserisce nuovo preventivo (stato = bozza, share azzerato)
+  const { data: newPrev, error: newErr } = await supabase
+    .from('preventivi')
+    .insert({
+      organization_id: orgId,
+      cliente_id: src.cliente_id,
+      numero: numeroFinale,
+      cliente_snapshot: src.cliente_snapshot,
+      sconto_globale: src.sconto_globale,
+      note: src.note,
+      subtotale: src.subtotale,
+      importo_sconto: src.importo_sconto,
+      totale_articoli: src.totale_articoli,
+      spese_trasporto: src.spese_trasporto,
+      modalita_trasporto: src.modalita_trasporto,
+      totale_costi_acquisto: src.totale_costi_acquisto,
+      iva_totale: src.iva_totale,
+      riepilogo_iva: src.riepilogo_iva,
+      totale_finale: src.totale_finale,
+      totale_pezzi: src.totale_pezzi,
+      stato: 'bozza',
+      share_token: null,
+      condiviso_at: null,
+      visualizzato_at: null,
+    })
+    .select('id')
+    .single()
+
+  if (newErr || !newPrev) throw new Error(newErr?.message ?? 'Errore creazione duplicato')
+
+  // Copia articoli
+  if (srcArticoli && srcArticoli.length > 0) {
+    const { error: insErr } = await supabase.from('articoli_preventivo').insert(
+      srcArticoli.map(({ id: _id, preventivo_id: _pid, created_at: _ca, ...rest }) => ({
+        ...rest,
+        preventivo_id: newPrev.id,
+        organization_id: orgId,
+      }))
+    )
+    if (insErr) {
+      await supabase.from('preventivi').delete().eq('id', newPrev.id)
+      throw new Error(insErr.message)
+    }
+  }
+
+  revalidatePath('/preventivi')
+  return { id: newPrev.id }
+}
+
 export async function deletePreventivo(id: string): Promise<void> {
   const supabase = await createClient()
 

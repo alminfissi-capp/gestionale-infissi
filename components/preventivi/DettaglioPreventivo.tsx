@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X } from 'lucide-react'
-import { deletePreventivo } from '@/actions/preventivi'
+import { deletePreventivo, duplicaPreventivo } from '@/actions/preventivi'
 import { generaShareToken, revokaShareToken } from '@/actions/condivisione'
 import { formatEuro } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
@@ -50,6 +50,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [isDuplicating, startDuplicate] = useTransition()
   const [shareToken, setShareToken] = useState(p.share_token)
   const [condivisoAt, setCondivisoAt] = useState(p.condiviso_at)
   const [visualizzatoAt, setVisualizzatoAt] = useState(p.visualizzato_at)
@@ -118,6 +119,18 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
       : `Gentile ${nomeCliente},\n\nle inviamo in allegato il preventivo richiesto.\n\nRimanendo a disposizione per qualsiasi informazione,\ncordiamo saluti.`
     return `mailto:${s.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   })() : null
+
+  const handleDuplica = () => {
+    startDuplicate(async () => {
+      try {
+        const { id: newId } = await duplicaPreventivo(p.id)
+        toast.success('Preventivo duplicato')
+        router.push(`/preventivi/${newId}`)
+      } catch {
+        toast.error('Errore durante la duplicazione')
+      }
+    })
+  }
 
   const handleDelete = () => {
     startTransition(async () => {
@@ -192,6 +205,10 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
               </a>
             </Button>
           )}
+          <Button variant="outline" size="sm" onClick={handleDuplica} disabled={isDuplicating}>
+            <Copy className="h-4 w-4 mr-1" />
+            {isDuplicating ? 'Duplicazione...' : 'Duplica'}
+          </Button>
           <Button variant="outline" size="sm" asChild>
             <Link href={`/preventivi/${p.id}/modifica`}>
               <Pencil className="h-4 w-4 mr-1" />
