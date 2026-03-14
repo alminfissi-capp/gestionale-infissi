@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Plus, Camera, ImageIcon, FolderOpen, X, Loader2 } from 'lucide-react'
+import { Plus, Camera, ImageIcon, FolderOpen, X, Loader2, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { getCurrentOrgId } from '@/actions/listini'
 import { createClient } from '@/lib/supabase/client'
@@ -43,17 +43,19 @@ async function resizeImage(file: File, maxDim = 1200): Promise<Blob> {
 
 interface Props {
   aliquote: number[]
+  initialValues?: ArticoloWizard
+  isEditing?: boolean
   onAdd: (articolo: ArticoloWizard) => void
 }
 
-export default function FormVoceLibera({ aliquote, onAdd }: Props) {
-  const [descrizione, setDescrizione] = useState('')
-  const [prezzoUnitario, setPrezzoUnitario] = useState('')
-  const [costoAcquisto, setCostoAcquisto] = useState('')
-  const [costoManodopera, setCostoManodopera] = useState('')
-  const [quantita, setQuantita] = useState('1')
-  const [sconto, setSconto] = useState(0)
-  const [aliquotaIva, setAliquotaIva] = useState<number | null>(null)
+export default function FormVoceLibera({ aliquote, initialValues, isEditing, onAdd }: Props) {
+  const [descrizione, setDescrizione] = useState(initialValues?.tipologia ?? '')
+  const [prezzoUnitario, setPrezzoUnitario] = useState(initialValues?.prezzo_unitario?.toString() ?? '')
+  const [costoAcquisto, setCostoAcquisto] = useState(initialValues?.costo_acquisto_unitario?.toString() ?? '')
+  const [costoManodopera, setCostoManodopera] = useState(initialValues?.costo_posa?.toString() ?? '')
+  const [quantita, setQuantita] = useState(initialValues?.quantita?.toString() ?? '1')
+  const [sconto, setSconto] = useState(initialValues?.sconto_articolo ?? 0)
+  const [aliquotaIva, setAliquotaIva] = useState<number | null>(initialValues?.aliquota_iva ?? null)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -104,7 +106,7 @@ export default function FormVoceLibera({ aliquote, onAdd }: Props) {
       }
 
       const articolo: ArticoloWizard = {
-        tempId: crypto.randomUUID(),
+        tempId: isEditing && initialValues ? initialValues.tempId : crypto.randomUUID(),
         tipo: 'libera',
         listino_id: null,
         listino_libero_id: null,
@@ -331,13 +333,39 @@ export default function FormVoceLibera({ aliquote, onAdd }: Props) {
         </div>
       )}
 
+      {/* Preview costi interni */}
+      {prezzo > 0 && (parseFloat(costoAcquisto) > 0 || parseFloat(costoManodopera) > 0) && (
+        (() => {
+          const costoAcqUnit = parseFloat(costoAcquisto) || 0
+          const posaUnit = parseFloat(costoManodopera) || 0
+          const costoTot = (costoAcqUnit + posaUnit) * qty
+          const utile = totaleRiga - costoTot
+          const percUtile = costoTot > 0 ? (utile / costoTot) * 100 : null
+          return (
+            <div className="flex items-center gap-3 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs flex-wrap">
+              <TrendingUp className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+              <span className="text-amber-800 font-medium">Interno:</span>
+              <span className="text-gray-600">Acq: <strong>€ {formatEuro(costoAcqUnit)}</strong>/pz</span>
+              {posaUnit > 0 && <span className="text-gray-600">Posa: <strong>€ {formatEuro(posaUnit)}</strong>/pz</span>}
+              <span className="text-gray-600">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
+              <span className={`font-semibold ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                Utile: € {formatEuro(utile)}
+                {percUtile !== null && (
+                  <span className="ml-1 font-normal opacity-80">({percUtile.toFixed(1).replace('.', ',')}%)</span>
+                )}
+              </span>
+            </div>
+          )
+        })()
+      )}
+
       <Button onClick={handleAdd} disabled={!canAdd || uploading} className="w-full sm:w-auto">
         {uploading ? (
           <Loader2 className="h-4 w-4 mr-1 animate-spin" />
         ) : (
           <Plus className="h-4 w-4 mr-1" />
         )}
-        Aggiungi voce libera
+        {isEditing ? 'Aggiorna voce libera' : 'Aggiungi voce libera'}
       </Button>
     </div>
   )

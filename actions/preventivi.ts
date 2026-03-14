@@ -183,6 +183,8 @@ async function calcolaCostiAcquistoInput(
         (sum, acc) => sum + (acc.prezzo_acquisto ?? 0) * acc.qty, 0
       )
       costoUnitario = costoProdotto + costoAccessori
+    } else if (a.tipo === 'libera') {
+      costoUnitario = a.costo_acquisto_unitario
     }
     totaleCostiAcquisto += costoUnitario * a.quantita
     return { ...a, costo_acquisto_unitario: costoUnitario }

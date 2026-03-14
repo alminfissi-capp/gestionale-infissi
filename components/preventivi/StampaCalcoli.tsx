@@ -94,8 +94,9 @@ interface DocProps {
 
 function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings, logoUrl }: DocProps) {
   const articoliOrdinati = [...p.articoli].sort((a, b) => a.ordine - b.ordine)
+  const totaleCostiAcquisto = articoliOrdinati.reduce((sum, a) => sum + a.costo_acquisto_unitario * a.quantita, 0)
   const totalePosa = articoliOrdinati.reduce((sum, a) => sum + a.costo_posa * a.quantita, 0)
-  const costoTotale = p.totale_costi_acquisto + totalePosa + p.spese_trasporto
+  const costoTotale = totaleCostiAcquisto + totalePosa + p.spese_trasporto
   const utile = p.totale_articoli - costoTotale
   const percUtile = costoTotale > 0 ? (utile / costoTotale) * 100 : null
 
@@ -240,7 +241,7 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
           <div className="border-t border-amber-200 pt-1.5 space-y-1">
             <div className="flex justify-between text-gray-700">
               <span>— Costi acquisto fornitore</span>
-              <span className="tabular-nums">€ {formatEuro(p.totale_costi_acquisto)}</span>
+              <span className="tabular-nums">€ {formatEuro(totaleCostiAcquisto)}</span>
             </div>
             {totalePosa > 0 && (
               <div className="flex justify-between text-gray-700">

@@ -33,6 +33,7 @@ export default function ArticoliEditor({
   const [itemConfig, setItemConfig] = useState<ItemSel | null>(null)
   const [ricerca, setRicerca] = useState('')
   const [editingTempId, setEditingTempId] = useState<string | null>(null)
+  const [editingLibera, setEditingLibera] = useState<ArticoloWizard | null>(null)
 
   const categoria = listini.find((c) => c.id === categoriaSel)
 
@@ -60,6 +61,12 @@ export default function ArticoliEditor({
   }
 
   const handleEdit = (article: ArticoloWizard) => {
+    if (article.tipo === 'libera') {
+      setEditingTempId(article.tempId)
+      setEditingLibera(article)
+      setCategoriaSel('libera')
+      return
+    }
     const item = findItemSel(article)
     if (!item) return
     setEditingTempId(article.tempId)
@@ -70,6 +77,7 @@ export default function ArticoliEditor({
     if (editingTempId) {
       onArticoliChange(articoli.map((art) => art.tempId === editingTempId ? a : art))
       setEditingTempId(null)
+      setEditingLibera(null)
     } else {
       onArticoliChange([...articoli, a])
     }
@@ -77,7 +85,10 @@ export default function ArticoliEditor({
   }
 
   const handleRemove = (tempId: string) => {
-    if (editingTempId === tempId) setEditingTempId(null)
+    if (editingTempId === tempId) {
+      setEditingTempId(null)
+      setEditingLibera(null)
+    }
     onArticoliChange(articoli.filter((a) => a.tempId !== tempId))
   }
 
@@ -186,7 +197,13 @@ export default function ArticoliEditor({
           <div className="flex-1 overflow-y-auto">
             {categoriaSel === 'libera' ? (
               <div className="p-4 max-w-xl">
-                <FormVoceLibera aliquote={aliquote} onAdd={handleAddOrEdit} />
+                <FormVoceLibera
+                  key={editingLibera?.tempId ?? 'new'}
+                  aliquote={aliquote}
+                  initialValues={editingLibera ?? undefined}
+                  isEditing={editingLibera !== null}
+                  onAdd={handleAddOrEdit}
+                />
               </div>
             ) : !categoria ? null : categoria.tipo === 'griglia' ? (
               <GrigliaList
@@ -226,7 +243,7 @@ export default function ArticoliEditor({
                     key={a.tempId}
                     articolo={a}
                     onRemove={() => handleRemove(a.tempId)}
-                    onEdit={a.tipo !== 'libera' ? () => handleEdit(a) : undefined}
+                    onEdit={() => handleEdit(a)}
                   />
                 ))}
               </div>

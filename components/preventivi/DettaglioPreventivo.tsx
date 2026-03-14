@@ -494,112 +494,116 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
       </div>
 
       {/* Report Interno — solo uso gestionale, non compare in stampa */}
-      {p.totale_costi_acquisto > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-4">
-          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide flex items-center gap-1.5">
-            <TrendingUp className="h-3.5 w-3.5" />
-            Report interno — solo uso gestionale
-          </p>
+      {(() => {
+        const totaleCostiAcquisto = p.articoli.reduce((sum, a) => sum + a.costo_acquisto_unitario * a.quantita, 0)
+        const totalePosa = p.articoli.reduce((sum, a) => sum + a.costo_posa * a.quantita, 0)
+        if (totaleCostiAcquisto === 0 && totalePosa === 0 && p.spese_trasporto === 0) return null
+        const costoTotale = totaleCostiAcquisto + totalePosa + p.spese_trasporto
+        const utile = p.totale_articoli - costoTotale
+        const percUtile = costoTotale > 0 ? (utile / costoTotale) * 100 : null
+        return (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-4">
+            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide flex items-center gap-1.5">
+              <TrendingUp className="h-3.5 w-3.5" />
+              Report interno — solo uso gestionale
+            </p>
 
-          {/* Tabella costi acquisto per articolo */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-xs text-amber-700 border-b border-amber-200">
-                  <th className="text-left pb-1.5 font-semibold">Articolo</th>
-                  <th className="text-center pb-1.5 font-semibold w-12">Qtà</th>
-                  <th className="text-right pb-1.5 font-semibold whitespace-nowrap">C. Acq. Unit.</th>
-                  <th className="text-right pb-1.5 font-semibold whitespace-nowrap">Posa Unit.</th>
-                  <th className="text-right pb-1.5 font-semibold whitespace-nowrap">Costo Tot.</th>
-                  <th className="text-right pb-1.5 font-semibold whitespace-nowrap">Ricavo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {p.articoli.map((a) => {
-                  const costoTotRiga = (a.costo_acquisto_unitario + a.costo_posa) * a.quantita
-                  const margineRiga = a.prezzo_totale_riga - costoTotRiga
-                  return (
-                    <tr key={a.id} className="border-b border-amber-100">
-                      <td className="py-1.5 pr-2">
-                        <p className="font-medium text-gray-800">{a.tipologia}</p>
-                        {a.categoria_nome && (
-                          <p className="text-xs text-gray-400">{a.categoria_nome}</p>
-                        )}
-                      </td>
-                      <td className="py-1.5 text-center text-gray-600">{a.quantita}</td>
-                      <td className="py-1.5 text-right text-gray-600 tabular-nums">
-                        {a.costo_acquisto_unitario > 0 ? `€ ${formatEuro(a.costo_acquisto_unitario)}` : '—'}
-                      </td>
-                      <td className="py-1.5 text-right text-gray-600 tabular-nums">
-                        {a.costo_posa > 0 ? `€ ${formatEuro(a.costo_posa)}` : '—'}
-                      </td>
-                      <td className="py-1.5 text-right text-gray-700 font-medium tabular-nums">
-                        {costoTotRiga > 0 ? `€ ${formatEuro(costoTotRiga)}` : '—'}
-                      </td>
-                      <td className={`py-1.5 text-right font-medium tabular-nums ${margineRiga >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-                        € {formatEuro(margineRiga)}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+            {/* Tabella costi acquisto per articolo */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs text-amber-700 border-b border-amber-200">
+                    <th className="text-left pb-1.5 font-semibold">Articolo</th>
+                    <th className="text-center pb-1.5 font-semibold w-12">Qtà</th>
+                    <th className="text-right pb-1.5 font-semibold whitespace-nowrap">C. Acq. Unit.</th>
+                    <th className="text-right pb-1.5 font-semibold whitespace-nowrap">Posa Unit.</th>
+                    <th className="text-right pb-1.5 font-semibold whitespace-nowrap">Costo Tot.</th>
+                    <th className="text-right pb-1.5 font-semibold whitespace-nowrap">Ricavo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {p.articoli.map((a) => {
+                    const costoTotRiga = (a.costo_acquisto_unitario + a.costo_posa) * a.quantita
+                    const margineRiga = a.prezzo_totale_riga - costoTotRiga
+                    return (
+                      <tr key={a.id} className="border-b border-amber-100">
+                        <td className="py-1.5 pr-2">
+                          <p className="font-medium text-gray-800">{a.tipologia}</p>
+                          {a.categoria_nome && (
+                            <p className="text-xs text-gray-400">{a.categoria_nome}</p>
+                          )}
+                        </td>
+                        <td className="py-1.5 text-center text-gray-600">{a.quantita}</td>
+                        <td className="py-1.5 text-right text-gray-600 tabular-nums">
+                          {a.costo_acquisto_unitario > 0 ? `€ ${formatEuro(a.costo_acquisto_unitario)}` : '—'}
+                        </td>
+                        <td className="py-1.5 text-right text-gray-600 tabular-nums">
+                          {a.costo_posa > 0 ? `€ ${formatEuro(a.costo_posa)}` : '—'}
+                        </td>
+                        <td className="py-1.5 text-right text-gray-700 font-medium tabular-nums">
+                          {costoTotRiga > 0 ? `€ ${formatEuro(costoTotRiga)}` : '—'}
+                        </td>
+                        <td className={`py-1.5 text-right font-medium tabular-nums ${margineRiga >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                          € {formatEuro(margineRiga)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-          {/* Riepilogo economico interno */}
-          {(() => {
-            const totalePosa = p.articoli.reduce((sum, a) => sum + a.costo_posa * a.quantita, 0)
-            const costoTotale = p.totale_costi_acquisto + totalePosa + p.spese_trasporto
-            const utile = p.totale_articoli - costoTotale
-            const percUtile = costoTotale > 0 ? (utile / costoTotale) * 100 : null
-            return (
-              <div className="border-t border-amber-200 pt-3 space-y-1.5 text-sm ml-auto max-w-xs">
+            {/* Riepilogo economico interno */}
+            <div className="border-t border-amber-200 pt-3 space-y-1.5 text-sm ml-auto max-w-xs">
+              {totaleCostiAcquisto > 0 && (
                 <div className="flex justify-between text-gray-600">
                   <span className="flex items-center gap-1"><ShoppingCart className="h-3.5 w-3.5" />Totale acquisto fornitore</span>
-                  <span className="tabular-nums">€ {formatEuro(p.totale_costi_acquisto)}</span>
+                  <span className="tabular-nums">€ {formatEuro(totaleCostiAcquisto)}</span>
                 </div>
-                {totalePosa > 0 && (
-                  <div className="flex justify-between text-gray-600">
-                    <span className="flex items-center gap-1 pl-1">↳ Costi posa</span>
-                    <span className="tabular-nums">€ {formatEuro(totalePosa)}</span>
-                  </div>
-                )}
+              )}
+              {totalePosa > 0 && (
+                <div className="flex justify-between text-gray-600">
+                  <span className="flex items-center gap-1 pl-1">↳ Costi posa</span>
+                  <span className="tabular-nums">€ {formatEuro(totalePosa)}</span>
+                </div>
+              )}
+              {p.spese_trasporto > 0 && (
                 <div className="flex justify-between text-gray-600">
                   <span className="flex items-center gap-1"><Truck className="h-3.5 w-3.5" />Spese trasporto</span>
                   <span className="tabular-nums">€ {formatEuro(p.spese_trasporto)}</span>
                 </div>
-                {p.sconto_globale > 0 && (
-                  <>
-                    <div className="flex justify-between text-gray-500 text-xs">
-                      <span>Ricavo lordo (IVA esclusa)</span>
-                      <span className="tabular-nums">€ {formatEuro(p.subtotale)}</span>
-                    </div>
-                    <div className="flex justify-between text-red-600 text-xs">
-                      <span>Sconto globale {p.sconto_globale}%</span>
-                      <span className="tabular-nums">− € {formatEuro(p.importo_sconto)}</span>
-                    </div>
-                  </>
-                )}
-                <div className="flex justify-between text-gray-500 text-xs">
-                  <span>Ricavo netto (IVA esclusa)</span>
-                  <span className="tabular-nums">€ {formatEuro(p.totale_articoli)}</span>
-                </div>
-                <div className={`flex justify-between font-bold text-base border-t border-amber-300 pt-2 mt-1 ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-                  <span className="flex items-baseline gap-2">
-                    Utile lordo
-                    {percUtile !== null && (
-                      <span className="font-normal text-sm opacity-80">
-                        ({percUtile.toFixed(1).replace('.', ',')}% sul costo)
-                      </span>
-                    )}
-                  </span>
-                  <span className="tabular-nums">€ {formatEuro(utile)}</span>
-                </div>
+              )}
+              {p.sconto_globale > 0 && (
+                <>
+                  <div className="flex justify-between text-gray-500 text-xs">
+                    <span>Ricavo lordo (IVA esclusa)</span>
+                    <span className="tabular-nums">€ {formatEuro(p.subtotale)}</span>
+                  </div>
+                  <div className="flex justify-between text-red-600 text-xs">
+                    <span>Sconto globale {p.sconto_globale}%</span>
+                    <span className="tabular-nums">− € {formatEuro(p.importo_sconto)}</span>
+                  </div>
+                </>
+              )}
+              <div className="flex justify-between text-gray-500 text-xs">
+                <span>Ricavo netto (IVA esclusa)</span>
+                <span className="tabular-nums">€ {formatEuro(p.totale_articoli)}</span>
               </div>
-            )
-          })()}
-        </div>
-      )}
+              <div className={`flex justify-between font-bold text-base border-t border-amber-300 pt-2 mt-1 ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                <span className="flex items-baseline gap-2">
+                  Utile lordo
+                  {percUtile !== null && (
+                    <span className="font-normal text-sm opacity-80">
+                      ({percUtile.toFixed(1).replace('.', ',')}% sul costo)
+                    </span>
+                  )}
+                </span>
+                <span className="tabular-nums">€ {formatEuro(utile)}</span>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Delete confirm */}
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
