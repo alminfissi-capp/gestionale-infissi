@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, GripVertical } from 'lucide-react'
+import { Plus, GripVertical, Search } from 'lucide-react'
 import {
   DndContext,
   closestCenter,
@@ -20,6 +20,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { getCategorie, updateOrdiniCategorie } from '@/actions/listini'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import CategoriaCard from '@/components/listini/CategoriaCard'
 import CategoriaCardLibera from '@/components/listini/CategoriaCardLibera'
 import DialogCategoria from '@/components/listini/DialogCategoria'
@@ -63,6 +64,7 @@ export default function ListiniPage() {
   const [categorie, setCategorie] = useState<CategoriaConListini[]>([])
   const [loading, setLoading] = useState(true)
   const [newCatOpen, setNewCatOpen] = useState(false)
+  const [search, setSearch] = useState('')
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
@@ -98,6 +100,10 @@ export default function ListiniPage() {
     }
   }
 
+  const categorieFiltered = search.trim()
+    ? categorie.filter((c) => c.nome.toLowerCase().includes(search.trim().toLowerCase()))
+    : categorie
+
   const totaleListini = categorie.reduce(
     (sum, c) => sum + c.listini.length + c.listini_liberi.length,
     0
@@ -118,11 +124,30 @@ export default function ListiniPage() {
         </Button>
       </div>
 
+      {!loading && categorie.length > 0 && (
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Cerca categoria..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      )}
+
       {loading && (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-16 rounded-lg border bg-white animate-pulse" />
           ))}
+        </div>
+      )}
+
+      {!loading && categorieFiltered.length === 0 && categorie.length > 0 && (
+        <div className="text-center py-16 text-gray-400">
+          <p className="text-lg font-medium mb-2">Nessuna categoria trovata</p>
+          <p className="text-sm">Prova con un termine di ricerca diverso.</p>
         </div>
       )}
 
@@ -137,11 +162,11 @@ export default function ListiniPage() {
         </div>
       )}
 
-      {!loading && categorie.length > 0 && (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={categorie.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+      {!loading && categorieFiltered.length > 0 && (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={search ? () => {} : handleDragEnd}>
+          <SortableContext items={categorieFiltered.map((c) => c.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-4">
-              {categorie.map((cat) => (
+              {categorieFiltered.map((cat) => (
                 <SortableCategoriaWrapper key={cat.id} categoria={cat} onSuccess={load} />
               ))}
             </div>
