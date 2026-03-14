@@ -48,7 +48,7 @@ export default function DialogAccessorioBulk({
   const [prezzoAcquisto, setPrezzoAcquisto] = useState('')
   const [mqMinimo, setMqMinimo] = useState('')
 
-  const canSave = gruppo.trim().length > 0 && nome.trim().length > 0 && parseFloat(prezzo) > 0
+  const canSave = gruppo.trim().length > 0 && nome.trim().length > 0
 
   const resetForm = () => {
     setGruppo('')
