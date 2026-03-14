@@ -95,7 +95,9 @@ interface DocProps {
 function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings, logoUrl }: DocProps) {
   const articoliOrdinati = [...p.articoli].sort((a, b) => a.ordine - b.ordine)
   const totalePosa = articoliOrdinati.reduce((sum, a) => sum + a.costo_posa * a.quantita, 0)
-  const utile = p.totale_articoli - p.totale_costi_acquisto - totalePosa - p.spese_trasporto
+  const costoTotale = p.totale_costi_acquisto + totalePosa + p.spese_trasporto
+  const utile = p.totale_articoli - costoTotale
+  const percUtile = costoTotale > 0 ? (utile / costoTotale) * 100 : null
 
   return (
     <div
@@ -252,7 +254,14 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
             </div>
           </div>
           <div className={`flex justify-between font-bold text-[13px] border-t border-amber-300 pt-2 mt-1 ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-            <span>UTILE LORDO</span>
+            <span>
+              UTILE LORDO
+              {percUtile !== null && (
+                <span className="ml-2 font-normal text-[11px] opacity-80">
+                  ({percUtile.toFixed(1).replace('.', ',')}% sul costo)
+                </span>
+              )}
+            </span>
             <span className="tabular-nums">€ {formatEuro(utile)}</span>
           </div>
           {p.iva_totale > 0 && (

@@ -528,19 +528,30 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
       {calcolo && !calcolo.error && categoriaSelezionata && (
         (() => {
           const qty = Math.max(1, parseInt(quantita) || 1)
+          const L = parseInt(larghezza) || 0
+          const H = parseInt(altezza) || 0
           const costoAcqUnit = calcolaCostoAcquistoUnitario(calcolo.prezzoBase, categoriaSelezionata.sconto_fornitore ?? 0)
+          const costoAccessoriUnit = accessoriGrigliaSelezionati.reduce(
+            (sum, a) => sum + calcolaAccessorioGriglia({ ...a, prezzo: a.prezzo_acquisto }, L, H, calcolo.prezzoBase),
+            0
+          )
           const posaUnit = parseFloat(costoPosa) || 0
-          const costoTot = (costoAcqUnit + posaUnit) * qty
+          const costoTot = (costoAcqUnit + costoAccessoriUnit + posaUnit) * qty
           const utile = calcolo.totalRiga - costoTot
+          const percUtile = costoTot > 0 ? (utile / costoTot) * 100 : null
           return (
             <div className="flex items-center gap-4 p-3 rounded-md bg-amber-50 border border-amber-200 text-sm flex-wrap">
               <TrendingUp className="h-3.5 w-3.5 text-amber-600 shrink-0" />
               <span className="text-amber-800 text-xs font-medium">Interno:</span>
               <span className="text-gray-600 text-xs">Acq: <strong>€ {formatEuro(costoAcqUnit)}</strong>/pz</span>
+              {costoAccessoriUnit > 0 && <span className="text-gray-600 text-xs">Acc: <strong>€ {formatEuro(costoAccessoriUnit)}</strong>/pz</span>}
               {posaUnit > 0 && <span className="text-gray-600 text-xs">Posa: <strong>€ {formatEuro(posaUnit)}</strong>/pz</span>}
               <span className="text-gray-600 text-xs">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
               <span className={`font-semibold text-xs ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
                 Utile: € {formatEuro(utile)}
+                {percUtile !== null && (
+                  <span className="ml-1 font-normal opacity-80">({percUtile.toFixed(1).replace('.', ',')}%)</span>
+                )}
               </span>
             </div>
           )

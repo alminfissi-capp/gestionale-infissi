@@ -549,7 +549,9 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
           {/* Riepilogo economico interno */}
           {(() => {
             const totalePosa = p.articoli.reduce((sum, a) => sum + a.costo_posa * a.quantita, 0)
-            const utile = p.totale_articoli - p.totale_costi_acquisto - totalePosa - p.spese_trasporto
+            const costoTotale = p.totale_costi_acquisto + totalePosa + p.spese_trasporto
+            const utile = p.totale_articoli - costoTotale
+            const percUtile = costoTotale > 0 ? (utile / costoTotale) * 100 : null
             return (
               <div className="border-t border-amber-200 pt-3 space-y-1.5 text-sm ml-auto max-w-xs">
                 <div className="flex justify-between text-gray-600">
@@ -583,7 +585,14 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                   <span className="tabular-nums">€ {formatEuro(p.totale_articoli)}</span>
                 </div>
                 <div className={`flex justify-between font-bold text-base border-t border-amber-300 pt-2 mt-1 ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-                  <span>Utile lordo</span>
+                  <span className="flex items-baseline gap-2">
+                    Utile lordo
+                    {percUtile !== null && (
+                      <span className="font-normal text-sm opacity-80">
+                        ({percUtile.toFixed(1).replace('.', ',')}% sul costo)
+                      </span>
+                    )}
+                  </span>
                   <span className="tabular-nums">€ {formatEuro(utile)}</span>
                 </div>
               </div>
