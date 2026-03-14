@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, FileText, Table2, Package, Trash2, Pencil, Plus, Search, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileText, Table2, Package, Trash2, Pencil, Plus, Search, X, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import FormVoceLibera from './FormVoceLibera'
@@ -34,6 +34,8 @@ export default function ArticoliEditor({
   const [ricerca, setRicerca] = useState('')
   const [editingTempId, setEditingTempId] = useState<string | null>(null)
   const [editingLibera, setEditingLibera] = useState<ArticoloWizard | null>(null)
+  // valori pre-compilati per il dialog (sia edit che duplicate)
+  const [configValues, setConfigValues] = useState<ArticoloWizard | null>(null)
 
   const categoria = listini.find((c) => c.id === categoriaSel)
 
@@ -70,6 +72,22 @@ export default function ArticoliEditor({
     const item = findItemSel(article)
     if (!item) return
     setEditingTempId(article.tempId)
+    setConfigValues(article)
+    setItemConfig(item)
+  }
+
+  const handleDuplicate = (article: ArticoloWizard) => {
+    const copy = { ...article, tempId: crypto.randomUUID() }
+    if (article.tipo === 'libera') {
+      setEditingTempId(null) // aggiunge come nuovo
+      setEditingLibera(copy)
+      setCategoriaSel('libera')
+      return
+    }
+    const item = findItemSel(article)
+    if (!item) return
+    setEditingTempId(null) // aggiunge come nuovo
+    setConfigValues(copy)
     setItemConfig(item)
   }
 
@@ -78,8 +96,11 @@ export default function ArticoliEditor({
       onArticoliChange(articoli.map((art) => art.tempId === editingTempId ? a : art))
       setEditingTempId(null)
       setEditingLibera(null)
+      setConfigValues(null)
     } else {
       onArticoliChange([...articoli, a])
+      setEditingLibera(null)
+      setConfigValues(null)
     }
     setItemConfig(null)
   }
@@ -88,6 +109,7 @@ export default function ArticoliEditor({
     if (editingTempId === tempId) {
       setEditingTempId(null)
       setEditingLibera(null)
+      setConfigValues(null)
     }
     onArticoliChange(articoli.filter((a) => a.tempId !== tempId))
   }
@@ -201,7 +223,7 @@ export default function ArticoliEditor({
                   key={editingLibera?.tempId ?? 'new'}
                   aliquote={aliquote}
                   initialValues={editingLibera ?? undefined}
-                  isEditing={editingLibera !== null}
+                  isEditing={editingTempId !== null && editingLibera !== null}
                   onAdd={handleAddOrEdit}
                 />
               </div>
@@ -244,6 +266,7 @@ export default function ArticoliEditor({
                     articolo={a}
                     onRemove={() => handleRemove(a.tempId)}
                     onEdit={() => handleEdit(a)}
+                    onDuplicate={() => handleDuplicate(a)}
                   />
                 ))}
               </div>
@@ -276,10 +299,10 @@ export default function ArticoliEditor({
       <DialogConfigurazione
         item={itemConfig}
         aliquote={aliquote}
-        initialValues={editingTempId ? articoli.find((a) => a.tempId === editingTempId) : undefined}
+        initialValues={configValues ?? undefined}
         isEditing={!!editingTempId}
         onAdd={handleAddOrEdit}
-        onClose={() => { setItemConfig(null); setEditingTempId(null) }}
+        onClose={() => { setItemConfig(null); setEditingTempId(null); setConfigValues(null) }}
       />
     </div>
   )
@@ -462,10 +485,12 @@ function ArticoloCard({
   articolo,
   onRemove,
   onEdit,
+  onDuplicate,
 }: {
   articolo: ArticoloWizard
   onRemove: () => void
   onEdit?: () => void
+  onDuplicate?: () => void
 }) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-2 flex items-start gap-2">
@@ -515,8 +540,18 @@ function ArticoloCard({
           <button
             onClick={onEdit}
             className="p-1 rounded text-gray-300 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+            title="Modifica"
           >
             <Pencil className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {onDuplicate && (
+          <button
+            onClick={onDuplicate}
+            className="p-1 rounded text-gray-300 hover:text-teal-500 hover:bg-teal-50 transition-colors"
+            title="Duplica"
+          >
+            <Copy className="h-3.5 w-3.5" />
           </button>
         )}
       </div>

@@ -771,5 +771,58 @@ export async function duplicaCategoriaLibera(id: string): Promise<{ id: string }
   return { id: newCat.id }
 }
 
+/** Aggiunge un accessorio griglia a tutti i listini di una categoria in una sola operazione */
+export async function addAccessorioATuttiListini(
+  categoriaId: string,
+  accessorio: AccessorioGrigliaInput
+): Promise<{ count: number }> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  // Recupera tutti i listini della categoria
+  const { data: listini, error: lErr } = await supabase
+    .from('listini')
+    .select('id')
+    .eq('categoria_id', categoriaId)
+    .eq('organization_id', orgId)
+  if (lErr) throw new Error(lErr.message)
+  if (!listini || listini.length === 0) return { count: 0 }
+
+  const listinoIds = listini.map((l) => l.id)
+
+  // Recupera il max ordine per ogni listino (per appendere in fondo)
+  const { data: ordini } = await supabase
+    .from('accessori_griglia')
+    .select('listino_id, ordine')
+    .in('listino_id', listinoIds)
+    .order('ordine', { ascending: false })
+
+  const maxOrdineMap = new Map<string, number>()
+  for (const row of ordini ?? []) {
+    if (!maxOrdineMap.has(row.listino_id)) {
+      maxOrdineMap.set(row.listino_id, row.ordine)
+    }
+  }
+
+  const insertData = listinoIds.map((id) => ({
+    listino_id: id,
+    organization_id: orgId,
+    gruppo: accessorio.gruppo,
+    gruppo_tipo: accessorio.gruppo_tipo,
+    nome: accessorio.nome,
+    tipo_prezzo: accessorio.tipo_prezzo,
+    prezzo: accessorio.prezzo,
+    prezzo_acquisto: accessorio.prezzo_acquisto,
+    mq_minimo: accessorio.mq_minimo,
+    ordine: (maxOrdineMap.get(id) ?? -1) + 1,
+  }))
+
+  const { error: iErr } = await supabase.from('accessori_griglia').insert(insertData)
+  if (iErr) throw new Error(iErr.message)
+
+  revalidatePath('/listini')
+  return { count: listini.length }
+}
+
 // Ri-esporta FinituraCategoria type per uso esterno
 export type { FinituraCategoria }

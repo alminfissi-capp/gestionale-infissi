@@ -15,6 +15,7 @@ import {
   Download,
   FolderDown,
   FolderInput,
+  Layers,
 } from 'lucide-react'
 import {
   DndContext,
@@ -49,6 +50,7 @@ import TabellaGriglia from './TabellaGriglia'
 import DialogCategoria from './DialogCategoria'
 import DialogListino from './DialogListino'
 import DialogImportaMultiplo from './DialogImportaMultiplo'
+import DialogAccessorioBulk from './DialogAccessorioBulk'
 import IconaCategoria from './IconaCategoria'
 import type { CategoriaConListini, ListinoCompleto } from '@/types/listino'
 
@@ -200,6 +202,7 @@ export default function CategoriaCard({ categoria, dragHandle, onSuccess }: Prop
 
   const [newListinoOpen, setNewListinoOpen] = useState(false)
   const [importMultiploOpen, setImportMultiploOpen] = useState(false)
+  const [accessorioBulkOpen, setAccessorioBulkOpen] = useState(false)
   const [editingListino, setEditingListino] = useState<ListinoCompleto | null>(null)
   const [deletingListinoId, setDeletingListinoId] = useState<string | null>(null)
 
@@ -371,6 +374,17 @@ export default function CategoriaCard({ categoria, dragHandle, onSuccess }: Prop
           <Button
             size="sm"
             variant="outline"
+            title="Aggiungi accessorio a tutti i listini"
+            className="ml-1"
+            disabled={localListini.length === 0}
+            onClick={() => setAccessorioBulkOpen(true)}
+          >
+            <Layers className="h-4 w-4 mr-1" />
+            Accessorio a tutti
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
             title="Importa più listini da file"
             className="ml-1"
             onClick={() => setImportMultiploOpen(true)}
@@ -418,6 +432,16 @@ export default function CategoriaCard({ categoria, dragHandle, onSuccess }: Prop
           </DndContext>
         </div>
       )}
+
+      {/* Dialog accessorio a tutti i listini */}
+      <DialogAccessorioBulk
+        open={accessorioBulkOpen}
+        onOpenChange={setAccessorioBulkOpen}
+        categoriaId={categoria.id}
+        categoriaNome={categoria.nome}
+        listinoCount={localListini.length}
+        onSuccess={refresh}
+      />
 
       {/* Dialog importa multiplo */}
       <DialogImportaMultiplo
