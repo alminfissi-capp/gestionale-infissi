@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Image from 'next/image'
 import { Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -31,6 +32,8 @@ interface Props {
 }
 
 export default function TabellaArticoli({ articoli, aliquote, onChange }: Props) {
+  const [focusedNoteId, setFocusedNoteId] = useState<string | null>(null)
+
   if (articoli.length === 0) {
     return (
       <p className="text-sm text-gray-400 italic text-center py-6">
@@ -169,13 +172,25 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
                         ))}
                       </div>
                     ) : null}
-                    <Input
-                      type="text"
-                      placeholder="Note articolo..."
-                      value={a.note ?? ''}
-                      onChange={(e) => updateNote(a.tempId, e.target.value)}
-                      className="text-xs text-gray-400 border-0 px-0 h-6 mt-1 bg-transparent focus-visible:ring-0 shadow-none"
-                    />
+                    {(a.note || focusedNoteId === a.tempId) ? (
+                      <Input
+                        type="text"
+                        placeholder="Aggiungi nota..."
+                        value={a.note ?? ''}
+                        onChange={(e) => updateNote(a.tempId, e.target.value)}
+                        onBlur={() => setFocusedNoteId(null)}
+                        autoFocus={focusedNoteId === a.tempId && !a.note}
+                        className="text-xs text-gray-400 border-0 px-0 h-6 mt-1 bg-transparent focus-visible:ring-0 shadow-none"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setFocusedNoteId(a.tempId)}
+                        className="text-[10px] text-gray-300 hover:text-gray-400 mt-1 leading-none transition-colors"
+                      >
+                        + nota
+                      </button>
+                    )}
                   </div>
                 </div>
               </TableCell>
