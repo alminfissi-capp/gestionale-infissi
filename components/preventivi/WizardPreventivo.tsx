@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
+import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, Save, Loader2, Truck } from 'lucide-react'
@@ -110,6 +110,13 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [step, setStep] = useState(0)
+
+  // Auto-collassa la sidebar quando si entra nel riepilogo
+  useEffect(() => {
+    if (step === 2) {
+      window.dispatchEvent(new CustomEvent('layout:sidebar-collapse'))
+    }
+  }, [step])
 
   // Step 1 — cliente
   const [clienteId, setClienteId] = useState<string | null>(preventivo?.cliente_id ?? null)

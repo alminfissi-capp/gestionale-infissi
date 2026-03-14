@@ -240,7 +240,7 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
                   </div>
                 )}
                 <div>
-                  <p style={{ fontWeight: 600, fontSize: '11px', margin: 0 }}>{a.tipologia}</p>
+                  <p style={{ fontWeight: 600, fontSize: '11px', margin: 0, wordBreak: 'break-word', ...(a.tipo === 'libera' && { whiteSpace: 'pre-wrap' }) }}>{a.tipologia}</p>
                   {a.categoria_nome && (
                     <p style={{ color: '#9ca3af', fontSize: '9px', margin: 0 }}>{a.categoria_nome}</p>
                   )}

@@ -23,6 +23,13 @@ export default function LayoutShell({ children, logoUrl, denominazione }: Props)
     setMobileOpen(false)
   }, [pathname])
 
+  // Collassa la sidebar su richiesta esplicita (es. riepilogo preventivo)
+  useEffect(() => {
+    const handler = () => setCollapsed(true)
+    window.addEventListener('layout:sidebar-collapse', handler)
+    return () => window.removeEventListener('layout:sidebar-collapse', handler)
+  }, [])
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Overlay scuro per mobile */}
@@ -61,7 +68,7 @@ export default function LayoutShell({ children, logoUrl, denominazione }: Props)
         </header>
         <DataSync />
 
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
           <div className="p-2 sm:p-4 lg:p-6">
             {children}
           </div>

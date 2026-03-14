@@ -128,7 +128,7 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
                   )}
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <p className="font-medium text-sm">{a.tipologia}</p>
+                      <p className={`font-medium text-sm break-words${a.tipo === 'libera' ? ' whitespace-pre-wrap' : ''}`}>{a.tipologia}</p>
                       {a.tipo === 'libera' && (
                         <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-300">
                           voce libera

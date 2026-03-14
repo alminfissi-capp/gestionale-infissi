@@ -196,7 +196,7 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
                     {String(i + 1).padStart(2, '0')}
                   </td>
                   <td className="py-2 pr-3">
-                    <p className="font-semibold">{a.tipologia}</p>
+                    <p className={`font-semibold break-words${a.tipo === 'libera' ? ' whitespace-pre-wrap' : ''}`}>{a.tipologia}</p>
                     {a.categoria_nome && (
                       <p className="text-gray-400 text-[9px]">{a.categoria_nome}</p>
                     )}
