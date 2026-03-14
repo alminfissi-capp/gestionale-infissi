@@ -472,21 +472,32 @@ function FormGriglia({
       {calcolo && !calcolo.error && (
         (() => {
           const qty = Math.max(1, parseInt(quantita) || 1)
+          const L = parseInt(larghezza) || 0
+          const H = parseInt(altezza) || 0
           const costoAcqUnit = calcolaCostoAcquistoUnitario(calcolo.prezzoBase, categoria.sconto_fornitore ?? 0)
+          const costoAccessoriUnit = accessoriSelezionati.reduce(
+            (sum, a) => sum + calcolaAccessorioGriglia({ ...a, prezzo: a.prezzo_acquisto }, L, H, calcolo.prezzoBase),
+            0
+          )
           const posaUnit = parseFloat(costoPosa) || 0
           const trasporto = calcolaSpeseTrasportoPezzi(qty, categoria.trasporto_costo_unitario, categoria.trasporto_costo_minimo, categoria.trasporto_minimo_pezzi)
-          const costoTot = (costoAcqUnit + posaUnit) * qty + trasporto
+          const costoTot = (costoAcqUnit + costoAccessoriUnit + posaUnit) * qty + trasporto
           const utile = calcolo.totalRiga - costoTot
+          const percUtile = costoTot > 0 ? (utile / costoTot) * 100 : null
           return (
             <div className="flex items-center gap-3 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs flex-wrap">
               <TrendingUp className="h-3.5 w-3.5 text-amber-600 shrink-0" />
               <span className="text-amber-800 font-medium">Interno:</span>
               <span className="text-gray-600">Acq: <strong>€ {formatEuro(costoAcqUnit)}</strong>/pz</span>
+              {costoAccessoriUnit > 0 && <span className="text-gray-600">Acc: <strong>€ {formatEuro(costoAccessoriUnit)}</strong>/pz</span>}
               {posaUnit > 0 && <span className="text-gray-600">Posa: <strong>€ {formatEuro(posaUnit)}</strong>/pz</span>}
               {trasporto > 0 && <span className="text-gray-600">Trasp: <strong>€ {formatEuro(trasporto)}</strong></span>}
               <span className="text-gray-600">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
               <span className={`font-semibold ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
                 Utile: € {formatEuro(utile)}
+                {percUtile !== null && (
+                  <span className="ml-1 font-normal opacity-80">({percUtile.toFixed(1).replace('.', ',')}%)</span>
+                )}
               </span>
             </div>
           )
@@ -824,6 +835,7 @@ function FormLibero({
         const trasporto = calcolaSpeseTrasportoPezzi(qty, categoria.trasporto_costo_unitario, categoria.trasporto_costo_minimo, categoria.trasporto_minimo_pezzi)
         const costoTot = (costoAcqUnit + posaUnit) * qty + trasporto
         const utile = calcolo.totalRiga - costoTot
+        const percUtile = costoTot > 0 ? (utile / costoTot) * 100 : null
         if (costoAcqUnit === 0 && posaUnit === 0 && trasporto === 0) return null
         return (
           <div className="flex items-center gap-3 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs flex-wrap">
@@ -835,6 +847,9 @@ function FormLibero({
             <span className="text-gray-600">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
             <span className={`font-semibold ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
               Utile: € {formatEuro(utile)}
+              {percUtile !== null && (
+                <span className="ml-1 font-normal opacity-80">({percUtile.toFixed(1).replace('.', ',')}%)</span>
+              )}
             </span>
           </div>
         )
