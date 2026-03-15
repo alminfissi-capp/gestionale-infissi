@@ -342,13 +342,10 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
         </div>
       )}
 
-      {/* ── Catalogo allegato ── */}
-      {p.catalogo_allegato && (
-        <AllegatoCatalogoPdf
-          url={p.catalogo_allegato.url}
-          nome={p.catalogo_allegato.nome}
-        />
-      )}
+      {/* ── Cataloghi allegati ── */}
+      {p.cataloghi_allegati_data.map((c) => (
+        <AllegatoCatalogoPdf key={c.id} url={c.url} nome={c.nome} />
+      ))}
 
       {/* ── Piè di pagina fisso (stampa) ── */}
       <style>{`

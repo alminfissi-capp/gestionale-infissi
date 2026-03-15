@@ -219,33 +219,39 @@ export async function getPreventivo(id: string): Promise<PreventivoCompleto | nu
   if (prevErr || !prev) return null
   if (artErr) throw new Error(artErr.message)
 
-  let catalogo_allegato: { id: string; nome: string; url: string } | null = null
-  if (prev.catalogo_allegato_id) {
-    const { data: cat } = await supabase
+  const ids: string[] = prev.cataloghi_allegati ?? []
+  let cataloghi_allegati_data: { id: string; nome: string; url: string }[] = []
+  if (ids.length > 0) {
+    const { data: cats } = await supabase
       .from('cataloghi')
       .select('id, nome, storage_path')
-      .eq('id', prev.catalogo_allegato_id)
-      .single()
-    if (cat) {
-      catalogo_allegato = {
-        id: cat.id,
-        nome: cat.nome,
-        url: supabase.storage.from('cataloghi-brochure').getPublicUrl(cat.storage_path).data.publicUrl,
-      }
+      .in('id', ids)
+    if (cats) {
+      cataloghi_allegati_data = ids
+        .map((id) => {
+          const cat = cats.find((c) => c.id === id)
+          if (!cat) return null
+          return {
+            id: cat.id,
+            nome: cat.nome,
+            url: supabase.storage.from('cataloghi-brochure').getPublicUrl(cat.storage_path).data.publicUrl,
+          }
+        })
+        .filter(Boolean) as { id: string; nome: string; url: string }[]
     }
   }
 
-  return { ...prev, articoli: articoli ?? [], catalogo_allegato }
+  return { ...prev, articoli: articoli ?? [], cataloghi_allegati_data }
 }
 
-export async function setCatalogoAllegato(
+export async function setCataloghiAllegati(
   preventivoId: string,
-  catalogoId: string | null
+  catalogoIds: string[]
 ): Promise<void> {
   const supabase = await createClient()
   const { error } = await supabase
     .from('preventivi')
-    .update({ catalogo_allegato_id: catalogoId })
+    .update({ cataloghi_allegati: catalogoIds })
     .eq('id', preventivoId)
   if (error) throw new Error(error.message)
   revalidatePath(`/preventivi/${preventivoId}`)

@@ -226,16 +226,6 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setAllegaOpen(true)}
-            className={p.catalogo_allegato ? 'text-blue-700 border-blue-300 hover:bg-blue-50' : ''}
-            title={p.catalogo_allegato ? `Allegato: ${p.catalogo_allegato.nome}` : 'Allega catalogo'}
-          >
-            <Paperclip className="h-4 w-4 mr-1" />
-            {p.catalogo_allegato ? p.catalogo_allegato.nome : 'Allega catalogo'}
-          </Button>
           <Button variant="outline" size="sm" onClick={handleDuplica} disabled={isDuplicating}>
             <Copy className="h-4 w-4 mr-1" />
             {isDuplicating ? 'Duplicazione...' : 'Duplica'}
@@ -494,8 +484,9 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
           </div>
         )}
 
-        {/* Riepilogo economico */}
-        <div className="bg-white rounded-lg border p-4 md:ml-auto md:min-w-[300px]">
+        {/* Riepilogo economico + allegati */}
+        <div className="flex flex-col gap-3 md:ml-auto md:min-w-[300px]">
+        <div className="bg-white rounded-lg border p-4">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Riepilogo</p>
           <div className="space-y-1.5 text-sm">
             {p.sconto_globale > 0 && (
@@ -539,6 +530,31 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
             </div>
           </div>
         </div>
+
+        {/* Allegati cataloghi */}
+        <div className="bg-white rounded-lg border p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Allegati</p>
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setAllegaOpen(true)}>
+              <Paperclip className="h-3.5 w-3.5 mr-1" />
+              {p.cataloghi_allegati_data.length > 0 ? 'Modifica' : 'Allega catalogo'}
+            </Button>
+          </div>
+          {p.cataloghi_allegati_data.length === 0 ? (
+            <p className="text-xs text-gray-400 italic">Nessun catalogo allegato</p>
+          ) : (
+            <ul className="space-y-1">
+              {p.cataloghi_allegati_data.map((c) => (
+                <li key={c.id} className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <Paperclip className="h-3 w-3 text-gray-400 shrink-0" />
+                  {c.nome}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        </div>{/* fine wrapper riepilogo+allegati */}
       </div>
 
       {/* Report Interno — solo uso gestionale, non compare in stampa */}
@@ -679,7 +695,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
         open={allegaOpen}
         onClose={() => setAllegaOpen(false)}
         preventivoId={p.id}
-        catalogoCorrenteId={p.catalogo_allegato?.id ?? null}
+        correnti={p.cataloghi_allegati ?? []}
       />
     </div>
   )
