@@ -18,6 +18,7 @@ interface Props {
   onClienteIdChange: (id: string | null) => void
   onSnapshotChange: (snapshot: ClienteSnapshot) => void
   onNumeroChange: (numero: string) => void
+  showNumero?: boolean
 }
 
 export default function StepCliente({
@@ -28,6 +29,7 @@ export default function StepCliente({
   onClienteIdChange,
   onSnapshotChange,
   onNumeroChange,
+  showNumero = true,
 }: Props) {
   const [open, setOpen] = useState(false)
   const handleClienteSelect = (id: string) => {
@@ -328,16 +330,18 @@ export default function StepCliente({
       </div>
 
       {/* ── Numero preventivo ── */}
-      <div className="space-y-1.5 pt-2 border-t">
-        <Label>Numero preventivo</Label>
-        <Input
-          value={numero}
-          onChange={(e) => onNumeroChange(e.target.value)}
-          placeholder="es. 2026/001"
-          className="max-w-xs"
-        />
-        <p className="text-xs text-gray-400">Campo opzionale — libero, non viene verificata l&apos;unicità.</p>
-      </div>
+      {showNumero && (
+        <div className="space-y-1.5 pt-2 border-t">
+          <Label>Numero preventivo</Label>
+          <Input
+            value={numero}
+            onChange={(e) => onNumeroChange(e.target.value)}
+            placeholder="es. 2026/001"
+            className="max-w-xs"
+          />
+          <p className="text-xs text-gray-400">Campo opzionale — libero, non viene verificata l&apos;unicità.</p>
+        </div>
+      )}
     </div>
   )
 }
