@@ -4,25 +4,39 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import SelettoreForma, { type FormaSerramento, FORME } from '@/components/rilievo/SelettoreForma'
+import SelettoreForma from '@/components/rilievo/SelettoreForma'
+import type { FormaSerramentoDb } from '@/types/rilievo'
+import { shapeToPath } from '@/types/rilievo'
 
 interface VanoRilevato {
   id: string
-  forma: FormaSerramento
+  forma: FormaSerramentoDb
 }
 
-export default function VaniRilievo() {
+interface Props {
+  forme: FormaSerramentoDb[]
+}
+
+function ShapeThumb({ forma }: { forma: FormaSerramentoDb }) {
+  const d = shapeToPath(forma.shape, 40)
+  if (!d) return <div className="w-10 h-10 bg-gray-100 rounded" />
+  return (
+    <svg viewBox="0 0 40 40" className="w-10 h-10 text-teal-600 shrink-0">
+      <path d={d} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export default function VaniRilievo({ forme }: Props) {
   const [vani, setVani] = useState<VanoRilevato[]>([])
   const [selettoreAperto, setSelettoreAperto] = useState(false)
 
-  const aggiungiVano = (forma: FormaSerramento) => {
+  const aggiungiVano = (forma: FormaSerramentoDb) => {
     setVani((prev) => [...prev, { id: crypto.randomUUID(), forma }])
   }
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-
-      {/* Header */}
       <div className="p-4 border-b bg-white">
         <Button variant="ghost" size="sm" asChild className="-ml-2 mb-3">
           <Link href="/rilievo/nuovo">
@@ -34,7 +48,6 @@ export default function VaniRilievo() {
         <p className="text-sm text-gray-500 mt-0.5">Aggiungi i vani da rilevare</p>
       </div>
 
-      {/* Contenuto */}
       <div className="flex-1 overflow-y-auto p-4">
         {vani.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 select-none">
@@ -43,28 +56,19 @@ export default function VaniRilievo() {
           </div>
         ) : (
           <ul className="space-y-2">
-            {vani.map((v, i) => {
-              const forma = FORME.find((f) => f.id === v.forma)
-              return (
-                <li
-                  key={v.id}
-                  className="flex items-center gap-4 bg-white rounded-lg border border-gray-200 px-4 py-3 shadow-sm"
-                >
-                  <div className="w-10 h-10 text-teal-600 shrink-0">
-                    {forma?.svg}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">Serramento {i + 1}</p>
-                    <p className="text-xs text-gray-500">{forma?.label}</p>
-                  </div>
-                </li>
-              )
-            })}
+            {vani.map((v, i) => (
+              <li key={v.id} className="flex items-center gap-4 bg-white rounded-lg border border-gray-200 px-4 py-3 shadow-sm">
+                <ShapeThumb forma={v.forma} />
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Serramento {i + 1}</p>
+                  <p className="text-xs text-gray-500">{v.forma.nome}</p>
+                </div>
+              </li>
+            ))}
           </ul>
         )}
       </div>
 
-      {/* Barra inferiore */}
       <div className="shrink-0 bg-gray-100 border-t border-gray-200 px-4 py-3 flex items-center justify-center">
         <button
           onClick={() => setSelettoreAperto(true)}
@@ -75,13 +79,12 @@ export default function VaniRilievo() {
         </button>
       </div>
 
-      {/* Selettore forma */}
       <SelettoreForma
         open={selettoreAperto}
         onClose={() => setSelettoreAperto(false)}
         onSelect={aggiungiVano}
+        forme={forme}
       />
-
     </div>
   )
 }

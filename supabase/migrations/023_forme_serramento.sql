@@ -1,0 +1,2 @@
+-- 023_forme_serramento.sql (placeholder - replaced by 024)
+-- This migration was applied and superseded by 024_forme_serramento_v2.sql
