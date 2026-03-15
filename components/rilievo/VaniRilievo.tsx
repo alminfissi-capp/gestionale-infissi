@@ -4,23 +4,18 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import SelettoreForma, { FORME } from '@/components/rilievo/SelettoreForma'
-import type { FormaSerramentoCompleta } from '@/types/rilievo'
+import SelettoreForma, { type FormaSerramento, FORME } from '@/components/rilievo/SelettoreForma'
 
 interface VanoRilevato {
   id: string
-  forma: FormaSerramentoCompleta
+  forma: FormaSerramento
 }
 
-interface Props {
-  forme: FormaSerramentoCompleta[]
-}
-
-export default function VaniRilievo({ forme }: Props) {
+export default function VaniRilievo() {
   const [vani, setVani] = useState<VanoRilevato[]>([])
   const [selettoreAperto, setSelettoreAperto] = useState(false)
 
-  const aggiungiVano = (forma: FormaSerramentoCompleta) => {
+  const aggiungiVano = (forma: FormaSerramento) => {
     setVani((prev) => [...prev, { id: crypto.randomUUID(), forma }])
   }
 
@@ -49,18 +44,18 @@ export default function VaniRilievo({ forme }: Props) {
         ) : (
           <ul className="space-y-2">
             {vani.map((v, i) => {
-              const tmpl = FORME.find((f) => f.id === v.forma.svg_template)
+              const forma = FORME.find((f) => f.id === v.forma)
               return (
                 <li
                   key={v.id}
                   className="flex items-center gap-4 bg-white rounded-lg border border-gray-200 px-4 py-3 shadow-sm"
                 >
                   <div className="w-10 h-10 text-teal-600 shrink-0">
-                    {tmpl?.svg ?? null}
+                    {forma?.svg}
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-800">Serramento {i + 1}</p>
-                    <p className="text-xs text-gray-500">{v.forma.nome}</p>
+                    <p className="text-xs text-gray-500">{forma?.label}</p>
                   </div>
                 </li>
               )
@@ -85,7 +80,6 @@ export default function VaniRilievo({ forme }: Props) {
         open={selettoreAperto}
         onClose={() => setSelettoreAperto(false)}
         onSelect={aggiungiVano}
-        forme={forme}
       />
 
     </div>

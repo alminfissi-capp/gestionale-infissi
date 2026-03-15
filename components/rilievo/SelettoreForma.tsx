@@ -1,9 +1,7 @@
 'use client'
 
 import { X } from 'lucide-react'
-import type { FormaSerramentoCompleta } from '@/types/rilievo'
 
-// Tipi e SVG predefiniti (usati anche in ImpostazioniRilievo per il template picker)
 export type FormaSerramento =
   | 'rettangolo'
   | 'arco_pieno'
@@ -147,11 +145,10 @@ export const FORME: { id: FormaSerramento; label: string; svg: React.ReactNode }
 interface Props {
   open: boolean
   onClose: () => void
-  onSelect: (forma: FormaSerramentoCompleta) => void
-  forme: FormaSerramentoCompleta[]
+  onSelect: (forma: FormaSerramento) => void
 }
 
-export default function SelettoreForma({ open, onClose, onSelect, forme }: Props) {
+export default function SelettoreForma({ open, onClose, onSelect }: Props) {
   if (!open) return null
 
   return (
@@ -180,32 +177,22 @@ export default function SelettoreForma({ open, onClose, onSelect, forme }: Props
 
         {/* Griglia forme */}
         <div className="overflow-y-auto p-4">
-          {forme.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">
-              Nessuna forma configurata. Vai in{' '}
-              <span className="font-medium">Database e impostazioni</span> per aggiungerne.
-            </p>
-          ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-              {forme.map((f) => {
-                const tmpl = FORME.find((x) => x.id === f.svg_template)
-                return (
-                  <button
-                    key={f.id}
-                    onClick={() => { onSelect(f); onClose() }}
-                    className="flex flex-col items-center gap-2 p-3 rounded-xl border-2 border-gray-200 bg-gray-50 hover:border-teal-400 hover:bg-teal-50 active:scale-95 transition-all group"
-                  >
-                    <div className="w-14 h-14 text-gray-500 group-hover:text-teal-600 transition-colors">
-                      {tmpl?.svg ?? null}
-                    </div>
-                    <span className="text-xs font-medium text-gray-600 group-hover:text-teal-700 text-center leading-tight">
-                      {f.nome}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+            {FORME.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => { onSelect(f.id); onClose() }}
+                className="flex flex-col items-center gap-2 p-3 rounded-xl border-2 border-gray-200 bg-gray-50 hover:border-teal-400 hover:bg-teal-50 active:scale-95 transition-all group"
+              >
+                <div className="w-14 h-14 text-gray-500 group-hover:text-teal-600 transition-colors">
+                  {f.svg}
+                </div>
+                <span className="text-xs font-medium text-gray-600 group-hover:text-teal-700 text-center leading-tight">
+                  {f.label}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </>
