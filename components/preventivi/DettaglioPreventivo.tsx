@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -63,6 +63,9 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const [visualizzatoAt, setVisualizzatoAt] = useState(p.visualizzato_at)
   const [shareLoading, startShareTransition] = useTransition()
   const [allegaOpen, setAllegaOpen] = useState(false)
+  const [origin, setOrigin] = useState('')
+
+  useEffect(() => { setOrigin(window.location.origin) }, [])
 
   const cfg = STATO_CONFIG[p.stato]
   const s = p.cliente_snapshot
@@ -70,7 +73,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
     ? s.ragione_sociale || s.telefono || s.email || '—'
     : [s.nome, s.cognome].filter(Boolean).join(' ') || s.telefono || s.email || '—'
 
-  const shareUrl = shareToken ? `${typeof window !== 'undefined' ? window.location.origin : ''}/p/${shareToken}` : null
+  const shareUrl = shareToken && origin ? `${origin}/p/${shareToken}` : null
 
   const handleGeneraLink = () => {
     startShareTransition(async () => {
@@ -109,7 +112,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const whatsappUrl = s.telefono ? (() => {
     const digits = s.telefono.replace(/\D/g, '')
     const number = digits.startsWith('39') ? digits : `39${digits}`
-    const link = shareToken ? `${typeof window !== 'undefined' ? window.location.origin : ''}/p/${shareToken}` : null
+    const link = shareToken && origin ? `${origin}/p/${shareToken}` : null
     const testo = link
       ? (p.numero
           ? `Gentile ${nomeCliente}, le inviamo il preventivo n. ${p.numero}. Può visualizzarlo e scaricarlo al seguente link: ${link}`
