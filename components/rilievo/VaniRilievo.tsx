@@ -4,18 +4,23 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import SelettoreForma, { type FormaSerramento, FORME } from '@/components/rilievo/SelettoreForma'
+import SelettoreForma, { FORME } from '@/components/rilievo/SelettoreForma'
+import type { FormaSerramentoCompleta } from '@/types/rilievo'
 
 interface VanoRilevato {
   id: string
-  forma: FormaSerramento
+  forma: FormaSerramentoCompleta
 }
 
-export default function VaniRilievo() {
+interface Props {
+  forme: FormaSerramentoCompleta[]
+}
+
+export default function VaniRilievo({ forme }: Props) {
   const [vani, setVani] = useState<VanoRilevato[]>([])
   const [selettoreAperto, setSelettoreAperto] = useState(false)
 
-  const aggiungiVano = (forma: FormaSerramento) => {
+  const aggiungiVano = (forma: FormaSerramentoCompleta) => {
     setVani((prev) => [...prev, { id: crypto.randomUUID(), forma }])
   }
 
@@ -44,18 +49,18 @@ export default function VaniRilievo() {
         ) : (
           <ul className="space-y-2">
             {vani.map((v, i) => {
-              const forma = FORME.find((f) => f.id === v.forma)
+              const tmpl = FORME.find((f) => f.id === v.forma.svg_template)
               return (
                 <li
                   key={v.id}
                   className="flex items-center gap-4 bg-white rounded-lg border border-gray-200 px-4 py-3 shadow-sm"
                 >
                   <div className="w-10 h-10 text-teal-600 shrink-0">
-                    {forma?.svg}
+                    {tmpl?.svg ?? null}
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-800">Serramento {i + 1}</p>
-                    <p className="text-xs text-gray-500">{forma?.label}</p>
+                    <p className="text-xs text-gray-500">{v.forma.nome}</p>
                   </div>
                 </li>
               )
@@ -80,6 +85,7 @@ export default function VaniRilievo() {
         open={selettoreAperto}
         onClose={() => setSelettoreAperto(false)}
         onSelect={aggiungiVano}
+        forme={forme}
       />
 
     </div>
