@@ -206,6 +206,9 @@ function PannelloLato({
     }
   }
 
+  // Colore handle in base al tipo
+  const handleColor = isAcuto ? '#7c3aed' : '#ea580c'
+
   return (
     <div className="bg-white border border-teal-200 rounded-xl p-4 space-y-3 shadow-sm">
       <div className="flex items-center justify-between">
@@ -241,168 +244,186 @@ function PannelloLato({
             Curva libera
           </button>
           <button
-            onClick={() => {
-              if (seg.tipo !== 'arco') {
-                // Prima volta: imposta tutto sesto come default
-                applyPreset('tutto_sesto')
-              }
-            }}
+            onClick={() => { if (seg.tipo !== 'arco') applyPreset('tutto_sesto') }}
             className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
               seg.tipo === 'arco' ? 'bg-orange-50 border-orange-400 text-orange-700' : 'bg-gray-50 border-gray-200 text-gray-600'
             }`}
           >
-            Arco circolare
+            Arco
           </button>
         </div>
       </div>
 
-      {/* Selettore tipologia arco */}
-      {seg.tipo === 'arco' && (
-        <div className="border border-orange-100 rounded-xl p-3 space-y-2.5 bg-orange-50/40">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold text-orange-800">Tipologia arco</label>
-            {autoClass && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
-                rilevato: {TIPO_ARCO_LABELS[autoClass]}
-              </span>
-            )}
-          </div>
-          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
-            {(['ribassato', 'tutto_sesto', 'rialzato', 'acuto', 'libero'] as TipoArco[]).map((tipo) => (
-              <button
-                key={tipo}
-                onClick={() => applyPreset(tipo)}
-                className={`py-1.5 px-1 rounded-lg text-[11px] font-medium border text-center transition-colors leading-tight ${
-                  seg.tipoArco === tipo
-                    ? tipo === 'acuto'
-                      ? 'bg-violet-50 border-violet-400 text-violet-700'
-                      : 'bg-orange-100 border-orange-400 text-orange-800'
-                    : 'bg-white border-gray-200 text-gray-600 hover:border-orange-300 hover:bg-orange-50'
-                }`}
-              >
-                {TIPO_ARCO_LABELS[tipo]}
-              </button>
-            ))}
-          </div>
-          {seg.tipoArco && (
-            <p className="text-[11px] text-orange-700 italic">
-              {TIPO_ARCO_DESC[seg.tipoArco]}
-            </p>
-          )}
-          <p className="text-[10px] text-gray-400">
-            {isAcuto
-              ? 'Trascina ● per spostare il vertice gotico'
-              : 'Trascina ● per regolare la freccia dell\'arco'}
-          </p>
-        </div>
-      )}
-
-      {/* Info formula raggio */}
-      {seg.tipo === 'arco' && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-2.5 text-xs text-orange-800">
-          {isAcuto ? (
-            <>
-              <p className="font-semibold mb-0.5">Formula raggio arco acuto:</p>
-              <p className="font-mono">R = (L² + 4V²) / (4L)</p>
-              <p className="mt-0.5 text-orange-600">dove L = corda, V = altezza vertice</p>
-              {R_acuto && (
-                <p className="mt-1">R ≈ <span className="font-semibold">{R_acuto}</span> px griglia</p>
-              )}
-            </>
-          ) : (
-            <>
-              <p className="font-semibold mb-0.5">Formula raggio arco circolare:</p>
-              <p className="font-mono">R = (L² + 4F²) / (8F)</p>
-              <p className="mt-0.5 text-orange-600">dove L = corda (misura lato), F = freccia/vertice</p>
-              {R && (
-                <p className="mt-1">R ≈ <span className="font-semibold">{R}</span> unità griglia</p>
-              )}
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Curva libera: hint drag */}
+      {/* Curva libera: hint */}
       {seg.tipo === 'curva' && (
-        <p className="text-xs text-gray-400">
-          Trascina il punto ● sul disegno per regolare la curva
-        </p>
+        <p className="text-xs text-gray-400">Trascina il punto ● per regolare la curva</p>
       )}
 
-      {/* Misura corda / lato */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">
-            {isAcuto ? 'Nome corda (imposta)' : seg.tipo === 'arco' ? 'Nome corda' : 'Nome misura'}
-          </label>
-          <input
-            type="text"
-            value={seg.misuraNome}
-            onChange={(e) => onChange({ misuraNome: e.target.value })}
-            placeholder="es. Larghezza"
-            className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Tipo</label>
-          <select
-            value={seg.misuraTipo}
-            onChange={(e) => onChange({ misuraTipo: e.target.value as 'input' | 'calcolato' })}
-            className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-          >
-            <option value="input">Da rilevare</option>
-            <option value="calcolato">Calcolato</option>
-          </select>
-        </div>
-      </div>
-      {seg.misuraTipo === 'calcolato' && (
-        <input
-          type="text"
-          value={seg.misuraFormula}
-          onChange={(e) => onChange({ misuraFormula: e.target.value })}
-          placeholder="Formula (es. Larghezza * 2)"
-          className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-        />
-      )}
-
-      {/* Misura freccia / vertice (solo per arco) */}
+      {/* ======= SEZIONE ARCO ======= */}
       {seg.tipo === 'arco' && (
-        <div className="border-t pt-3">
-          <p className="text-xs font-medium text-gray-600 mb-2">
-            {isAcuto ? 'Misura altezza vertice' : 'Misura freccia / vertice'}
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">
-                {isAcuto ? 'Nome vertice' : 'Nome freccia'}
-              </label>
-              <input
-                type="text"
-                value={seg.sagittaNome}
-                onChange={(e) => onChange({ sagittaNome: e.target.value })}
-                placeholder={isAcuto ? 'es. Vertice, Apice' : 'es. Freccia, Vertice'}
-                className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-              />
+        <>
+          {/* Tipologia arco */}
+          <div className="border border-orange-100 rounded-xl p-3 space-y-2 bg-orange-50/40">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-orange-800">Tipologia arco</label>
+              {autoClass && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+                  {TIPO_ARCO_LABELS[autoClass]}
+                </span>
+              )}
             </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Tipo</label>
-              <select
-                value={seg.sagittaTipo}
-                onChange={(e) => onChange({ sagittaTipo: e.target.value as 'input' | 'calcolato' })}
-                className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-              >
-                <option value="input">Da rilevare</option>
-                <option value="calcolato">Calcolato</option>
-              </select>
+            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+              {(['ribassato', 'tutto_sesto', 'rialzato', 'acuto', 'libero'] as TipoArco[]).map((tipo) => (
+                <button
+                  key={tipo}
+                  onClick={() => applyPreset(tipo)}
+                  className={`py-1.5 px-1 rounded-lg text-[11px] font-medium border text-center transition-colors leading-tight ${
+                    seg.tipoArco === tipo
+                      ? tipo === 'acuto'
+                        ? 'bg-violet-50 border-violet-400 text-violet-700'
+                        : 'bg-orange-100 border-orange-400 text-orange-800'
+                      : 'bg-white border-gray-200 text-gray-600 hover:border-orange-300 hover:bg-orange-50'
+                  }`}
+                >
+                  {TIPO_ARCO_LABELS[tipo]}
+                </button>
+              ))}
             </div>
           </div>
-          {seg.sagittaTipo === 'calcolato' && (
+
+          {/* ===== MISURE ARCO: sezione principale ===== */}
+          <div className="border border-gray-200 rounded-xl overflow-hidden">
+
+            {/* Riga CORDA */}
+            <div className="px-3 py-2.5 border-b border-gray-100">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="inline-block w-3 h-0.5 bg-slate-600 rounded" />
+                <span className="text-xs font-semibold text-gray-700">
+                  {isAcuto ? 'Corda (base del vano)' : 'Lato / Corda'}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={seg.misuraNome}
+                  onChange={(e) => onChange({ misuraNome: e.target.value })}
+                  placeholder={isAcuto ? 'es. Larghezza' : 'es. Larghezza'}
+                  className="flex-1 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+                <select
+                  value={seg.misuraTipo}
+                  onChange={(e) => onChange({ misuraTipo: e.target.value as 'input' | 'calcolato' })}
+                  className="w-32 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                >
+                  <option value="input">Da rilevare</option>
+                  <option value="calcolato">Calcolato</option>
+                </select>
+              </div>
+              {seg.misuraTipo === 'calcolato' && (
+                <input
+                  type="text"
+                  value={seg.misuraFormula}
+                  onChange={(e) => onChange({ misuraFormula: e.target.value })}
+                  placeholder="Formula (es. Larghezza * 2)"
+                  className="mt-1.5 w-full border border-blue-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50/40 font-mono text-xs"
+                />
+              )}
+            </div>
+
+            {/* Riga FRECCIA / VERTICE */}
+            <div className="px-3 py-2.5 bg-orange-50/30">
+              <div className="flex items-center gap-2 mb-1.5">
+                {/* Pallino colorato = handle draggabile */}
+                <svg width="12" height="12" viewBox="0 0 12 12">
+                  <circle cx="6" cy="6" r="5" fill={handleColor} />
+                </svg>
+                <span className="text-xs font-semibold" style={{ color: handleColor }}>
+                  {isAcuto ? 'Vertice (punto più alto)' : 'Freccia (vertice arco)'}
+                </span>
+                <span className="text-[10px] text-gray-400 ml-auto">← il punto ● sul disegno</span>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={seg.sagittaNome}
+                  onChange={(e) => onChange({ sagittaNome: e.target.value })}
+                  placeholder={isAcuto ? 'es. Vertice' : 'es. Freccia'}
+                  className="flex-1 border rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2"
+                  style={{
+                    borderColor: seg.sagittaNome ? handleColor : '#d1d5db',
+                    outlineColor: handleColor,
+                  }}
+                />
+                <select
+                  value={seg.sagittaTipo}
+                  onChange={(e) => onChange({ sagittaTipo: e.target.value as 'input' | 'calcolato' })}
+                  className="w-32 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 bg-white"
+                  style={{ outlineColor: handleColor }}
+                >
+                  <option value="input">Da rilevare</option>
+                  <option value="calcolato">Calcolato</option>
+                </select>
+              </div>
+              {seg.sagittaTipo === 'calcolato' && (
+                <input
+                  type="text"
+                  value={seg.sagittaFormula}
+                  onChange={(e) => onChange({ sagittaFormula: e.target.value })}
+                  placeholder={isAcuto ? 'es. Larghezza * 0.65' : 'es. Larghezza / 2'}
+                  className="mt-1.5 w-full border border-blue-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50/40 font-mono text-xs"
+                />
+              )}
+              {/* Hint drag */}
+              <p className="text-[10px] text-gray-400 mt-1.5">
+                {isAcuto
+                  ? 'Trascina ● sul disegno per posizionare il vertice'
+                  : 'Trascina ● per regolare la freccia — o imposta un preset sopra'}
+              </p>
+            </div>
+          </div>
+
+          {/* Formula raggio (info compatta) */}
+          <div className="flex items-center gap-2 text-[11px] text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
+            <span className="font-mono font-semibold shrink-0">
+              {isAcuto ? 'R=(L²+4V²)/(4L)' : 'R=(L²+4F²)/(8F)'}
+            </span>
+            <span className="text-orange-500">—</span>
+            <span>
+              {isAcuto
+                ? `L=corda, V=altezza vertice${R_acuto ? ` → R≈${R_acuto}px` : ''}`
+                : `L=corda, F=freccia${R ? ` → R≈${R}` : ''}`}
+            </span>
+          </div>
+        </>
+      )}
+
+      {/* Misura lato retto */}
+      {seg.tipo === 'retta' && (
+        <div>
+          <div className="flex gap-2">
             <input
               type="text"
-              value={seg.sagittaFormula}
-              onChange={(e) => onChange({ sagittaFormula: e.target.value })}
-              placeholder={isAcuto ? 'es. Larghezza * 0.65' : 'es. Larghezza / 2 per tutto sesto'}
-              className="mt-2 w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+              value={seg.misuraNome}
+              onChange={(e) => onChange({ misuraNome: e.target.value })}
+              placeholder="Nome misura (es. Larghezza)"
+              className="flex-1 border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+            <select
+              value={seg.misuraTipo}
+              onChange={(e) => onChange({ misuraTipo: e.target.value as 'input' | 'calcolato' })}
+              className="w-32 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+            >
+              <option value="input">Da rilevare</option>
+              <option value="calcolato">Calcolato</option>
+            </select>
+          </div>
+          {seg.misuraTipo === 'calcolato' && (
+            <input
+              type="text"
+              value={seg.misuraFormula}
+              onChange={(e) => onChange({ misuraFormula: e.target.value })}
+              placeholder="Formula (es. Larghezza * 2)"
+              className="mt-1.5 w-full border border-blue-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50/40 font-mono text-xs"
             />
           )}
         </div>
