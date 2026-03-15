@@ -4,12 +4,19 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import SelettoreForma, { type FormaSerramento, FORME } from '@/components/rilievo/SelettoreForma'
+
+interface VanoRilevato {
+  id: string
+  forma: FormaSerramento
+}
 
 export default function VaniRilievo() {
-  const [vani, setVani] = useState<string[]>([])
+  const [vani, setVani] = useState<VanoRilevato[]>([])
+  const [selettoreAperto, setSelettoreAperto] = useState(false)
 
-  const aggiungiVano = () => {
-    setVani((prev) => [...prev, `Vano ${prev.length + 1}`])
+  const aggiungiVano = (forma: FormaSerramento) => {
+    setVani((prev) => [...prev, { id: crypto.randomUUID(), forma }])
   }
 
   return (
@@ -31,19 +38,28 @@ export default function VaniRilievo() {
       <div className="flex-1 overflow-y-auto p-4">
         {vani.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 select-none">
-            <p className="text-sm">Nessun vano aggiunto.</p>
+            <p className="text-sm">Nessun serramento aggiunto.</p>
             <p className="text-xs mt-1">Usa il tasto <strong>+</strong> in basso per iniziare.</p>
           </div>
         ) : (
           <ul className="space-y-2">
-            {vani.map((v, i) => (
-              <li
-                key={i}
-                className="bg-white rounded-lg border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 shadow-sm"
-              >
-                {v}
-              </li>
-            ))}
+            {vani.map((v, i) => {
+              const forma = FORME.find((f) => f.id === v.forma)
+              return (
+                <li
+                  key={v.id}
+                  className="flex items-center gap-4 bg-white rounded-lg border border-gray-200 px-4 py-3 shadow-sm"
+                >
+                  <div className="w-10 h-10 text-teal-600 shrink-0">
+                    {forma?.svg}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">Serramento {i + 1}</p>
+                    <p className="text-xs text-gray-500">{forma?.label}</p>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         )}
       </div>
@@ -51,13 +67,20 @@ export default function VaniRilievo() {
       {/* Barra inferiore */}
       <div className="shrink-0 bg-gray-100 border-t border-gray-200 px-4 py-3 flex items-center justify-center">
         <button
-          onClick={aggiungiVano}
+          onClick={() => setSelettoreAperto(true)}
           className="flex items-center justify-center w-12 h-12 rounded-xl border-2 border-gray-400 bg-white text-gray-600 hover:border-teal-500 hover:text-teal-600 hover:bg-teal-50 active:scale-95 transition-all shadow-sm"
-          title="Aggiungi vano"
+          title="Aggiungi serramento"
         >
           <Plus className="h-6 w-6" strokeWidth={2.5} />
         </button>
       </div>
+
+      {/* Selettore forma */}
+      <SelettoreForma
+        open={selettoreAperto}
+        onClose={() => setSelettoreAperto(false)}
+        onSelect={aggiungiVano}
+      />
 
     </div>
   )
