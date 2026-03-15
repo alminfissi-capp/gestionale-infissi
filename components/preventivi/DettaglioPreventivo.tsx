@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X } from 'lucide-react'
+import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X, Share2, ChevronDown } from 'lucide-react'
 import { deletePreventivo, duplicaPreventivo } from '@/actions/preventivi'
 import { generaShareToken, revokaShareToken } from '@/actions/condivisione'
 import { formatEuro } from '@/lib/pricing'
@@ -29,6 +29,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import type { PreventivoCompleto, StatoPreventivo } from '@/types/preventivo'
 
 const STATO_CONFIG: Record<
@@ -189,21 +195,34 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
               Stampa calcoli
             </Link>
           </Button>
-          {emailUrl && (
-            <Button variant="outline" size="sm" asChild title={`Invia email a ${s.email}`}>
-              <a href={emailUrl}>
-                <Mail className="h-4 w-4 mr-1" />
-                Email
-              </a>
-            </Button>
-          )}
-          {whatsappUrl && (
-            <Button variant="outline" size="sm" asChild className="text-green-700 border-green-300 hover:bg-green-50" title={`Invia WhatsApp a ${s.telefono}`}>
-              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
-                <MessageCircle className="h-4 w-4 mr-1" />
-                WhatsApp
-              </a>
-            </Button>
+          {(emailUrl || whatsappUrl) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Share2 className="h-4 w-4 mr-1" />
+                  Condividi
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {emailUrl && (
+                  <DropdownMenuItem asChild>
+                    <a href={emailUrl}>
+                      <Mail className="h-4 w-4 mr-2" />
+                      Email
+                    </a>
+                  </DropdownMenuItem>
+                )}
+                {whatsappUrl && (
+                  <DropdownMenuItem asChild>
+                    <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="text-green-700">
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      WhatsApp
+                    </a>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           <Button variant="outline" size="sm" onClick={handleDuplica} disabled={isDuplicating}>
             <Copy className="h-4 w-4 mr-1" />
