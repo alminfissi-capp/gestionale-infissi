@@ -122,7 +122,7 @@ export default function VaniRilievo({ forme }: Props) {
       )}
 
       {/* Area principale: canvas vano o empty state */}
-      <div className="flex-1 overflow-y-auto bg-gray-50">
+      <div className="flex-1 overflow-hidden">
         {selectedVano ? (
           <CanvasVano key={selectedVano.id} vano={selectedVano} />
         ) : (
