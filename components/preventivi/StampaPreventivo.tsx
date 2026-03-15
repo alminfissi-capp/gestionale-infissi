@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { formatEuro } from '@/lib/pricing'
 import type { PreventivoCompleto } from '@/types/preventivo'
 import type { Settings } from '@/types/impostazioni'
+import AllegatoCatalogoPdf from '@/components/preventivi/AllegatoCatalogoPdf'
 
 interface Props {
   preventivo: PreventivoCompleto
@@ -339,6 +340,14 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
           <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Note</p>
           <p className="text-[10px] text-gray-700 whitespace-pre-wrap">{p.note}</p>
         </div>
+      )}
+
+      {/* ── Catalogo allegato ── */}
+      {p.catalogo_allegato && (
+        <AllegatoCatalogoPdf
+          url={p.catalogo_allegato.url}
+          nome={p.catalogo_allegato.nome}
+        />
       )}
 
       {/* ── Piè di pagina fisso (stampa) ── */}

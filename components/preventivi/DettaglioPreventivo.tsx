@@ -5,8 +5,9 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X, Share2, ChevronDown } from 'lucide-react'
+import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X, Share2, ChevronDown, Paperclip } from 'lucide-react'
 import { deletePreventivo, duplicaPreventivo } from '@/actions/preventivi'
+import DialogAllegaCatalogo from '@/components/preventivi/DialogAllegaCatalogo'
 import { generaShareToken, revokaShareToken } from '@/actions/condivisione'
 import { formatEuro } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
@@ -61,6 +62,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const [condivisoAt, setCondivisoAt] = useState(p.condiviso_at)
   const [visualizzatoAt, setVisualizzatoAt] = useState(p.visualizzato_at)
   const [shareLoading, startShareTransition] = useTransition()
+  const [allegaOpen, setAllegaOpen] = useState(false)
 
   const cfg = STATO_CONFIG[p.stato]
   const s = p.cliente_snapshot
@@ -224,6 +226,16 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAllegaOpen(true)}
+            className={p.catalogo_allegato ? 'text-blue-700 border-blue-300 hover:bg-blue-50' : ''}
+            title={p.catalogo_allegato ? `Allegato: ${p.catalogo_allegato.nome}` : 'Allega catalogo'}
+          >
+            <Paperclip className="h-4 w-4 mr-1" />
+            {p.catalogo_allegato ? p.catalogo_allegato.nome : 'Allega catalogo'}
+          </Button>
           <Button variant="outline" size="sm" onClick={handleDuplica} disabled={isDuplicating}>
             <Copy className="h-4 w-4 mr-1" />
             {isDuplicating ? 'Duplicazione...' : 'Duplica'}
@@ -662,6 +674,13 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <DialogAllegaCatalogo
+        open={allegaOpen}
+        onClose={() => setAllegaOpen(false)}
+        preventivoId={p.id}
+        catalogoCorrenteId={p.catalogo_allegato?.id ?? null}
+      />
     </div>
   )
 }

@@ -218,7 +218,37 @@ export async function getPreventivo(id: string): Promise<PreventivoCompleto | nu
 
   if (prevErr || !prev) return null
   if (artErr) throw new Error(artErr.message)
-  return { ...prev, articoli: articoli ?? [] }
+
+  let catalogo_allegato: { id: string; nome: string; url: string } | null = null
+  if (prev.catalogo_allegato_id) {
+    const { data: cat } = await supabase
+      .from('cataloghi')
+      .select('id, nome, storage_path')
+      .eq('id', prev.catalogo_allegato_id)
+      .single()
+    if (cat) {
+      catalogo_allegato = {
+        id: cat.id,
+        nome: cat.nome,
+        url: supabase.storage.from('cataloghi-brochure').getPublicUrl(cat.storage_path).data.publicUrl,
+      }
+    }
+  }
+
+  return { ...prev, articoli: articoli ?? [], catalogo_allegato }
+}
+
+export async function setCatalogoAllegato(
+  preventivoId: string,
+  catalogoId: string | null
+): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('preventivi')
+    .update({ catalogo_allegato_id: catalogoId })
+    .eq('id', preventivoId)
+  if (error) throw new Error(error.message)
+  revalidatePath(`/preventivi/${preventivoId}`)
 }
 
 export async function getArticoliPreventivo(

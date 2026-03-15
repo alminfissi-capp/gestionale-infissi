@@ -99,12 +99,14 @@ export type Preventivo = {
   share_token: string | null
   condiviso_at: string | null
   visualizzato_at: string | null
+  catalogo_allegato_id: string | null
   created_at: string
   updated_at: string
 }
 
 export type PreventivoCompleto = Preventivo & {
   articoli: ArticoloPreventivoRow[]
+  catalogo_allegato: { id: string; nome: string; url: string } | null
 }
 
 // Payload inviato al Server Action
