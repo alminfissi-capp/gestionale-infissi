@@ -1,6 +1,6 @@
 'use client'
 
-import { Activity, FileText, User, BookOpen, Ruler } from 'lucide-react'
+import { Activity, FileText, User, BookOpen, Ruler, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import {
@@ -197,19 +197,18 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
         )}
       </div>
 
-      {/* ── Placeholder rilievo misure ── */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-        <div className="flex items-start gap-3">
-          <Ruler className="h-6 w-6 text-gray-400 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <h2 className="text-base font-semibold text-gray-700">Rilievo misure cantiere</h2>
-            <p className="text-sm text-gray-400 mt-0.5">In sviluppo</p>
-          </div>
+      {/* ── Rilievo misure ── */}
+      <Link
+        href="/rilievo"
+        className="flex items-center gap-4 bg-white rounded-lg shadow-sm border border-teal-200 p-5 hover:bg-teal-50 transition-colors"
+      >
+        <Ruler className="h-7 w-7 text-teal-600 shrink-0" />
+        <div className="flex-1">
+          <h2 className="text-base font-semibold text-teal-700">Rilievo misure cantiere</h2>
+          <p className="text-sm text-gray-500 mt-0.5">Nuovo rilievo · Elenco · Impostazioni</p>
         </div>
-        <div className="mt-4">
-          <Button disabled variant="outline" size="sm">Prossimamente</Button>
-        </div>
-      </div>
+        <ChevronRight className="h-5 w-5 text-teal-400 shrink-0" />
+      </Link>
     </div>
   )
 }
