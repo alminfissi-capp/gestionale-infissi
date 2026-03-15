@@ -230,6 +230,60 @@ export function calcolaRaggi(
 // Helpers riepilogo
 // ============================================================
 
+// ============================================================
+// computeRealDimensions
+// ============================================================
+
+/**
+ * Stima le dimensioni reali (mm) del vano analizzando i segmenti della forma.
+ * I segmenti più orizzontali (|dgx| ≥ |dgy|) contribuiscono alla larghezza,
+ * quelli più verticali (|dgy| > |dgx|) all'altezza.
+ * Vengono de-duplicati per nome misura.
+ */
+export function computeRealDimensions(
+  shape: FormaShape,
+  valori: Record<string, number>
+): { widthMm: number; heightMm: number } {
+  const seenH = new Set<string>()
+  const seenV = new Set<string>()
+  let widthMm = 0
+  let heightMm = 0
+
+  for (const seg of shape.segmenti) {
+    const from = shape.punti.find((p) => p.id === seg.fromId)
+    const to = shape.punti.find((p) => p.id === seg.toId)
+    if (!from || !to || !seg.misuraNome) continue
+
+    const dgx = Math.abs(to.gx - from.gx)
+    const dgy = Math.abs(to.gy - from.gy)
+    const val = valori[seg.misuraNome] ?? 0
+    if (val <= 0) continue
+
+    if (dgx >= dgy) {
+      // segmento orizzontale → contribuisce alla larghezza
+      if (!seenH.has(seg.misuraNome)) {
+        seenH.add(seg.misuraNome)
+        widthMm = Math.max(widthMm, val)
+      }
+    } else {
+      // segmento verticale → contribuisce all'altezza
+      if (!seenV.has(seg.misuraNome)) {
+        seenV.add(seg.misuraNome)
+        heightMm = Math.max(heightMm, val)
+      }
+    }
+  }
+
+  return {
+    widthMm: widthMm || 1000,
+    heightMm: heightMm || 1000,
+  }
+}
+
+// ============================================================
+// Helpers riepilogo
+// ============================================================
+
 /** Restituisce true se tutti i campi 'input' sono stati compilati */
 export function tuttiInputCompilati(
   shape: FormaShape,

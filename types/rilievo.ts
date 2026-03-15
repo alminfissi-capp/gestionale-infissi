@@ -332,13 +332,6 @@ export function arcSvgPathAcutoScaled(
   return `${prefix}A ${Rf} ${Rf} 0 0 ${sweepL} ${axf} ${ayf} A ${Rf} ${Rf} 0 0 ${sweepR} ${txf} ${tyf}`
 }
 
-/**
- * Calcola cpDx, cpDy per un arco a tutto sesto (semicerchio).
- * Il vertice si trova esattamente a chord/2 perpendicolare alla corda,
- * bowing "a sinistra" per chord che va da sx a dx (cioè verso l'alto per finestre).
- */
-// (Alias lasciato per compatibilità interna — implementazione nel corpo sopra)
-
 // ============================================================
 // Helper: converte FormaShape → SVG path d attribute
 // per uso in anteprima (viewBox 0 0 viewBoxSize viewBoxSize)
@@ -383,6 +376,63 @@ export function shapeToPath(shape: FormaShape, viewBoxSize = 60): string | null 
         d += ' ' + arcSvgPathAcutoScaled(fx, fy, tx, ty, seg.cpDx, seg.cpDy, scale, false)
       } else {
         d += ' ' + arcSvgPathScaled(fx, fy, tx, ty, seg.cpDx, seg.cpDy, scale, false)
+      }
+    } else {
+      d += ` L ${tx.toFixed(1)} ${ty.toFixed(1)}`
+    }
+  })
+  return d ? d + ' Z' : null
+}
+
+/**
+ * Variante proporzionale: mappa la shape su un canvas canvasW × canvasH
+ * usando scale X e Y indipendenti in base alle dimensioni reali in mm.
+ * Usare quando widthMm ≠ heightMm per preservare le proporzioni reali del vano.
+ * Per gli archi usa la media geometrica delle due scale (approssimazione accettabile).
+ */
+export function shapeToPathProportional(
+  shape: FormaShape,
+  canvasW: number,
+  canvasH: number
+): string | null {
+  if (!shape.chiusa || shape.segmenti.length < 3 || shape.punti.length < 3) return null
+
+  const gxs = shape.punti.map((p) => p.gx)
+  const gys = shape.punti.map((p) => p.gy)
+  const minGx = Math.min(...gxs), maxGx = Math.max(...gxs)
+  const minGy = Math.min(...gys), maxGy = Math.max(...gys)
+  const rangeGx = maxGx - minGx || 1
+  const rangeGy = maxGy - minGy || 1
+
+  const pad = Math.min(canvasW, canvasH) * 0.07
+  const scaleX = (canvasW - pad * 2) / rangeGx
+  const scaleY = (canvasH - pad * 2) / rangeGy
+  // media geometrica per cpDx/cpDy archi (mantiene approssimativamente la forma circolare)
+  const scaleArc = Math.sqrt(scaleX * scaleY)
+
+  const px = (gx: number) => pad + (gx - minGx) * scaleX
+  const py = (gy: number) => pad + (gy - minGy) * scaleY
+
+  let d = ''
+  shape.segmenti.forEach((seg, i) => {
+    const from = shape.punti.find((p) => p.id === seg.fromId)
+    const to = shape.punti.find((p) => p.id === seg.toId)
+    if (!from || !to) return
+    const fx = px(from.gx), fy = py(from.gy)
+    const tx = px(to.gx), ty = py(to.gy)
+    if (i === 0) d += `M ${fx.toFixed(1)} ${fy.toFixed(1)}`
+
+    if (seg.tipo === 'curva') {
+      const midGx = (from.gx + to.gx) / 2
+      const midGy = (from.gy + to.gy) / 2
+      const cpx = pad + (midGx - minGx) * scaleX + seg.cpDx * scaleArc
+      const cpy = pad + (midGy - minGy) * scaleY + seg.cpDy * scaleArc
+      d += ` Q ${cpx.toFixed(1)} ${cpy.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)}`
+    } else if (seg.tipo === 'arco') {
+      if (seg.tipoArco === 'acuto') {
+        d += ' ' + arcSvgPathAcutoScaled(fx, fy, tx, ty, seg.cpDx, seg.cpDy, scaleArc, false)
+      } else {
+        d += ' ' + arcSvgPathScaled(fx, fy, tx, ty, seg.cpDx, seg.cpDy, scaleArc, false)
       }
     } else {
       d += ` L ${tx.toFixed(1)} ${ty.toFixed(1)}`
