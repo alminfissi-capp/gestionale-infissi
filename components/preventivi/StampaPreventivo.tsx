@@ -183,7 +183,7 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
 
       {/* ── Testo introduttivo ── */}
       <div className="px-8 print:px-0 py-3 border-b border-gray-300 text-[10px] text-gray-600 italic">
-        Le proponiamo la nostra migliore offerta per i seguenti serramenti.
+        Le proponiamo la nostra migliore offerta per i seguenti prodotti e servizi.
       </div>
 
       {/* ── Tabella articoli (div-grid per break-inside affidabile in Chromium) ── */}
