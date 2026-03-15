@@ -2,8 +2,18 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { Undo2, RotateCcw, X } from 'lucide-react'
-import type { GridPoint, ShapeSegment, AngoloConfig, FormaShape } from '@/types/rilievo'
-import { arcSvgPath, arcRadius, cpForTuttoSesto } from '@/types/rilievo'
+import type { GridPoint, ShapeSegment, AngoloConfig, FormaShape, TipoArco } from '@/types/rilievo'
+import {
+  arcSvgPath,
+  arcSvgPathAcuto,
+  arcRadius,
+  arcRadiusSpezzato,
+  cpForTuttoSesto,
+  cpForRibassato,
+  cpForRialzato,
+  cpForAcuto,
+  classifyArco,
+} from '@/types/rilievo'
 
 // ============================================================
 // Costanti griglia
@@ -44,6 +54,9 @@ function segPath(seg: ShapeSegment, punti: GridPoint[]): string {
     return `M ${fx} ${fy} Q ${cpx} ${cpy} ${tx} ${ty}`
   }
   if (seg.tipo === 'arco') {
+    if (seg.tipoArco === 'acuto') {
+      return arcSvgPathAcuto(fx, fy, tx, ty, seg.cpDx, seg.cpDy, CELL, true)
+    }
     return arcSvgPath(fx, fy, tx, ty, seg.cpDx, seg.cpDy, CELL, true)
   }
   return `M ${fx} ${fy} L ${tx} ${ty}`
@@ -88,7 +101,11 @@ function buildClosedPath(shape: FormaShape): string {
       const cpy = (fy + ty) / 2 + seg.cpDy * CELL
       d += ` Q ${cpx} ${cpy} ${tx} ${ty}`
     } else if (seg.tipo === 'arco') {
-      d += ' ' + arcSvgPath(fx, fy, tx, ty, seg.cpDx, seg.cpDy, CELL, false)
+      if (seg.tipoArco === 'acuto') {
+        d += ' ' + arcSvgPathAcuto(fx, fy, tx, ty, seg.cpDx, seg.cpDy, CELL, false)
+      } else {
+        d += ' ' + arcSvgPath(fx, fy, tx, ty, seg.cpDx, seg.cpDy, CELL, false)
+      }
     } else {
       d += ` L ${tx} ${ty}`
     }
@@ -99,6 +116,23 @@ function buildClosedPath(shape: FormaShape): string {
 // ============================================================
 // Pannello configurazione lato
 // ============================================================
+
+const TIPO_ARCO_LABELS: Record<TipoArco, string> = {
+  ribassato:   'Ribassato',
+  tutto_sesto: 'Tutto sesto',
+  rialzato:    'Rialzato',
+  acuto:       'Acuto / gotico',
+  libero:      'Libero',
+}
+
+const TIPO_ARCO_DESC: Record<TipoArco, string> = {
+  ribassato:   'F ≈ 30% L/2 — arco piatto',
+  tutto_sesto: 'F = L/2 — semicerchio',
+  rialzato:    'F ≈ 75% L/2 — arco alto',
+  acuto:       'Doppio arco a vertice — gotico',
+  libero:      'Trascina il punto ● liberamente',
+}
+
 function PannelloLato({
   seg,
   punti,
@@ -112,10 +146,65 @@ function PannelloLato({
 }) {
   const chord = segChord(seg, punti)
   const sagitta = segSagitta(seg)
-  // Raggio calcolato (in unità griglia, solo informativo)
-  const R = seg.tipo === 'arco' && sagitta > 0.01
+  const isAcuto = seg.tipoArco === 'acuto'
+
+  // Raggio calcolato (informativo)
+  const R = seg.tipo === 'arco' && sagitta > 0.01 && !isAcuto
     ? arcRadius(chord, sagitta).toFixed(2)
     : null
+
+  // Per acuto: calcola R basato sulla altezza del vertice
+  const fromPt = punti.find((p) => p.id === seg.fromId)
+  const toPt = punti.find((p) => p.id === seg.toId)
+  const R_acuto = (() => {
+    if (!isAcuto || !fromPt || !toPt) return null
+    const chordPx = chord * CELL
+    const apexOffPx = sagitta * CELL
+    // Per arco acuto simmetrico: vertice = offset perpendicolare ≈ apexOffPx
+    if (chordPx < 0.5 || apexOffPx < 0.5) return null
+    return arcRadiusSpezzato(chordPx, apexOffPx).toFixed(1)
+  })()
+
+  // Classificazione automatica (solo per archi singoli)
+  const autoClass = !isAcuto && chord > 0 && sagitta > 0.01
+    ? classifyArco(chord, sagitta)
+    : null
+
+  const applyPreset = (tipo: TipoArco) => {
+    if (!fromPt || !toPt) return
+    const base = { tipo: 'arco' as const, tipoArco: tipo }
+    switch (tipo) {
+      case 'tutto_sesto': {
+        const cp = cpForTuttoSesto(fromPt.gx, fromPt.gy, toPt.gx, toPt.gy)
+        onChange({
+          ...base, ...cp,
+          sagittaTipo: 'calcolato',
+          sagittaFormula: (seg.misuraNome || 'Corda') + ' / 2',
+          sagittaNome: seg.sagittaNome || 'Freccia',
+        })
+        break
+      }
+      case 'ribassato': {
+        const cp = cpForRibassato(fromPt.gx, fromPt.gy, toPt.gx, toPt.gy)
+        onChange({ ...base, ...cp, sagittaNome: seg.sagittaNome || 'Freccia', sagittaTipo: 'input' })
+        break
+      }
+      case 'rialzato': {
+        const cp = cpForRialzato(fromPt.gx, fromPt.gy, toPt.gx, toPt.gy)
+        onChange({ ...base, ...cp, sagittaNome: seg.sagittaNome || 'Freccia', sagittaTipo: 'input' })
+        break
+      }
+      case 'acuto': {
+        const cp = cpForAcuto(fromPt.gx, fromPt.gy, toPt.gx, toPt.gy)
+        onChange({ ...base, ...cp, sagittaNome: seg.sagittaNome || 'Vertice', sagittaTipo: 'input' })
+        break
+      }
+      case 'libero': {
+        onChange({ ...base })
+        break
+      }
+    }
+  }
 
   return (
     <div className="bg-white border border-teal-200 rounded-xl p-4 space-y-3 shadow-sm">
@@ -131,7 +220,7 @@ function PannelloLato({
         <label className="block text-xs text-gray-500 mb-1.5">Tipo lato</label>
         <div className="flex gap-2">
           <button
-            onClick={() => onChange({ tipo: 'retta', cpDx: 0, cpDy: 0 })}
+            onClick={() => onChange({ tipo: 'retta', cpDx: 0, cpDy: 0, tipoArco: undefined })}
             className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
               seg.tipo === 'retta' ? 'bg-teal-50 border-teal-400 text-teal-700' : 'bg-gray-50 border-gray-200 text-gray-600'
             }`}
@@ -141,6 +230,7 @@ function PannelloLato({
           <button
             onClick={() => onChange({
               tipo: 'curva',
+              tipoArco: undefined,
               cpDx: seg.cpDx,
               cpDy: seg.cpDy === 0 && seg.cpDx === 0 ? -1.2 : seg.cpDy,
             })}
@@ -152,16 +242,10 @@ function PannelloLato({
           </button>
           <button
             onClick={() => {
-              const from = punti.find((p) => p.id === seg.fromId)
-              const to = punti.find((p) => p.id === seg.toId)
-              const cp = from && to
-                ? cpForTuttoSesto(from.gx, from.gy, to.gx, to.gy)
-                : { cpDx: 0, cpDy: seg.cpDy === 0 ? -1.2 : seg.cpDy }
-              onChange({
-                tipo: 'arco',
-                cpDx: seg.tipo === 'arco' ? seg.cpDx : cp.cpDx,
-                cpDy: seg.tipo === 'arco' ? seg.cpDy : cp.cpDy,
-              })
+              if (seg.tipo !== 'arco') {
+                // Prima volta: imposta tutto sesto come default
+                applyPreset('tutto_sesto')
+              }
             }}
             className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
               seg.tipo === 'arco' ? 'bg-orange-50 border-orange-400 text-orange-700' : 'bg-gray-50 border-gray-200 text-gray-600'
@@ -170,55 +254,86 @@ function PannelloLato({
             Arco circolare
           </button>
         </div>
-        {(seg.tipo === 'curva' || seg.tipo === 'arco') && (
-          <p className="text-xs text-gray-400 mt-1.5">
-            Trascina il punto ● sul disegno per regolare {seg.tipo === 'arco' ? 'la freccia/vertice' : 'la curva'}
-          </p>
-        )}
       </div>
 
-      {/* Preset arco a tutto sesto */}
-      {seg.tipo === 'arco' && (() => {
-        const from = punti.find((p) => p.id === seg.fromId)
-        const to = punti.find((p) => p.id === seg.toId)
-        return from && to ? (
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => {
-                const cp = cpForTuttoSesto(from.gx, from.gy, to.gx, to.gy)
-                onChange({
-                  cpDx: cp.cpDx, cpDy: cp.cpDy,
-                  sagittaTipo: 'calcolato',
-                  sagittaFormula: (seg.misuraNome || 'Corda') + ' / 2',
-                })
-              }}
-              className="px-2.5 py-1 rounded-lg border border-orange-300 bg-orange-50 text-orange-700 text-xs font-medium hover:bg-orange-100"
-            >
-              ⊙ Preset semicerchio (tutto sesto)
-            </button>
-            {R && (
-              <span className="text-xs text-gray-500">
-                R = <span className="font-mono font-semibold text-orange-700">{R}</span> unità griglia
+      {/* Selettore tipologia arco */}
+      {seg.tipo === 'arco' && (
+        <div className="border border-orange-100 rounded-xl p-3 space-y-2.5 bg-orange-50/40">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-orange-800">Tipologia arco</label>
+            {autoClass && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+                rilevato: {TIPO_ARCO_LABELS[autoClass]}
               </span>
             )}
           </div>
-        ) : null
-      })()}
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+            {(['ribassato', 'tutto_sesto', 'rialzato', 'acuto', 'libero'] as TipoArco[]).map((tipo) => (
+              <button
+                key={tipo}
+                onClick={() => applyPreset(tipo)}
+                className={`py-1.5 px-1 rounded-lg text-[11px] font-medium border text-center transition-colors leading-tight ${
+                  seg.tipoArco === tipo
+                    ? tipo === 'acuto'
+                      ? 'bg-violet-50 border-violet-400 text-violet-700'
+                      : 'bg-orange-100 border-orange-400 text-orange-800'
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-orange-300 hover:bg-orange-50'
+                }`}
+              >
+                {TIPO_ARCO_LABELS[tipo]}
+              </button>
+            ))}
+          </div>
+          {seg.tipoArco && (
+            <p className="text-[11px] text-orange-700 italic">
+              {TIPO_ARCO_DESC[seg.tipoArco]}
+            </p>
+          )}
+          <p className="text-[10px] text-gray-400">
+            {isAcuto
+              ? 'Trascina ● per spostare il vertice gotico'
+              : 'Trascina ● per regolare la freccia dell\'arco'}
+          </p>
+        </div>
+      )}
 
       {/* Info formula raggio */}
       {seg.tipo === 'arco' && (
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-2.5 text-xs text-orange-800">
-          <p className="font-semibold mb-0.5">Formula raggio durante il rilievo:</p>
-          <p className="font-mono">R = (L² + 4F²) / (8F)</p>
-          <p className="mt-0.5 text-orange-600">dove L = corda (misura lato), F = freccia/vertice</p>
+          {isAcuto ? (
+            <>
+              <p className="font-semibold mb-0.5">Formula raggio arco acuto:</p>
+              <p className="font-mono">R = (L² + 4V²) / (4L)</p>
+              <p className="mt-0.5 text-orange-600">dove L = corda, V = altezza vertice</p>
+              {R_acuto && (
+                <p className="mt-1">R ≈ <span className="font-semibold">{R_acuto}</span> px griglia</p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="font-semibold mb-0.5">Formula raggio arco circolare:</p>
+              <p className="font-mono">R = (L² + 4F²) / (8F)</p>
+              <p className="mt-0.5 text-orange-600">dove L = corda (misura lato), F = freccia/vertice</p>
+              {R && (
+                <p className="mt-1">R ≈ <span className="font-semibold">{R}</span> unità griglia</p>
+              )}
+            </>
+          )}
         </div>
       )}
 
-      {/* Misura corda */}
+      {/* Curva libera: hint drag */}
+      {seg.tipo === 'curva' && (
+        <p className="text-xs text-gray-400">
+          Trascina il punto ● sul disegno per regolare la curva
+        </p>
+      )}
+
+      {/* Misura corda / lato */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs text-gray-500 mb-1">
-            {seg.tipo === 'arco' ? 'Nome corda' : 'Nome misura'}
+            {isAcuto ? 'Nome corda (imposta)' : seg.tipo === 'arco' ? 'Nome corda' : 'Nome misura'}
           </label>
           <input
             type="text"
@@ -250,45 +365,47 @@ function PannelloLato({
         />
       )}
 
-      {/* Misura freccia (solo per arco) */}
+      {/* Misura freccia / vertice (solo per arco) */}
       {seg.tipo === 'arco' && (
-        <>
-          <div className="border-t pt-3">
-            <p className="text-xs font-medium text-gray-600 mb-2">Misura freccia / vertice</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Nome freccia</label>
-                <input
-                  type="text"
-                  value={seg.sagittaNome}
-                  onChange={(e) => onChange({ sagittaNome: e.target.value })}
-                  placeholder="es. Freccia, Vertice"
-                  className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Tipo</label>
-                <select
-                  value={seg.sagittaTipo}
-                  onChange={(e) => onChange({ sagittaTipo: e.target.value as 'input' | 'calcolato' })}
-                  className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                >
-                  <option value="input">Da rilevare</option>
-                  <option value="calcolato">Calcolato</option>
-                </select>
-              </div>
-            </div>
-            {seg.sagittaTipo === 'calcolato' && (
+        <div className="border-t pt-3">
+          <p className="text-xs font-medium text-gray-600 mb-2">
+            {isAcuto ? 'Misura altezza vertice' : 'Misura freccia / vertice'}
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">
+                {isAcuto ? 'Nome vertice' : 'Nome freccia'}
+              </label>
               <input
                 type="text"
-                value={seg.sagittaFormula}
-                onChange={(e) => onChange({ sagittaFormula: e.target.value })}
-                placeholder="Formula (es. Larghezza / 2 per tutto sesto)"
-                className="mt-2 w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                value={seg.sagittaNome}
+                onChange={(e) => onChange({ sagittaNome: e.target.value })}
+                placeholder={isAcuto ? 'es. Vertice, Apice' : 'es. Freccia, Vertice'}
+                className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
-            )}
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Tipo</label>
+              <select
+                value={seg.sagittaTipo}
+                onChange={(e) => onChange({ sagittaTipo: e.target.value as 'input' | 'calcolato' })}
+                className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="input">Da rilevare</option>
+                <option value="calcolato">Calcolato</option>
+              </select>
+            </div>
           </div>
-        </>
+          {seg.sagittaTipo === 'calcolato' && (
+            <input
+              type="text"
+              value={seg.sagittaFormula}
+              onChange={(e) => onChange({ sagittaFormula: e.target.value })}
+              placeholder={isAcuto ? 'es. Larghezza * 0.65' : 'es. Larghezza / 2 per tutto sesto'}
+              className="mt-2 w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+          )}
+        </div>
       )}
     </div>
   )
@@ -539,16 +656,22 @@ export default function ShapeEditor({ value: shape, onChange }: Props) {
           {/* Segmenti */}
           {shape.segmenti.map((seg) => {
             const isSelected = selectedSegId === seg.id
-            const showCp = (seg.tipo === 'curva' || seg.tipo === 'arco') && shape.chiusa
+            const isAcuto = seg.tipoArco === 'acuto'
+            const isArco = seg.tipo === 'arco'
+            const showCp = (seg.tipo === 'curva' || isArco) && shape.chiusa
             const cp = showCp ? cpPos(seg, shape.punti) : null
-            const isArc = seg.tipo === 'arco'
+
+            const strokeColor = isSelected
+              ? isAcuto ? '#7c3aed' : isArco ? '#ea580c' : '#0d9488'
+              : isAcuto ? '#6d28d9' : isArco ? '#c2410c' : '#1e293b'
+
             return (
               <g key={seg.id}>
                 {/* Linea visibile */}
                 <path
                   d={segPath(seg, shape.punti)}
                   fill="none"
-                  stroke={isSelected ? (isArc ? '#ea580c' : '#0d9488') : '#1e293b'}
+                  stroke={strokeColor}
                   strokeWidth={isSelected ? 3 : 2}
                 />
                 {/* Hit area invisibile */}
@@ -566,33 +689,50 @@ export default function ShapeEditor({ value: shape, onChange }: Props) {
                     }}
                   />
                 )}
-                {/* Label misura */}
+                {/* Label misura corda */}
                 {seg.misuraNome && shape.chiusa && (() => {
                   const mid = cpPos(seg, shape.punti)
                   if (!mid) return null
                   return (
                     <text
-                      x={mid.x} y={mid.y - 7}
+                      x={mid.x} y={mid.y - 8}
                       textAnchor="middle" fontSize={9} fontWeight="600"
-                      fill={seg.misuraTipo === 'calcolato' ? '#2563eb' : (isArc ? '#ea580c' : '#0d9488')}
+                      fill={seg.misuraTipo === 'calcolato' ? '#2563eb' : (isAcuto ? '#7c3aed' : isArco ? '#ea580c' : '#0d9488')}
                       style={{ pointerEvents: 'none' }}
                     >
                       {seg.misuraNome}
                     </text>
                   )
                 })()}
-                {/* Label freccia (arco) */}
-                {isArc && seg.sagittaNome && shape.chiusa && (() => {
+                {/* Label freccia / vertice */}
+                {isArco && seg.sagittaNome && shape.chiusa && (() => {
                   const mid = cpPos(seg, shape.punti)
                   if (!mid) return null
                   return (
                     <text
-                      x={mid.x} y={mid.y + 14}
+                      x={mid.x} y={mid.y + 15}
                       textAnchor="middle" fontSize={8}
-                      fill="#ea580c" fontStyle="italic"
+                      fill={isAcuto ? '#7c3aed' : '#ea580c'} fontStyle="italic"
                       style={{ pointerEvents: 'none' }}
                     >
                       {seg.sagittaNome}
+                    </text>
+                  )
+                })()}
+                {/* Badge tipo arco */}
+                {isArco && seg.tipoArco && shape.chiusa && (() => {
+                  const mid = cpPos(seg, shape.punti)
+                  if (!mid) return null
+                  const label = TIPO_ARCO_LABELS[seg.tipoArco]
+                  return (
+                    <text
+                      x={mid.x} y={mid.y + 26}
+                      textAnchor="middle" fontSize={7}
+                      fill={isAcuto ? '#7c3aed' : '#9a3412'}
+                      opacity={0.7}
+                      style={{ pointerEvents: 'none' }}
+                    >
+                      {label}
                     </text>
                   )
                 })()}
@@ -600,7 +740,7 @@ export default function ShapeEditor({ value: shape, onChange }: Props) {
                 {cp && (
                   <circle
                     cx={cp.x} cy={cp.y} r={8}
-                    fill={isArc ? '#ea580c' : '#0d9488'}
+                    fill={isAcuto ? '#7c3aed' : isArco ? '#ea580c' : '#0d9488'}
                     stroke="white" strokeWidth={2}
                     style={{ cursor: 'grab' }}
                     onPointerDown={(e) => handleCpPointerDown(e, seg)}
@@ -679,16 +819,19 @@ export default function ShapeEditor({ value: shape, onChange }: Props) {
         {shape.chiusa && (
           <div className="absolute bottom-2 left-2 flex flex-col gap-0.5 text-[10px] text-gray-500">
             <span className="flex items-center gap-1">
-              <span className="w-3 h-0.5 bg-teal-600 inline-block" /> lato / misura
+              <span className="w-3 h-0.5 bg-slate-800 inline-block" /> lato retto
             </span>
             <span className="flex items-center gap-1">
-              <span className="w-3 h-0.5 bg-orange-500 inline-block rounded" /> arco circolare
+              <span className="w-3 h-0.5 bg-teal-600 inline-block" /> curva libera
             </span>
             <span className="flex items-center gap-1">
-              <span className="w-3 h-0.5 bg-blue-600 inline-block" /> calcolato
+              <span className="w-3 h-0.5 bg-orange-600 inline-block rounded" /> arco circolare
             </span>
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-purple-600 inline-block" /> angolo fisso
+              <span className="w-3 h-0.5 bg-violet-600 inline-block rounded" /> arco acuto/gotico
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-blue-600 inline-block" /> calcolato
             </span>
           </div>
         )}

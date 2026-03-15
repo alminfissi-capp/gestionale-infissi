@@ -1,0 +1,242 @@
+/**
+ * lib/rilievo.ts
+ * Logica pura per il rilievo misure serramenti.
+ *
+ * Una FormaShape è un TEMPLATE che descrive:
+ *   - la geometria del serramento (punti, segmenti, archi)
+ *   - i NOMI delle misure da rilevare (misuraNome, sagittaNome)
+ *   - le FORMULE per i valori derivati (misuraFormula, sagittaFormula)
+ *   - gli angoli (fisso → valore noto; automatico → calcolato dalle misure)
+ *
+ * Questo modulo trasforma il template in:
+ *   - lista campi da mostrare all'operatore (input / calcolato)
+ *   - valori numerici calcolati a partire dalle misure inserite
+ *   - raggi archi calcolati con le formule geometriche corrette
+ */
+
+import type { FormaShape, TipoArco } from '@/types/rilievo'
+import { arcRadius, arcRadiusSpezzato } from '@/types/rilievo'
+
+// ============================================================
+// Tipi
+// ============================================================
+
+/** Un campo misura estratto dalla FormaShape (template) */
+export interface CampoRilievo {
+  /** ID del segmento sorgente */
+  segmentoId: string
+  /** 'misura' = lato/corda del segmento; 'freccia' = sagitta/vertice arco */
+  tipo: 'misura' | 'freccia'
+  /** Etichetta visualizzata all'operatore (es. "Larghezza", "Freccia") */
+  nome: string
+  /** 'input' = da misurare sul campo; 'calcolato' = derivato da formula */
+  tipoMisura: 'input' | 'calcolato'
+  /** Formula es. "Larghezza / 2" — valida solo se tipoMisura='calcolato' */
+  formula: string
+  /** Tipo arco — solo per tipo='freccia', usato per mostrare hint formula */
+  tipoArco?: TipoArco
+}
+
+/** Raggio arco calcolato dalle misure rilevate */
+export interface RaggioCalcolato {
+  segmentoId: string
+  nomeCorda: string
+  nomeFreccia: string
+  corda: number
+  freccia: number
+  /** Raggio in mm (stessa unità delle misure inserite) */
+  R: number
+  tipoArco: TipoArco
+}
+
+/** Misure di un singolo vano/serramento rilevato */
+export interface VanoMisurato {
+  id: string
+  /** Nome descrittivo (es. "Camera letto – finestra sx") */
+  nome: string
+  forma: import('@/types/rilievo').FormaSerramentoDb
+  /** Mappa nome_misura → valore in mm (o cm, coerente con quanto inserito) */
+  valori: Record<string, number>
+  note: string
+}
+
+// ============================================================
+// extractCampiRilievo
+// ============================================================
+
+/**
+ * Estrae in ordine tutti i campi (lato + freccia arco) da una FormaShape chiusa.
+ * Campi con lo stesso nome vengono de-duplicati (stesso nome = stesso valore).
+ */
+export function extractCampiRilievo(shape: FormaShape): CampoRilievo[] {
+  if (!shape.chiusa) return []
+  const campi: CampoRilievo[] = []
+  const seen = new Set<string>()
+
+  for (const seg of shape.segmenti) {
+    // Campo misura (lato/corda)
+    if (seg.misuraNome) {
+      const key = `m:${seg.misuraNome}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        campi.push({
+          segmentoId: seg.id,
+          tipo: 'misura',
+          nome: seg.misuraNome,
+          tipoMisura: seg.misuraTipo,
+          formula: seg.misuraFormula ?? '',
+        })
+      }
+    }
+    // Campo freccia/vertice (solo per archi)
+    if (seg.tipo === 'arco' && seg.sagittaNome) {
+      const key = `f:${seg.sagittaNome}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        campi.push({
+          segmentoId: seg.id,
+          tipo: 'freccia',
+          nome: seg.sagittaNome,
+          tipoMisura: seg.sagittaTipo,
+          formula: seg.sagittaFormula ?? '',
+          tipoArco: seg.tipoArco,
+        })
+      }
+    }
+  }
+  return campi
+}
+
+// ============================================================
+// Formula evaluator
+// ============================================================
+
+function escapeRegex(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * Valuta una formula testuale sostituendo i nomi-variabile con valori numerici.
+ * Operatori supportati: + - * / ( ) numeri decimali.
+ * Restituisce null se la formula è vuota, ha variabili mancanti o sintassi errata.
+ */
+export function evaluaFormula(formula: string, valori: Record<string, number>): number | null {
+  if (!formula.trim()) return null
+  try {
+    // Sostituisci i nomi più lunghi prima (evita match parziali su sottostringa)
+    const sortedNames = Object.keys(valori).sort((a, b) => b.length - a.length)
+    let expr = formula
+    for (const nome of sortedNames) {
+      const val = valori[nome]
+      if (val === undefined || val === null || !isFinite(val)) return null
+      expr = expr.replace(new RegExp(`\\b${escapeRegex(nome)}\\b`, 'g'), String(val))
+    }
+    // Safety: solo caratteri aritmetici
+    if (/[^0-9+\-*/().\s]/.test(expr)) return null
+    // eslint-disable-next-line no-new-func
+    const result = new Function(`"use strict"; return (${expr})`)()
+    return typeof result === 'number' && isFinite(result)
+      ? Math.round(result * 1000) / 1000
+      : null
+  } catch {
+    return null
+  }
+}
+
+// ============================================================
+// evaluaFormule
+// ============================================================
+
+/**
+ * Dato il set di valori inseriti dall'operatore (inputValori),
+ * calcola tutti i campi con tipoMisura='calcolato' usando le loro formule.
+ * Usa fino a 5 passate per gestire dipendenze a catena (A dipende da B da C).
+ *
+ * Restituisce un map nome → valore con TUTTI i valori (input + calcolati).
+ */
+export function evaluaFormule(
+  shape: FormaShape,
+  inputValori: Record<string, number>
+): Record<string, number> {
+  const tutti = { ...inputValori }
+  const calcolati = extractCampiRilievo(shape).filter((c) => c.tipoMisura === 'calcolato')
+
+  for (let pass = 0; pass < 5; pass++) {
+    let changed = false
+    for (const campo of calcolati) {
+      if (campo.formula && !(campo.nome in tutti)) {
+        const val = evaluaFormula(campo.formula, tutti)
+        if (val !== null) {
+          tutti[campo.nome] = val
+          changed = true
+        }
+      }
+    }
+    if (!changed) break
+  }
+  return tutti
+}
+
+// ============================================================
+// calcolaRaggi
+// ============================================================
+
+/**
+ * Per ogni segmento arco con corda e freccia disponibili nei valori,
+ * calcola il raggio R usando la formula corretta per il tipo di arco.
+ *
+ * - archi singoli (tutto sesto, ribassato, rialzato, libero):
+ *     R = (L² + 4F²) / (8F)
+ * - arco acuto/gotico:
+ *     R = (L² + 4V²) / (4L)
+ */
+export function calcolaRaggi(
+  shape: FormaShape,
+  valori: Record<string, number>
+): RaggioCalcolato[] {
+  const risultati: RaggioCalcolato[] = []
+  const seen = new Set<string>()
+
+  for (const seg of shape.segmenti) {
+    if (seg.tipo !== 'arco') continue
+    if (!seg.misuraNome || !seg.sagittaNome) continue
+
+    const chiave = `${seg.misuraNome}|${seg.sagittaNome}`
+    if (seen.has(chiave)) continue
+    seen.add(chiave)
+
+    const corda = valori[seg.misuraNome]
+    const freccia = valori[seg.sagittaNome]
+    if (!corda || !freccia || corda <= 0 || freccia <= 0) continue
+
+    const R = seg.tipoArco === 'acuto'
+      ? arcRadiusSpezzato(corda, freccia)
+      : arcRadius(corda, freccia)
+
+    risultati.push({
+      segmentoId: seg.id,
+      nomeCorda: seg.misuraNome,
+      nomeFreccia: seg.sagittaNome,
+      corda,
+      freccia,
+      R: Math.round(R * 10) / 10,
+      tipoArco: seg.tipoArco ?? 'libero',
+    })
+  }
+  return risultati
+}
+
+// ============================================================
+// Helpers riepilogo
+// ============================================================
+
+/** Restituisce true se tutti i campi 'input' sono stati compilati */
+export function tuttiInputCompilati(
+  shape: FormaShape,
+  valori: Record<string, number>
+): boolean {
+  const campi = extractCampiRilievo(shape)
+  return campi
+    .filter((c) => c.tipoMisura === 'input')
+    .every((c) => c.nome in valori && isFinite(valori[c.nome]) && valori[c.nome] > 0)
+}

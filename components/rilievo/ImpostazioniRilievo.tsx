@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft, Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -31,6 +32,7 @@ function ShapePreview({ forma }: { forma: FormaSerramentoDb }) {
 }
 
 export default function ImpostazioniRilievo({ forme: formeInit }: Props) {
+  const router = useRouter()
   const [forme, setForme] = useState(formeInit)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<FormaSerramentoDb | undefined>()
@@ -132,8 +134,9 @@ export default function ImpostazioniRilievo({ forme: formeInit }: Props) {
       </div>
 
       <DialogForma
+        key={editing?.id ?? 'new'}
         open={dialogOpen}
-        onClose={() => { setDialogOpen(false); setEditing(undefined) }}
+        onClose={() => { setDialogOpen(false); setEditing(undefined); router.refresh() }}
         forma={editing}
         maxOrdine={forme.length}
       />
