@@ -30,6 +30,12 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // Route pubbliche: accessibili senza autenticazione
+  const PUBLIC_PREFIXES = ['/p/', '/offline']
+  if (PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    return supabaseResponse
+  }
+
   // Reindirizza a /login se non autenticato
   if (!user && pathname !== '/login') {
     const url = request.nextUrl.clone()
