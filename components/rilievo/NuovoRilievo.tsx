@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,7 @@ interface Props {
 }
 
 export default function NuovoRilievo({ clienti }: Props) {
+  const router = useRouter()
   const [clienteId, setClienteId] = useState<string | null>(null)
   const [snapshot, setSnapshot] = useState<ClienteSnapshot>(SNAPSHOT_VUOTO)
 
@@ -77,8 +79,16 @@ export default function NuovoRilievo({ clienti }: Props) {
         <Button variant="outline" asChild>
           <Link href="/rilievo">Annulla</Link>
         </Button>
-        <Button disabled={!clienteValido}>
-          {nomeCliente || 'Continua'}
+        <Button
+          disabled={!clienteValido}
+          onClick={() => {
+            if (!clienteValido) return
+            sessionStorage.setItem('rilievo_cliente_id', clienteId ?? '')
+            sessionStorage.setItem('rilievo_snapshot', JSON.stringify(snapshot))
+            router.push('/rilievo/nuovo/vani')
+          }}
+        >
+          Continua
           <ChevronRight className="h-4 w-4 ml-1" />
         </Button>
       </div>
