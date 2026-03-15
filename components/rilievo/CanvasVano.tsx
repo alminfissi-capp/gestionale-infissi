@@ -11,6 +11,24 @@ const PAD_BOTTOM = 54
 const PAD_TOP    = 20
 const PAD_RIGHT  = 20
 
+// ── Componenti serramento ─────────────────────────────────────
+export type ComponenteId =
+  | 'telaio'
+  | 'anta_battente'
+  | 'anta_scorrevole'
+  | 'traverso'
+  | 'montante'
+  | 'ferma_vetro'
+
+const COMPONENTI: { id: ComponenteId; label: string; desc: string }[] = [
+  { id: 'telaio',          label: 'Telaio',              desc: 'Cornice/profilo perimetrale' },
+  { id: 'anta_battente',   label: 'Anta battente',       desc: 'Anta a cerniera' },
+  { id: 'anta_scorrevole', label: 'Anta scorrevole',     desc: 'Anta a scorrimento' },
+  { id: 'traverso',        label: 'Traverso',            desc: 'Profilo orizzontale interno' },
+  { id: 'montante',        label: 'Montante',            desc: 'Profilo verticale interno' },
+  { id: 'ferma_vetro',     label: 'Ferma Vetro',         desc: 'Ferma vetro / ferma pannello' },
+]
+
 function getPrimaryMeasureNames(shape: FormaShape, valori: Record<string, number>) {
   let widthName: string | null = null
   let heightName: string | null = null
@@ -66,7 +84,8 @@ export default function CanvasVano({ vano }: Props) {
 
   const [zoom, setZoom] = useState(1)
   const [pan,  setPan]  = useState({ x: 0, y: 0 })
-  const [editing, setEditing] = useState<EditState | null>(null)
+  const [editing, setEditing]   = useState<EditState | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const panRef     = useRef({ x: 0, y: 0 })
   const dragRef    = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null)
@@ -317,6 +336,33 @@ export default function CanvasVano({ vano }: Props) {
               </text>
             </g>
           ))}
+
+          {/* ── + button al centro della forma ── */}
+          {(() => {
+            const cx = (dL + dR) / 2
+            const cy = (dT + dB) / 2
+            const r  = s(22)
+            return (
+              <g
+                style={{ cursor: 'pointer' }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (!wasDragRef.current) setMenuOpen(true)
+                }}
+              >
+                <circle cx={cx} cy={cy} r={r} fill="rgba(13,148,136,0.13)" stroke="#0d9488" strokeWidth={s(2)} />
+                <text
+                  x={cx} y={cy}
+                  textAnchor="middle" dominantBaseline="middle"
+                  fontSize={s(30)} fontWeight="300" fill="#0d9488"
+                  style={{ userSelect: 'none', pointerEvents: 'none' }}
+                >
+                  +
+                </text>
+              </g>
+            )
+          })()}
         </g>
       </svg>
 
@@ -343,11 +389,118 @@ export default function CanvasVano({ vano }: Props) {
         </div>
       )}
 
+      {/* ── menu componenti (bottom sheet) ── */}
+      {menuOpen && (
+        <>
+          {/* backdrop */}
+          <div
+            className="absolute inset-0 z-30 bg-black/20"
+            onClick={() => setMenuOpen(false)}
+          />
+          {/* sheet */}
+          <div className="absolute inset-x-0 bottom-0 z-40 bg-white rounded-t-2xl shadow-2xl">
+            {/* handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-gray-200 rounded-full" />
+            </div>
+            <div className="px-5 pb-6 pt-2">
+              <p className="text-sm font-semibold text-gray-700 mb-4">Aggiungi componente</p>
+              <div className="grid grid-cols-3 gap-3">
+                {COMPONENTI.map(({ id, label, desc }) => (
+                  <button
+                    key={id}
+                    onClick={() => {
+                      setMenuOpen(false)
+                      // TODO: aprire schermata configurazione per `id`
+                    }}
+                    className="flex flex-col items-center gap-2 px-2 py-3 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all"
+                  >
+                    <ComponenteIcon id={id} />
+                    <span className="text-[11px] font-semibold text-gray-700 text-center leading-tight">
+                      {label}
+                    </span>
+                    <span className="text-[10px] text-gray-400 text-center leading-tight hidden sm:block">
+                      {desc}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       <p className="absolute bottom-2 right-3 text-[10px] text-gray-500/50 pointer-events-none select-none">
         rotella / pizzica = zoom &middot; doppio click = reset
       </p>
     </div>
   )
+}
+
+// ── ComponenteIcon ───────────────────────────────────────────
+function ComponenteIcon({ id }: { id: ComponenteId }) {
+  const cls = "w-10 h-10"
+  switch (id) {
+    case 'telaio':
+      return (
+        <svg viewBox="0 0 40 40" className={cls}>
+          <rect x="3" y="3" width="34" height="34" rx="2" fill="none" stroke="#0d9488" strokeWidth="3.5" />
+          <rect x="8" y="8" width="24" height="24" rx="1" fill="none" stroke="#0d9488" strokeWidth="1.5" strokeDasharray="3 2" />
+        </svg>
+      )
+    case 'anta_battente':
+      return (
+        <svg viewBox="0 0 40 40" className={cls}>
+          <rect x="3" y="3" width="34" height="34" rx="2" fill="none" stroke="#2563eb" strokeWidth="2.5" />
+          <line x1="3"  y1="3"  x2="37" y2="37" stroke="#2563eb" strokeWidth="1.5" />
+          <line x1="37" y1="3"  x2="3"  y2="37" stroke="#2563eb" strokeWidth="1.5" />
+          {/* cerniera sx */}
+          <rect x="3" y="9" width="3" height="5" rx="1" fill="#2563eb" />
+          <rect x="3" y="26" width="3" height="5" rx="1" fill="#2563eb" />
+        </svg>
+      )
+    case 'anta_scorrevole':
+      return (
+        <svg viewBox="0 0 40 40" className={cls}>
+          <rect x="3" y="3" width="34" height="34" rx="2" fill="none" stroke="#7c3aed" strokeWidth="2.5" />
+          {/* due ante sovrapposte */}
+          <rect x="6"  y="7" width="18" height="26" rx="1" fill="none" stroke="#7c3aed" strokeWidth="2" />
+          <rect x="16" y="7" width="18" height="26" rx="1" fill="none" stroke="#7c3aed" strokeWidth="2" />
+          {/* frecce */}
+          <line x1="9" y1="20" x2="14" y2="20" stroke="#7c3aed" strokeWidth="1.5" strokeLinecap="round" />
+          <polyline points="12,17 15,20 12,23" fill="none" stroke="#7c3aed" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )
+    case 'traverso':
+      return (
+        <svg viewBox="0 0 40 40" className={cls}>
+          <rect x="3" y="3" width="34" height="34" rx="2" fill="none" stroke="#d97706" strokeWidth="2.5" />
+          {/* barra orizzontale centrale */}
+          <rect x="3" y="17" width="34" height="6" rx="0" fill="#d97706" opacity="0.25" />
+          <line x1="3" y1="20" x2="37" y2="20" stroke="#d97706" strokeWidth="3" strokeLinecap="round" />
+        </svg>
+      )
+    case 'montante':
+      return (
+        <svg viewBox="0 0 40 40" className={cls}>
+          <rect x="3" y="3" width="34" height="34" rx="2" fill="none" stroke="#d97706" strokeWidth="2.5" />
+          {/* barra verticale centrale */}
+          <rect x="17" y="3" width="6" height="34" rx="0" fill="#d97706" opacity="0.25" />
+          <line x1="20" y1="3" x2="20" y2="37" stroke="#d97706" strokeWidth="3" strokeLinecap="round" />
+        </svg>
+      )
+    case 'ferma_vetro':
+      return (
+        <svg viewBox="0 0 40 40" className={cls}>
+          <rect x="3"  y="3"  width="34" height="34" rx="2" fill="none" stroke="#059669" strokeWidth="2.5" />
+          {/* vetro (riempimento) */}
+          <rect x="9"  y="9"  width="22" height="22" rx="1" fill="#bfdbfe" opacity="0.7" />
+          {/* ferma vetro (profilo stretto interno) */}
+          <rect x="9"  y="9"  width="22" height="22" rx="1" fill="none" stroke="#059669" strokeWidth="2.5" />
+          <rect x="12" y="12" width="16" height="16" rx="1" fill="none" stroke="#059669" strokeWidth="1" strokeDasharray="2 2" />
+        </svg>
+      )
+  }
 }
 
 // ── DimLabel (SVG) ────────────────────────────────────────────
