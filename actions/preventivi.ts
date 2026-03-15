@@ -600,3 +600,17 @@ export async function deletePreventivo(id: string): Promise<void> {
   if (error) throw new Error(error.message)
   revalidatePath('/preventivi')
 }
+
+export async function aggiornaStatoPreventivo(
+  id: string,
+  stato: import('@/types/preventivo').StatoPreventivo
+): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('preventivi')
+    .update({ stato })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/preventivi')
+  revalidatePath('/')
+}

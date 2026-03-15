@@ -4,14 +4,20 @@ import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy } from 'lucide-react'
+import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { deletePreventivo, duplicaPreventivo } from '@/actions/preventivi'
+import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
 import { formatEuro } from '@/lib/pricing'
 import { db } from '@/lib/db'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Table,
   TableBody,
@@ -34,14 +40,16 @@ import type { Preventivo, StatoPreventivo } from '@/types/preventivo'
 
 const STATO_CONFIG: Record<
   StatoPreventivo,
-  { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }
+  { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive'; className: string }
 > = {
-  bozza:     { label: 'Bozza',     variant: 'secondary' },
-  inviato:   { label: 'Inviato',   variant: 'default' },
-  accettato: { label: 'Accettato', variant: 'default' },
-  rifiutato: { label: 'Rifiutato', variant: 'destructive' },
-  scaduto:   { label: 'Scaduto',   variant: 'outline' },
+  bozza:     { label: 'Bozza',     variant: 'secondary',    className: 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200' },
+  inviato:   { label: 'Inviato',   variant: 'default',      className: 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200' },
+  accettato: { label: 'Accettato', variant: 'default',      className: 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' },
+  rifiutato: { label: 'Rifiutato', variant: 'destructive',  className: 'bg-red-100 text-red-700 border-red-200 hover:bg-red-200' },
+  scaduto:   { label: 'Scaduto',   variant: 'outline',      className: 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100' },
 }
+
+const TUTTI_STATI = Object.entries(STATO_CONFIG) as [StatoPreventivo, typeof STATO_CONFIG[StatoPreventivo]][]
 
 function nomeCliente(p: Preventivo): string {
   const s = p.cliente_snapshot
@@ -61,6 +69,15 @@ export default function TabellaPreventivi({ preventivi }: Props) {
   const [deleting, setDeleting] = useState(false)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
   const [isDuplicating, startDuplicate] = useTransition()
+  const [updatingStatoId, setUpdatingStatoId] = useState<string | null>(null)
+
+  const handleCambiaStato = (id: string, stato: StatoPreventivo) => {
+    setUpdatingStatoId(id)
+    aggiornaStatoPreventivo(id, stato)
+      .then(() => router.refresh())
+      .catch(() => toast.error('Errore aggiornamento stato'))
+      .finally(() => setUpdatingStatoId(null))
+  }
 
   const pendingPreventivi = useLiveQuery(() => db.pendingPreventivi.toArray(), []) ?? []
 
@@ -230,9 +247,34 @@ export default function TabellaPreventivi({ preventivi }: Props) {
                       € {formatEuro(p.totale_finale)}
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={cfg.variant} className="text-xs">
-                        {cfg.label}
-                      </Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border cursor-pointer transition-colors ${cfg.className}`}
+                            disabled={updatingStatoId === p.id}
+                          >
+                            {cfg.label}
+                            <ChevronDown className="h-2.5 w-2.5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="center">
+                          {TUTTI_STATI.map(([stato, scfg]) => (
+                            <DropdownMenuItem
+                              key={stato}
+                              onClick={() => handleCambiaStato(p.id, stato)}
+                              className={stato === p.stato ? 'font-semibold' : ''}
+                            >
+                              <span className={`w-2 h-2 rounded-full mr-2 ${
+                                stato === 'accettato' ? 'bg-green-500' :
+                                stato === 'rifiutato' ? 'bg-red-500' :
+                                stato === 'bozza' ? 'bg-gray-400' :
+                                stato === 'inviato' ? 'bg-blue-500' : 'bg-orange-400'
+                              }`} />
+                              {scfg.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                     <TableCell className="text-right text-xs text-gray-400 whitespace-nowrap">
                       {new Date(p.created_at).toLocaleDateString('it-IT')}
