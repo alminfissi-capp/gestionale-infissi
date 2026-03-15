@@ -32,7 +32,30 @@ async function getPreventivoByToken(token: string): Promise<PreventivoCompleto |
     .update({ visualizzato_at: new Date().toISOString() })
     .eq('share_token', token)
 
-  return { ...prev, articoli: articoli ?? [] }
+  // Recupera dati cataloghi allegati
+  const ids: string[] = prev.cataloghi_allegati ?? []
+  let cataloghi_allegati_data: { id: string; nome: string; url: string }[] = []
+  if (ids.length > 0) {
+    const { data: cats } = await supabase
+      .from('cataloghi')
+      .select('id, nome, storage_path')
+      .in('id', ids)
+    if (cats) {
+      cataloghi_allegati_data = ids
+        .map((id) => {
+          const cat = cats.find((c) => c.id === id)
+          if (!cat) return null
+          return {
+            id: cat.id,
+            nome: cat.nome,
+            url: supabase.storage.from('cataloghi-brochure').getPublicUrl(cat.storage_path).data.publicUrl,
+          }
+        })
+        .filter(Boolean) as { id: string; nome: string; url: string }[]
+    }
+  }
+
+  return { ...prev, articoli: articoli ?? [], cataloghi_allegati_data }
 }
 
 async function getSettingsPubblici(orgId: string): Promise<Settings | null> {
