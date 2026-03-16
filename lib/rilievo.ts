@@ -117,7 +117,7 @@ function escapeRegex(s: string) {
 
 /**
  * Valuta una formula testuale sostituendo i nomi-variabile con valori numerici.
- * Operatori supportati: + - * / ( ) numeri decimali.
+ * Operatori supportati: + - * / ( ) numeri decimali, sqrt(...).
  * Restituisce null se la formula è vuota, ha variabili mancanti o sintassi errata.
  */
 export function evaluaFormula(formula: string, valori: Record<string, number>): number | null {
@@ -131,12 +131,14 @@ export function evaluaFormula(formula: string, valori: Record<string, number>): 
       if (val === undefined || val === null || !isFinite(val)) return null
       expr = expr.replace(new RegExp(`\\b${escapeRegex(nome)}\\b`, 'g'), String(val))
     }
-    // Safety: solo caratteri aritmetici
-    if (/[^0-9+\-*/().\s]/.test(expr)) return null
-    // eslint-disable-next-line no-new-func
+    // Supporto sqrt: sostituisci con token sicuro, verifica, ripristina
+    expr = expr.replace(/\bsqrt\s*\(/g, '\x01(')
+    // Safety: solo caratteri aritmetici + token sqrt
+    if (/[^0-9+\-*/().\s\x01]/.test(expr)) return null
+    expr = expr.replace(/\x01\(/g, 'Math.sqrt(')
     const result = new Function(`"use strict"; return (${expr})`)()
-    return typeof result === 'number' && isFinite(result)
-      ? Math.round(result * 1000) / 1000
+    return typeof result === 'number' && isFinite(result) && result >= 0
+      ? Math.round(result * 10) / 10
       : null
   } catch {
     return null
