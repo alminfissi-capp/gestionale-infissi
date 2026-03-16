@@ -1,15 +1,16 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { X, Calculator, Ruler } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import type { FormaSerramentoDb } from '@/types/rilievo'
-import { shapeToPath } from '@/types/rilievo'
+import type { FormaSerramentoDb, FormaShape } from '@/types/rilievo'
+import { arcSvgPathScaled, arcSvgPathAcutoScaled } from '@/types/rilievo'
 import {
   extractCampiRilievo,
   evaluaFormule,
   calcolaRaggi,
   tuttiInputCompilati,
+  computeRealDimensions,
 } from '@/lib/rilievo'
 
 const TIPO_ARCO_FORMULA: Record<string, string> = {
@@ -20,6 +21,193 @@ const TIPO_ARCO_FORMULA: Record<string, string> = {
   libero:      'R = (L² + 4F²) / (8F)',
 }
 
+// ── Helper: render per-segmento ───────────────────────────────────────────────
+
+interface SegRender {
+  id: string
+  misuraNome: string
+  sagittaNome: string
+  path: string
+  midX: number
+  midY: number
+  perpX: number  // direzione perpendicolare normalizzata (per offset label)
+  perpY: number
+}
+
+function buildSegmentRenders(shape: FormaShape, cw: number, ch: number): SegRender[] {
+  if (!shape.chiusa || shape.segmenti.length < 3 || shape.punti.length < 3) return []
+
+  const gxs = shape.punti.map((p) => p.gx)
+  const gys = shape.punti.map((p) => p.gy)
+  const minGx = Math.min(...gxs), maxGx = Math.max(...gxs)
+  const minGy = Math.min(...gys), maxGy = Math.max(...gys)
+  const rangeGx = maxGx - minGx || 1
+  const rangeGy = maxGy - minGy || 1
+
+  const pad = Math.min(cw, ch) * 0.1
+  const scaleX = (cw - pad * 2) / rangeGx
+  const scaleY = (ch - pad * 2) / rangeGy
+  const scaleArc = Math.sqrt(scaleX * scaleY)
+
+  const px = (gx: number) => pad + (gx - minGx) * scaleX
+  const py = (gy: number) => pad + (gy - minGy) * scaleY
+
+  return shape.segmenti.map((seg): SegRender => {
+    const from = shape.punti.find((p) => p.id === seg.fromId)
+    const to   = shape.punti.find((p) => p.id === seg.toId)
+    if (!from || !to) return { id: seg.id, misuraNome: seg.misuraNome, sagittaNome: seg.sagittaNome, path: '', midX: 0, midY: 0, perpX: 0, perpY: -1 }
+
+    const fx = px(from.gx), fy = py(from.gy)
+    const tx = px(to.gx),   ty = py(to.gy)
+
+    // Direzione perpendicolare (verso l'esterno della forma, approx.)
+    const ddx = tx - fx, ddy = ty - fy
+    const dlen = Math.sqrt(ddx * ddx + ddy * ddy) || 1
+    // perp ruotata 90° CCW: (-ddy, ddx) — verso sx rispetto alla direzione di percorrenza
+    const perpX = -ddy / dlen
+    const perpY =  ddx / dlen
+
+    let path: string
+    let midX = (fx + tx) / 2
+    let midY = (fy + ty) / 2
+
+    if (seg.tipo === 'curva') {
+      const midGx = (from.gx + to.gx) / 2
+      const midGy = (from.gy + to.gy) / 2
+      const cpx = pad + (midGx - minGx) * scaleX + seg.cpDx * scaleArc
+      const cpy = pad + (midGy - minGy) * scaleY + seg.cpDy * scaleArc
+      path = `M ${fx.toFixed(1)} ${fy.toFixed(1)} Q ${cpx.toFixed(1)} ${cpy.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)}`
+      midX = (fx + tx) / 2 + seg.cpDx * scaleArc * 0.4
+      midY = (fy + ty) / 2 + seg.cpDy * scaleArc * 0.4
+    } else if (seg.tipo === 'arco') {
+      const arcPath = seg.tipoArco === 'acuto'
+        ? arcSvgPathAcutoScaled(fx, fy, tx, ty, seg.cpDx, seg.cpDy, scaleArc, false)
+        : arcSvgPathScaled(fx, fy, tx, ty, seg.cpDx, seg.cpDy, scaleArc, false)
+      path = `M ${fx.toFixed(1)} ${fy.toFixed(1)} ${arcPath}`
+      // Midpoint spostato verso il punto di max sagitta
+      midX = (fx + tx) / 2 + seg.cpDx * scaleArc * 0.55
+      midY = (fy + ty) / 2 + seg.cpDy * scaleArc * 0.55
+    } else {
+      path = `M ${fx.toFixed(1)} ${fy.toFixed(1)} L ${tx.toFixed(1)} ${ty.toFixed(1)}`
+    }
+
+    return { id: seg.id, misuraNome: seg.misuraNome, sagittaNome: seg.sagittaNome, path, midX, midY, perpX, perpY }
+  })
+}
+
+// ── Preview SVG con highlight ─────────────────────────────────────────────────
+
+function AnteprimeForma({
+  forma,
+  valoriNumerici,
+  focusedNome,
+}: {
+  forma: FormaSerramentoDb
+  valoriNumerici: Record<string, number>
+  focusedNome: string | null
+}) {
+  const { widthMm, heightMm } = useMemo(
+    () => computeRealDimensions(forma.shape, valoriNumerici),
+    [forma, valoriNumerici]
+  )
+
+  // Dimensioni canvas proporzionali alle misure reali, entro 180×180
+  const MAX = 180
+  const aspect = widthMm / heightMm
+  const cw = aspect >= 1 ? MAX : MAX * aspect
+  const ch = aspect >= 1 ? MAX / aspect : MAX
+
+  const segs = useMemo(() => buildSegmentRenders(forma.shape, cw, ch), [forma, cw, ch])
+
+  // Fill dell'intera forma (path chiuso)
+  const fillPath = useMemo(() => {
+    if (segs.length === 0) return null
+    // concatena tutti i segmenti in un path chiuso partendo dal primo M
+    let d = ''
+    segs.forEach((s, i) => {
+      if (!s.path) return
+      if (i === 0) {
+        d += s.path  // include M iniziale
+      } else {
+        // rimuovi "M x y " e aggiungi solo il comando di disegno
+        d += ' ' + s.path.replace(/^M[\d.\s-]+/, '')
+      }
+    })
+    return d ? d + ' Z' : null
+  }, [segs])
+
+  if (segs.length === 0) return null
+
+  return (
+    <svg
+      viewBox={`0 0 ${cw.toFixed(1)} ${ch.toFixed(1)}`}
+      style={{ width: '100%', maxWidth: `${MAX}px`, height: 'auto', maxHeight: `${MAX}px`, display: 'block', margin: '0 auto' }}
+    >
+      {/* Fill forma */}
+      {fillPath && (
+        <path d={fillPath} fill="#ccf2f0" stroke="none" />
+      )}
+
+      {/* Segmenti individuali */}
+      {segs.map((seg) => {
+        const isF = focusedNome !== null && (focusedNome === seg.misuraNome || focusedNome === seg.sagittaNome)
+        return (
+          <path
+            key={seg.id}
+            d={seg.path}
+            fill="none"
+            stroke={isF ? '#f59e0b' : '#0d9488'}
+            strokeWidth={isF ? 3.5 : 1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )
+      })}
+
+      {/* Label nome misura su ogni segmento */}
+      {segs.map((seg) => {
+        const isF = focusedNome !== null && (focusedNome === seg.misuraNome || focusedNome === seg.sagittaNome)
+        if (!seg.path) return null
+
+        const OFFSET = Math.min(cw, ch) * 0.12
+        const lx = seg.midX + seg.perpX * OFFSET
+        const ly = seg.midY + seg.perpY * OFFSET
+        const label = seg.misuraNome
+        const charW = 5.5
+        const bW = label.length * charW + 8
+        const bH = 13
+
+        return (
+          <g key={`lbl-${seg.id}`}>
+            <rect
+              x={lx - bW / 2} y={ly - bH / 2}
+              width={bW} height={bH}
+              rx={3}
+              fill={isF ? '#fef3c7' : 'white'}
+              stroke={isF ? '#f59e0b' : '#d1d5db'}
+              strokeWidth={isF ? 1 : 0.8}
+              opacity={0.92}
+            />
+            <text
+              x={lx} y={ly}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize={7.5}
+              fontFamily="system-ui, sans-serif"
+              fontWeight={isF ? '700' : '500'}
+              fill={isF ? '#92400e' : '#374151'}
+            >
+              {label}
+            </text>
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+// ── DialogMisure ─────────────────────────────────────────────────────────────
+
 interface Props {
   open: boolean
   forma: FormaSerramentoDb | null
@@ -28,23 +216,16 @@ interface Props {
 }
 
 export default function DialogMisure({ open, forma, onClose, onConferma }: Props) {
-  const [inputValori, setInputValori] = useState<Record<string, string>>({})
-  const [note, setNote] = useState('')
-  const [nomeVano, setNomeVano] = useState('')
-
-  // Reset quando cambia la forma
-  useEffect(() => {
-    setInputValori({})
-    setNote('')
-    setNomeVano('')
-  }, [forma?.id])
+  const [inputValori,  setInputValori]  = useState<Record<string, string>>({})
+  const [note,         setNote]         = useState('')
+  const [nomeVano,     setNomeVano]     = useState('')
+  const [focusedNome,  setFocusedNome]  = useState<string | null>(null)
 
   const campi = useMemo(
     () => (forma ? extractCampiRilievo(forma.shape) : []),
     [forma]
   )
 
-  // Valori numerici dagli input + formule calcolate
   const valoriNumerici = useMemo<Record<string, number>>(() => {
     const parsed: Record<string, number> = {}
     for (const [k, v] of Object.entries(inputValori)) {
@@ -64,22 +245,24 @@ export default function DialogMisure({ open, forma, onClose, onConferma }: Props
     [forma, valoriNumerici]
   )
 
-  const shapePath = forma ? shapeToPath(forma.shape, 120) : null
-
   if (!open || !forma) return null
 
   const handleConferma = () => {
     if (!isCompleto) return
     onConferma(forma, valoriNumerici, note, nomeVano)
+    // reset
+    setInputValori({})
+    setNote('')
+    setNomeVano('')
   }
 
-  const campiInput = campi.filter((c) => c.tipoMisura === 'input')
+  const campiInput     = campi.filter((c) => c.tipoMisura === 'input')
   const campiCalcolati = campi.filter((c) => c.tipoMisura === 'calcolato')
 
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
-      <div className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-xl max-h-[96vh] flex flex-col sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-md sm:rounded-2xl sm:max-h-[90vh]">
+      <div className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-xl max-h-[96vh] flex flex-col sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-lg sm:rounded-2xl sm:max-h-[90vh]">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b shrink-0">
@@ -92,160 +275,181 @@ export default function DialogMisure({ open, forma, onClose, onConferma }: Props
           </button>
         </div>
 
-        {/* Body */}
-        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
+        {/* Body a due colonne su schermi larghi */}
+        <div className="overflow-y-auto flex-1">
+          <div className="sm:flex sm:gap-0 sm:divide-x">
 
-          {/* Anteprima forma */}
-          {shapePath && (
-            <div className="flex justify-center">
-              <svg viewBox="0 0 120 120" className="w-28 h-28 text-teal-600">
-                <path d={shapePath} fill="#ccf2f0" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-              </svg>
+            {/* Colonna sinistra: preview SVG */}
+            <div className="shrink-0 flex flex-col items-center justify-center px-5 py-5 sm:w-52 sm:sticky sm:top-0 sm:self-start">
+              <AnteprimeForma
+                forma={forma}
+                valoriNumerici={valoriNumerici}
+                focusedNome={focusedNome}
+              />
+              {focusedNome && (
+                <p className="mt-2 text-[11px] text-amber-600 font-medium text-center">
+                  ← {focusedNome}
+                </p>
+              )}
+              {!focusedNome && (
+                <p className="mt-2 text-[10px] text-gray-400 text-center leading-tight">
+                  Tocca un campo per<br />vedere il lato evidenziato
+                </p>
+              )}
             </div>
-          )}
 
-          {/* Nome vano (opzionale) */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Descrizione vano <span className="text-gray-400 font-normal">(opzionale)</span>
-            </label>
-            <input
-              type="text"
-              value={nomeVano}
-              onChange={(e) => setNomeVano(e.target.value)}
-              placeholder="es. Camera letto – finestra sx"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-          </div>
+            {/* Colonna destra: form */}
+            <div className="flex-1 px-5 py-4 space-y-5">
 
-          {/* Nessun campo configurato */}
-          {campi.length === 0 && (
-            <div className="text-center py-6 text-gray-400 text-sm">
-              <Ruler className="h-8 w-8 mx-auto mb-2 opacity-40" />
-              <p>Nessuna misura configurata per questa forma.</p>
-              <p className="text-xs mt-1">Apri le impostazioni e configura le misure dei lati.</p>
-            </div>
-          )}
-
-          {/* Campi da rilevare (input) */}
-          {campiInput.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Ruler className="h-4 w-4 text-teal-600 shrink-0" />
-                <p className="text-sm font-semibold text-gray-800">Da rilevare</p>
+              {/* Nome vano */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Descrizione vano <span className="text-gray-400 font-normal">(opzionale)</span>
+                </label>
+                <input
+                  type="text"
+                  value={nomeVano}
+                  onChange={(e) => setNomeVano(e.target.value)}
+                  placeholder="es. Camera letto – finestra sx"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
               </div>
-              {campiInput.map((campo) => {
-                const val = inputValori[campo.nome] ?? ''
-                const isEmpty = val === '' || val === undefined
-                return (
-                  <div key={`${campo.segmentoId}-${campo.tipo}`}>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      {campo.nome}
-                      {campo.tipo === 'freccia' && (
-                        <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded-full">
-                          {campo.tipoArco === 'acuto' ? 'altezza vertice' : 'freccia arco'}
-                        </span>
-                      )}
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        value={val}
-                        onChange={(e) =>
-                          setInputValori((prev) => ({ ...prev, [campo.nome]: e.target.value }))
-                        }
-                        placeholder="0"
-                        min={0}
-                        className={`flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 ${
-                          isEmpty ? 'border-gray-300' : 'border-teal-400 bg-teal-50/30'
-                        }`}
-                      />
-                      <span className="text-xs text-gray-400 w-8">mm</span>
-                    </div>
-                    {/* Hint formula raggio per archi */}
-                    {campo.tipo === 'freccia' && campo.tipoArco && (
-                      <p className="text-[10px] text-orange-600 mt-0.5 ml-0.5">
-                        {TIPO_ARCO_FORMULA[campo.tipoArco]}
-                      </p>
-                    )}
+
+              {/* Nessun campo configurato */}
+              {campi.length === 0 && (
+                <div className="text-center py-6 text-gray-400 text-sm">
+                  <Ruler className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p>Nessuna misura configurata per questa forma.</p>
+                  <p className="text-xs mt-1">Apri le impostazioni e configura le misure dei lati.</p>
+                </div>
+              )}
+
+              {/* Campi input */}
+              {campiInput.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Ruler className="h-4 w-4 text-teal-600 shrink-0" />
+                    <p className="text-sm font-semibold text-gray-800">Da rilevare</p>
                   </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Valori calcolati */}
-          {campiCalcolati.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Calculator className="h-4 w-4 text-blue-600 shrink-0" />
-                <p className="text-sm font-semibold text-gray-800">Calcolati automaticamente</p>
-              </div>
-              <div className="bg-blue-50 rounded-xl border border-blue-100 divide-y divide-blue-100">
-                {campiCalcolati.map((campo) => {
-                  const val = valoriNumerici[campo.nome]
-                  return (
-                    <div
-                      key={`${campo.segmentoId}-${campo.tipo}`}
-                      className="flex items-center justify-between px-3 py-2"
-                    >
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">{campo.nome}</p>
-                        <p className="text-[10px] text-blue-500 font-mono">{campo.formula}</p>
-                      </div>
-                      <span className={`text-sm font-semibold ${val !== undefined ? 'text-blue-700' : 'text-gray-300'}`}>
-                        {val !== undefined ? `${val} mm` : '—'}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Raggi archi calcolati */}
-          {raggi.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                <span className="inline-block w-3 h-3 rounded-full bg-orange-500" />
-                Raggi archi
-              </p>
-              <div className="bg-orange-50 rounded-xl border border-orange-100 divide-y divide-orange-100">
-                {raggi.map((r) => (
-                  <div key={r.segmentoId} className="px-3 py-2.5">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">
-                          R — {r.nomeCorda}
-                          {r.tipoArco === 'acuto' && (
-                            <span className="ml-1.5 text-[10px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full">gotico</span>
+                  {campiInput.map((campo) => {
+                    const val = inputValori[campo.nome] ?? ''
+                    const isEmpty = val === ''
+                    const isFocused = focusedNome === campo.nome
+                    return (
+                      <div key={`${campo.segmentoId}-${campo.tipo}`}>
+                        <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-1">
+                          {/* Pallino colorato identificativo */}
+                          <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${isFocused ? 'bg-amber-400' : 'bg-teal-400'}`} />
+                          {campo.nome}
+                          {campo.tipo === 'freccia' && (
+                            <span className="ml-1 text-[10px] px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded-full">
+                              {campo.tipoArco === 'acuto' ? 'altezza vertice' : 'freccia arco'}
+                            </span>
                           )}
-                        </p>
-                        <p className="text-[10px] text-orange-600">
-                          L={r.corda} · {r.tipoArco === 'acuto' ? 'V' : 'F'}={r.freccia} mm
-                        </p>
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            value={val}
+                            onChange={(e) =>
+                              setInputValori((prev) => ({ ...prev, [campo.nome]: e.target.value }))
+                            }
+                            onFocus={() => setFocusedNome(campo.nome)}
+                            onBlur={() => setFocusedNome(null)}
+                            placeholder="0"
+                            min={0}
+                            className={`flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 transition-colors ${
+                              isFocused
+                                ? 'border-amber-400 ring-2 ring-amber-200 bg-amber-50/40'
+                                : isEmpty
+                                  ? 'border-gray-300 focus:ring-teal-500'
+                                  : 'border-teal-400 bg-teal-50/30 focus:ring-teal-500'
+                            }`}
+                          />
+                          <span className="text-xs text-gray-400 w-8">mm</span>
+                        </div>
+                        {campo.tipo === 'freccia' && campo.tipoArco && (
+                          <p className="text-[10px] text-orange-600 mt-0.5 ml-0.5">
+                            {TIPO_ARCO_FORMULA[campo.tipoArco]}
+                          </p>
+                        )}
                       </div>
-                      <span className="text-base font-bold text-orange-700">{r.R} mm</span>
-                    </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Valori calcolati */}
+              {campiCalcolati.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Calculator className="h-4 w-4 text-blue-600 shrink-0" />
+                    <p className="text-sm font-semibold text-gray-800">Calcolati automaticamente</p>
                   </div>
-                ))}
+                  <div className="bg-blue-50 rounded-xl border border-blue-100 divide-y divide-blue-100">
+                    {campiCalcolati.map((campo) => {
+                      const val = valoriNumerici[campo.nome]
+                      return (
+                        <div key={`${campo.segmentoId}-${campo.tipo}`} className="flex items-center justify-between px-3 py-2">
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">{campo.nome}</p>
+                            <p className="text-[10px] text-blue-500 font-mono">{campo.formula}</p>
+                          </div>
+                          <span className={`text-sm font-semibold ${val !== undefined ? 'text-blue-700' : 'text-gray-300'}`}>
+                            {val !== undefined ? `${val} mm` : '—'}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Raggi archi */}
+              {raggi.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                    <span className="inline-block w-3 h-3 rounded-full bg-orange-500" />
+                    Raggi archi
+                  </p>
+                  <div className="bg-orange-50 rounded-xl border border-orange-100 divide-y divide-orange-100">
+                    {raggi.map((r) => (
+                      <div key={r.segmentoId} className="px-3 py-2.5">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">
+                              R — {r.nomeCorda}
+                              {r.tipoArco === 'acuto' && (
+                                <span className="ml-1.5 text-[10px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full">gotico</span>
+                              )}
+                            </p>
+                            <p className="text-[10px] text-orange-600">
+                              L={r.corda} · {r.tipoArco === 'acuto' ? 'V' : 'F'}={r.freccia} mm
+                            </p>
+                          </div>
+                          <span className="text-base font-bold text-orange-700">{r.R} mm</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Note */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Note <span className="text-gray-400 font-normal">(opzionale)</span>
+                </label>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  rows={2}
+                  placeholder="es. Finestra con anta rotta, rilevare con cautela"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                />
               </div>
             </div>
-          )}
-
-          {/* Note */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Note <span className="text-gray-400 font-normal">(opzionale)</span>
-            </label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              placeholder="es. Finestra con anta rotta, rilevare con cautela"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
-            />
           </div>
         </div>
 
