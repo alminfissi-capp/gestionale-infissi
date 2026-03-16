@@ -34,36 +34,124 @@ interface SegRender {
   perpY: number
 }
 
-function buildSegmentRenders(shape: FormaShape, cw: number, ch: number): SegRender[] {
+/**
+ * Ricostruisce le posizioni reali (in mm) di ogni punto a partire dalle misure.
+ * Cammina in avanti lungo i segmenti usando normalize(direzioneGriglia) × misura.
+ * Se l'ultimo punto rimane non piazzato (es. lato obliquo calcolato), viene derivato
+ * a ritroso dal segmento di chiusura.
+ */
+function computeRealPositions(
+  shape: FormaShape,
+  valori: Record<string, number>
+): Map<string, { x: number; y: number }> {
+  const pos = new Map<string, { x: number; y: number }>()
+  if (shape.punti.length < 2 || shape.segmenti.length < 2) return pos
+
+  pos.set(shape.punti[0].id, { x: 0, y: 0 })
+
+  // Segmenti non-chiusura (tutti tranne l'ultimo per forme chiuse)
+  const walkSegs = shape.chiusa ? shape.segmenti.slice(0, -1) : shape.segmenti
+
+  for (const seg of walkSegs) {
+    if (pos.has(seg.toId)) continue
+    const fromPos = pos.get(seg.fromId)
+    if (!fromPos) continue
+    const fromPt = shape.punti.find((p) => p.id === seg.fromId)
+    const toPt   = shape.punti.find((p) => p.id === seg.toId)
+    if (!fromPt || !toPt) continue
+    const gdx = toPt.gx - fromPt.gx
+    const gdy = toPt.gy - fromPt.gy
+    const glen = Math.sqrt(gdx * gdx + gdy * gdy) || 1
+    const len = seg.misuraNome ? valori[seg.misuraNome] : undefined
+    if (!len || len <= 0) continue
+    pos.set(seg.toId, { x: fromPos.x + (gdx / glen) * len, y: fromPos.y + (gdy / glen) * len })
+  }
+
+  // Se l'ultimo punto non è stato piazzato (es. lato obliquo calcolato),
+  // ricavalo a ritroso dal segmento di chiusura
+  if (shape.chiusa) {
+    const closingSeg = shape.segmenti[shape.segmenti.length - 1]
+    if (!pos.has(closingSeg.fromId) && pos.has(closingSeg.toId)) {
+      const toPos  = pos.get(closingSeg.toId)!
+      const fromPt = shape.punti.find((p) => p.id === closingSeg.fromId)
+      const toPt   = shape.punti.find((p) => p.id === closingSeg.toId)
+      if (fromPt && toPt) {
+        const gdx = toPt.gx - fromPt.gx
+        const gdy = toPt.gy - fromPt.gy
+        const glen = Math.sqrt(gdx * gdx + gdy * gdy) || 1
+        const len = closingSeg.misuraNome ? valori[closingSeg.misuraNome] : undefined
+        if (len && len > 0) {
+          pos.set(closingSeg.fromId, {
+            x: toPos.x - (gdx / glen) * len,
+            y: toPos.y - (gdy / glen) * len,
+          })
+        }
+      }
+    }
+  }
+
+  return pos
+}
+
+function buildSegmentRenders(
+  shape: FormaShape,
+  valori: Record<string, number>,
+  cw: number,
+  ch: number
+): SegRender[] {
   if (!shape.chiusa || shape.segmenti.length < 3 || shape.punti.length < 3) return []
 
-  const gxs = shape.punti.map((p) => p.gx)
-  const gys = shape.punti.map((p) => p.gy)
-  const minGx = Math.min(...gxs), maxGx = Math.max(...gxs)
-  const minGy = Math.min(...gys), maxGy = Math.max(...gys)
-  const rangeGx = maxGx - minGx || 1
-  const rangeGy = maxGy - minGy || 1
-
   const pad = Math.min(cw, ch) * 0.1
-  const scaleX = (cw - pad * 2) / rangeGx
-  const scaleY = (ch - pad * 2) / rangeGy
-  const scaleArc = Math.sqrt(scaleX * scaleY)
 
-  const px = (gx: number) => pad + (gx - minGx) * scaleX
-  const py = (gy: number) => pad + (gy - minGy) * scaleY
+  // Prova prima a usare posizioni reali dalle misure
+  const realPos  = computeRealPositions(shape, valori)
+  const allPlaced = shape.punti.every((p) => realPos.has(p.id))
+
+  let getX: (id: string) => number
+  let getY: (id: string) => number
+  let scaleArc: number
+
+  if (allPlaced) {
+    const xs = Array.from(realPos.values()).map((p) => p.x)
+    const ys = Array.from(realPos.values()).map((p) => p.y)
+    const minX = Math.min(...xs), maxX = Math.max(...xs)
+    const minY = Math.min(...ys), maxY = Math.max(...ys)
+    const rangeX = maxX - minX || 1
+    const rangeY = maxY - minY || 1
+    const scX = (cw - pad * 2) / rangeX
+    const scY = (ch - pad * 2) / rangeY
+    const sc  = Math.min(scX, scY)
+    // centra la forma nel canvas
+    const offX = pad + ((cw - pad * 2) - rangeX * sc) / 2
+    const offY = pad + ((ch - pad * 2) - rangeY * sc) / 2
+    scaleArc = sc
+    getX = (id) => offX + ((realPos.get(id)?.x ?? 0) - minX) * sc
+    getY = (id) => offY + ((realPos.get(id)?.y ?? 0) - minY) * sc
+  } else {
+    // Fallback: coordinate griglia (misure non ancora inserite)
+    const gxs = shape.punti.map((p) => p.gx)
+    const gys = shape.punti.map((p) => p.gy)
+    const minGx = Math.min(...gxs), maxGx = Math.max(...gxs)
+    const minGy = Math.min(...gys), maxGy = Math.max(...gys)
+    const rangeGx = maxGx - minGx || 1
+    const rangeGy = maxGy - minGy || 1
+    const scX = (cw - pad * 2) / rangeGx
+    const scY = (ch - pad * 2) / rangeGy
+    scaleArc = Math.sqrt(scX * scY)
+    getX = (id) => { const p = shape.punti.find((pt) => pt.id === id); return p ? pad + (p.gx - minGx) * scX : 0 }
+    getY = (id) => { const p = shape.punti.find((pt) => pt.id === id); return p ? pad + (p.gy - minGy) * scY : 0 }
+  }
 
   return shape.segmenti.map((seg): SegRender => {
     const from = shape.punti.find((p) => p.id === seg.fromId)
     const to   = shape.punti.find((p) => p.id === seg.toId)
     if (!from || !to) return { id: seg.id, misuraNome: seg.misuraNome, sagittaNome: seg.sagittaNome, path: '', midX: 0, midY: 0, perpX: 0, perpY: -1 }
 
-    const fx = px(from.gx), fy = py(from.gy)
-    const tx = px(to.gx),   ty = py(to.gy)
+    const fx = getX(seg.fromId), fy = getY(seg.fromId)
+    const tx = getX(seg.toId),   ty = getY(seg.toId)
 
-    // Direzione perpendicolare (verso l'esterno della forma, approx.)
     const ddx = tx - fx, ddy = ty - fy
     const dlen = Math.sqrt(ddx * ddx + ddy * ddy) || 1
-    // perp ruotata 90° CCW: (-ddy, ddx) — verso sx rispetto alla direzione di percorrenza
     const perpX = -ddy / dlen
     const perpY =  ddx / dlen
 
@@ -72,10 +160,8 @@ function buildSegmentRenders(shape: FormaShape, cw: number, ch: number): SegRend
     let midY = (fy + ty) / 2
 
     if (seg.tipo === 'curva') {
-      const midGx = (from.gx + to.gx) / 2
-      const midGy = (from.gy + to.gy) / 2
-      const cpx = pad + (midGx - minGx) * scaleX + seg.cpDx * scaleArc
-      const cpy = pad + (midGy - minGy) * scaleY + seg.cpDy * scaleArc
+      const cpx = (fx + tx) / 2 + seg.cpDx * scaleArc
+      const cpy = (fy + ty) / 2 + seg.cpDy * scaleArc
       path = `M ${fx.toFixed(1)} ${fy.toFixed(1)} Q ${cpx.toFixed(1)} ${cpy.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)}`
       midX = (fx + tx) / 2 + seg.cpDx * scaleArc * 0.4
       midY = (fy + ty) / 2 + seg.cpDy * scaleArc * 0.4
@@ -84,7 +170,6 @@ function buildSegmentRenders(shape: FormaShape, cw: number, ch: number): SegRend
         ? arcSvgPathAcutoScaled(fx, fy, tx, ty, seg.cpDx, seg.cpDy, scaleArc, false)
         : arcSvgPathScaled(fx, fy, tx, ty, seg.cpDx, seg.cpDy, scaleArc, false)
       path = `M ${fx.toFixed(1)} ${fy.toFixed(1)} ${arcPath}`
-      // Midpoint spostato verso il punto di max sagitta
       midX = (fx + tx) / 2 + seg.cpDx * scaleArc * 0.55
       midY = (fy + ty) / 2 + seg.cpDy * scaleArc * 0.55
     } else {
@@ -106,18 +191,28 @@ function AnteprimeForma({
   valoriNumerici: Record<string, number>
   focusedNome: string | null
 }) {
-  const { widthMm, heightMm } = useMemo(
-    () => computeRealDimensions(forma.shape, valoriNumerici),
-    [forma, valoriNumerici]
-  )
-
-  // Dimensioni canvas proporzionali alle misure reali, entro 180×180
+  // Dimensioni canvas dall'aspect ratio reale (posizioni reali o fallback computeRealDimensions)
   const MAX = 180
-  const aspect = widthMm / heightMm
-  const cw = aspect >= 1 ? MAX : MAX * aspect
-  const ch = aspect >= 1 ? MAX / aspect : MAX
+  const { cw, ch } = useMemo(() => {
+    const realPos   = computeRealPositions(forma.shape, valoriNumerici)
+    const allPlaced = forma.shape.punti.every((p) => realPos.has(p.id))
+    if (allPlaced && realPos.size > 0) {
+      const xs = Array.from(realPos.values()).map((p) => p.x)
+      const ys = Array.from(realPos.values()).map((p) => p.y)
+      const rangeX = (Math.max(...xs) - Math.min(...xs)) || 1
+      const rangeY = (Math.max(...ys) - Math.min(...ys)) || 1
+      const aspect = rangeX / rangeY
+      return { cw: aspect >= 1 ? MAX : MAX * aspect, ch: aspect >= 1 ? MAX / aspect : MAX }
+    }
+    const { widthMm, heightMm } = computeRealDimensions(forma.shape, valoriNumerici)
+    const aspect = widthMm / heightMm
+    return { cw: aspect >= 1 ? MAX : MAX * aspect, ch: aspect >= 1 ? MAX / aspect : MAX }
+  }, [forma, valoriNumerici])
 
-  const segs = useMemo(() => buildSegmentRenders(forma.shape, cw, ch), [forma, cw, ch])
+  const segs = useMemo(
+    () => buildSegmentRenders(forma.shape, valoriNumerici, cw, ch),
+    [forma, valoriNumerici, cw, ch]
+  )
 
   // Fill dell'intera forma (path chiuso)
   const fillPath = useMemo(() => {
