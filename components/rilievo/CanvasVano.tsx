@@ -2,9 +2,8 @@
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import type { VanoMisurato } from '@/lib/rilievo'
-import { computeRealDimensions, calcolaRaggi, evaluaFormule, extractCampiRilievo } from '@/lib/rilievo'
-import { shapeToPathProportional } from '@/types/rilievo'
-import type { FormaShape } from '@/types/rilievo'
+import { computeRealDimensions, calcolaRaggi, evaluaFormule, extractCampiRilievo, computeRealPositions } from '@/lib/rilievo'
+import { shapeToPathProportional, arcSvgPathScaled, arcSvgPathAcutoScaled } from '@/types/rilievo'
 
 const PAD_LEFT   = 62
 const PAD_BOTTOM = 54
@@ -29,23 +28,6 @@ const COMPONENTI: { id: ComponenteId; label: string; desc: string }[] = [
   { id: 'ferma_vetro',     label: 'Ferma Vetro',         desc: 'Ferma vetro / ferma pannello' },
 ]
 
-function getPrimaryMeasureNames(shape: FormaShape, valori: Record<string, number>) {
-  let widthName: string | null = null
-  let heightName: string | null = null
-  let maxH = 0, maxV = 0
-  for (const seg of shape.segmenti) {
-    const from = shape.punti.find((p) => p.id === seg.fromId)
-    const to   = shape.punti.find((p) => p.id === seg.toId)
-    if (!from || !to || !seg.misuraNome) continue
-    const dgx = Math.abs(to.gx - from.gx)
-    const dgy = Math.abs(to.gy - from.gy)
-    const val = valori[seg.misuraNome] ?? 0
-    if (val <= 0) continue
-    if (dgx >= dgy && val > maxH) { maxH = val; widthName  = seg.misuraNome }
-    if (dgy >  dgx && val > maxV) { maxV = val; heightName = seg.misuraNome }
-  }
-  return { widthName, heightName }
-}
 
 interface EditState { field: string; value: string; cx: number; cy: number }
 interface Props { vano: VanoMisurato }
@@ -99,10 +81,6 @@ export default function CanvasVano({ vano }: Props) {
     () => computeRealDimensions(vano.forma.shape, localValori),
     [vano.forma.shape, localValori]
   )
-  const { widthName, heightName } = useMemo(
-    () => getPrimaryMeasureNames(vano.forma.shape, localValori),
-    [vano.forma.shape, localValori]
-  )
   const raggi = useMemo(
     () => calcolaRaggi(vano.forma.shape, localValori),
     [vano.forma.shape, localValori]
@@ -117,20 +95,90 @@ export default function CanvasVano({ vano }: Props) {
     const shapePxH = heightMm * scale
     const shapeOffX = PAD_LEFT + (availW - shapePxW) / 2
     const shapeOffY = PAD_TOP  + (availH - shapePxH) / 2
-    const ip = Math.min(shapePxW, shapePxH) * 0.07   // innerPad from shapeToPathProportional
-    return {
-      shapePxW, shapePxH, shapeOffX, shapeOffY,
-      dL: shapeOffX + ip,            // draw bounds
-      dR: shapeOffX + shapePxW - ip,
-      dT: shapeOffY + ip,
-      dB: shapeOffY + shapePxH - ip,
-    }
+    return { shapePxW, shapePxH, shapeOffX, shapeOffY }
   }, [cSize, widthMm, heightMm])
 
+  // Fallback path (coordinate griglia) — usato solo se misure incomplete
   const shapePath = useMemo(
     () => layout ? shapeToPathProportional(vano.forma.shape, layout.shapePxW, layout.shapePxH) : null,
     [vano.forma.shape, layout]
   )
+
+  // Posizioni reali dai valori inseriti
+  const realPos = useMemo(
+    () => computeRealPositions(vano.forma.shape, localValori),
+    [vano.forma.shape, localValori]
+  )
+  const allPlaced = useMemo(
+    () => vano.forma.shape.punti.every((p) => realPos.has(p.id)),
+    [vano.forma.shape, realPos]
+  )
+
+  // Path reale (coordinate mm → pixel, nello spazio locale shapePxW×shapePxH)
+  const realShapePath = useMemo(() => {
+    if (!layout || !allPlaced) return null
+    const xs = Array.from(realPos.values()).map((p) => p.x)
+    const ys = Array.from(realPos.values()).map((p) => p.y)
+    const minX = Math.min(...xs), maxX = Math.max(...xs)
+    const minY = Math.min(...ys), maxY = Math.max(...ys)
+    const rangeX = maxX - minX || 1
+    const rangeY = maxY - minY || 1
+    const sc = Math.min(layout.shapePxW / rangeX, layout.shapePxH / rangeY)
+    const lx = (x: number) => (layout.shapePxW - rangeX * sc) / 2 + (x - minX) * sc
+    const ly = (y: number) => (layout.shapePxH - rangeY * sc) / 2 + (y - minY) * sc
+    let d = ''
+    vano.forma.shape.segmenti.forEach((seg, i) => {
+      const fR = realPos.get(seg.fromId), tR = realPos.get(seg.toId)
+      if (!fR || !tR) return
+      const fx = lx(fR.x), fy = ly(fR.y), tx = lx(tR.x), ty = ly(tR.y)
+      if (i === 0) d += `M ${fx.toFixed(1)} ${fy.toFixed(1)}`
+      if (seg.tipo === 'curva') {
+        const cpx = (fx + tx) / 2 + seg.cpDx * sc
+        const cpy = (fy + ty) / 2 + seg.cpDy * sc
+        d += ` Q ${cpx.toFixed(1)} ${cpy.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)}`
+      } else if (seg.tipo === 'arco') {
+        d += ' ' + (seg.tipoArco === 'acuto'
+          ? arcSvgPathAcutoScaled(fx, fy, tx, ty, seg.cpDx, seg.cpDy, sc, false)
+          : arcSvgPathScaled(fx, fy, tx, ty, seg.cpDx, seg.cpDy, sc, false))
+      } else {
+        d += ` L ${tx.toFixed(1)} ${ty.toFixed(1)}`
+      }
+    })
+    return d ? d + ' Z' : null
+  }, [layout, allPlaced, realPos, vano.forma.shape])
+
+  // Dati per etichette per-segmento (posizioni in coordinate gruppo SVG)
+  interface SegLabel { id: string; nome: string; midX: number; midY: number; perpX: number; perpY: number }
+  const segLabels = useMemo((): SegLabel[] => {
+    if (!layout || !allPlaced) return []
+    const xs = Array.from(realPos.values()).map((p) => p.x)
+    const ys = Array.from(realPos.values()).map((p) => p.y)
+    const minX = Math.min(...xs), maxX = Math.max(...xs)
+    const minY = Math.min(...ys), maxY = Math.max(...ys)
+    const rangeX = maxX - minX || 1
+    const rangeY = maxY - minY || 1
+    const sc = Math.min(layout.shapePxW / rangeX, layout.shapePxH / rangeY)
+    const offLX = (layout.shapePxW - rangeX * sc) / 2
+    const offLY = (layout.shapePxH - rangeY * sc) / 2
+    // Coordinate in spazio gruppo (incluso shapeOffX/Y)
+    const toGx = (x: number) => layout.shapeOffX + offLX + (x - minX) * sc
+    const toGy = (y: number) => layout.shapeOffY + offLY + (y - minY) * sc
+    const seen = new Set<string>()
+    const result: SegLabel[] = []
+    for (const seg of vano.forma.shape.segmenti) {
+      if (!seg.misuraNome || seen.has(seg.misuraNome)) continue
+      const fR = realPos.get(seg.fromId), tR = realPos.get(seg.toId)
+      if (!fR || !tR) continue
+      seen.add(seg.misuraNome)
+      const fx = toGx(fR.x), fy = toGy(fR.y)
+      const tx = toGx(tR.x), ty = toGy(tR.y)
+      const midX = (fx + tx) / 2, midY = (fy + ty) / 2
+      const ddx = tx - fx, ddy = ty - fy
+      const dlen = Math.sqrt(ddx * ddx + ddy * ddy) || 1
+      result.push({ id: seg.id, nome: seg.misuraNome, midX, midY, perpX: -ddy / dlen, perpY: ddx / dlen })
+    }
+    return result
+  }, [layout, allPlaced, realPos, vano.forma.shape])
 
   // ── zoom/pan event handlers (passive:false) ───────────────
   const wheelHandler = useCallback((e: WheelEvent) => {
@@ -237,12 +285,8 @@ export default function CanvasVano({ vano }: Props) {
 
   if (!layout) return null
 
-  const { dL, dR, dT, dB, shapeOffX, shapeOffY, shapePxW, shapePxH } = layout
-  const s   = (n: number) => n / zoom   // visual-constant size
-  const dimVx = dL - 22
-  const dimHy = dB + 24
-  const midV  = (dT + dB) / 2
-  const midH  = (dL + dR) / 2
+  const { shapeOffX, shapeOffY, shapePxW, shapePxH } = layout
+  const s = (n: number) => n / zoom   // visual-constant size
 
   // Screen position of edit popup
   const editLeft = editing ? editing.cx * zoom + pan.x : 0
@@ -254,7 +298,7 @@ export default function CanvasVano({ vano }: Props) {
         ref={svgRef}
         width="100%" height="100%"
         className="block select-none"
-        style={{ cursor: dragRef.current ? 'grabbing' : 'grab', touchAction: 'none' }}
+        style={{ cursor: 'grab', touchAction: 'none' }}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
@@ -266,10 +310,10 @@ export default function CanvasVano({ vano }: Props) {
         <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
 
           {/* ── shape outline ── */}
-          {shapePath && (
+          {(realShapePath ?? shapePath) && (
             <g transform={`translate(${shapeOffX},${shapeOffY})`}>
               <path
-                d={shapePath}
+                d={(realShapePath ?? shapePath)!}
                 fill="rgba(255,255,255,0.10)"
                 stroke="#4b5563"
                 strokeWidth={s(2.5)}
@@ -280,51 +324,32 @@ export default function CanvasVano({ vano }: Props) {
             </g>
           )}
 
-          {/* ── vertical dim line (height) ── */}
-          {heightName && (() => {
-            const lx = dimVx
-            const editable = inputFieldNames.has(heightName)
-            const val = localValori[heightName] ?? heightMm
+          {/* ── etichette misure per-segmento ── */}
+          {segLabels.map(({ id, nome, midX, midY, perpX, perpY }) => {
+            const val = localValori[nome]
+            if (!val) return null
+            const OFFSET = s(32)
+            const lx = midX + perpX * OFFSET
+            const ly = midY + perpY * OFFSET
+            const isInput = inputFieldNames.has(nome)
             return (
-              <g key="dim-v" pointerEvents="none">
-                <line x1={lx} y1={dT} x2={lx} y2={dB} stroke="#1f2937" strokeWidth={s(1.5)} />
-                <line x1={lx - s(5)} y1={dT} x2={lx + s(5)} y2={dT} stroke="#1f2937" strokeWidth={s(1.5)} />
-                <line x1={lx - s(5)} y1={dB} x2={lx + s(5)} y2={dB} stroke="#1f2937" strokeWidth={s(1.5)} />
-                <circle cx={lx} cy={dT} r={s(4)} fill="#1f2937" />
-                <circle cx={lx} cy={dB} r={s(4)} fill="#1f2937" />
-                <g pointerEvents="auto">
-                  <DimLabel
-                    x={lx - s(30)} y={midV}
-                    value={val} zoom={zoom} editable={editable}
-                    onClick={() => openEdit(heightName, lx - s(30), midV)}
-                  />
-                </g>
+              <g key={`slbl-${id}`}>
+                <line
+                  x1={midX} y1={midY} x2={lx} y2={ly}
+                  stroke="#6b7280" strokeWidth={s(1)}
+                  strokeDasharray={`${s(3)} ${s(2)}`}
+                  pointerEvents="none"
+                />
+                <DimLabel
+                  x={lx} y={ly}
+                  value={Math.round(val)}
+                  zoom={zoom}
+                  editable={isInput}
+                  onClick={() => openEdit(nome, lx, ly)}
+                />
               </g>
             )
-          })()}
-
-          {/* ── horizontal dim line (width) ── */}
-          {widthName && (() => {
-            const ly = dimHy
-            const editable = inputFieldNames.has(widthName)
-            const val = localValori[widthName] ?? widthMm
-            return (
-              <g key="dim-h" pointerEvents="none">
-                <line x1={dL} y1={ly} x2={dR} y2={ly} stroke="#1f2937" strokeWidth={s(1.5)} />
-                <line x1={dL} y1={ly - s(5)} x2={dL} y2={ly + s(5)} stroke="#1f2937" strokeWidth={s(1.5)} />
-                <line x1={dR} y1={ly - s(5)} x2={dR} y2={ly + s(5)} stroke="#1f2937" strokeWidth={s(1.5)} />
-                <circle cx={dL} cy={ly} r={s(4)} fill="#1f2937" />
-                <circle cx={dR} cy={ly} r={s(4)} fill="#1f2937" />
-                <g pointerEvents="auto">
-                  <DimLabel
-                    x={midH} y={ly + s(22)}
-                    value={val} zoom={zoom} editable={editable}
-                    onClick={() => openEdit(widthName, midH, ly + s(22))}
-                  />
-                </g>
-              </g>
-            )
-          })()}
+          })}
 
           {/* ── arc radii badges ── */}
           {raggi.map((r, i) => (
@@ -339,8 +364,8 @@ export default function CanvasVano({ vano }: Props) {
 
           {/* ── + button al centro della forma ── */}
           {(() => {
-            const cx = (dL + dR) / 2
-            const cy = (dT + dB) / 2
+            const cx = shapeOffX + shapePxW / 2
+            const cy = shapeOffY + shapePxH / 2
             const r  = s(22)
             return (
               <g

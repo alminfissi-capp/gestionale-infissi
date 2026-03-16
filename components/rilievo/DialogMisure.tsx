@@ -11,6 +11,7 @@ import {
   calcolaRaggi,
   tuttiInputCompilati,
   computeRealDimensions,
+  computeRealPositions,
 } from '@/lib/rilievo'
 
 const TIPO_ARCO_FORMULA: Record<string, string> = {
@@ -34,64 +35,6 @@ interface SegRender {
   perpY: number
 }
 
-/**
- * Ricostruisce le posizioni reali (in mm) di ogni punto a partire dalle misure.
- * Cammina in avanti lungo i segmenti usando normalize(direzioneGriglia) × misura.
- * Se l'ultimo punto rimane non piazzato (es. lato obliquo calcolato), viene derivato
- * a ritroso dal segmento di chiusura.
- */
-function computeRealPositions(
-  shape: FormaShape,
-  valori: Record<string, number>
-): Map<string, { x: number; y: number }> {
-  const pos = new Map<string, { x: number; y: number }>()
-  if (shape.punti.length < 2 || shape.segmenti.length < 2) return pos
-
-  pos.set(shape.punti[0].id, { x: 0, y: 0 })
-
-  // Segmenti non-chiusura (tutti tranne l'ultimo per forme chiuse)
-  const walkSegs = shape.chiusa ? shape.segmenti.slice(0, -1) : shape.segmenti
-
-  for (const seg of walkSegs) {
-    if (pos.has(seg.toId)) continue
-    const fromPos = pos.get(seg.fromId)
-    if (!fromPos) continue
-    const fromPt = shape.punti.find((p) => p.id === seg.fromId)
-    const toPt   = shape.punti.find((p) => p.id === seg.toId)
-    if (!fromPt || !toPt) continue
-    const gdx = toPt.gx - fromPt.gx
-    const gdy = toPt.gy - fromPt.gy
-    const glen = Math.sqrt(gdx * gdx + gdy * gdy) || 1
-    const len = seg.misuraNome ? valori[seg.misuraNome] : undefined
-    if (!len || len <= 0) continue
-    pos.set(seg.toId, { x: fromPos.x + (gdx / glen) * len, y: fromPos.y + (gdy / glen) * len })
-  }
-
-  // Se l'ultimo punto non è stato piazzato (es. lato obliquo calcolato),
-  // ricavalo a ritroso dal segmento di chiusura
-  if (shape.chiusa) {
-    const closingSeg = shape.segmenti[shape.segmenti.length - 1]
-    if (!pos.has(closingSeg.fromId) && pos.has(closingSeg.toId)) {
-      const toPos  = pos.get(closingSeg.toId)!
-      const fromPt = shape.punti.find((p) => p.id === closingSeg.fromId)
-      const toPt   = shape.punti.find((p) => p.id === closingSeg.toId)
-      if (fromPt && toPt) {
-        const gdx = toPt.gx - fromPt.gx
-        const gdy = toPt.gy - fromPt.gy
-        const glen = Math.sqrt(gdx * gdx + gdy * gdy) || 1
-        const len = closingSeg.misuraNome ? valori[closingSeg.misuraNome] : undefined
-        if (len && len > 0) {
-          pos.set(closingSeg.fromId, {
-            x: toPos.x - (gdx / glen) * len,
-            y: toPos.y - (gdy / glen) * len,
-          })
-        }
-      }
-    }
-  }
-
-  return pos
-}
 
 function buildSegmentRenders(
   shape: FormaShape,
