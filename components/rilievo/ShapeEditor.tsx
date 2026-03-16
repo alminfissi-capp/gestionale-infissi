@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import { Undo2, RotateCcw, X } from 'lucide-react'
+import { Undo2, RotateCcw, X, RefreshCw } from 'lucide-react'
 import type { GridPoint, ShapeSegment, AngoloConfig, FormaShape, TipoArco } from '@/types/rilievo'
+import { autoConstrainShape } from '@/lib/shapeRecognition'
 import {
   arcSvgPath,
   arcSvgPathAcuto,
@@ -125,13 +126,6 @@ const TIPO_ARCO_LABELS: Record<TipoArco, string> = {
   libero:      'Libero',
 }
 
-const TIPO_ARCO_DESC: Record<TipoArco, string> = {
-  ribassato:   'F ≈ 30% L/2 — arco piatto',
-  tutto_sesto: 'F = L/2 — semicerchio',
-  rialzato:    'F ≈ 75% L/2 — arco alto',
-  acuto:       'Doppio arco a vertice — gotico',
-  libero:      'Trascina il punto ● liberamente',
-}
 
 function PannelloLato({
   seg,
@@ -550,7 +544,8 @@ export default function ShapeEditor({ value: shape, onChange }: Props) {
         const angoliConfig: AngoloConfig[] = shape.punti.map((p) => ({
           puntoId: p.id, tipo: 'automatico', gradi: null,
         }))
-        onChange({ ...shape, segmenti: [...shape.segmenti, closingSeg], angoliConfig, chiusa: true })
+        const closedShape = { ...shape, segmenti: [...shape.segmenti, closingSeg], angoliConfig, chiusa: true }
+        onChange(autoConstrainShape(closedShape))
         return
       }
     }
@@ -890,6 +885,13 @@ export default function ShapeEditor({ value: shape, onChange }: Props) {
               Tocca un <span className="font-medium text-teal-700">lato</span> per configurarlo ·
               Tocca un <span className="font-medium text-gray-700">vertice</span> per l&apos;angolo
             </span>
+            <button
+              onClick={() => onChange(autoConstrainShape(shape))}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal-200 text-sm text-teal-600 hover:bg-teal-50"
+              title="Ricalcola automaticamente nomi e vincoli geometrici"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Ricalcola vincoli
+            </button>
             <button
               onClick={handleReset}
               className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-sm text-red-500 hover:bg-red-50"

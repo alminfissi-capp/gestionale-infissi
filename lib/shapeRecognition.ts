@@ -316,6 +316,59 @@ function applyClosureConstraint(
   }
 }
 
+// ── API pubblica per ShapeEditor ─────────────────────────────────────────────
+
+/**
+ * Assegna i nomi mancanti ai segmenti (misuraNome === '') in base alla direzione
+ * nella griglia, poi applica i vincoli geometrici.
+ * Usato dallo ShapeEditor quando l'utente chiude la forma a punti.
+ */
+export function autoConstrainShape(shape: FormaShape): FormaShape {
+  if (!shape.chiusa) return shape
+  const withNames = assignNamesIfEmpty(shape)
+  return applyGeometricConstraints(withNames)
+}
+
+function assignNamesIfEmpty(shape: FormaShape): FormaShape {
+  const { punti, segmenti } = shape
+  // Conta i nomi già assegnati per continuare la numerazione
+  let hCount = 0, vCount = 0, dCount = 0, arcCount = 0
+  segmenti.forEach((seg) => {
+    if (!seg.misuraNome) return
+    const from = punti.find((p) => p.id === seg.fromId)
+    const to   = punti.find((p) => p.id === seg.toId)
+    if (!from || !to) return
+    const angle = Math.atan2(Math.abs(to.gy - from.gy), Math.abs(to.gx - from.gx)) * (180 / Math.PI)
+    if (seg.tipo === 'arco')  arcCount++
+    else if (angle < 20)      hCount++
+    else if (angle > 70)      vCount++
+    else                      dCount++
+  })
+
+  const newSegmenti = segmenti.map((seg): ShapeSegment => {
+    if (seg.misuraNome) return seg  // già nominato dall'utente → rispetta
+    const from = punti.find((p) => p.id === seg.fromId)
+    const to   = punti.find((p) => p.id === seg.toId)
+    if (!from || !to) return seg
+    const dgx = to.gx - from.gx
+    const dgy = to.gy - from.gy
+    const angle = Math.atan2(Math.abs(dgy), Math.abs(dgx)) * (180 / Math.PI)
+    if (seg.tipo === 'arco') {
+      arcCount++
+      return {
+        ...seg,
+        misuraNome: arcCount === 1 ? 'Arco' : `Arco_${arcCount}`,
+        sagittaNome: seg.sagittaNome || (arcCount === 1 ? 'Freccia' : `Freccia_${arcCount}`),
+      }
+    }
+    if (angle < 20)  { hCount++; return { ...seg, misuraNome: hCount === 1 ? 'Larghezza' : `Larghezza_${hCount}` } }
+    if (angle > 70)  { vCount++; return { ...seg, misuraNome: vCount === 1 ? 'Altezza'   : `Altezza_${vCount}`   } }
+    dCount++
+    return { ...seg, misuraNome: `Lato_${dCount}` }
+  })
+  return { ...shape, segmenti: newSegmenti }
+}
+
 // ── Funzione principale ───────────────────────────────────────────────────────
 
 export function recognizeShape(rawPoints: RawPoint[]): FormaShape | null {
