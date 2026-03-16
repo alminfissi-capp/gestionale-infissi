@@ -1,6 +1,6 @@
 'use client'
 
-import { X } from 'lucide-react'
+import { X, Pencil } from 'lucide-react'
 import Link from 'next/link'
 import type { FormaSerramentoDb } from '@/types/rilievo'
 import { shapeToPath } from '@/types/rilievo'
@@ -9,6 +9,7 @@ interface Props {
   open: boolean
   onClose: () => void
   onSelect: (forma: FormaSerramentoDb) => void
+  onDraw: () => void
   forme: FormaSerramentoDb[]
 }
 
@@ -24,7 +25,7 @@ function ShapeSvg({ forma }: { forma: FormaSerramentoDb }) {
   )
 }
 
-export default function SelettoreForma({ open, onClose, onSelect, forme }: Props) {
+export default function SelettoreForma({ open, onClose, onSelect, onDraw, forme }: Props) {
   if (!open) return null
 
   return (
@@ -42,35 +43,49 @@ export default function SelettoreForma({ open, onClose, onSelect, forme }: Props
         </div>
 
         <div className="overflow-y-auto p-4">
-          {forme.length === 0 ? (
-            <div className="text-center py-10">
-              <p className="text-sm text-gray-400 mb-2">Nessuna forma configurata.</p>
-              <Link
-                href="/rilievo/impostazioni"
-                onClick={onClose}
-                className="text-sm text-teal-600 font-medium hover:underline"
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+
+            {/* Card "Disegna forma" */}
+            <button
+              onClick={() => { onClose(); onDraw() }}
+              className="flex flex-col items-center gap-2 p-3 rounded-xl border-2 border-dashed border-teal-300 bg-teal-50 hover:border-teal-500 hover:bg-teal-100 active:scale-95 transition-all group"
+            >
+              <div className="w-14 h-14 flex items-center justify-center text-teal-500 group-hover:text-teal-700 transition-colors">
+                <Pencil className="h-7 w-7" />
+              </div>
+              <span className="text-xs font-medium text-teal-600 group-hover:text-teal-800 text-center leading-tight">
+                Disegna forma
+              </span>
+            </button>
+
+            {forme.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => { onSelect(f); onClose() }}
+                className="flex flex-col items-center gap-2 p-3 rounded-xl border-2 border-gray-200 bg-gray-50 hover:border-teal-400 hover:bg-teal-50 active:scale-95 transition-all group"
               >
-                Vai in Database e impostazioni →
-              </Link>
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-              {forme.map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => { onSelect(f); onClose() }}
-                  className="flex flex-col items-center gap-2 p-3 rounded-xl border-2 border-gray-200 bg-gray-50 hover:border-teal-400 hover:bg-teal-50 active:scale-95 transition-all group"
+                <div className="w-14 h-14 text-gray-500 group-hover:text-teal-600 transition-colors">
+                  <ShapeSvg forma={f} />
+                </div>
+                <span className="text-xs font-medium text-gray-600 group-hover:text-teal-700 text-center leading-tight">
+                  {f.nome}
+                </span>
+              </button>
+            ))}
+
+            {forme.length === 0 && (
+              <div className="col-span-2 sm:col-span-3 flex flex-col items-center justify-center py-6 text-center">
+                <p className="text-sm text-gray-400 mb-2">Nessuna forma predefinita configurata.</p>
+                <Link
+                  href="/rilievo/impostazioni"
+                  onClick={onClose}
+                  className="text-sm text-teal-600 font-medium hover:underline"
                 >
-                  <div className="w-14 h-14 text-gray-500 group-hover:text-teal-600 transition-colors">
-                    <ShapeSvg forma={f} />
-                  </div>
-                  <span className="text-xs font-medium text-gray-600 group-hover:text-teal-700 text-center leading-tight">
-                    {f.nome}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
+                  Vai in Database e impostazioni →
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>

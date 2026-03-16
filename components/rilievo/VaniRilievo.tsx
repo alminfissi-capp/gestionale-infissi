@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import SelettoreForma from '@/components/rilievo/SelettoreForma'
 import DialogMisure from '@/components/rilievo/DialogMisure'
 import CanvasVano from '@/components/rilievo/CanvasVano'
+import DisegnaForma from '@/components/rilievo/DisegnaForma'
 import type { FormaSerramentoDb } from '@/types/rilievo'
 import { shapeToPath } from '@/types/rilievo'
 import type { VanoMisurato } from '@/lib/rilievo'
@@ -29,6 +30,7 @@ export default function VaniRilievo({ forme }: Props) {
   const [vani, setVani] = useState<VanoMisurato[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selettoreAperto, setSelettoreAperto] = useState(false)
+  const [disegnoAperto, setDisegnoAperto] = useState(false)
   const [formaDaMisurare, setFormaDaMisurare] = useState<FormaSerramentoDb | null>(null)
 
   const selectedVano = vani.find((v) => v.id === selectedId) ?? vani[vani.length - 1] ?? null
@@ -152,7 +154,14 @@ export default function VaniRilievo({ forme }: Props) {
         open={selettoreAperto}
         onClose={() => setSelettoreAperto(false)}
         onSelect={handleFormaSelezionata}
+        onDraw={() => setDisegnoAperto(true)}
         forme={forme}
+      />
+      <DisegnaForma
+        key={String(disegnoAperto)}
+        open={disegnoAperto}
+        onClose={() => setDisegnoAperto(false)}
+        onConferma={handleFormaSelezionata}
       />
       <DialogMisure
         key={formaDaMisurare?.id ?? 'none'}
