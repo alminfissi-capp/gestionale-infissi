@@ -24,15 +24,15 @@ export default function StampaCalcoli({ preventivo: p, settings, logoUrl }: Prop
     month: '2-digit',
     year: 'numeric',
   })
-  const titolo = p.numero ? `Calcolo costi — Offerta N. ${p.numero}` : 'Calcolo costi — Preventivo'
-
-  const prefissoCalcoli = settings?.num_prefisso_calcoli?.trim() || 'Calcoli'
+  const prefissoCalcoli = settings?.num_prefisso_calcoli?.trim() || 'Calcoli interni'
+  const titolo = prefissoCalcoli
 
   useEffect(() => {
     const prev = document.title
-    document.title = p.numero ? `${prefissoCalcoli} ${p.numero} ${nomeCliente}` : `${prefissoCalcoli} ${nomeCliente}`
+    // Nome file PDF: prefisso calcoli + cliente (il numero preventivo è solo un riferimento interno)
+    document.title = `${prefissoCalcoli} — ${nomeCliente}`
     return () => { document.title = prev }
-  }, [p.numero, nomeCliente, prefissoCalcoli])
+  }, [nomeCliente, prefissoCalcoli])
 
   return (
     <>
@@ -163,7 +163,7 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
       <div className="px-8 print:px-0 py-2 border-b border-gray-300 flex gap-8 text-[10px] text-gray-500">
         {p.numero && (
           <span>
-            <span className="font-semibold text-gray-700">N. preventivo:</span> {p.numero}
+            <span className="font-semibold text-gray-700">Rif. offerta cliente:</span> {p.numero}
           </span>
         )}
         <span>
