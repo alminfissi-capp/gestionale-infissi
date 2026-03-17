@@ -1,9 +1,11 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Printer, ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { formatEuro } from '@/lib/pricing'
 import type { PreventivoCompleto } from '@/types/preventivo'
 import type { Settings } from '@/types/impostazioni'
@@ -17,6 +19,8 @@ interface Props {
 }
 
 export default function StampaPreventivo({ preventivo: p, settings, logoUrl, showBack = true }: Props) {
+  const [mostraSconto, setMostraSconto] = useState(false)
+
   const s = p.cliente_snapshot
   const nomeCliente = s.tipo === 'azienda'
     ? s.ragione_sociale || s.email || s.telefono || '—'
@@ -47,6 +51,16 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
           </Button>
         )}
         <div className="flex-1" />
+        <div className="flex items-center gap-2">
+          <Switch
+            id="mostra-sconto"
+            checked={mostraSconto}
+            onCheckedChange={setMostraSconto}
+          />
+          <Label htmlFor="mostra-sconto" className="text-xs text-gray-600 cursor-pointer">
+            Mostra sconto per riga
+          </Label>
+        </div>
         <Button size="sm" onClick={() => window.print()}>
           <Printer className="h-4 w-4 mr-1.5" />
           Stampa / Salva PDF
@@ -66,6 +80,7 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
           titolo={titolo}
           settings={settings}
           logoUrl={logoUrl}
+          mostraSconto={mostraSconto}
         />
       </div>
 
@@ -79,6 +94,7 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
           titolo={titolo}
           settings={settings}
           logoUrl={logoUrl}
+          mostraSconto={mostraSconto}
         />
       </div>
     </>
@@ -95,9 +111,10 @@ interface DocProps {
   titolo: string
   settings: Settings | null
   logoUrl: string | null
+  mostraSconto: boolean
 }
 
-function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logoUrl }: DocProps) {
+function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logoUrl, mostraSconto }: DocProps) {
   const articoliOrdinati = [...p.articoli].sort((a, b) => a.ordine - b.ordine)
 
   return (
@@ -280,7 +297,17 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
 
             {/* P. Unit. */}
             <div style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', paddingTop: '2px' }}>
-              € {formatEuro(a.prezzo_unitario)}
+              {mostraSconto && a.sconto_articolo > 0 ? (
+                <>
+                  <div style={{ textDecoration: 'line-through', color: '#9ca3af', fontSize: '9px' }}>
+                    € {formatEuro(a.prezzo_unitario)}
+                  </div>
+                  <div>€ {formatEuro(a.prezzo_unitario * (1 - a.sconto_articolo / 100))}</div>
+                  <div style={{ color: '#16a34a', fontSize: '9px' }}>−{a.sconto_articolo}%</div>
+                </>
+              ) : (
+                <div>€ {formatEuro(a.sconto_articolo > 0 ? a.prezzo_unitario * (1 - a.sconto_articolo / 100) : a.prezzo_unitario)}</div>
+              )}
             </div>
 
             {/* Qtà */}
