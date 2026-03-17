@@ -532,6 +532,7 @@ export async function duplicaPreventivo(id: string): Promise<{ id: string }> {
       numero: numeroFinale,
       cliente_snapshot: src.cliente_snapshot,
       sconto_globale: src.sconto_globale,
+      mostra_sconto_riga: src.mostra_sconto_riga ?? false,
       note: src.note,
       subtotale: src.subtotale,
       importo_sconto: src.importo_sconto,
