@@ -29,10 +29,9 @@ export default function StampaCalcoli({ preventivo: p, settings, logoUrl }: Prop
 
   useEffect(() => {
     const prev = document.title
-    // Nome file PDF: prefisso calcoli + cliente (il numero preventivo è solo un riferimento interno)
-    document.title = `${prefissoCalcoli} — ${nomeCliente}`
+    document.title = p.numero ? `${prefissoCalcoli} ${p.numero} ${nomeCliente}` : `${prefissoCalcoli} ${nomeCliente}`
     return () => { document.title = prev }
-  }, [nomeCliente, prefissoCalcoli])
+  }, [p.numero, nomeCliente, prefissoCalcoli])
 
   return (
     <>
