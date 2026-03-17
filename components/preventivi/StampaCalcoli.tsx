@@ -27,11 +27,21 @@ export default function StampaCalcoli({ preventivo: p, settings, logoUrl }: Prop
   const prefissoCalcoli = settings?.num_prefisso_calcoli?.trim() || 'Calcoli interni'
   const titolo = prefissoCalcoli
 
+  // Rimuove il prefisso preventivo dal numero per evitare duplicazione nel titolo calcoli
+  // es. "PRE WIN 23_2026 G" → "23_2026 G" (se num_prefisso = "PRE WIN")
+  const numeroSenzaPrefisso = p.numero
+    ? (settings?.num_prefisso?.trim()
+        ? p.numero.replace(new RegExp('^' + settings.num_prefisso.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*'), '').trim()
+        : p.numero)
+    : null
+
   useEffect(() => {
     const prev = document.title
-    document.title = p.numero ? `${prefissoCalcoli} ${p.numero} ${nomeCliente}` : `${prefissoCalcoli} ${nomeCliente}`
+    document.title = numeroSenzaPrefisso
+      ? `${prefissoCalcoli} ${numeroSenzaPrefisso} ${nomeCliente}`
+      : `${prefissoCalcoli} ${nomeCliente}`
     return () => { document.title = prev }
-  }, [p.numero, nomeCliente, prefissoCalcoli])
+  }, [numeroSenzaPrefisso, nomeCliente, prefissoCalcoli])
 
   return (
     <>
