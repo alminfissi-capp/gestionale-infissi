@@ -141,6 +141,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
   const [scontoGlobale, setScontoGlobale] = useState(preventivo?.sconto_globale ?? 0)
   const [mostraSconto, setMostraSconto] = useState(preventivo?.mostra_sconto_riga ?? false)
   const [note, setNote] = useState(preventivo?.note ?? '')
+  const [noteAperte, setNoteAperte] = useState(!!(preventivo?.note))
 
   // Calcoli riepilogo
   const totali = useMemo(() => {
@@ -285,7 +286,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
                       onCheckedChange={setMostraSconto}
                     />
                     <Label htmlFor="mostra-sconto-riga" className="text-xs text-gray-500 cursor-pointer leading-tight">
-                      Mostra sconto<br />nel PDF
+                      Mostra sconto di ogni<br />prodotto nel PDF
                     </Label>
                   </div>
                 </div>
@@ -305,28 +306,41 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
                 )}
               </div>
               <div className="col-span-2 space-y-1.5">
-                <Label>Note</Label>
-                {noteTemplates.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mb-1">
-                    {noteTemplates.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => setNote(t.testo)}
-                        className="text-xs px-2.5 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
-                        title={t.testo}
-                      >
-                        {t.testo.length > 40 ? t.testo.slice(0, 40) + '…' : t.testo}
-                      </button>
-                    ))}
-                  </div>
+                <button
+                  type="button"
+                  onClick={() => setNoteAperte((v) => !v)}
+                  className="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+                >
+                  <ChevronRight className={`h-4 w-4 transition-transform ${noteAperte ? 'rotate-90' : ''}`} />
+                  Note{note && !noteAperte && (
+                    <span className="text-xs text-gray-400 font-normal truncate max-w-[260px]">— {note.slice(0, 60)}{note.length > 60 ? '…' : ''}</span>
+                  )}
+                </button>
+                {noteAperte && (
+                  <>
+                    {noteTemplates.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-1">
+                        {noteTemplates.map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => setNote(t.testo)}
+                            className="text-xs px-2.5 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                            title={t.testo}
+                          >
+                            {t.testo.length > 40 ? t.testo.slice(0, 40) + '…' : t.testo}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <Textarea
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      placeholder="Condizioni di pagamento, tempi di consegna, ecc."
+                      rows={4}
+                    />
+                  </>
                 )}
-                <Textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Condizioni di pagamento, tempi di consegna, ecc."
-                  rows={4}
-                />
               </div>
 
             </div>
