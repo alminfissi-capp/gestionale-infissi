@@ -3,9 +3,10 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react'
+import { ChevronLeft, Plus, Pencil, Trash2, Eye, EyeOff, Shapes } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import DialogForma from '@/components/rilievo/DialogForma'
+import DialogFormeStandard from '@/components/rilievo/DialogFormeStandard'
 import type { FormaSerramentoDb } from '@/types/rilievo'
 import { shapeToPath } from '@/types/rilievo'
 import { deleteForma, toggleFormaAttiva } from '@/actions/rilievo'
@@ -37,6 +38,7 @@ export default function ImpostazioniRilievo({ forme: formeInit }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<FormaSerramentoDb | undefined>()
   const [isPending, startTransition] = useTransition()
+  const [standardOpen, setStandardOpen] = useState(false)
 
   const openNew = () => { setEditing(undefined); setDialogOpen(true) }
   const openEdit = (f: FormaSerramentoDb) => { setEditing(f); setDialogOpen(true) }
@@ -79,9 +81,14 @@ export default function ImpostazioniRilievo({ forme: formeInit }: Props) {
             <h1 className="text-xl font-bold text-gray-900">Forme serramento</h1>
             <p className="text-sm text-gray-500 mt-0.5">Disegna e configura le forme per il rilievo</p>
           </div>
-          <Button size="sm" onClick={openNew}>
-            <Plus className="h-4 w-4 mr-1" /> Nuova forma
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setStandardOpen(true)}>
+              <Shapes className="h-4 w-4 mr-1" /> Forme standard
+            </Button>
+            <Button size="sm" onClick={openNew}>
+              <Plus className="h-4 w-4 mr-1" /> Nuova forma
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -139,6 +146,11 @@ export default function ImpostazioniRilievo({ forme: formeInit }: Props) {
         onClose={() => { setDialogOpen(false); setEditing(undefined); router.refresh() }}
         forma={editing}
         maxOrdine={forme.length}
+      />
+
+      <DialogFormeStandard
+        open={standardOpen}
+        onClose={() => { setStandardOpen(false); router.refresh() }}
       />
     </div>
   )

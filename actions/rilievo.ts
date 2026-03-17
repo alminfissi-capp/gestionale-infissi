@@ -72,6 +72,29 @@ export async function deleteForma(id: string): Promise<void> {
   revalidatePath('/rilievo/impostazioni')
 }
 
+export async function importaFormeStandard(inputs: FormaSerramentoInput[]): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  // ordine base = dopo le forme esistenti
+  const { data: existing } = await supabase
+    .from('forme_serramento')
+    .select('ordine')
+    .eq('organization_id', orgId)
+    .order('ordine', { ascending: false })
+    .limit(1)
+  const baseOrdine = (existing?.[0]?.ordine ?? -1) + 1
+  const rows = inputs.map((input, i) => ({
+    organization_id: orgId,
+    nome: input.nome,
+    attiva: input.attiva,
+    ordine: baseOrdine + i,
+    shape: input.shape,
+  }))
+  const { error } = await supabase.from('forme_serramento').insert(rows)
+  if (error) throw new Error(error.message)
+  revalidatePath('/rilievo/impostazioni')
+}
+
 export async function toggleFormaAttiva(id: string, attiva: boolean): Promise<void> {
   const supabase = await createClient()
   const orgId = await getOrgId()
