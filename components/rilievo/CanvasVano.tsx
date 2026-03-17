@@ -148,30 +148,46 @@ export default function CanvasVano({ vano }: Props) {
   }, [layout, allPlaced, realPos, vano.forma.shape])
 
   // Dati per etichette per-segmento (posizioni in coordinate gruppo SVG)
+  // Funziona sia con posizioni reali (allPlaced) sia con coordinate griglia (fallback)
   interface SegLabel { id: string; nome: string; midX: number; midY: number; perpX: number; perpY: number }
   const segLabels = useMemo((): SegLabel[] => {
-    if (!layout || !allPlaced) return []
-    const xs = Array.from(realPos.values()).map((p) => p.x)
-    const ys = Array.from(realPos.values()).map((p) => p.y)
-    const minX = Math.min(...xs), maxX = Math.max(...xs)
-    const minY = Math.min(...ys), maxY = Math.max(...ys)
-    const rangeX = maxX - minX || 1
-    const rangeY = maxY - minY || 1
-    const sc = Math.min(layout.shapePxW / rangeX, layout.shapePxH / rangeY)
-    const offLX = (layout.shapePxW - rangeX * sc) / 2
-    const offLY = (layout.shapePxH - rangeY * sc) / 2
-    // Coordinate in spazio gruppo (incluso shapeOffX/Y)
-    const toGx = (x: number) => layout.shapeOffX + offLX + (x - minX) * sc
-    const toGy = (y: number) => layout.shapeOffY + offLY + (y - minY) * sc
+    if (!layout) return []
+
+    let getPtX: (id: string) => number | null
+    let getPtY: (id: string) => number | null
+
+    if (allPlaced) {
+      const xs = Array.from(realPos.values()).map((p) => p.x)
+      const ys = Array.from(realPos.values()).map((p) => p.y)
+      const minX = Math.min(...xs), maxX = Math.max(...xs)
+      const minY = Math.min(...ys), maxY = Math.max(...ys)
+      const rangeX = maxX - minX || 1
+      const rangeY = maxY - minY || 1
+      const sc = Math.min(layout.shapePxW / rangeX, layout.shapePxH / rangeY)
+      const offLX = (layout.shapePxW - rangeX * sc) / 2
+      const offLY = (layout.shapePxH - rangeY * sc) / 2
+      getPtX = (id) => { const r = realPos.get(id); return r != null ? layout.shapeOffX + offLX + (r.x - minX) * sc : null }
+      getPtY = (id) => { const r = realPos.get(id); return r != null ? layout.shapeOffY + offLY + (r.y - minY) * sc : null }
+    } else {
+      // Fallback: usa coordinate griglia proporzionali
+      const punti = vano.forma.shape.punti
+      const gxs = punti.map((p) => p.gx), gys = punti.map((p) => p.gy)
+      const minGx = Math.min(...gxs), maxGx = Math.max(...gxs)
+      const minGy = Math.min(...gys), maxGy = Math.max(...gys)
+      const rangeGx = maxGx - minGx || 1, rangeGy = maxGy - minGy || 1
+      const scX = layout.shapePxW / rangeGx, scY = layout.shapePxH / rangeGy
+      getPtX = (id) => { const p = punti.find((pt) => pt.id === id); return p != null ? layout.shapeOffX + (p.gx - minGx) * scX : null }
+      getPtY = (id) => { const p = punti.find((pt) => pt.id === id); return p != null ? layout.shapeOffY + (p.gy - minGy) * scY : null }
+    }
+
     const seen = new Set<string>()
     const result: SegLabel[] = []
     for (const seg of vano.forma.shape.segmenti) {
       if (!seg.misuraNome || seen.has(seg.misuraNome)) continue
-      const fR = realPos.get(seg.fromId), tR = realPos.get(seg.toId)
-      if (!fR || !tR) continue
+      const fx = getPtX(seg.fromId), fy = getPtY(seg.fromId)
+      const tx = getPtX(seg.toId),   ty = getPtY(seg.toId)
+      if (fx == null || fy == null || tx == null || ty == null) continue
       seen.add(seg.misuraNome)
-      const fx = toGx(fR.x), fy = toGy(fR.y)
-      const tx = toGx(tR.x), ty = toGy(tR.y)
       const midX = (fx + tx) / 2, midY = (fy + ty) / 2
       const ddx = tx - fx, ddy = ty - fy
       const dlen = Math.sqrt(ddx * ddx + ddy * ddy) || 1

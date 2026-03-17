@@ -524,6 +524,8 @@ export default function ShapeEditor({ value: shape, onChange }: Props) {
     startSvgY: number
   } | null>(null)
 
+  const vertexDragRef = useRef<{ ptId: string; moved: boolean } | null>(null)
+
   const getSvgCoords = useCallback((clientX: number, clientY: number) => {
     return svgRef.current ? clientToSvg(svgRef.current, clientX, clientY) : null
   }, [])
@@ -566,6 +568,20 @@ export default function ShapeEditor({ value: shape, onChange }: Props) {
     const pt = getSvgCoords(e.clientX, e.clientY)
     if (!pt) return
 
+    if (vertexDragRef.current) {
+      const { gx, gy } = snap(pt.x, pt.y)
+      const ptId = vertexDragRef.current.ptId
+      const occupied = shape.punti.some((p) => p.id !== ptId && p.gx === gx && p.gy === gy)
+      if (!occupied) {
+        const existing = shape.punti.find((p) => p.id === ptId)
+        if (existing && (existing.gx !== gx || existing.gy !== gy)) {
+          vertexDragRef.current.moved = true
+          onChange({ ...shape, punti: shape.punti.map((p) => p.id === ptId ? { ...p, gx, gy } : p) })
+        }
+      }
+      return
+    }
+
     if (dragRef.current) {
       const { segId, startCpDx, startCpDy, startSvgX, startSvgY } = dragRef.current
       const dx = (pt.x - startSvgX) / CELL
@@ -585,8 +601,19 @@ export default function ShapeEditor({ value: shape, onChange }: Props) {
     }
   }
 
-  const handlePointerUp = () => { dragRef.current = null }
-  const handlePointerLeave = () => { setHoverGrid(null); dragRef.current = null }
+  const handlePointerUp = () => {
+    if (vertexDragRef.current) {
+      const { ptId, moved } = vertexDragRef.current
+      vertexDragRef.current = null
+      if (!moved) {
+        setSelectedPtId(ptId)
+        setSelectedSegId(null)
+      }
+      return
+    }
+    dragRef.current = null
+  }
+  const handlePointerLeave = () => { setHoverGrid(null); dragRef.current = null; vertexDragRef.current = null }
 
   const handleCpPointerDown = (e: React.PointerEvent<SVGCircleElement>, seg: ShapeSegment) => {
     e.stopPropagation()
@@ -787,14 +814,13 @@ export default function ShapeEditor({ value: shape, onChange }: Props) {
                   stroke={isFirst && !shape.chiusa ? '#1e293b' : 'none'}
                   strokeWidth={2}
                   style={{
-                    cursor: shape.chiusa ? 'pointer' : (isFirst && shape.punti.length >= 3 ? 'pointer' : 'crosshair'),
+                    cursor: shape.chiusa ? 'move' : (isFirst && shape.punti.length >= 3 ? 'pointer' : 'crosshair'),
                   }}
-                  onClick={(e) => {
-                    if (shape.chiusa) {
-                      e.stopPropagation()
-                      setSelectedPtId(pt.id)
-                      setSelectedSegId(null)
-                    }
+                  onPointerDown={(e) => {
+                    if (!shape.chiusa) return
+                    e.stopPropagation()
+                    ;(e.currentTarget as SVGCircleElement).setPointerCapture(e.pointerId)
+                    vertexDragRef.current = { ptId: pt.id, moved: false }
                   }}
                 />
                 {shape.chiusa && angleCfg?.tipo === 'fisso' && angleCfg.gradi != null && (
@@ -883,7 +909,8 @@ export default function ShapeEditor({ value: shape, onChange }: Props) {
           <>
             <span className="text-xs text-gray-500">
               Tocca un <span className="font-medium text-teal-700">lato</span> per configurarlo ·
-              Tocca un <span className="font-medium text-gray-700">vertice</span> per l&apos;angolo
+              Tocca un <span className="font-medium text-gray-700">vertice</span> per l&apos;angolo ·
+              Trascina un <span className="font-medium text-gray-700">vertice</span> per spostarlo
             </span>
             <button
               onClick={() => onChange(autoConstrainShape(shape))}
