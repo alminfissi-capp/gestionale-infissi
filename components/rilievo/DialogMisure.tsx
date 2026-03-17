@@ -57,6 +57,18 @@ function buildSegmentRenders(
   if (allPlaced) {
     const xs = Array.from(realPos.values()).map((p) => p.x)
     const ys = Array.from(realPos.values()).map((p) => p.y)
+    // Estende il bounding box con l'apice reale di ogni arco
+    for (const seg of shape.segmenti) {
+      if (seg.tipo !== 'arco' || !seg.sagittaNome) continue
+      const sagittaMm = valori[seg.sagittaNome]
+      if (!sagittaMm || sagittaMm <= 0) continue
+      const fp = realPos.get(seg.fromId)
+      const tp = realPos.get(seg.toId)
+      if (!fp || !tp) continue
+      const cpLen = Math.sqrt(seg.cpDx ** 2 + seg.cpDy ** 2) || 1
+      xs.push((fp.x + tp.x) / 2 + (seg.cpDx / cpLen) * sagittaMm)
+      ys.push((fp.y + tp.y) / 2 + (seg.cpDy / cpLen) * sagittaMm)
+    }
     const minX = Math.min(...xs), maxX = Math.max(...xs)
     const minY = Math.min(...ys), maxY = Math.max(...ys)
     const rangeX = maxX - minX || 1
@@ -109,12 +121,26 @@ function buildSegmentRenders(
       midX = (fx + tx) / 2 + seg.cpDx * scaleArc * 0.4
       midY = (fy + ty) / 2 + seg.cpDy * scaleArc * 0.4
     } else if (seg.tipo === 'arco') {
+      // Quando le misure sono inserite (allPlaced=true), cpDx/cpDy sono in unità
+      // griglia ma scaleArc è in px/mm → la sagitta risulterebbe quasi zero e
+      // l'arco apparirebbe come linea retta. Convertiamo cpDx/cpDy in mm usando
+      // il valore reale della sagittaNome, mantenendo solo la direzione.
+      let effCpDx = seg.cpDx
+      let effCpDy = seg.cpDy
+      if (allPlaced && seg.sagittaNome) {
+        const sagittaMm = valori[seg.sagittaNome]
+        if (sagittaMm && sagittaMm > 0) {
+          const cpLen = Math.sqrt(seg.cpDx ** 2 + seg.cpDy ** 2) || 1
+          effCpDx = (seg.cpDx / cpLen) * sagittaMm
+          effCpDy = (seg.cpDy / cpLen) * sagittaMm
+        }
+      }
       const arcPath = seg.tipoArco === 'acuto'
-        ? arcSvgPathAcutoScaled(fx, fy, tx, ty, seg.cpDx, seg.cpDy, scaleArc, false)
-        : arcSvgPathScaled(fx, fy, tx, ty, seg.cpDx, seg.cpDy, scaleArc, false)
+        ? arcSvgPathAcutoScaled(fx, fy, tx, ty, effCpDx, effCpDy, scaleArc, false)
+        : arcSvgPathScaled(fx, fy, tx, ty, effCpDx, effCpDy, scaleArc, false)
       path = `M ${fx.toFixed(1)} ${fy.toFixed(1)} ${arcPath}`
-      midX = (fx + tx) / 2 + seg.cpDx * scaleArc * 0.55
-      midY = (fy + ty) / 2 + seg.cpDy * scaleArc * 0.55
+      midX = (fx + tx) / 2 + effCpDx * scaleArc * 0.55
+      midY = (fy + ty) / 2 + effCpDy * scaleArc * 0.55
     } else {
       path = `M ${fx.toFixed(1)} ${fy.toFixed(1)} L ${tx.toFixed(1)} ${ty.toFixed(1)}`
     }
@@ -142,6 +168,18 @@ function AnteprimeForma({
     if (allPlaced && realPos.size > 0) {
       const xs = Array.from(realPos.values()).map((p) => p.x)
       const ys = Array.from(realPos.values()).map((p) => p.y)
+      // Include apici archi nel bounding box
+      for (const seg of forma.shape.segmenti) {
+        if (seg.tipo !== 'arco' || !seg.sagittaNome) continue
+        const sagittaMm = valoriNumerici[seg.sagittaNome]
+        if (!sagittaMm || sagittaMm <= 0) continue
+        const fp = realPos.get(seg.fromId)
+        const tp = realPos.get(seg.toId)
+        if (!fp || !tp) continue
+        const cpLen = Math.sqrt(seg.cpDx ** 2 + seg.cpDy ** 2) || 1
+        xs.push((fp.x + tp.x) / 2 + (seg.cpDx / cpLen) * sagittaMm)
+        ys.push((fp.y + tp.y) / 2 + (seg.cpDy / cpLen) * sagittaMm)
+      }
       const rangeX = (Math.max(...xs) - Math.min(...xs)) || 1
       const rangeY = (Math.max(...ys) - Math.min(...ys)) || 1
       const aspect = rangeX / rangeY
