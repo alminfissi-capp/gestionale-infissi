@@ -96,6 +96,7 @@ export type Preventivo = {
   totale_finale: number
   totale_pezzi: number
   stato: StatoPreventivo
+  mostra_sconto_riga: boolean
   share_token: string | null
   condiviso_at: string | null
   visualizzato_at: string | null
@@ -116,5 +117,6 @@ export type PreventivoInput = {
   numero: string
   articoli: Omit<ArticoloWizard, 'tempId'>[]
   scontoGlobale: number
+  mostraSconto: boolean
   note: string
 }

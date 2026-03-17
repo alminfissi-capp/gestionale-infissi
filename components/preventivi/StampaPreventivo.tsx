@@ -1,11 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import Link from 'next/link'
 import { Printer, ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
 import { formatEuro } from '@/lib/pricing'
 import type { PreventivoCompleto } from '@/types/preventivo'
 import type { Settings } from '@/types/impostazioni'
@@ -19,7 +17,7 @@ interface Props {
 }
 
 export default function StampaPreventivo({ preventivo: p, settings, logoUrl, showBack = true }: Props) {
-  const [mostraSconto, setMostraSconto] = useState(false)
+  const mostraSconto = p.mostra_sconto_riga
 
   const s = p.cliente_snapshot
   const nomeCliente = s.tipo === 'azienda'
@@ -51,16 +49,6 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
           </Button>
         )}
         <div className="flex-1" />
-        <div className="flex items-center gap-2">
-          <Switch
-            id="mostra-sconto"
-            checked={mostraSconto}
-            onCheckedChange={setMostraSconto}
-          />
-          <Label htmlFor="mostra-sconto" className="text-xs text-gray-600 cursor-pointer">
-            Mostra sconto per riga
-          </Label>
-        </div>
         <Button size="sm" onClick={() => window.print()}>
           <Printer className="h-4 w-4 mr-1.5" />
           Stampa / Salva PDF

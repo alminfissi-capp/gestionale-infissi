@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import StepCliente from './StepCliente'
 import ArticoliEditor from './ArticoliEditor'
@@ -138,6 +139,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
 
   // Step 3 — note/sconto globale
   const [scontoGlobale, setScontoGlobale] = useState(preventivo?.sconto_globale ?? 0)
+  const [mostraSconto, setMostraSconto] = useState(preventivo?.mostra_sconto_riga ?? false)
   const [note, setNote] = useState(preventivo?.note ?? '')
 
   // Calcoli riepilogo
@@ -173,6 +175,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
           numero,
           articoli: articoli.map(({ tempId: _t, ...rest }) => rest),
           scontoGlobale,
+          mostraSconto,
           note,
         }
 
@@ -273,7 +276,19 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Sconto globale sul totale</Label>
-                <ScontoSelect value={scontoGlobale} onChange={setScontoGlobale} max={50} />
+                <div className="flex items-center gap-3">
+                  <ScontoSelect value={scontoGlobale} onChange={setScontoGlobale} max={50} />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Switch
+                      id="mostra-sconto-riga"
+                      checked={mostraSconto}
+                      onCheckedChange={setMostraSconto}
+                    />
+                    <Label htmlFor="mostra-sconto-riga" className="text-xs text-gray-500 cursor-pointer leading-tight">
+                      Mostra sconto<br />nel PDF
+                    </Label>
+                  </div>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Numero preventivo</Label>

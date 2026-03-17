@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X, Share2, ChevronDown, Paperclip } from 'lucide-react'
+import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X, Share2, ChevronDown, ChevronUp, Paperclip } from 'lucide-react'
 import { deletePreventivo, duplicaPreventivo } from '@/actions/preventivi'
 import DialogAllegaCatalogo from '@/components/preventivi/DialogAllegaCatalogo'
 import { generaShareToken, revokaShareToken } from '@/actions/condivisione'
@@ -63,6 +63,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const [visualizzatoAt, setVisualizzatoAt] = useState(p.visualizzato_at)
   const [shareLoading, startShareTransition] = useTransition()
   const [allegaOpen, setAllegaOpen] = useState(false)
+  const [noteEspanse, setNoteEspanse] = useState(false)
   const [origin, setOrigin] = useState('')
 
   useEffect(() => { setOrigin(window.location.origin) }, [])
@@ -482,8 +483,23 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
         {/* Note */}
         {p.note && (
           <div className="bg-white rounded-lg border p-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Note</p>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{p.note}</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Note</p>
+              <button
+                type="button"
+                onClick={() => setNoteEspanse((v) => !v)}
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                {noteEspanse ? (
+                  <><ChevronUp className="h-3.5 w-3.5" />Riduci</>
+                ) : (
+                  <><ChevronDown className="h-3.5 w-3.5" />Espandi</>
+                )}
+              </button>
+            </div>
+            <div className={noteEspanse ? '' : 'line-clamp-3'}>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{p.note}</p>
+            </div>
           </div>
         )}
 
