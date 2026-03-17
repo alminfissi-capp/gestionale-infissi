@@ -288,7 +288,15 @@ export function computeRealDimensions(
 
 /**
  * Ricostruisce le posizioni reali (in mm) di ogni punto a partire dalle misure inserite.
- * Cammina in avanti lungo i segmenti usando normalize(direzioneGriglia) × misura.
+ *
+ * Per i segmenti la cui direzione può essere determinata dalla griglia (tipo: automatico)
+ * si usa normalize(direzioneGriglia) × misura come prima.
+ *
+ * Per i vertici con angoloConfig.tipo === 'fisso', la direzione del segmento uscente viene
+ * calcolata ruotando l'ultima direzione nota dell'angolo di svolta corretto:
+ *   d_out = rotate(d_in, windingSign × (π − θ))
+ * dove windingSign si ricava dal segno dell'area con shoelace sulla griglia.
+ *
  * Se l'ultimo punto rimane non piazzato (es. lato obliquo calcolato), viene ricavato
  * a ritroso dal segmento di chiusura.
  */
@@ -299,22 +307,59 @@ export function computeRealPositions(
   const pos = new Map<string, { x: number; y: number }>()
   if (shape.punti.length < 2 || shape.segmenti.length < 2) return pos
 
+  // Determina il verso di avvolgimento dalla griglia (shoelace)
+  // Coordinate griglia: gy cresce verso il basso (come screen)
+  // shoelace > 0 → CW visivo su schermo, shoelace < 0 → CCW visivo
+  let shoelace = 0
+  for (let i = 0; i < shape.punti.length; i++) {
+    const j = (i + 1) % shape.punti.length
+    shoelace +=
+      shape.punti[i].gx * shape.punti[j].gy -
+      shape.punti[j].gx * shape.punti[i].gy
+  }
+  const windingSign = shoelace >= 0 ? 1 : -1
+
   pos.set(shape.punti[0].id, { x: 0, y: 0 })
 
   const walkSegs = shape.chiusa ? shape.segmenti.slice(0, -1) : shape.segmenti
+
+  // Ultima direzione calcolata (dx,dy normalizzati) — usata per angoli fissi
+  let lastDir: { dx: number; dy: number } | null = null
+
   for (const seg of walkSegs) {
     if (pos.has(seg.toId)) continue
     const fromPos = pos.get(seg.fromId)
-    if (!fromPos) continue
+    if (!fromPos) { lastDir = null; continue }
     const fromPt = shape.punti.find((p) => p.id === seg.fromId)
     const toPt   = shape.punti.find((p) => p.id === seg.toId)
-    if (!fromPt || !toPt) continue
-    const gdx = toPt.gx - fromPt.gx
-    const gdy = toPt.gy - fromPt.gy
-    const glen = Math.sqrt(gdx * gdx + gdy * gdy) || 1
+    if (!fromPt || !toPt) { lastDir = null; continue }
+
     const len = seg.misuraNome ? valori[seg.misuraNome] : undefined
-    if (!len || len <= 0) continue
-    pos.set(seg.toId, { x: fromPos.x + (gdx / glen) * len, y: fromPos.y + (gdy / glen) * len })
+    if (!len || len <= 0) { lastDir = null; continue }
+
+    let dx: number, dy: number
+
+    // Angolo fisso al vertice FROM: calcola direzione uscente da angolo interiore
+    const angloCfg = shape.angoliConfig?.find((a) => a.puntoId === seg.fromId)
+    if (angloCfg?.tipo === 'fisso' && angloCfg.gradi != null && lastDir !== null) {
+      const theta = (angloCfg.gradi * Math.PI) / 180
+      const turn  = windingSign * (Math.PI - theta)
+      dx = lastDir.dx * Math.cos(turn) - lastDir.dy * Math.sin(turn)
+      dy = lastDir.dx * Math.sin(turn) + lastDir.dy * Math.cos(turn)
+      const dlen = Math.sqrt(dx * dx + dy * dy) || 1
+      dx /= dlen
+      dy /= dlen
+    } else {
+      // Direzione dalla griglia (comportamento originale)
+      const gdx  = toPt.gx - fromPt.gx
+      const gdy  = toPt.gy - fromPt.gy
+      const glen = Math.sqrt(gdx * gdx + gdy * gdy) || 1
+      dx = gdx / glen
+      dy = gdy / glen
+    }
+
+    pos.set(seg.toId, { x: fromPos.x + dx * len, y: fromPos.y + dy * len })
+    lastDir = { dx, dy }
   }
 
   if (shape.chiusa) {
@@ -324,14 +369,14 @@ export function computeRealPositions(
       const fromPt = shape.punti.find((p) => p.id === closingSeg.fromId)
       const toPt   = shape.punti.find((p) => p.id === closingSeg.toId)
       if (fromPt && toPt) {
-        const gdx = toPt.gx - fromPt.gx
-        const gdy = toPt.gy - fromPt.gy
+        const gdx  = toPt.gx - fromPt.gx
+        const gdy  = toPt.gy - fromPt.gy
         const glen = Math.sqrt(gdx * gdx + gdy * gdy) || 1
-        const len = closingSeg.misuraNome ? valori[closingSeg.misuraNome] : undefined
-        if (len && len > 0) {
+        const clen = closingSeg.misuraNome ? valori[closingSeg.misuraNome] : undefined
+        if (clen && clen > 0) {
           pos.set(closingSeg.fromId, {
-            x: toPos.x - (gdx / glen) * len,
-            y: toPos.y - (gdy / glen) * len,
+            x: toPos.x - (gdx / glen) * clen,
+            y: toPos.y - (gdy / glen) * clen,
           })
         }
       }
