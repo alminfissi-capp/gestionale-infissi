@@ -241,7 +241,26 @@ export async function getPreventivo(id: string): Promise<PreventivoCompleto | nu
     }
   }
 
-  return { ...prev, articoli: articoli ?? [], cataloghi_allegati_data }
+  // Allegati calcoli (PDF interni, bucket privato → URL firmati)
+  let allegati_calcoli_data: { id: string; nome: string; storage_path: string; url: string }[] = []
+  const { data: allegati } = await supabase
+    .from('allegati_calcoli')
+    .select('id, nome, storage_path')
+    .eq('preventivo_id', id)
+    .order('ordine')
+  if (allegati && allegati.length > 0) {
+    const signed = await Promise.all(
+      allegati.map(async (a) => {
+        const { data } = await supabase.storage
+          .from('allegati-calcoli')
+          .createSignedUrl(a.storage_path, 3600)
+        return { id: a.id, nome: a.nome, storage_path: a.storage_path, url: data?.signedUrl ?? '' }
+      })
+    )
+    allegati_calcoli_data = signed
+  }
+
+  return { ...prev, articoli: articoli ?? [], cataloghi_allegati_data, allegati_calcoli_data }
 }
 
 export async function setCataloghiAllegati(

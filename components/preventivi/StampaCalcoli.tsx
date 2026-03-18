@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { formatEuro } from '@/lib/pricing'
 import type { PreventivoCompleto } from '@/types/preventivo'
 import type { Settings } from '@/types/impostazioni'
+import AllegatoCatalogoPdf from '@/components/preventivi/AllegatoCatalogoPdf'
 
 interface Props {
   preventivo: PreventivoCompleto
@@ -282,6 +283,11 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
           )}
         </div>
       </div>
+
+      {/* ── Allegati PDF interni ── */}
+      {p.allegati_calcoli_data.map((a) => (
+        <AllegatoCatalogoPdf key={a.id} url={a.url} nome={a.nome} />
+      ))}
 
       {/* ── Piè di pagina fisso (stampa) ── */}
       <style>{`

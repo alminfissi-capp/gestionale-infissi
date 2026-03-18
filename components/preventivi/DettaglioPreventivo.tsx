@@ -5,9 +5,10 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X, Share2, ChevronDown, ChevronUp, Paperclip } from 'lucide-react'
+import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X, Share2, ChevronDown, ChevronUp, Paperclip, FileText } from 'lucide-react'
 import { deletePreventivo, duplicaPreventivo } from '@/actions/preventivi'
 import DialogAllegaCatalogo from '@/components/preventivi/DialogAllegaCatalogo'
+import DialogAllegatiCalcoli from '@/components/preventivi/DialogAllegatiCalcoli'
 import { generaShareToken, revokaShareToken } from '@/actions/condivisione'
 import { formatEuro } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
@@ -63,6 +64,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const [visualizzatoAt, setVisualizzatoAt] = useState(p.visualizzato_at)
   const [shareLoading, startShareTransition] = useTransition()
   const [allegaOpen, setAllegaOpen] = useState(false)
+  const [allegatiCalcoliOpen, setAllegatiCalcoliOpen] = useState(false)
   const [noteEspanse, setNoteEspanse] = useState(false)
   const [origin, setOrigin] = useState('')
 
@@ -684,6 +686,36 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                 <span className="tabular-nums">€ {formatEuro(utile)}</span>
               </div>
             </div>
+
+            {/* Allegati calcoli */}
+            <div className="border-t border-amber-200 pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
+                  Allegati PDF (interni)
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-amber-700 hover:bg-amber-100"
+                  onClick={() => setAllegatiCalcoliOpen(true)}
+                >
+                  <Paperclip className="h-3.5 w-3.5 mr-1" />
+                  {p.allegati_calcoli_data.length > 0 ? 'Gestisci' : 'Allega PDF'}
+                </Button>
+              </div>
+              {p.allegati_calcoli_data.length === 0 ? (
+                <p className="text-xs text-amber-600/70 italic">Nessun allegato</p>
+              ) : (
+                <ul className="space-y-1">
+                  {p.allegati_calcoli_data.map((a) => (
+                    <li key={a.id} className="flex items-center gap-1.5 text-xs text-amber-800">
+                      <FileText className="h-3 w-3 text-red-500 shrink-0" />
+                      {a.nome}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         )
       })()}
@@ -715,6 +747,13 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
         onClose={() => setAllegaOpen(false)}
         preventivoId={p.id}
         correnti={p.cataloghi_allegati ?? []}
+      />
+
+      <DialogAllegatiCalcoli
+        open={allegatiCalcoliOpen}
+        onClose={() => setAllegatiCalcoliOpen(false)}
+        preventivoId={p.id}
+        allegati={p.allegati_calcoli_data}
       />
     </div>
   )

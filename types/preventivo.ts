@@ -108,6 +108,7 @@ export type Preventivo = {
 export type PreventivoCompleto = Preventivo & {
   articoli: ArticoloPreventivoRow[]
   cataloghi_allegati_data: { id: string; nome: string; url: string }[]
+  allegati_calcoli_data: { id: string; nome: string; storage_path: string; url: string }[]
 }
 
 // Payload inviato al Server Action
