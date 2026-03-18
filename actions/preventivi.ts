@@ -127,7 +127,6 @@ function calcolaSpeseTrasportoInput(
   regole: Map<string, RegolaCategoria>,
   regoleLiberi: Map<string, RegolaCategoria>
 ): number {
-  // Raggruppa pezzi per categoria (articoli griglia e catalogo)
   const pezziPerCat = new Map<string, { pezzi: number; regola: RegolaCategoria }>()
   for (const articolo of articoli) {
     let regola: RegolaCategoria | undefined
@@ -150,6 +149,51 @@ function calcolaSpeseTrasportoInput(
     totale += calcolaSpeseTrasportoPezzi(pezzi, regola.unitario, regola.minimo, regola.minPezzi)
   }
   return totale
+}
+
+/**
+ * Calcola la quota di trasporto per ogni articolo, spalmando il costo della categoria
+ * solo sugli articoli appartenenti a quella categoria (proporzionalmente al valore).
+ * Restituisce un array parallelo agli articoli con la quota di trasporto per ciascuno.
+ */
+function calcolaQuoteTrasportoPerArticolo(
+  articoli: PreventivoInput['articoli'],
+  regole: Map<string, RegolaCategoria>,
+  regoleLiberi: Map<string, RegolaCategoria>
+): number[] {
+  const perCat = new Map<string, { pezzi: number; subtotaleCat: number; regola: RegolaCategoria; indices: number[] }>()
+
+  for (let i = 0; i < articoli.length; i++) {
+    const articolo = articoli[i]
+    let regola: RegolaCategoria | undefined
+    if (articolo.listino_id) regola = regole.get(articolo.listino_id)
+    else if (articolo.listino_libero_id) regola = regoleLiberi.get(articolo.listino_libero_id)
+    if (!regola) continue
+
+    const existing = perCat.get(regola.categoriaId)
+    if (existing) {
+      existing.pezzi += articolo.quantita
+      existing.subtotaleCat += articolo.prezzo_totale_riga
+      existing.indices.push(i)
+    } else {
+      perCat.set(regola.categoriaId, {
+        pezzi: articolo.quantita,
+        subtotaleCat: articolo.prezzo_totale_riga,
+        regola,
+        indices: [i],
+      })
+    }
+  }
+
+  const quote = new Array<number>(articoli.length).fill(0)
+  for (const { pezzi, subtotaleCat, regola, indices } of perCat.values()) {
+    const trasportoCat = calcolaSpeseTrasportoPezzi(pezzi, regola.unitario, regola.minimo, regola.minPezzi)
+    if (trasportoCat === 0 || subtotaleCat === 0) continue
+    for (const i of indices) {
+      quote[i] = trasportoCat * (articoli[i].prezzo_totale_riga / subtotaleCat)
+    }
+  }
+  return quote
 }
 
 /** Calcola costo_acquisto_unitario per ogni articolo e totale_costi_acquisto */
@@ -378,7 +422,9 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
   const subtotale = calcolaSubtotale(input.articoli)
   const speseTrasporto = calcolaSpeseTrasportoInput(input.articoli, regole, regoleLiberi)
   const { articoliConCosto, totaleCostiAcquisto } = await calcolaCostiAcquistoInput(input.articoli, regole)
-  const riepilogoIva = calcolaRiepilogoIva(input.articoli, input.scontoGlobale, speseTrasporto)
+  const quoteTrasporto = calcolaQuoteTrasportoPerArticolo(input.articoli, regole, regoleLiberi)
+  const articoliConQuota = input.articoli.map((a, i) => ({ ...a, quota_trasporto: quoteTrasporto[i] }))
+  const riepilogoIva = calcolaRiepilogoIva(articoliConQuota, input.scontoGlobale)
   const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
   const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
     subtotale,
@@ -451,7 +497,9 @@ export async function updatePreventivo(
   const subtotale = calcolaSubtotale(input.articoli)
   const speseTrasporto = calcolaSpeseTrasportoInput(input.articoli, regole, regoleLiberi)
   const { articoliConCosto, totaleCostiAcquisto } = await calcolaCostiAcquistoInput(input.articoli, regole)
-  const riepilogoIva = calcolaRiepilogoIva(input.articoli, input.scontoGlobale, speseTrasporto)
+  const quoteTrasporto = calcolaQuoteTrasportoPerArticolo(input.articoli, regole, regoleLiberi)
+  const articoliConQuota = input.articoli.map((a, i) => ({ ...a, quota_trasporto: quoteTrasporto[i] }))
+  const riepilogoIva = calcolaRiepilogoIva(articoliConQuota, input.scontoGlobale)
   const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
   const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
     subtotale,

@@ -99,7 +99,11 @@ export function calcolaSpeseTrasportoPezzi(
   return costoMinimo + (pezzi - minPezzi) * costoUnitario
 }
 
-/** Calcola sconto globale, totale articoli e totale finale */
+/**
+ * Calcola sconto globale, totale articoli e totale finale.
+ * Il trasporto (sempre in modalità ripartito) viene assorbito in totaleArticoli,
+ * così l'imponibile visibile al cliente coincide con la base IVA.
+ */
 export function calcolaTotalePreventivo(
   subtotale: number,
   scontoGlobale: number,
@@ -107,8 +111,9 @@ export function calcolaTotalePreventivo(
   ivaTotale = 0
 ): { importoSconto: number; totaleArticoli: number; totaleFinale: number } {
   const importoSconto = subtotale * (scontoGlobale / 100)
-  const totaleArticoli = subtotale - importoSconto
-  const totaleFinale = totaleArticoli + speseTrasporto + ivaTotale
+  // trasporto assorbito nell'imponibile: lo sconto si applica solo ai prodotti
+  const totaleArticoli = subtotale - importoSconto + speseTrasporto
+  const totaleFinale = totaleArticoli + ivaTotale
   return { importoSconto, totaleArticoli, totaleFinale }
 }
 
@@ -116,24 +121,21 @@ export type RiepilogoIvaItem = { aliquota: number; imponibile: number; iva: numb
 
 /**
  * Calcola il riepilogo IVA raggruppando per aliquota, applicando lo sconto globale.
- * Il trasporto viene ripartito proporzionalmente sugli articoli con IVA,
- * così l'IVA viene applicata anche alle spese di trasporto.
+ * Ogni articolo porta la propria quota di trasporto (calcolata per categoria),
+ * così il trasporto di una categoria si somma solo all'IVA di quella categoria.
+ * Lo sconto globale si applica solo al prezzo prodotto; il trasporto è al prezzo pieno.
  */
 export function calcolaRiepilogoIva(
-  articoli: { prezzo_totale_riga: number; aliquota_iva: number | null }[],
+  articoli: { prezzo_totale_riga: number; aliquota_iva: number | null; quota_trasporto?: number }[],
   scontoGlobale: number,
-  speseTrasporto = 0
 ): RiepilogoIvaItem[] {
   const factor = 1 - scontoGlobale / 100
-  // Base degli articoli con IVA (per ripartire il trasporto proporzionalmente)
-  const totaleConIva = articoli
-    .filter((a) => a.aliquota_iva != null)
-    .reduce((sum, a) => sum + a.prezzo_totale_riga, 0)
   const map = new Map<number, number>()
   for (const a of articoli) {
     if (a.aliquota_iva == null) continue
-    const quotaTrasporto = totaleConIva > 0 ? speseTrasporto * (a.prezzo_totale_riga / totaleConIva) : 0
-    map.set(a.aliquota_iva, (map.get(a.aliquota_iva) ?? 0) + (a.prezzo_totale_riga + quotaTrasporto) * factor)
+    // sconto solo sui prodotti; trasporto ripartito al prezzo pieno
+    const base = a.prezzo_totale_riga * factor + (a.quota_trasporto ?? 0)
+    map.set(a.aliquota_iva, (map.get(a.aliquota_iva) ?? 0) + base)
   }
   return [...map.entries()]
     .map(([aliquota, imponibile]) => ({ aliquota, imponibile, iva: imponibile * (aliquota / 100) }))

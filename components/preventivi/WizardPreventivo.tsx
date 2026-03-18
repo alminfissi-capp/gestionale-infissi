@@ -107,6 +107,56 @@ function calcolaTrasportoPerCategoria(
   return { totale, dettaglio }
 }
 
+/**
+ * Calcola la quota di trasporto per ogni articolo, spalmando il costo della categoria
+ * solo sugli articoli di quella categoria (proporzionalmente al valore).
+ */
+function calcolaQuoteTrasportoWizard(
+  articoli: ArticoloWizard[],
+  listini: CategoriaConListini[]
+): number[] {
+  const perCat = new Map<string, {
+    pezzi: number; subtotaleCat: number
+    unitario: number; minimo: number; minPezzi: number
+    indices: number[]
+  }>()
+
+  for (let i = 0; i < articoli.length; i++) {
+    const a = articoli[i]
+    const cat = a.listino_id
+      ? listini.find((c) => c.listini.some((l) => l.id === a.listino_id))
+      : a.listino_libero_id
+      ? listini.find((c) => c.listini_liberi.some((l) => l.id === a.listino_libero_id))
+      : null
+    if (!cat) continue
+    const existing = perCat.get(cat.id)
+    if (existing) {
+      existing.pezzi += a.quantita
+      existing.subtotaleCat += a.prezzo_totale_riga
+      existing.indices.push(i)
+    } else {
+      perCat.set(cat.id, {
+        pezzi: a.quantita,
+        subtotaleCat: a.prezzo_totale_riga,
+        unitario: cat.trasporto_costo_unitario,
+        minimo: cat.trasporto_costo_minimo,
+        minPezzi: cat.trasporto_minimo_pezzi,
+        indices: [i],
+      })
+    }
+  }
+
+  const quote = new Array<number>(articoli.length).fill(0)
+  for (const { pezzi, subtotaleCat, unitario, minimo, minPezzi, indices } of perCat.values()) {
+    const trasportoCat = calcolaSpeseTrasportoPezzi(pezzi, unitario, minimo, minPezzi)
+    if (trasportoCat === 0 || subtotaleCat === 0) continue
+    for (const i of indices) {
+      quote[i] = trasportoCat * (articoli[i].prezzo_totale_riga / subtotaleCat)
+    }
+  }
+  return quote
+}
+
 export default function WizardPreventivo({ clienti, listini, aliquote, noteTemplates = [], numerazioneAttiva, preventivo }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -149,7 +199,9 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
     const articoliListino = articoli.filter((a) => a.tipo === 'listino' || a.tipo === 'listino_libero')
     const { totale: speseTrasporto, dettaglio: dettaglioTrasporto } =
       calcolaTrasportoPerCategoria(articoliListino, listini)
-    const riepilogoIva = calcolaRiepilogoIva(articoli, scontoGlobale, speseTrasporto)
+    const quoteTrasporto = calcolaQuoteTrasportoWizard(articoli, listini)
+    const articoliConQuota = articoli.map((a, i) => ({ ...a, quota_trasporto: quoteTrasporto[i] }))
+    const riepilogoIva = calcolaRiepilogoIva(articoliConQuota, scontoGlobale)
     const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
     const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
       subtotale,

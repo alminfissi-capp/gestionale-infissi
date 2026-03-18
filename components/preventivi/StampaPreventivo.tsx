@@ -314,19 +314,31 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
       {/* ── Totali ── */}
       <div className="stampa-section px-8 print:px-0 py-4 border-t-2 border-gray-400">
         <div className="ml-auto max-w-xs space-y-1 text-[11px]">
-          <div className="flex justify-between text-gray-600">
-            <span>Subtotale ({p.totale_pezzi} pz)</span>
-            <span className="tabular-nums">€ {formatEuro(p.subtotale)}</span>
-          </div>
+          {/* Subtotale — mostrato solo se c'è sconto o trasporto (altrimenti coincide con l'imponibile) */}
+          {(p.sconto_globale > 0 || p.spese_trasporto > 0) && (
+            <div className="flex justify-between text-gray-600">
+              <span>Subtotale ({p.totale_pezzi} pz)</span>
+              <span className="tabular-nums">€ {formatEuro(p.subtotale)}</span>
+            </div>
+          )}
           {p.sconto_globale > 0 && (
             <div className="flex justify-between text-green-700">
               <span>Sconto {p.sconto_globale}%</span>
               <span className="tabular-nums">− € {formatEuro(p.importo_sconto)}</span>
             </div>
           )}
+          {/* Totale imponibile = base su cui si calcola l'IVA (include trasporto ripartito) */}
+          <div className="flex justify-between text-gray-700 font-medium">
+            <span>
+              {p.sconto_globale > 0 || p.spese_trasporto > 0
+                ? 'Totale imponibile'
+                : `Imponibile (${p.totale_pezzi} pz)`}
+            </span>
+            <span className="tabular-nums">€ {formatEuro(p.totale_articoli)}</span>
+          </div>
           {p.riepilogo_iva.map((r) => (
             <div key={r.aliquota} className="flex justify-between text-gray-500">
-              <span>IVA {r.aliquota}% (su € {formatEuro(r.imponibile)})</span>
+              <span>IVA {r.aliquota}%</span>
               <span className="tabular-nums">€ {formatEuro(r.iva)}</span>
             </div>
           ))}
