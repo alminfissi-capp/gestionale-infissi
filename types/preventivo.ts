@@ -69,6 +69,8 @@ export type ArticoloPreventivoRow = {
   aliquota_iva: number | null
   ordine: number
   created_at: string
+  /** Quota di spese trasporto attribuita a questo articolo (calcolata al volo, non in DB) */
+  quota_trasporto?: number
 }
 
 // Articolo durante la compilazione del wizard (non ancora salvato)

@@ -192,13 +192,15 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
               <th className="py-2 text-right w-24">Ricavo unit.</th>
               <th className="py-2 text-right w-24">C. Acq. unit.</th>
               <th className="py-2 text-right w-20">Posa unit.</th>
+              <th className="py-2 text-right w-20">Trasp.</th>
               <th className="py-2 text-right w-24">Costo totale</th>
               <th className="py-2 text-right w-24">Margine</th>
             </tr>
           </thead>
           <tbody>
             {articoliOrdinati.map((a, i) => {
-              const costoTotRiga = (a.costo_acquisto_unitario + a.costo_posa) * a.quantita
+              const quotaTrasporto = a.quota_trasporto ?? 0
+              const costoTotRiga = (a.costo_acquisto_unitario + a.costo_posa) * a.quantita + quotaTrasporto
               const margineRiga = a.prezzo_totale_riga - costoTotRiga
               return (
                 <tr key={a.id} className="border-b border-gray-200 align-top">
@@ -223,6 +225,9 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
                   </td>
                   <td className="py-2 text-right tabular-nums text-gray-700">
                     {a.costo_posa > 0 ? `€ ${formatEuro(a.costo_posa)}` : '—'}
+                  </td>
+                  <td className="py-2 text-right tabular-nums text-gray-500">
+                    {quotaTrasporto > 0 ? `€ ${formatEuro(quotaTrasporto)}` : '—'}
                   </td>
                   <td className="py-2 text-right tabular-nums font-medium text-gray-800">
                     {costoTotRiga > 0 ? `€ ${formatEuro(costoTotRiga)}` : '—'}

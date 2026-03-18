@@ -151,13 +151,20 @@ function calcolaSpeseTrasportoInput(
   return totale
 }
 
+type ArticoloConListino = {
+  listino_id?: string | null
+  listino_libero_id?: string | null
+  quantita: number
+  prezzo_totale_riga: number
+}
+
 /**
  * Calcola la quota di trasporto per ogni articolo, spalmando il costo della categoria
  * solo sugli articoli appartenenti a quella categoria (proporzionalmente al valore).
  * Restituisce un array parallelo agli articoli con la quota di trasporto per ciascuno.
  */
 function calcolaQuoteTrasportoPerArticolo(
-  articoli: PreventivoInput['articoli'],
+  articoli: ArticoloConListino[],
   regole: Map<string, RegolaCategoria>,
   regoleLiberi: Map<string, RegolaCategoria>
 ): number[] {
@@ -285,6 +292,16 @@ export async function getPreventivo(id: string): Promise<PreventivoCompleto | nu
     }
   }
 
+  // Quote trasporto per articolo (per il report interno)
+  const listinoIdsForQuote = [...new Set((articoli ?? []).map((a) => a.listino_id).filter((id): id is string => !!id))]
+  const listinoLiberoIdsForQuote = [...new Set((articoli ?? []).map((a) => a.listino_libero_id).filter((id): id is string => !!id))]
+  const [regoleForQuote, regoleLiberiForQuote] = await Promise.all([
+    getRegoleTrasporto(listinoIdsForQuote),
+    getRegoleTrasportoLiberi(listinoLiberoIdsForQuote),
+  ])
+  const quoteTrasporto = calcolaQuoteTrasportoPerArticolo(articoli ?? [], regoleForQuote, regoleLiberiForQuote)
+  const articoliConQuota = (articoli ?? []).map((a, i) => ({ ...a, quota_trasporto: quoteTrasporto[i] ?? 0 }))
+
   // Allegati calcoli (PDF interni, bucket privato → URL firmati)
   let allegati_calcoli_data: { id: string; nome: string; storage_path: string; url: string }[] = []
   const { data: allegati } = await supabase
@@ -304,7 +321,7 @@ export async function getPreventivo(id: string): Promise<PreventivoCompleto | nu
     allegati_calcoli_data = signed
   }
 
-  return { ...prev, articoli: articoli ?? [], cataloghi_allegati_data, allegati_calcoli_data }
+  return { ...prev, articoli: articoliConQuota, cataloghi_allegati_data, allegati_calcoli_data }
 }
 
 export async function setCataloghiAllegati(
