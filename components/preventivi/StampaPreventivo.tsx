@@ -8,6 +8,7 @@ import { formatEuro } from '@/lib/pricing'
 import type { PreventivoCompleto } from '@/types/preventivo'
 import type { Settings } from '@/types/impostazioni'
 import AllegatoCatalogoPdf from '@/components/preventivi/AllegatoCatalogoPdf'
+import ScaleToFit from '@/components/preventivi/ScaleToFit'
 
 interface Props {
   preventivo: PreventivoCompleto
@@ -59,17 +60,19 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
       </div>
 
       {/* Sfondo grigio schermo — nascosto in stampa */}
-      <div className="print:hidden bg-gray-100 min-h-screen py-8 px-4">
-        <DocumentoA4
-          p={p}
-          s={s}
-          nomeCliente={nomeCliente}
-          dataFormattata={dataFormattata}
-          titolo={titolo}
-          settings={settings}
-          logoUrl={logoUrl}
-          mostraSconto={mostraSconto}
-        />
+      <div className="print:hidden bg-gray-100 min-h-screen py-4 sm:py-8 px-0 sm:px-4">
+        <ScaleToFit>
+          <DocumentoA4
+            p={p}
+            s={s}
+            nomeCliente={nomeCliente}
+            dataFormattata={dataFormattata}
+            titolo={titolo}
+            settings={settings}
+            logoUrl={logoUrl}
+            mostraSconto={mostraSconto}
+          />
+        </ScaleToFit>
       </div>
 
       {/* Documento puro per la stampa */}
