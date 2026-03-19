@@ -52,6 +52,8 @@ interface Props {
   aliquote: number[]
   initialValues?: ArticoloWizard
   isEditing?: boolean
+  /** Articoli già nel preventivo (escluso quello in modifica) */
+  articoliEsistenti: ArticoloWizard[]
   onAdd: (a: ArticoloWizard) => void
   onClose: () => void
 }
@@ -71,6 +73,7 @@ function FormGriglia({
   aliquote,
   initialValues,
   isEditing,
+  articoliEsistenti,
   onAdd,
 }: {
   listino: ListinoCompleto
@@ -78,6 +81,7 @@ function FormGriglia({
   aliquote: number[]
   initialValues?: ArticoloWizard
   isEditing?: boolean
+  articoliEsistenti: ArticoloWizard[]
   onAdd: (a: ArticoloWizard) => void
 }) {
   const [finituraIndex, setFinituraIndex] = useState(() => {
@@ -480,8 +484,24 @@ function FormGriglia({
             0
           )
           const posaUnit = parseFloat(costoPosa) || 0
-          const trasporto = calcolaSpeseTrasportoPezzi(qty, categoria.trasporto_costo_unitario, categoria.trasporto_costo_minimo, categoria.trasporto_minimo_pezzi)
-          const costoTot = (costoAcqUnit + costoAccessoriUnit + posaUnit) * qty + trasporto
+          // Trasporto: quota proporzionale al valore, considerando gli articoli già presenti della stessa categoria
+          const listinoIdsCat = new Set([
+            ...categoria.listini.map((l) => l.id),
+            ...(categoria.listini_liberi ?? []).map((l) => l.id),
+          ])
+          const esistentiCat = articoliEsistenti.filter(
+            (a) =>
+              (a.tipo === 'listino' && !!a.listino_id && listinoIdsCat.has(a.listino_id)) ||
+              (a.tipo === 'listino_libero' && !!a.listino_libero_id && listinoIdsCat.has(a.listino_libero_id))
+          )
+          const pezziEsistenti = esistentiCat.reduce((s, a) => s + a.quantita, 0)
+          const valoreEsistenti = esistentiCat.reduce((s, a) => s + a.prezzo_totale_riga, 0)
+          const pezziTotCat = pezziEsistenti + qty
+          const valoreTotCat = valoreEsistenti + calcolo.totalRiga
+          const trasportoCat = calcolaSpeseTrasportoPezzi(pezziTotCat, categoria.trasporto_costo_unitario, categoria.trasporto_costo_minimo, categoria.trasporto_minimo_pezzi)
+          const quotaTrasporto = valoreTotCat > 0 ? trasportoCat * (calcolo.totalRiga / valoreTotCat) : trasportoCat
+          // Costo e utile escluso il trasporto (voce separata)
+          const costoTot = (costoAcqUnit + costoAccessoriUnit + posaUnit) * qty
           const utile = calcolo.totalRiga - costoTot
           const percUtile = costoTot > 0 ? (utile / costoTot) * 100 : null
           return (
@@ -491,7 +511,6 @@ function FormGriglia({
               <span className="text-gray-600">Acq: <strong>€ {formatEuro(costoAcqUnit)}</strong>/pz</span>
               {costoAccessoriUnit > 0 && <span className="text-gray-600">Acc: <strong>€ {formatEuro(costoAccessoriUnit)}</strong>/pz</span>}
               {posaUnit > 0 && <span className="text-gray-600">Posa: <strong>€ {formatEuro(posaUnit)}</strong>/pz</span>}
-              {trasporto > 0 && <span className="text-gray-600">Trasp: <strong>€ {formatEuro(trasporto)}</strong></span>}
               <span className="text-gray-600">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
               <span className={`font-semibold ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
                 Utile: € {formatEuro(utile)}
@@ -499,6 +518,14 @@ function FormGriglia({
                   <span className="ml-1 font-normal opacity-80">({percUtile.toFixed(1).replace('.', ',')}%)</span>
                 )}
               </span>
+              {quotaTrasporto > 0 && (
+                <span className="w-full text-gray-500 border-t border-amber-200 pt-1 mt-0.5">
+                  Trasp (quota): <strong>€ {formatEuro(quotaTrasporto)}</strong>
+                  <span className="ml-1.5 font-normal opacity-70">
+                    — {pezziTotCat} pz tot. cat. → € {formatEuro(trasportoCat)} ripartiti
+                  </span>
+                </span>
+              )}
             </div>
           )
         })()
@@ -528,6 +555,7 @@ function FormLibero({
   aliquote,
   initialValues,
   isEditing,
+  articoliEsistenti,
   onAdd,
 }: {
   prodotto: ProdottoListino
@@ -536,6 +564,7 @@ function FormLibero({
   aliquote: number[]
   initialValues?: ArticoloWizard
   isEditing?: boolean
+  articoliEsistenti: ArticoloWizard[]
   onAdd: (a: ArticoloWizard) => void
 }) {
   const [finituraIndex, setFinituraIndex] = useState(() => {
@@ -832,18 +861,33 @@ function FormLibero({
         const costoAcqUnit = (prodotto.prezzo_acquisto ?? 0)
           + accessoriSelezionati.reduce((sum, a) => sum + (a.prezzo_acquisto ?? 0) * a.qty, 0)
         const posaUnit = parseFloat(costoPosa) || 0
-        const trasporto = calcolaSpeseTrasportoPezzi(qty, categoria.trasporto_costo_unitario, categoria.trasporto_costo_minimo, categoria.trasporto_minimo_pezzi)
-        const costoTot = (costoAcqUnit + posaUnit) * qty + trasporto
+        // Trasporto: quota proporzionale al valore, considerando gli articoli già presenti della stessa categoria
+        const listinoIdsCat = new Set([
+          ...(categoria.listini ?? []).map((l) => l.id),
+          ...(categoria.listini_liberi ?? []).map((l) => l.id),
+        ])
+        const esistentiCat = articoliEsistenti.filter(
+          (a) =>
+            (a.tipo === 'listino' && !!a.listino_id && listinoIdsCat.has(a.listino_id)) ||
+            (a.tipo === 'listino_libero' && !!a.listino_libero_id && listinoIdsCat.has(a.listino_libero_id))
+        )
+        const pezziEsistenti = esistentiCat.reduce((s, a) => s + a.quantita, 0)
+        const valoreEsistenti = esistentiCat.reduce((s, a) => s + a.prezzo_totale_riga, 0)
+        const pezziTotCat = pezziEsistenti + qty
+        const valoreTotCat = valoreEsistenti + calcolo.totalRiga
+        const trasportoCat = calcolaSpeseTrasportoPezzi(pezziTotCat, categoria.trasporto_costo_unitario, categoria.trasporto_costo_minimo, categoria.trasporto_minimo_pezzi)
+        const quotaTrasporto = valoreTotCat > 0 ? trasportoCat * (calcolo.totalRiga / valoreTotCat) : trasportoCat
+        // Costo e utile escluso il trasporto (voce separata)
+        const costoTot = (costoAcqUnit + posaUnit) * qty
         const utile = calcolo.totalRiga - costoTot
         const percUtile = costoTot > 0 ? (utile / costoTot) * 100 : null
-        if (costoAcqUnit === 0 && posaUnit === 0 && trasporto === 0) return null
+        if (costoAcqUnit === 0 && posaUnit === 0 && quotaTrasporto === 0) return null
         return (
           <div className="flex items-center gap-3 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs flex-wrap">
             <TrendingUp className="h-3.5 w-3.5 text-amber-600 shrink-0" />
             <span className="text-amber-800 font-medium">Interno:</span>
             <span className="text-gray-600">Acq: <strong>€ {formatEuro(costoAcqUnit)}</strong>/pz</span>
             {posaUnit > 0 && <span className="text-gray-600">Posa: <strong>€ {formatEuro(posaUnit)}</strong>/pz</span>}
-            {trasporto > 0 && <span className="text-gray-600">Trasp: <strong>€ {formatEuro(trasporto)}</strong></span>}
             <span className="text-gray-600">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
             <span className={`font-semibold ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
               Utile: € {formatEuro(utile)}
@@ -851,6 +895,14 @@ function FormLibero({
                 <span className="ml-1 font-normal opacity-80">({percUtile.toFixed(1).replace('.', ',')}%)</span>
               )}
             </span>
+            {quotaTrasporto > 0 && (
+              <span className="w-full text-gray-500 border-t border-amber-200 pt-1 mt-0.5">
+                Trasp (quota): <strong>€ {formatEuro(quotaTrasporto)}</strong>
+                <span className="ml-1.5 font-normal opacity-70">
+                  — {pezziTotCat} pz tot. cat. → € {formatEuro(trasportoCat)} ripartiti
+                </span>
+              </span>
+            )}
           </div>
         )
       })()}
@@ -870,7 +922,7 @@ function FormLibero({
 
 // ─── Dialog wrapper ───────────────────────────────────────────────────────────
 
-export default function DialogConfigurazione({ item, aliquote, initialValues, isEditing, onAdd, onClose }: Props) {
+export default function DialogConfigurazione({ item, aliquote, initialValues, isEditing, articoliEsistenti, onAdd, onClose }: Props) {
   const title =
     item?.tipo === 'griglia'
       ? item.listino.tipologia
@@ -893,6 +945,7 @@ export default function DialogConfigurazione({ item, aliquote, initialValues, is
             aliquote={aliquote}
             initialValues={initialValues}
             isEditing={isEditing}
+            articoliEsistenti={articoliEsistenti}
             onAdd={onAdd}
           />
         )}
@@ -906,6 +959,7 @@ export default function DialogConfigurazione({ item, aliquote, initialValues, is
             aliquote={aliquote}
             initialValues={initialValues}
             isEditing={isEditing}
+            articoliEsistenti={articoliEsistenti}
             onAdd={onAdd}
           />
         )}

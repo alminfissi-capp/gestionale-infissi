@@ -319,6 +319,7 @@ export default function ArticoliEditor({
         aliquote={aliquote}
         initialValues={configValues ?? undefined}
         isEditing={!!editingTempId}
+        articoliEsistenti={articoli.filter((a) => a.tempId !== editingTempId)}
         onAdd={handleAddOrEdit}
         onClose={() => { setItemConfig(null); setEditingTempId(null); setConfigValues(null) }}
       />
