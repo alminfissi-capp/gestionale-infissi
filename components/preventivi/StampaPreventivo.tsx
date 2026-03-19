@@ -214,7 +214,11 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
         </div>
 
         {/* Righe articoli */}
-        {articoliOrdinati.map((a, i) => (
+        {articoliOrdinati.map((a, i) => {
+          const quotaTrasporto = p.modalita_trasporto === 'ripartito' ? (a.quota_trasporto ?? 0) : 0
+          const quotaUnitaria = a.quantita > 0 ? quotaTrasporto / a.quantita : 0
+          const prezzoTotaleDisplay = a.prezzo_totale_riga + quotaTrasporto
+          return (
           <div
             key={a.id}
             style={{
@@ -288,13 +292,13 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
               {mostraSconto && a.sconto_articolo > 0 ? (
                 <>
                   <div style={{ textDecoration: 'line-through', color: '#9ca3af', fontSize: '9px' }}>
-                    € {formatEuro(a.prezzo_unitario)}
+                    € {formatEuro(a.prezzo_unitario + quotaUnitaria)}
                   </div>
-                  <div>€ {formatEuro(a.prezzo_unitario * (1 - a.sconto_articolo / 100))}</div>
+                  <div>€ {formatEuro(a.prezzo_unitario * (1 - a.sconto_articolo / 100) + quotaUnitaria)}</div>
                   <div style={{ color: '#16a34a', fontSize: '9px' }}>−{a.sconto_articolo}%</div>
                 </>
               ) : (
-                <div>€ {formatEuro(a.sconto_articolo > 0 ? a.prezzo_unitario * (1 - a.sconto_articolo / 100) : a.prezzo_unitario)}</div>
+                <div>€ {formatEuro(a.sconto_articolo > 0 ? a.prezzo_unitario * (1 - a.sconto_articolo / 100) + quotaUnitaria : a.prezzo_unitario + quotaUnitaria)}</div>
               )}
             </div>
 
@@ -305,20 +309,28 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
 
             {/* P. Totale */}
             <div style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums', paddingTop: '2px' }}>
-              € {formatEuro(a.prezzo_totale_riga)}
+              € {formatEuro(prezzoTotaleDisplay)}
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* ── Totali ── */}
       <div className="stampa-section px-8 print:px-0 py-4 border-t-2 border-gray-400">
         <div className="ml-auto max-w-xs space-y-1 text-[11px]">
-          {/* Subtotale — mostrato solo se c'è sconto o trasporto (altrimenti coincide con l'imponibile) */}
-          {(p.sconto_globale > 0 || p.spese_trasporto > 0) && (
+          {/* Subtotale — in modalità ripartito il trasporto è già nelle righe articolo,
+              quindi si mostra solo se c'è sconto globale (per spiegare la differenza).
+              In modalità separato si mostra anche se c'è il trasporto. */}
+          {((p.modalita_trasporto === 'ripartito' && p.sconto_globale > 0) ||
+            (p.modalita_trasporto === 'separato' && (p.sconto_globale > 0 || p.spese_trasporto > 0))) && (
             <div className="flex justify-between text-gray-600">
               <span>Subtotale ({p.totale_pezzi} pz)</span>
-              <span className="tabular-nums">€ {formatEuro(p.subtotale)}</span>
+              <span className="tabular-nums">€ {formatEuro(
+                p.modalita_trasporto === 'ripartito'
+                  ? p.subtotale + p.spese_trasporto
+                  : p.subtotale
+              )}</span>
             </div>
           )}
           {p.sconto_globale > 0 && (
@@ -327,10 +339,10 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
               <span className="tabular-nums">− € {formatEuro(p.importo_sconto)}</span>
             </div>
           )}
-          {/* Totale imponibile = base su cui si calcola l'IVA (include trasporto ripartito) */}
+          {/* Totale imponibile = base IVA (include trasporto ripartito) */}
           <div className="flex justify-between text-gray-700 font-medium">
             <span>
-              {p.sconto_globale > 0 || p.spese_trasporto > 0
+              {p.sconto_globale > 0 || (p.modalita_trasporto === 'separato' && p.spese_trasporto > 0)
                 ? 'Totale imponibile'
                 : `Imponibile (${p.totale_pezzi} pz)`}
             </span>
