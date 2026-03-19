@@ -478,12 +478,10 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
 
   if (articoliConCosto.length > 0) {
     const { error: artErr } = await supabase.from('articoli_preventivo').insert(
-      articoliConCosto.map((a, i) => ({
-        ...a,
-        preventivo_id: prev.id,
-        organization_id: orgId,
-        ordine: i,
-      }))
+      articoliConCosto.map((a, i) => {
+        const { quota_trasporto: _qt, ...articoloDb } = a
+        return { ...articoloDb, preventivo_id: prev.id, organization_id: orgId, ordine: i }
+      })
     )
     if (artErr) {
       // Rollback manuale: elimina il preventivo orfano
@@ -555,12 +553,10 @@ export async function updatePreventivo(
 
   if (articoliConCosto.length > 0) {
     const { error: artErr } = await supabase.from('articoli_preventivo').insert(
-      articoliConCosto.map((a, i) => ({
-        ...a,
-        preventivo_id: id,
-        organization_id: orgId,
-        ordine: i,
-      }))
+      articoliConCosto.map((a, i) => {
+        const { quota_trasporto: _qt, ...articoloDb } = a
+        return { ...articoloDb, preventivo_id: id, organization_id: orgId, ordine: i }
+      })
     )
     if (artErr) throw new Error(artErr.message)
   }
