@@ -57,7 +57,7 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
   const [sconto, setSconto] = useState(initialValues?.sconto_articolo ?? 0)
   const [aliquotaIva, setAliquotaIva] = useState<number | null>(initialValues?.aliquota_iva ?? null)
   const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(initialValues?.immagine_url ?? null)
   const [uploading, setUploading] = useState(false)
 
   const inputCameraRef = useRef<HTMLInputElement>(null)
@@ -91,6 +91,7 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
     try {
       let immagineUrl: string | null = null
       if (imageFile) {
+        // Nuovo file selezionato → carica e usa il nuovo URL
         const blob = await resizeImage(imageFile, 600)
         const orgId = await getCurrentOrgId()
         const supabase = createClient()
@@ -103,6 +104,9 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
           .from('preventivi-allegati')
           .getPublicUrl(fileName)
         immagineUrl = publicUrl
+      } else {
+        // Nessun nuovo file → mantieni l'URL esistente (null se l'utente l'ha rimossa)
+        immagineUrl = imagePreviewUrl
       }
 
       const articolo: ArticoloWizard = {
