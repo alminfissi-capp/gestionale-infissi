@@ -9,6 +9,8 @@ export type Settings = {
   email: string | null
   logo_url: string | null
   aliquote_iva: number[]
+  // Validità preventivi
+  giorni_validita_preventivo: number
   // Numerazione automatica preventivi
   num_prefisso: string | null
   num_prefisso_calcoli: string | null

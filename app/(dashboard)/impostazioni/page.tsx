@@ -7,6 +7,7 @@ import UploadLogo from '@/components/impostazioni/UploadLogo'
 import TemplateNote from '@/components/impostazioni/TemplateNote'
 import FormAliquoteIva from '@/components/impostazioni/FormAliquoteIva'
 import FormNumerazione from '@/components/impostazioni/FormNumerazione'
+import FormValiditaPreventivo from '@/components/impostazioni/FormValiditaPreventivo'
 
 export default async function ImpostazioniPage() {
   const supabase = await createClient()
@@ -97,6 +98,21 @@ export default async function ImpostazioniPage() {
         </CardHeader>
         <CardContent>
           <FormAliquoteIva initialAliquote={settings?.aliquote_iva ?? [22, 10, 4]} />
+        </CardContent>
+      </Card>
+
+      {/* Validità preventivi */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Validità preventivi</CardTitle>
+          <CardDescription>
+            Dopo quanti giorni dall&apos;invio un preventivo passa automaticamente a <strong>Scaduto</strong>.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FormValiditaPreventivo
+            initialGiorni={settings?.giorni_validita_preventivo ?? 30}
+          />
         </CardContent>
       </Card>
 

@@ -117,6 +117,19 @@ export async function saveNumerazione(input: NumerazioneInput): Promise<void> {
   revalidatePath('/impostazioni')
 }
 
+export async function saveGiorniValidita(giorni: number): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('settings')
+    .upsert(
+      { organization_id: orgId, giorni_validita_preventivo: Math.max(1, giorni) },
+      { onConflict: 'organization_id' }
+    )
+  if (error) throw new Error(error.message)
+  revalidatePath('/impostazioni')
+}
+
 export async function saveNoteTemplates(
   templates: { testo: string; ordine: number }[]
 ): Promise<void> {

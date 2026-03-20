@@ -246,6 +246,23 @@ async function calcolaCostiAcquistoInput(
 
 export async function getPreventivi(): Promise<Preventivo[]> {
   const supabase = await createClient()
+
+  // Legge i giorni di validità dalle impostazioni (default 30)
+  const { data: settings } = await supabase
+    .from('settings')
+    .select('giorni_validita_preventivo')
+    .maybeSingle()
+  const giorniValidita = settings?.giorni_validita_preventivo ?? 30
+
+  // Marca come scaduti i preventivi "inviato" con condiviso_at oltre il limite,
+  // ma solo se non sono già accettati o rifiutati (RLS garantisce solo la propria org)
+  await supabase
+    .from('preventivi')
+    .update({ stato: 'scaduto' })
+    .eq('stato', 'inviato')
+    .not('condiviso_at', 'is', null)
+    .lt('condiviso_at', new Date(Date.now() - giorniValidita * 86400_000).toISOString())
+
   const { data, error } = await supabase
     .from('preventivi')
     .select('*')
