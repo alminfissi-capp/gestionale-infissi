@@ -755,11 +755,12 @@ export async function duplicaCategoriaLibera(id: string): Promise<{ id: string }
       const { error: aErr } = await supabase
         .from('accessori_listino')
         .insert(
-          ll.accessori_listino.map((a: { nome: string; prezzo: number; ordine: number }) => ({
+          ll.accessori_listino.map((a: { nome: string; prezzo: number; prezzo_acquisto: number; ordine: number }) => ({
             organization_id: orgId,
             listino_libero_id: newLl.id,
             nome: a.nome,
             prezzo: a.prezzo,
+            prezzo_acquisto: a.prezzo_acquisto ?? 0,
             ordine: a.ordine,
           }))
         )

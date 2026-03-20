@@ -2,8 +2,6 @@
 
 import { createClient } from '@/lib/supabase/server'
 import type { OrgSubscription, Role } from '@/types/subscription'
-import type { Plan } from '@/types/subscription'
-import { getLimits } from '@/lib/plans'
 
 async function getOrgId(): Promise<string> {
   const supabase = await createClient()
@@ -61,23 +59,3 @@ export async function getCurrentUserRole(): Promise<{ role: Role; full_name: str
   }
 }
 
-/** Verifica se l'org è entro il limite per una risorsa (uso futuro nelle actions) */
-export async function checkLimit(
-  resource: 'categorie' | 'clienti',
-  currentCount: number
-): Promise<{ allowed: boolean; limit: number | null }> {
-  const sub = await getOrgSubscription()
-  const plan = sub.plan as Plan
-  const limits = getLimits(plan)
-
-  const limitMap: Record<string, number | null> = {
-    categorie: limits.maxCategorie,
-    clienti: limits.maxClienti,
-  }
-
-  const limit = limitMap[resource] ?? null
-  return {
-    allowed: limit === null || currentCount < limit,
-    limit,
-  }
-}

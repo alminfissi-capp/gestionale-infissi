@@ -1,4 +1,4 @@
-export interface Catalogo {
+export type Catalogo = {
   id: string
   organization_id: string
   nome: string

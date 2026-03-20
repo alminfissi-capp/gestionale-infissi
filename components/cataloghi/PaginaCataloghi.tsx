@@ -360,20 +360,23 @@ export default function PaginaCataloghi({ initialCataloghi }: Props) {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {cataloghiFiltrati.map((c, i) => (
+            {cataloghiFiltrati.map((c) => {
+              const idx = cataloghi.indexOf(c)
+              return (
               <CatalogoCard
                 key={c.id}
                 catalogo={c}
                 editMode={editMode}
-                isFirst={i === 0}
-                isLast={i === cataloghiFiltrati.length - 1}
+                isFirst={idx === 0}
+                isLast={idx === cataloghi.length - 1}
                 onView={() => setViewingCatalogo(c)}
                 onDelete={() => handleDelete(c)}
-                onMoveUp={() => moveItem(cataloghi.indexOf(c), -1)}
-                onMoveDown={() => moveItem(cataloghi.indexOf(c), 1)}
+                onMoveUp={() => moveItem(idx, -1)}
+                onMoveDown={() => moveItem(idx, 1)}
                 deleting={deletingId === c.id}
               />
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
