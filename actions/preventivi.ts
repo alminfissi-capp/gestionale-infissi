@@ -694,6 +694,7 @@ export async function aggiornaStatoPreventivo(
     .update({ stato })
     .eq('id', id)
   if (error) throw new Error(error.message)
+  revalidatePath(`/preventivi/${id}`)
   revalidatePath('/preventivi')
   revalidatePath('/')
 }

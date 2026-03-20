@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X, Share2, ChevronDown, ChevronUp, Paperclip, FileText } from 'lucide-react'
-import { deletePreventivo, duplicaPreventivo } from '@/actions/preventivi'
+import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
 import DialogAllegaCatalogo from '@/components/preventivi/DialogAllegaCatalogo'
 import DialogAllegatiCalcoli from '@/components/preventivi/DialogAllegatiCalcoli'
 import { generaShareToken, revokaShareToken } from '@/actions/condivisione'
@@ -67,10 +67,17 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const [allegatiCalcoliOpen, setAllegatiCalcoliOpen] = useState(false)
   const [noteEspanse, setNoteEspanse] = useState(false)
   const [origin, setOrigin] = useState('')
+  const [stato, setStato] = useState<StatoPreventivo>(p.stato)
 
   useEffect(() => { setOrigin(window.location.origin) }, [])
 
-  const cfg = STATO_CONFIG[p.stato]
+  const handleWhatsAppClick = () => {
+    if (stato !== 'bozza') return
+    setStato('inviato')
+    aggiornaStatoPreventivo(p.id, 'inviato').catch(() => setStato('bozza'))
+  }
+
+  const cfg = STATO_CONFIG[stato]
   const s = p.cliente_snapshot
   const nomeCliente = s.tipo === 'azienda'
     ? s.ragione_sociale || s.telefono || s.email || '—'
@@ -223,7 +230,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                 )}
                 {whatsappUrl && (
                   <DropdownMenuItem asChild>
-                    <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="text-green-700">
+                    <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="text-green-700" onClick={handleWhatsAppClick}>
                       <MessageCircle className="h-4 w-4 mr-2" />
                       WhatsApp
                     </a>
@@ -334,7 +341,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
               </Button>
               {whatsappUrl && (
                 <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50" asChild>
-                  <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+                  <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" onClick={handleWhatsAppClick}>
                     <MessageCircle className="h-3.5 w-3.5 mr-1" />
                     Invia su WhatsApp
                   </a>
