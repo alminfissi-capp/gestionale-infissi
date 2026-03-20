@@ -32,11 +32,13 @@ async function getPreventivoByToken(token: string): Promise<PreventivoCompleto |
     .update({ visualizzato_at: new Date().toISOString() })
     .eq('share_token', token)
 
-  // Recupera dati cataloghi allegati
+  // Recupera dati cataloghi allegati tramite service client (la tabella cataloghi
+  // non ha policy pubblica, quindi il client anonimo non può leggerla)
   const ids: string[] = prev.cataloghi_allegati ?? []
   let cataloghi_allegati_data: { id: string; nome: string; url: string }[] = []
   if (ids.length > 0) {
-    const { data: cats } = await supabase
+    const service = createServiceClient()
+    const { data: cats } = await service
       .from('cataloghi')
       .select('id, nome, storage_path')
       .in('id', ids)
@@ -48,14 +50,14 @@ async function getPreventivoByToken(token: string): Promise<PreventivoCompleto |
           return {
             id: cat.id,
             nome: cat.nome,
-            url: supabase.storage.from('cataloghi-brochure').getPublicUrl(cat.storage_path).data.publicUrl,
+            url: service.storage.from('cataloghi-brochure').getPublicUrl(cat.storage_path).data.publicUrl,
           }
         })
         .filter(Boolean) as { id: string; nome: string; url: string }[]
     }
   }
 
-  return { ...prev, articoli: articoli ?? [], cataloghi_allegati_data }
+  return { ...prev, articoli: articoli ?? [], cataloghi_allegati_data, allegati_calcoli_data: [] }
 }
 
 async function getSettingsPubblici(orgId: string): Promise<Settings | null> {
