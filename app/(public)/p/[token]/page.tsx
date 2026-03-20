@@ -33,8 +33,8 @@ async function getPreventivoByToken(token: string): Promise<PreventivoCompleto |
     .eq('share_token', token)
 
   // Recupera dati cataloghi allegati tramite service client:
-  // - la tabella cataloghi non ha policy pubblica (client anon non può leggerla)
-  // - il bucket potrebbe essere privato → si usano URL firmati come per il logo
+  // la tabella cataloghi non ha policy pubblica, quindi il client anon non può leggerla.
+  // Il bucket cataloghi-brochure è pubblico → si usa getPublicUrl (URL stabile, senza scadenza).
   const ids: string[] = prev.cataloghi_allegati ?? []
   let cataloghi_allegati_data: { id: string; nome: string; url: string }[] = []
   if (ids.length > 0) {
@@ -44,18 +44,17 @@ async function getPreventivoByToken(token: string): Promise<PreventivoCompleto |
       .select('id, nome, storage_path')
       .in('id', ids)
     if (cats) {
-      const entries = await Promise.all(
-        ids.map(async (id) => {
+      cataloghi_allegati_data = ids
+        .map((id) => {
           const cat = cats.find((c) => c.id === id)
           if (!cat) return null
-          const { data: signed } = await service.storage
-            .from('cataloghi-brochure')
-            .createSignedUrl(cat.storage_path, 3600)
-          if (!signed?.signedUrl) return null
-          return { id: cat.id, nome: cat.nome, url: signed.signedUrl }
+          return {
+            id: cat.id,
+            nome: cat.nome,
+            url: service.storage.from('cataloghi-brochure').getPublicUrl(cat.storage_path).data.publicUrl,
+          }
         })
-      )
-      cataloghi_allegati_data = entries.filter(Boolean) as { id: string; nome: string; url: string }[]
+        .filter(Boolean) as { id: string; nome: string; url: string }[]
     }
   }
 
