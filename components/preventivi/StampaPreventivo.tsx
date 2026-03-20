@@ -1,23 +1,25 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { Printer, ChevronLeft } from 'lucide-react'
+import { Printer, ChevronLeft, ThumbsUp, ThumbsDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatEuro } from '@/lib/pricing'
 import type { PreventivoCompleto } from '@/types/preventivo'
 import type { Settings } from '@/types/impostazioni'
 import AllegatoCatalogoPdf from '@/components/preventivi/AllegatoCatalogoPdf'
 import ScaleToFit from '@/components/preventivi/ScaleToFit'
+import { rispondiPreventivo } from '@/actions/condivisione'
 
 interface Props {
   preventivo: PreventivoCompleto
   settings: Settings | null
   logoUrl: string | null
   showBack?: boolean
+  token?: string
 }
 
-export default function StampaPreventivo({ preventivo: p, settings, logoUrl, showBack = true }: Props) {
+export default function StampaPreventivo({ preventivo: p, settings, logoUrl, showBack = true, token }: Props) {
   const mostraSconto = p.mostra_sconto_riga
 
   const s = p.cliente_snapshot
@@ -31,6 +33,22 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
   })
   const titolo = p.numero ? `Offerta N. ${p.numero}` : 'Preventivo'
 
+  const statoIniziale = (p.stato === 'accettato' || p.stato === 'rifiutato') ? p.stato : null
+  const [risposta, setRisposta] = useState<'accettato' | 'rifiutato' | null>(statoIniziale)
+  const [isPending, startTransition] = useTransition()
+
+  const handleRisposta = (r: 'accettato' | 'rifiutato') => {
+    if (!token || isPending) return
+    setRisposta(r)
+    startTransition(async () => {
+      try {
+        await rispondiPreventivo(token, r)
+      } catch {
+        setRisposta(null)
+      }
+    })
+  }
+
   useEffect(() => {
     const prev = document.title
     document.title = p.numero ? `${p.numero} ${nomeCliente}` : nomeCliente
@@ -40,7 +58,7 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
   return (
     <>
       {/* Toolbar — solo schermo */}
-      <div className="print:hidden sticky top-0 z-10 bg-gray-100 border-b border-gray-200 px-6 py-3 flex items-center gap-3">
+      <div className="print:hidden sticky top-0 z-10 bg-gray-100 border-b border-gray-200 px-6 py-3 flex items-center gap-3 flex-wrap">
         {showBack && (
           <Button variant="ghost" size="sm" asChild className="-ml-2">
             <Link href={`/preventivi/${p.id}`}>
@@ -50,11 +68,42 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
           </Button>
         )}
         <div className="flex-1" />
+        {token && (
+          risposta ? (
+            <span className={`text-sm font-medium px-3 py-1 rounded-full ${risposta === 'accettato' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              {risposta === 'accettato' ? '✓ Offerta accettata' : '✗ Offerta rifiutata'}
+            </span>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500 hidden sm:inline">Vuoi accettare questa offerta?</span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-green-500 text-green-700 hover:bg-green-50"
+                disabled={isPending}
+                onClick={() => handleRisposta('accettato')}
+              >
+                <ThumbsUp className="h-4 w-4 mr-1.5" />
+                Accetta
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-red-400 text-red-600 hover:bg-red-50"
+                disabled={isPending}
+                onClick={() => handleRisposta('rifiutato')}
+              >
+                <ThumbsDown className="h-4 w-4 mr-1.5" />
+                Rifiuta
+              </Button>
+            </div>
+          )
+        )}
         <Button size="sm" onClick={() => window.print()}>
           <Printer className="h-4 w-4 mr-1.5" />
           Stampa / Salva PDF
         </Button>
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-400 hidden lg:inline">
           Per rimuovere l&apos;URL in fondo, nella finestra di stampa disabilita <em>Intestazioni e piè di pagina</em>
         </p>
       </div>

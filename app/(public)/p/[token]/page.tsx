@@ -108,6 +108,7 @@ export default async function PreventivoPublicoPage({ params }: Props) {
       settings={settings}
       logoUrl={logoUrl}
       showBack={false}
+      token={token}
     />
   )
 }
