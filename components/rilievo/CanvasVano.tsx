@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import type { VanoMisurato } from '@/lib/rilievo'
 import { computeRealDimensions, calcolaRaggi, evaluaFormule, extractCampiRilievo, computeRealPositions } from '@/lib/rilievo'
 import { shapeToPathProportional, arcSvgPathScaled, arcSvgPathAcutoScaled } from '@/types/rilievo'
+import { db } from '@/lib/db'
 
 const PAD_LEFT   = 62
 const PAD_BOTTOM = 54
@@ -78,8 +79,29 @@ export default function CanvasVano({ vano }: Props) {
   const dragRef    = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null)
   const touchRef   = useRef<{ dist: number; mx: number; my: number } | null>(null)
   const wasDragRef = useRef(false)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => { panRef.current = pan }, [pan])
+
+  // ── Dexie persistence ────────────────────────────────────────
+  // Load canvas state (telai + localInput overrides) on mount
+  useEffect(() => {
+    db.vanoCanvas.get(vano.id).then((state) => {
+      if (!state) return
+      if (state.telai.length > 0) setTelai(state.telai as TelaioAggiunto[])
+      if (Object.keys(state.localInput).length > 0) setLocalInput(state.localInput)
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vano.id])
+
+  // Auto-save with 400ms debounce
+  useEffect(() => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      db.vanoCanvas.put({ vanoId: vano.id, telai, localInput, updatedAt: new Date().toISOString() })
+    }, 400)
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
+  }, [vano.id, telai, localInput])
 
   // ── geometry ──────────────────────────────────────────────
   const { widthMm, heightMm } = useMemo(

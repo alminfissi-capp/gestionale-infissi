@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import DisegnaForma from '@/components/rilievo/DisegnaForma'
 import type { FormaSerramentoDb } from '@/types/rilievo'
 import { shapeToPath } from '@/types/rilievo'
 import type { VanoMisurato } from '@/lib/rilievo'
+import { db } from '@/lib/db'
 
 interface Props {
   forme: FormaSerramentoDb[]
@@ -26,12 +27,32 @@ function ShapeThumb({ forma }: { forma: FormaSerramentoDb }) {
   )
 }
 
+const SESSION_KEY = 'current'
+
 export default function VaniRilievo({ forme }: Props) {
   const [vani, setVani] = useState<VanoMisurato[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selettoreAperto, setSelettoreAperto] = useState(false)
   const [disegnoAperto, setDisegnoAperto] = useState(false)
   const [formaDaMisurare, setFormaDaMisurare] = useState<FormaSerramentoDb | null>(null)
+  const loadedRef = useRef(false)
+
+  // Load persisted vani on mount
+  useEffect(() => {
+    db.rilievoSessione.get(SESSION_KEY).then((session) => {
+      if (session?.vani && session.vani.length > 0) {
+        setVani(session.vani)
+        setSelectedId(session.vani[session.vani.length - 1].id)
+      }
+      loadedRef.current = true
+    })
+  }, [])
+
+  // Auto-save vani on every change (after initial load)
+  useEffect(() => {
+    if (!loadedRef.current) return
+    db.rilievoSessione.put({ id: SESSION_KEY, vani, updatedAt: new Date().toISOString() })
+  }, [vani])
 
   const selectedVano = vani.find((v) => v.id === selectedId) ?? vani[vani.length - 1] ?? null
 
@@ -58,6 +79,7 @@ export default function VaniRilievo({ forme }: Props) {
       if (selectedId === id) setSelectedId(next[next.length - 1]?.id ?? null)
       return next
     })
+    db.vanoCanvas.delete(id)
   }
 
   return (
