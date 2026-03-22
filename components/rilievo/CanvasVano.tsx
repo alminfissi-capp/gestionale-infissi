@@ -345,19 +345,20 @@ export default function CanvasVano({ vano }: Props) {
 
           {/* ── telai aggiunti ── */}
           {telai.map((t, idx) => {
-            const baseInset = Math.min(shapePxW, shapePxH) * 0.06
-            const inset  = baseInset + idx * baseInset * 1.4
-            const sw     = baseInset * 0.7
-            const color  = t.tipo === 'scorrevole' ? '#7c3aed' : '#2563eb'
+            const bw  = Math.max(8, Math.min(shapePxW, shapePxH) * 0.07)
+            const oi  = 2 + idx * bw                          // outer inset
+            const ox1 = shapeOffX + oi,       oy1 = shapeOffY + oi
+            const ox2 = shapeOffX + shapePxW - oi, oy2 = shapeOffY + shapePxH - oi
             const { top, bottom, left, right } = latiAttivi(t.lati)
-            const x1 = shapeOffX + inset, y1 = shapeOffY + inset
-            const x2 = shapeOffX + shapePxW - inset, y2 = shapeOffY + shapePxH - inset
+            const fill = '#d1d5db'
+            const str  = '#374151'
+            const sw   = s(0.8)
             return (
               <g key={t.id} pointerEvents="none">
-                {top    && <line x1={x1} y1={y1} x2={x2} y2={y1} stroke={color} strokeWidth={sw} strokeLinecap="square" />}
-                {bottom && <line x1={x1} y1={y2} x2={x2} y2={y2} stroke={color} strokeWidth={sw} strokeLinecap="square" />}
-                {left   && <line x1={x1} y1={y1} x2={x1} y2={y2} stroke={color} strokeWidth={sw} strokeLinecap="square" />}
-                {right  && <line x1={x2} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth={sw} strokeLinecap="square" />}
+                {top    && <rect x={ox1}    y={oy1}    width={ox2-ox1} height={bw}      fill={fill} stroke={str} strokeWidth={sw} />}
+                {bottom && <rect x={ox1}    y={oy2-bw} width={ox2-ox1} height={bw}      fill={fill} stroke={str} strokeWidth={sw} />}
+                {left   && <rect x={ox1}    y={oy1}    width={bw}      height={oy2-oy1} fill={fill} stroke={str} strokeWidth={sw} />}
+                {right  && <rect x={ox2-bw} y={oy1}    width={bw}      height={oy2-oy1} fill={fill} stroke={str} strokeWidth={sw} />}
               </g>
             )
           })}
