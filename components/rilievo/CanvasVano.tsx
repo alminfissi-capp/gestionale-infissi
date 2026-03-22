@@ -449,7 +449,9 @@ export default function CanvasVano({ vano }: Props) {
                   const from = ptPx.get(seg.fromId), to = ptPx.get(seg.toId)
                   if (!from || !to) return null
 
-                  const dOuter = prevCountForLato(lato) * bw
+                  // BASE: offset fisso dal contorno tratteggiato → elementi sempre dentro
+                  const BASE  = 2
+                  const dOuter = BASE + prevCountForLato(lato) * bw
                   const dInner = dOuter + bw
 
                   const cur = segInfo(seg, ptPx, pxWinding)
@@ -463,15 +465,13 @@ export default function CanvasVano({ vano }: Props) {
                   const prevInfo = prevSeg ? segInfo(prevSeg, ptPx, pxWinding) : null
                   const nextInfo = nextSeg ? segInfo(nextSeg, ptPx, pxWinding) : null
 
-                  // profondità del lato adiacente al corner:
-                  // - se è attivo nel telaio corrente → outer = prevCount, inner = prevCount+1
-                  // - se non attivo → outer = inner = totalCount su quell'adiacente
+                  // profondità del lato adiacente al corner (include BASE)
                   const adjDepths = (adjLato: string | null | undefined, adjActive: boolean) => {
                     if (!adjLato) return { dOut: 0, dIn: 0 }
                     const pc = prevCountForLato(adjLato)
                     return adjActive
-                      ? { dOut: pc * bw, dIn: (pc + 1) * bw }
-                      : { dOut: pc * bw, dIn: pc * bw }
+                      ? { dOut: BASE + pc * bw, dIn: BASE + (pc + 1) * bw }
+                      : { dOut: BASE + pc * bw, dIn: BASE + pc * bw }
                   }
                   const { dOut: dA_out, dIn: dA_in } = adjDepths(prevLatoAdj, prevLatoAdj ? activeLatiSet.has(prevLatoAdj) : false)
                   const { dOut: dC_out, dIn: dC_in } = adjDepths(nextLatoAdj, nextLatoAdj ? activeLatiSet.has(nextLatoAdj) : false)
