@@ -199,6 +199,75 @@ export default function CanvasVano({ vano }: Props) {
     return result
   }, [layout, allPlaced, realPos, vano.forma.shape])
 
+  // ── pixel positions di ogni punto della forma (per rendering telai) ──
+  const ptPx = useMemo((): Map<string, { x: number; y: number }> => {
+    if (!layout) return new Map()
+    const shape = vano.forma.shape
+    if (allPlaced && realPos.size > 0) {
+      const xs = Array.from(realPos.values()).map((p) => p.x)
+      const ys = Array.from(realPos.values()).map((p) => p.y)
+      const minX = Math.min(...xs), maxX = Math.max(...xs)
+      const minY = Math.min(...ys), maxY = Math.max(...ys)
+      const rangeX = maxX - minX || 1, rangeY = maxY - minY || 1
+      const sc = Math.min(layout.shapePxW / rangeX, layout.shapePxH / rangeY)
+      const offLX = (layout.shapePxW - rangeX * sc) / 2
+      const offLY = (layout.shapePxH - rangeY * sc) / 2
+      const res = new Map<string, { x: number; y: number }>()
+      for (const [id, pos] of realPos) {
+        res.set(id, {
+          x: layout.shapeOffX + offLX + (pos.x - minX) * sc,
+          y: layout.shapeOffY + offLY + (pos.y - minY) * sc,
+        })
+      }
+      return res
+    }
+    const punti = shape.punti
+    const gxs = punti.map((p) => p.gx), gys = punti.map((p) => p.gy)
+    const minGx = Math.min(...gxs), maxGx = Math.max(...gxs)
+    const minGy = Math.min(...gys), maxGy = Math.max(...gys)
+    const rangeGx = maxGx - minGx || 1, rangeGy = maxGy - minGy || 1
+    const scX = layout.shapePxW / rangeGx, scY = layout.shapePxH / rangeGy
+    const res = new Map<string, { x: number; y: number }>()
+    for (const p of punti) {
+      res.set(p.id, {
+        x: layout.shapeOffX + (p.gx - minGx) * scX,
+        y: layout.shapeOffY + (p.gy - minGy) * scY,
+      })
+    }
+    return res
+  }, [layout, allPlaced, realPos, vano.forma.shape])
+
+  // Verso di avvolgimento dalla forma (1=CW su schermo, -1=CCW)
+  const pxWinding = useMemo(() => {
+    const pts = vano.forma.shape.punti
+    let sl = 0
+    for (let i = 0; i < pts.length; i++) {
+      const j = (i + 1) % pts.length
+      const pi = ptPx.get(pts[i].id), pj = ptPx.get(pts[j].id)
+      if (!pi || !pj) continue
+      sl += pi.x * pj.y - pj.x * pi.y
+    }
+    return sl >= 0 ? 1 : -1
+  }, [ptPx, vano.forma.shape.punti])
+
+  // Classificazione segmento → lato (testa/base/sx/dx)
+  const segLatoMap = useMemo(() => {
+    const shape = vano.forma.shape
+    const cx = shape.punti.reduce((s, p) => s + p.gx, 0) / (shape.punti.length || 1)
+    const cy = shape.punti.reduce((s, p) => s + p.gy, 0) / (shape.punti.length || 1)
+    const res = new Map<string, 'testa' | 'base' | 'sx' | 'dx'>()
+    for (const seg of shape.segmenti) {
+      const from = shape.punti.find((p) => p.id === seg.fromId)
+      const to   = shape.punti.find((p) => p.id === seg.toId)
+      if (!from || !to) continue
+      const dgx = Math.abs(to.gx - from.gx), dgy = Math.abs(to.gy - from.gy)
+      const midX = (from.gx + to.gx) / 2, midY = (from.gy + to.gy) / 2
+      if (dgx >= dgy) res.set(seg.id, midY < cy ? 'testa' : 'base')
+      else            res.set(seg.id, midX < cx ? 'sx'    : 'dx')
+    }
+    return res
+  }, [vano.forma.shape])
+
   // ── zoom/pan event handlers (passive:false) ───────────────
   const wheelHandler = useCallback((e: WheelEvent) => {
     e.preventDefault()
@@ -343,44 +412,54 @@ export default function CanvasVano({ vano }: Props) {
             </g>
           )}
 
-          {/* ── telai aggiunti ── */}
-          {telai.map((t, idx) => {
-            const bw  = Math.max(8, Math.min(shapePxW, shapePxH) * 0.07)
-            const oi  = 2 + idx * bw
-            const ox1 = shapeOffX + oi,            oy1 = shapeOffY + oi
-            const ox2 = shapeOffX + shapePxW - oi, oy2 = shapeOffY + shapePxH - oi
-            const { top, bottom, left, right } = latiAttivi(t.lati)
-            // miter a 45° solo dove due lati si toccano
-            const mTL = top && left, mTR = top && right
-            const mBL = bottom && left, mBR = bottom && right
+          {/* ── telai aggiunti (shape-following) ── */}
+          {telai.map((t, telaioIdx) => {
+            const bw = Math.max(8, Math.min(shapePxW, shapePxH) * 0.07)
+            const activeLatiSet = new Set(latiAttiviList(t.lati))
+            const shape = vano.forma.shape
             const fill = '#d1d5db', str = '#374151', sw = s(0.8)
-            const p = (arr: [number,number][]) => arr.map(([x,y]) => `${x},${y}`).join(' ')
+
             return (
               <g key={t.id} pointerEvents="none">
-                {top    && <polygon stroke={str} strokeWidth={sw} fill={fill} points={p([
-                  [ox1,        oy1   ],
-                  [ox2,        oy1   ],
-                  [mTR ? ox2-bw : ox2, oy1+bw],
-                  [mTL ? ox1+bw : ox1, oy1+bw],
-                ])} />}
-                {bottom && <polygon stroke={str} strokeWidth={sw} fill={fill} points={p([
-                  [mBL ? ox1+bw : ox1, oy2-bw],
-                  [mBR ? ox2-bw : ox2, oy2-bw],
-                  [ox2,        oy2   ],
-                  [ox1,        oy2   ],
-                ])} />}
-                {left   && <polygon stroke={str} strokeWidth={sw} fill={fill} points={p([
-                  [ox1,    oy1   ],
-                  [ox1+bw, mTL ? oy1+bw : oy1],
-                  [ox1+bw, mBL ? oy2-bw : oy2],
-                  [ox1,    oy2   ],
-                ])} />}
-                {right  && <polygon stroke={str} strokeWidth={sw} fill={fill} points={p([
-                  [ox2-bw, mTR ? oy1+bw : oy1],
-                  [ox2,    oy1   ],
-                  [ox2,    oy2   ],
-                  [ox2-bw, mBR ? oy2-bw : oy2],
-                ])} />}
+                {shape.segmenti.map((seg) => {
+                  const lato = segLatoMap.get(seg.id)
+                  if (!lato || !activeLatiSet.has(lato)) return null
+
+                  const from = ptPx.get(seg.fromId), to = ptPx.get(seg.toId)
+                  if (!from || !to) return null
+
+                  // profondità esterna: quanti telai precedenti coprono questo lato
+                  const prevCount = telai.slice(0, telaioIdx)
+                    .filter((prev) => latiAttiviList(prev.lati).includes(lato)).length
+                  const dOuter = prevCount * bw
+                  const dInner = dOuter + bw
+
+                  // info segmento corrente
+                  const cur = segInfo(seg, ptPx, pxWinding)
+                  if (!cur) return null
+
+                  // segmenti adiacenti — attivi in questo telaio?
+                  const prevSeg = shape.segmenti.find((s) => s.toId === seg.fromId) ?? null
+                  const nextSeg = shape.segmenti.find((s) => s.fromId === seg.toId)  ?? null
+                  const prevLato = prevSeg ? segLatoMap.get(prevSeg.id) : null
+                  const nextLato = nextSeg ? segLatoMap.get(nextSeg.id) : null
+                  const prevInfo = (prevLato && activeLatiSet.has(prevLato))
+                    ? segInfo(prevSeg!, ptPx, pxWinding) : null
+                  const nextInfo = (nextLato && activeLatiSet.has(nextLato))
+                    ? segInfo(nextSeg!, ptPx, pxWinding) : null
+
+                  // 4 vertici del poligono banda
+                  const [oFx, oFy] = miterPt(from.x, from.y, prevInfo, cur,      dOuter)
+                  const [oTx, oTy] = miterPt(to.x,   to.y,   cur,      nextInfo, dOuter)
+                  const [iFx, iFy] = miterPt(from.x, from.y, prevInfo, cur,      dInner)
+                  const [iTx, iTy] = miterPt(to.x,   to.y,   cur,      nextInfo, dInner)
+
+                  const pts = `${oFx},${oFy} ${oTx},${oTy} ${iTx},${iTy} ${iFx},${iFy}`
+                  return (
+                    <polygon key={seg.id} points={pts}
+                      fill={fill} stroke={str} strokeWidth={sw} />
+                  )
+                })}
               </g>
             )
           })}
@@ -666,6 +745,65 @@ function TelaioLatiIcon({ lati }: { lati: TelaioLatiId }) {
       <line x1="27" y1="1" x2="27" y2="21" stroke={right  ? S : D} strokeWidth={W} strokeLinecap="round" />
     </svg>
   )
+}
+
+// ── Geometry helpers per telai ────────────────────────────────
+import type { ShapeSegment } from '@/types/rilievo'
+
+function lineIntersect(
+  p1x:number,p1y:number,d1x:number,d1y:number,
+  p2x:number,p2y:number,d2x:number,d2y:number
+): [number,number] {
+  const det = d1x*d2y - d1y*d2x
+  if (Math.abs(det) < 0.001) return [(p1x+p2x)/2,(p1y+p2y)/2]
+  const t = ((p2x-p1x)*d2y - (p2y-p1y)*d2x) / det
+  return [p1x + t*d1x, p1y + t*d1y]
+}
+
+interface SegInfo { dx:number; dy:number; nx:number; ny:number }
+
+function segInfo(
+  seg: ShapeSegment,
+  ptPx: Map<string,{x:number;y:number}>,
+  winding: number
+): SegInfo | null {
+  const from = ptPx.get(seg.fromId), to = ptPx.get(seg.toId)
+  if (!from || !to) return null
+  const rx = to.x - from.x, ry = to.y - from.y
+  const len = Math.sqrt(rx*rx + ry*ry) || 1
+  const dx = rx/len, dy = ry/len
+  // normale inward: per CW (winding=1) è la sinistra della direzione = (-dy, dx)
+  const nx = winding >= 0 ? -dy :  dy
+  const ny = winding >= 0 ?  dx : -dx
+  return { dx, dy, nx, ny }
+}
+
+function miterPt(
+  vx:number, vy:number,
+  inSeg: SegInfo | null,
+  outSeg: SegInfo | null,
+  depth: number
+): [number,number] {
+  if (depth < 0.001) return [vx, vy]
+  if (inSeg && outSeg) {
+    return lineIntersect(
+      vx + inSeg.nx*depth, vy + inSeg.ny*depth, inSeg.dx, inSeg.dy,
+      vx + outSeg.nx*depth, vy + outSeg.ny*depth, outSeg.dx, outSeg.dy
+    )
+  }
+  if (inSeg)  return [vx + inSeg.nx*depth,  vy + inSeg.ny*depth]
+  if (outSeg) return [vx + outSeg.nx*depth, vy + outSeg.ny*depth]
+  return [vx, vy]
+}
+
+function latiAttiviList(lati: TelaioLatiId): Array<'testa'|'base'|'sx'|'dx'> {
+  const { top, bottom, left, right } = latiAttivi(lati)
+  const r: Array<'testa'|'base'|'sx'|'dx'> = []
+  if (top)    r.push('testa')
+  if (bottom) r.push('base')
+  if (left)   r.push('sx')
+  if (right)  r.push('dx')
+  return r
 }
 
 function latiAttivi(lati: TelaioLatiId) {
