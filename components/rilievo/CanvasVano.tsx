@@ -419,6 +419,10 @@ export default function CanvasVano({ vano }: Props) {
             const shape = vano.forma.shape
             const fill = '#d1d5db', str = '#374151', sw = s(0.8)
 
+            // profili totali su un lato fino a telaioIdx (esclude il corrente)
+            const prevCountForLato = (lato: string) =>
+              telai.slice(0, telaioIdx).filter((p) => latiAttiviList(p.lati).includes(lato as never)).length
+
             return (
               <g key={t.id} pointerEvents="none">
                 {shape.segmenti.map((seg) => {
@@ -428,37 +432,41 @@ export default function CanvasVano({ vano }: Props) {
                   const from = ptPx.get(seg.fromId), to = ptPx.get(seg.toId)
                   if (!from || !to) return null
 
-                  // profondità esterna: quanti telai precedenti coprono questo lato
-                  const prevCount = telai.slice(0, telaioIdx)
-                    .filter((prev) => latiAttiviList(prev.lati).includes(lato)).length
-                  const dOuter = prevCount * bw
+                  const dOuter = prevCountForLato(lato) * bw
                   const dInner = dOuter + bw
 
-                  // info segmento corrente
                   const cur = segInfo(seg, ptPx, pxWinding)
                   if (!cur) return null
 
-                  // segmenti adiacenti — attivi in questo telaio?
-                  const prevSeg = shape.segmenti.find((s) => s.toId === seg.fromId) ?? null
-                  const nextSeg = shape.segmenti.find((s) => s.fromId === seg.toId)  ?? null
-                  const prevLato = prevSeg ? segLatoMap.get(prevSeg.id) : null
-                  const nextLato = nextSeg ? segLatoMap.get(nextSeg.id) : null
-                  const prevInfo = (prevLato && activeLatiSet.has(prevLato))
-                    ? segInfo(prevSeg!, ptPx, pxWinding) : null
-                  const nextInfo = (nextLato && activeLatiSet.has(nextLato))
-                    ? segInfo(nextSeg!, ptPx, pxWinding) : null
+                  // segmenti adiacenti — info geometrica sempre (non solo se attivi)
+                  const prevSeg = shape.segmenti.find((s) => s.toId   === seg.fromId) ?? null
+                  const nextSeg = shape.segmenti.find((s) => s.fromId === seg.toId)   ?? null
+                  const prevLatoAdj = prevSeg ? segLatoMap.get(prevSeg.id) : null
+                  const nextLatoAdj = nextSeg ? segLatoMap.get(nextSeg.id) : null
+                  const prevInfo = prevSeg ? segInfo(prevSeg, ptPx, pxWinding) : null
+                  const nextInfo = nextSeg ? segInfo(nextSeg, ptPx, pxWinding) : null
 
-                  // 4 vertici del poligono banda
-                  const [oFx, oFy] = miterPt(from.x, from.y, prevInfo, cur,      dOuter)
-                  const [oTx, oTy] = miterPt(to.x,   to.y,   cur,      nextInfo, dOuter)
-                  const [iFx, iFy] = miterPt(from.x, from.y, prevInfo, cur,      dInner)
-                  const [iTx, iTy] = miterPt(to.x,   to.y,   cur,      nextInfo, dInner)
+                  // profondità del lato adiacente al corner:
+                  // - se è attivo nel telaio corrente → outer = prevCount, inner = prevCount+1
+                  // - se non attivo → outer = inner = totalCount su quell'adiacente
+                  const adjDepths = (adjLato: string | null | undefined, adjActive: boolean) => {
+                    if (!adjLato) return { dOut: 0, dIn: 0 }
+                    const pc = prevCountForLato(adjLato)
+                    return adjActive
+                      ? { dOut: pc * bw, dIn: (pc + 1) * bw }
+                      : { dOut: pc * bw, dIn: pc * bw }
+                  }
+                  const { dOut: dA_out, dIn: dA_in } = adjDepths(prevLatoAdj, prevLatoAdj ? activeLatiSet.has(prevLatoAdj) : false)
+                  const { dOut: dC_out, dIn: dC_in } = adjDepths(nextLatoAdj, nextLatoAdj ? activeLatiSet.has(nextLatoAdj) : false)
+
+                  // 4 vertici con miter asimmetrico (profondità diverse per i due lati)
+                  const [oFx, oFy] = miterPtAdj(from.x, from.y, prevInfo, dA_out, cur,      dOuter)
+                  const [oTx, oTy] = miterPtAdj(to.x,   to.y,   cur,      dOuter, nextInfo, dC_out)
+                  const [iFx, iFy] = miterPtAdj(from.x, from.y, prevInfo, dA_in,  cur,      dInner)
+                  const [iTx, iTy] = miterPtAdj(to.x,   to.y,   cur,      dInner, nextInfo, dC_in)
 
                   const pts = `${oFx},${oFy} ${oTx},${oTy} ${iTx},${iTy} ${iFx},${iFy}`
-                  return (
-                    <polygon key={seg.id} points={pts}
-                      fill={fill} stroke={str} strokeWidth={sw} />
-                  )
+                  return <polygon key={seg.id} points={pts} fill={fill} stroke={str} strokeWidth={sw} />
                 })}
               </g>
             )
@@ -784,15 +792,27 @@ function miterPt(
   outSeg: SegInfo | null,
   depth: number
 ): [number,number] {
-  if (depth < 0.001) return [vx, vy]
+  return miterPtAdj(vx, vy, inSeg, depth, outSeg, depth)
+}
+
+/**
+ * Miter asimmetrico: i due lati possono essere a profondità diverse.
+ * Questo permette di connettere correttamente un nuovo profilo a dei
+ * profili adiacenti già esistenti (dIn ≠ dOut).
+ */
+function miterPtAdj(
+  vx:number, vy:number,
+  inSeg: SegInfo | null, inDepth: number,
+  outSeg: SegInfo | null, outDepth: number
+): [number,number] {
   if (inSeg && outSeg) {
     return lineIntersect(
-      vx + inSeg.nx*depth, vy + inSeg.ny*depth, inSeg.dx, inSeg.dy,
-      vx + outSeg.nx*depth, vy + outSeg.ny*depth, outSeg.dx, outSeg.dy
+      vx + inSeg.nx*inDepth,   vy + inSeg.ny*inDepth,   inSeg.dx,  inSeg.dy,
+      vx + outSeg.nx*outDepth, vy + outSeg.ny*outDepth, outSeg.dx, outSeg.dy
     )
   }
-  if (inSeg)  return [vx + inSeg.nx*depth,  vy + inSeg.ny*depth]
-  if (outSeg) return [vx + outSeg.nx*depth, vy + outSeg.ny*depth]
+  if (inSeg)  return [vx + inSeg.nx*inDepth,   vy + inSeg.ny*inDepth]
+  if (outSeg) return [vx + outSeg.nx*outDepth, vy + outSeg.ny*outDepth]
   return [vx, vy]
 }
 
