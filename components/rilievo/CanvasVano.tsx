@@ -71,6 +71,8 @@ export default function CanvasVano({ vano }: Props) {
   const [menuStep, setMenuStep] = useState<null | 'componenti' | 'telaio_tipo' | 'telaio_lati'>(null)
   const [telaioTipo, setTelaioTipo] = useState<'scorrevole' | 'battente' | null>(null)
   const [telai, setTelai] = useState<TelaioAggiunto[]>([])
+  const [selectedTelaioId, setSelectedTelaioId] = useState<string | null>(null)
+  const [selectedMenuPos, setSelectedMenuPos]   = useState<{ x: number; y: number } | null>(null)
 
   const panRef     = useRef({ x: 0, y: 0 })
   const dragRef    = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null)
@@ -394,6 +396,7 @@ export default function CanvasVano({ vano }: Props) {
         onDoubleClick={onDoubleClick}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
+        onClick={() => { if (!wasDragRef.current) { setSelectedTelaioId(null); setSelectedMenuPos(null) } }}
       >
         <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
 
@@ -417,14 +420,28 @@ export default function CanvasVano({ vano }: Props) {
             const bw = Math.max(8, Math.min(shapePxW, shapePxH) * 0.07)
             const activeLatiSet = new Set(latiAttiviList(t.lati))
             const shape = vano.forma.shape
-            const fill = '#d1d5db', str = '#374151', sw = s(0.8)
+            const isSelected = selectedTelaioId === t.id
+            const fill = isSelected ? '#FDE047' : '#d1d5db'
+            const str  = '#374151', sw = s(0.8)
 
             // profili totali su un lato fino a telaioIdx (esclude il corrente)
             const prevCountForLato = (lato: string) =>
               telai.slice(0, telaioIdx).filter((p) => latiAttiviList(p.lati).includes(lato as never)).length
 
             return (
-              <g key={t.id} pointerEvents="none">
+              <g
+                key={t.id}
+                style={{ cursor: 'pointer' }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (wasDragRef.current) return
+                  const rect = svgRef.current?.getBoundingClientRect()
+                  if (!rect) return
+                  setSelectedTelaioId(isSelected ? null : t.id)
+                  setSelectedMenuPos(isSelected ? null : { x: e.clientX - rect.left, y: e.clientY - rect.top })
+                }}
+              >
                 {shape.segmenti.map((seg) => {
                   const lato = segLatoMap.get(seg.id)
                   if (!lato || !activeLatiSet.has(lato)) return null
@@ -559,6 +576,32 @@ export default function CanvasVano({ vano }: Props) {
             className="w-24 text-sm font-mono font-bold text-gray-900 text-center focus:outline-none"
           />
           <span className="text-xs text-gray-400 shrink-0">mm</span>
+        </div>
+      )}
+
+      {/* ── menu contestuale elemento selezionato ── */}
+      {selectedTelaioId && selectedMenuPos && (
+        <div
+          className="absolute z-50 bg-white shadow-xl rounded-xl border border-gray-200 flex items-center gap-0.5 p-1"
+          style={{
+            left: Math.max(4, Math.min(cSize.w - 90, selectedMenuPos.x - 18)),
+            top:  Math.max(4, Math.min(cSize.h - 50, selectedMenuPos.y - 52)),
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => {
+              setTelai((prev) => prev.filter((t) => t.id !== selectedTelaioId))
+              setSelectedTelaioId(null)
+              setSelectedMenuPos(null)
+            }}
+            className="p-2 rounded-lg hover:bg-red-50 text-red-500 hover:text-red-600 active:scale-95 transition-all"
+            title="Elimina"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+              <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
+            </svg>
+          </button>
         </div>
       )}
 
