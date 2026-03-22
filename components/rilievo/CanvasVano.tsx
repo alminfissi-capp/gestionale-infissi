@@ -346,19 +346,41 @@ export default function CanvasVano({ vano }: Props) {
           {/* ── telai aggiunti ── */}
           {telai.map((t, idx) => {
             const bw  = Math.max(8, Math.min(shapePxW, shapePxH) * 0.07)
-            const oi  = 2 + idx * bw                          // outer inset
-            const ox1 = shapeOffX + oi,       oy1 = shapeOffY + oi
+            const oi  = 2 + idx * bw
+            const ox1 = shapeOffX + oi,            oy1 = shapeOffY + oi
             const ox2 = shapeOffX + shapePxW - oi, oy2 = shapeOffY + shapePxH - oi
             const { top, bottom, left, right } = latiAttivi(t.lati)
-            const fill = '#d1d5db'
-            const str  = '#374151'
-            const sw   = s(0.8)
+            // miter a 45° solo dove due lati si toccano
+            const mTL = top && left, mTR = top && right
+            const mBL = bottom && left, mBR = bottom && right
+            const fill = '#d1d5db', str = '#374151', sw = s(0.8)
+            const p = (arr: [number,number][]) => arr.map(([x,y]) => `${x},${y}`).join(' ')
             return (
               <g key={t.id} pointerEvents="none">
-                {top    && <rect x={ox1}    y={oy1}    width={ox2-ox1} height={bw}      fill={fill} stroke={str} strokeWidth={sw} />}
-                {bottom && <rect x={ox1}    y={oy2-bw} width={ox2-ox1} height={bw}      fill={fill} stroke={str} strokeWidth={sw} />}
-                {left   && <rect x={ox1}    y={oy1}    width={bw}      height={oy2-oy1} fill={fill} stroke={str} strokeWidth={sw} />}
-                {right  && <rect x={ox2-bw} y={oy1}    width={bw}      height={oy2-oy1} fill={fill} stroke={str} strokeWidth={sw} />}
+                {top    && <polygon stroke={str} strokeWidth={sw} fill={fill} points={p([
+                  [ox1,        oy1   ],
+                  [ox2,        oy1   ],
+                  [mTR ? ox2-bw : ox2, oy1+bw],
+                  [mTL ? ox1+bw : ox1, oy1+bw],
+                ])} />}
+                {bottom && <polygon stroke={str} strokeWidth={sw} fill={fill} points={p([
+                  [mBL ? ox1+bw : ox1, oy2-bw],
+                  [mBR ? ox2-bw : ox2, oy2-bw],
+                  [ox2,        oy2   ],
+                  [ox1,        oy2   ],
+                ])} />}
+                {left   && <polygon stroke={str} strokeWidth={sw} fill={fill} points={p([
+                  [ox1,    oy1   ],
+                  [ox1+bw, mTL ? oy1+bw : oy1],
+                  [ox1+bw, mBL ? oy2-bw : oy2],
+                  [ox1,    oy2   ],
+                ])} />}
+                {right  && <polygon stroke={str} strokeWidth={sw} fill={fill} points={p([
+                  [ox2-bw, mTR ? oy1+bw : oy1],
+                  [ox2,    oy1   ],
+                  [ox2,    oy2   ],
+                  [ox2-bw, mBR ? oy2-bw : oy2],
+                ])} />}
               </g>
             )
           })}
