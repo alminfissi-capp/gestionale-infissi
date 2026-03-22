@@ -67,7 +67,7 @@ export default function CanvasVano({ vano }: Props) {
   const [zoom, setZoom] = useState(1)
   const [pan,  setPan]  = useState({ x: 0, y: 0 })
   const [editing, setEditing]   = useState<EditState | null>(null)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuStep, setMenuStep] = useState<null | 'componenti' | 'telaio_tipo'>(null)
 
   const panRef     = useRef({ x: 0, y: 0 })
   const dragRef    = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null)
@@ -389,7 +389,7 @@ export default function CanvasVano({ vano }: Props) {
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation()
-                  if (!wasDragRef.current) setMenuOpen(true)
+                  if (!wasDragRef.current) setMenuStep('componenti')
                 }}
               >
                 <circle cx={cx} cy={cy} r={r} fill="rgba(13,148,136,0.13)" stroke="#0d9488" strokeWidth={s(2)} />
@@ -431,12 +431,12 @@ export default function CanvasVano({ vano }: Props) {
       )}
 
       {/* ── menu componenti (bottom sheet) ── */}
-      {menuOpen && (
+      {menuStep !== null && (
         <>
           {/* backdrop */}
           <div
             className="absolute inset-0 z-30 bg-black/20"
-            onClick={() => setMenuOpen(false)}
+            onClick={() => setMenuStep(null)}
           />
           {/* sheet */}
           <div className="absolute inset-x-0 bottom-0 z-40 bg-white rounded-t-2xl shadow-2xl">
@@ -444,29 +444,100 @@ export default function CanvasVano({ vano }: Props) {
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 bg-gray-200 rounded-full" />
             </div>
-            <div className="px-5 pb-6 pt-2">
-              <p className="text-sm font-semibold text-gray-700 mb-4">Aggiungi componente</p>
-              <div className="grid grid-cols-3 gap-3">
-                {COMPONENTI.map(({ id, label, desc }) => (
-                  <button
-                    key={id}
-                    onClick={() => {
-                      setMenuOpen(false)
-                      // TODO: aprire schermata configurazione per `id`
-                    }}
-                    className="flex flex-col items-center gap-2 px-2 py-3 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all"
-                  >
-                    <ComponenteIcon id={id} />
-                    <span className="text-[11px] font-semibold text-gray-700 text-center leading-tight">
-                      {label}
-                    </span>
-                    <span className="text-[10px] text-gray-400 text-center leading-tight hidden sm:block">
-                      {desc}
-                    </span>
-                  </button>
-                ))}
+
+            {/* ── step: lista componenti ── */}
+            {menuStep === 'componenti' && (
+              <div className="px-5 pb-6 pt-2">
+                <p className="text-sm font-semibold text-gray-700 mb-4">Aggiungi componente</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {COMPONENTI.map(({ id, label, desc }) => (
+                    <button
+                      key={id}
+                      onClick={() => {
+                        if (id === 'telaio') {
+                          setMenuStep('telaio_tipo')
+                        } else {
+                          setMenuStep(null)
+                          // TODO: aprire schermata configurazione per `id`
+                        }
+                      }}
+                      className="flex flex-col items-center gap-2 px-2 py-3 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all"
+                    >
+                      <ComponenteIcon id={id} />
+                      <span className="text-[11px] font-semibold text-gray-700 text-center leading-tight">
+                        {label}
+                      </span>
+                      <span className="text-[10px] text-gray-400 text-center leading-tight hidden sm:block">
+                        {desc}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* ── step: tipo telaio ── */}
+            {menuStep === 'telaio_tipo' && (
+              <div className="px-5 pb-6 pt-2">
+                <div className="flex items-center gap-2 mb-4">
+                  <button
+                    onClick={() => setMenuStep('componenti')}
+                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-500"
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                      <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <p className="text-sm font-semibold text-gray-700">Telaio — tipo apertura</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => {
+                      setMenuStep(null)
+                      // TODO: configura telaio scorrevole
+                    }}
+                    className="flex flex-col items-center gap-3 px-4 py-5 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all"
+                  >
+                    <svg viewBox="0 0 48 48" className="w-12 h-12">
+                      {/* cornice */}
+                      <rect x="3" y="3" width="42" height="42" rx="3" fill="none" stroke="#0d9488" strokeWidth="3.5" />
+                      {/* due ante scorrevoli */}
+                      <rect x="6"  y="8" width="20" height="32" rx="1.5" fill="none" stroke="#0d9488" strokeWidth="2.5" />
+                      <rect x="22" y="8" width="20" height="32" rx="1.5" fill="none" stroke="#0d9488" strokeWidth="2.5" />
+                      {/* frecce opposte */}
+                      <line x1="10" y1="24" x2="17" y2="24" stroke="#0d9488" strokeWidth="2" strokeLinecap="round" />
+                      <polyline points="14,20 18,24 14,28" fill="none" stroke="#0d9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <line x1="38" y1="24" x2="31" y2="24" stroke="#0d9488" strokeWidth="2" strokeLinecap="round" />
+                      <polyline points="34,20 30,24 34,28" fill="none" stroke="#0d9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span className="text-sm font-semibold text-gray-800">Scorrevole</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setMenuStep(null)
+                      // TODO: configura telaio battente
+                    }}
+                    className="flex flex-col items-center gap-3 px-4 py-5 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all"
+                  >
+                    <svg viewBox="0 0 48 48" className="w-12 h-12">
+                      {/* cornice */}
+                      <rect x="3" y="3" width="42" height="42" rx="3" fill="none" stroke="#0d9488" strokeWidth="3.5" />
+                      {/* anta */}
+                      <rect x="9" y="8" width="30" height="32" rx="1.5" fill="none" stroke="#0d9488" strokeWidth="2.5" />
+                      {/* arco apertura */}
+                      <path d="M 39 8 A 30 30 0 0 0 9 38" fill="none" stroke="#0d9488" strokeWidth="1.5" strokeDasharray="3 2" />
+                      {/* cerniere sx */}
+                      <rect x="9" y="12" width="4" height="6" rx="1" fill="#0d9488" />
+                      <rect x="9" y="30" width="4" height="6" rx="1" fill="#0d9488" />
+                      {/* maniglia dx */}
+                      <rect x="35" y="22" width="4" height="4" rx="2" fill="#0d9488" />
+                    </svg>
+                    <span className="text-sm font-semibold text-gray-800">Battente</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

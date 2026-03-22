@@ -58,16 +58,15 @@
 
     <!-- A.L.M. text — scaled to fit comfortably inside panel -->
     <!-- Panel width ~832px, text at ~78% = ~650px wide -->
-    <text x="512" y="330" font-family="Arial Black, 'Arial Bold', Impact, sans-serif" font-size="210" font-weight="900" fill="#111111" text-anchor="middle" letter-spacing="-2">A.L.M.</text>
+    <text x="512" y="340" font-family="Arial Black, 'Arial Bold', Impact, sans-serif" font-size="210" font-weight="900" fill="#111111" text-anchor="middle" letter-spacing="-4">Win</text>
 
-    <!-- INDUSTRY -->
-    <text x="512" y="408" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="300" fill="#777777" text-anchor="middle" letter-spacing="20">INDUSTRY</text>
+
 
     <!-- Teal divider -->
     <line x1="170" y1="450" x2="854" y2="450" stroke="#1AADBA" stroke-width="3" opacity="0.5"></line>
 
     <!-- PREVENTIVI label in teal -->
-    <text x="512" y="530" font-family="Arial Black, 'Arial Bold', sans-serif" font-size="58" font-weight="900" fill="#0E8F9C" text-anchor="middle" letter-spacing="6">PREVENTIVI</text>
+    <text x="512" y="545" font-family="Arial Black, 'Arial Bold', sans-serif" font-size="110" font-weight="900" fill="#111111" text-anchor="middle" letter-spacing="6">Studio</text>
 
     <!-- ====== Mini document icon ====== -->
     <g transform="translate(390, 680)" filter="url(#docShadow)">
@@ -102,6 +101,4 @@
     <!-- Bottom green accent band -->
     <polygon points="82,856 887,856 887,942 82,942" fill="#2DC44E" opacity="0.1"></polygon>
 
-  </g><polygon points="158,130  990,130  935,990  130,990" fill="none" stroke="#2DC44E" stroke-width="18" opacity="0.7"></polygon><polygon points="62,34  894,34  839,894  34,894" fill="none" stroke="#1EC8D6" stroke-width="18" opacity="0.7"></polygon><polygon points="110,82  942,82  887,942  82,942" fill="none" stroke="#FFFFFF" stroke-width="10" opacity="0.9"></polygon><style>@media (prefers-color-scheme: light) { :root { filter: none; } }
-@media (prefers-color-scheme: dark) { :root { filter: none; } }
-</style></svg>
+  </g><polygon points="158,130  990,130  935,990  130,990" fill="none" stroke="#2DC44E" stroke-width="18" opacity="0.7"></polygon><polygon points="62,34  894,34  839,894  34,894" fill="none" stroke="#1EC8D6" stroke-width="18" opacity="0.7"></polygon><polygon points="110,82  942,82  887,942  82,942" fill="none" stroke="#FFFFFF" stroke-width="10" opacity="0.9"></polygon></svg>

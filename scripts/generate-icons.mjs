@@ -5,11 +5,13 @@ import { fileURLToPath } from 'url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
-const svgBuffer = readFileSync(join(root, 'public', 'icon.svg'))
+const svgBuffer = readFileSync(join(root, 'public', 'favicon.svg'))
 
 const sizes = [
-  { size: 192, out: 'icon-192.png' },
-  { size: 512, out: 'icon-512.png' },
+  { size: 96,  out: 'favicon-96x96.png' },
+  { size: 180, out: 'apple-touch-icon.png' },
+  { size: 192, out: 'web-app-manifest-192x192.png' },
+  { size: 512, out: 'web-app-manifest-512x512.png' },
 ]
 
 for (const { size, out } of sizes) {
