@@ -30,6 +30,7 @@ const COMPONENTI: { id: ComponenteId; label: string; desc: string }[] = [
 
 
 interface EditState { field: string; value: string; cx: number; cy: number }
+interface TelaioAggiunto { id: string; tipo: 'scorrevole' | 'battente'; lati: TelaioLatiId }
 interface Props { vano: VanoMisurato }
 
 export default function CanvasVano({ vano }: Props) {
@@ -69,6 +70,7 @@ export default function CanvasVano({ vano }: Props) {
   const [editing, setEditing]   = useState<EditState | null>(null)
   const [menuStep, setMenuStep] = useState<null | 'componenti' | 'telaio_tipo' | 'telaio_lati'>(null)
   const [telaioTipo, setTelaioTipo] = useState<'scorrevole' | 'battente' | null>(null)
+  const [telai, setTelai] = useState<TelaioAggiunto[]>([])
 
   const panRef     = useRef({ x: 0, y: 0 })
   const dragRef    = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null)
@@ -341,6 +343,25 @@ export default function CanvasVano({ vano }: Props) {
             </g>
           )}
 
+          {/* ── telai aggiunti ── */}
+          {telai.map((t, idx) => {
+            const baseInset = Math.min(shapePxW, shapePxH) * 0.06
+            const inset  = baseInset + idx * baseInset * 1.4
+            const sw     = baseInset * 0.7
+            const color  = t.tipo === 'scorrevole' ? '#7c3aed' : '#2563eb'
+            const { top, bottom, left, right } = latiAttivi(t.lati)
+            const x1 = shapeOffX + inset, y1 = shapeOffY + inset
+            const x2 = shapeOffX + shapePxW - inset, y2 = shapeOffY + shapePxH - inset
+            return (
+              <g key={t.id} pointerEvents="none">
+                {top    && <line x1={x1} y1={y1} x2={x2} y2={y1} stroke={color} strokeWidth={sw} strokeLinecap="square" />}
+                {bottom && <line x1={x1} y1={y2} x2={x2} y2={y2} stroke={color} strokeWidth={sw} strokeLinecap="square" />}
+                {left   && <line x1={x1} y1={y1} x2={x1} y2={y2} stroke={color} strokeWidth={sw} strokeLinecap="square" />}
+                {right  && <line x1={x2} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth={sw} strokeLinecap="square" />}
+              </g>
+            )
+          })}
+
           {/* ── etichette misure per-segmento ── */}
           {segLabels.map(({ id, nome, midX, midY, perpX, perpY }) => {
             const val = localValori[nome]
@@ -498,8 +519,12 @@ export default function CanvasVano({ vano }: Props) {
                     <button
                       key={id}
                       onClick={() => {
+                        setTelai(prev => [...prev, {
+                          id: Math.random().toString(36).slice(2),
+                          tipo: telaioTipo!,
+                          lati: id,
+                        }])
                         setMenuStep(null)
-                        // TODO: configura telaio telaioTipo + lati id
                       }}
                       className="flex items-center gap-3 px-3 py-3 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all text-left"
                     >
@@ -618,6 +643,15 @@ function TelaioLatiIcon({ lati }: { lati: TelaioLatiId }) {
       <line x1="27" y1="1" x2="27" y2="21" stroke={right  ? S : D} strokeWidth={W} strokeLinecap="round" />
     </svg>
   )
+}
+
+function latiAttivi(lati: TelaioLatiId) {
+  return {
+    top:    lati === '4_lati' || lati === '3_lati_testa' || lati === 'solo_testa',
+    bottom: lati === '4_lati' || lati === '3_lati_base'  || lati === 'solo_base',
+    left:   lati === '4_lati' || lati === '3_lati_testa' || lati === '3_lati_base' || lati === 'solo_sx',
+    right:  lati === '4_lati' || lati === '3_lati_testa' || lati === '3_lati_base' || lati === 'solo_dx',
+  }
 }
 
 // ── ComponenteIcon ───────────────────────────────────────────
