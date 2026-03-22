@@ -67,7 +67,8 @@ export default function CanvasVano({ vano }: Props) {
   const [zoom, setZoom] = useState(1)
   const [pan,  setPan]  = useState({ x: 0, y: 0 })
   const [editing, setEditing]   = useState<EditState | null>(null)
-  const [menuStep, setMenuStep] = useState<null | 'componenti' | 'telaio_tipo'>(null)
+  const [menuStep, setMenuStep] = useState<null | 'componenti' | 'telaio_tipo' | 'telaio_lati'>(null)
+  const [telaioTipo, setTelaioTipo] = useState<'scorrevole' | 'battente' | null>(null)
 
   const panRef     = useRef({ x: 0, y: 0 })
   const dragRef    = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null)
@@ -476,6 +477,40 @@ export default function CanvasVano({ vano }: Props) {
               </div>
             )}
 
+            {/* ── step: lati telaio ── */}
+            {menuStep === 'telaio_lati' && (
+              <div className="px-5 pb-6 pt-2">
+                <div className="flex items-center gap-2 mb-4">
+                  <button
+                    onClick={() => setMenuStep('telaio_tipo')}
+                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-500"
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                      <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <p className="text-sm font-semibold text-gray-700">
+                    Telaio {telaioTipo === 'scorrevole' ? 'scorrevole' : 'battente'} — lati
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {TELAIO_LATI.map(({ id, label }) => (
+                    <button
+                      key={id}
+                      onClick={() => {
+                        setMenuStep(null)
+                        // TODO: configura telaio telaioTipo + lati id
+                      }}
+                      className="flex items-center gap-3 px-3 py-3 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all text-left"
+                    >
+                      <TelaioLatiIcon lati={id} />
+                      <span className="text-[12px] font-semibold text-gray-700 leading-tight">{label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* ── step: tipo telaio ── */}
             {menuStep === 'telaio_tipo' && (
               <div className="px-5 pb-6 pt-2">
@@ -493,8 +528,8 @@ export default function CanvasVano({ vano }: Props) {
                 <div className="grid grid-cols-2 gap-4">
                   <button
                     onClick={() => {
-                      setMenuStep(null)
-                      // TODO: configura telaio scorrevole
+                      setTelaioTipo('scorrevole')
+                      setMenuStep('telaio_lati')
                     }}
                     className="flex flex-col items-center gap-3 px-4 py-5 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all"
                   >
@@ -515,8 +550,8 @@ export default function CanvasVano({ vano }: Props) {
 
                   <button
                     onClick={() => {
-                      setMenuStep(null)
-                      // TODO: configura telaio battente
+                      setTelaioTipo('battente')
+                      setMenuStep('telaio_lati')
                     }}
                     className="flex flex-col items-center gap-3 px-4 py-5 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all"
                   >
@@ -546,6 +581,42 @@ export default function CanvasVano({ vano }: Props) {
         rotella / pizzica = zoom &middot; doppio click = reset
       </p>
     </div>
+  )
+}
+
+// ── Telaio lati ──────────────────────────────────────────────
+type TelaioLatiId = '4_lati' | '3_lati_testa' | '3_lati_base' | 'solo_dx' | 'solo_sx' | 'solo_testa' | 'solo_base'
+
+const TELAIO_LATI: { id: TelaioLatiId; label: string }[] = [
+  { id: '4_lati',      label: 'Tutti e 4 i lati' },
+  { id: '3_lati_testa', label: '3 lati (dx, sx, testa)' },
+  { id: '3_lati_base',  label: '3 lati (dx, sx, base)' },
+  { id: 'solo_dx',     label: 'Solo lato destro' },
+  { id: 'solo_sx',     label: 'Solo lato sinistro' },
+  { id: 'solo_testa',  label: 'Solo testa' },
+  { id: 'solo_base',   label: 'Solo base' },
+]
+
+function TelaioLatiIcon({ lati }: { lati: TelaioLatiId }) {
+  const S = '#0d9488'
+  const W = 3
+  const D = '#d1d5db'
+  // 28×22 viewBox, outer rect 0,0 → 28,22
+  const top    = lati === '4_lati' || lati === '3_lati_testa' || lati === 'solo_testa'
+  const bottom = lati === '4_lati' || lati === '3_lati_base'  || lati === 'solo_base'
+  const left   = lati === '4_lati' || lati === '3_lati_testa' || lati === '3_lati_base' || lati === 'solo_sx'
+  const right  = lati === '4_lati' || lati === '3_lati_testa' || lati === '3_lati_base' || lati === 'solo_dx'
+  return (
+    <svg viewBox="0 0 28 22" className="w-9 h-7 shrink-0">
+      {/* lato testa (top) */}
+      <line x1="1" y1="1" x2="27" y2="1" stroke={top    ? S : D} strokeWidth={W} strokeLinecap="round" />
+      {/* lato base (bottom) */}
+      <line x1="1" y1="21" x2="27" y2="21" stroke={bottom ? S : D} strokeWidth={W} strokeLinecap="round" />
+      {/* lato sinistro */}
+      <line x1="1" y1="1" x2="1" y2="21" stroke={left   ? S : D} strokeWidth={W} strokeLinecap="round" />
+      {/* lato destro */}
+      <line x1="27" y1="1" x2="27" y2="21" stroke={right  ? S : D} strokeWidth={W} strokeLinecap="round" />
+    </svg>
   )
 }
 
