@@ -1,13 +1,25 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { Cliente } from '@/types/cliente'
 import type { CategoriaConListini } from '@/types/listino'
-import type { PreventivoInput } from '@/types/preventivo'
+import type { PreventivoInput, ArticoloWizard, ClienteSnapshot } from '@/types/preventivo'
 import type { VanoMisurato } from '@/lib/rilievo'
 
 export interface PendingPreventivo {
   tempId?: number
   input: PreventivoInput
   createdAt: string
+}
+
+export interface BozzaWizard {
+  id: string  // chiave fissa 'wizard-draft'
+  clienteId: string | null
+  snapshot: ClienteSnapshot
+  numero: string
+  articoli: ArticoloWizard[]
+  scontoGlobale: number
+  mostraSconto: boolean
+  note: string
+  updatedAt: string
 }
 
 export interface RilievoSessione {
@@ -29,6 +41,7 @@ class GestionaleDB extends Dexie {
   pendingPreventivi!: EntityTable<PendingPreventivo, 'tempId'>
   rilievoSessione!: EntityTable<RilievoSessione, 'id'>
   vanoCanvas!: EntityTable<VanoCanvasState, 'vanoId'>
+  bozzeWizard!: EntityTable<BozzaWizard, 'id'>
 
   constructor() {
     super('gestionale-infissi')
@@ -43,6 +56,14 @@ class GestionaleDB extends Dexie {
       pendingPreventivi: '++tempId, createdAt',
       rilievoSessione: 'id',
       vanoCanvas: 'vanoId',
+    })
+    this.version(3).stores({
+      clienti: 'id, cognome, nome',
+      listiniData: 'id, nome',
+      pendingPreventivi: '++tempId, createdAt',
+      rilievoSessione: 'id',
+      vanoCanvas: 'vanoId',
+      bozzeWizard: 'id, updatedAt',
     })
   }
 }

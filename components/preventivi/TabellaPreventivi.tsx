@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown } from 'lucide-react'
+import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown, RotateCcw } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
 import { formatEuro } from '@/lib/pricing'
@@ -80,6 +80,12 @@ export default function TabellaPreventivi({ preventivi }: Props) {
   }
 
   const pendingPreventivi = useLiveQuery(() => db.pendingPreventivi.toArray(), []) ?? []
+  const bozzeWizard = useLiveQuery(() => db.bozzeWizard.toArray(), []) ?? []
+
+  const handleScartaBozza = async (id: string) => {
+    await db.bozzeWizard.delete(id)
+    toast.success('Bozza scartata')
+  }
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
@@ -144,7 +150,7 @@ export default function TabellaPreventivi({ preventivi }: Props) {
       </div>
 
       {/* Empty state */}
-      {filtered.length === 0 && pendingPreventivi.length === 0 && (
+      {filtered.length === 0 && pendingPreventivi.length === 0 && bozzeWizard.length === 0 && (
         <div className="text-center py-16 text-gray-400">
           {preventivi.length === 0 ? (
             <>
@@ -164,7 +170,7 @@ export default function TabellaPreventivi({ preventivi }: Props) {
       )}
 
       {/* Table */}
-      {(filtered.length > 0 || pendingPreventivi.length > 0) && (
+      {(filtered.length > 0 || pendingPreventivi.length > 0 || bozzeWizard.length > 0) && (
         <div className="rounded-md border bg-white overflow-x-auto">
           <Table>
             <TableHeader>
@@ -179,6 +185,58 @@ export default function TabellaPreventivi({ preventivi }: Props) {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {/* Bozze salvate localmente (non ancora create) */}
+              {bozzeWizard.map((bozza) => {
+                const s = bozza.snapshot
+                const nome = s.tipo === 'azienda'
+                  ? s.ragione_sociale || s.email || s.telefono || '—'
+                  : [s.cognome, s.nome].filter(Boolean).join(' ') || s.email || s.telefono || '—'
+                const nPezzi = bozza.articoli.reduce((sum, a) => sum + a.quantita, 0)
+                return (
+                  <TableRow key={`bozza-${bozza.id}`} className="bg-yellow-50 hover:bg-yellow-100 cursor-pointer" onClick={() => router.push('/preventivi/nuovo')}>
+                    <TableCell className="font-mono text-sm text-gray-400">—</TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-sm">{nome || 'Preventivo in lavorazione'}</p>
+                        {s.cantiere && (
+                          <p className="text-xs text-gray-400">{s.cantiere}</p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center text-sm text-gray-600">
+                      {nPezzi > 0 ? nPezzi : '—'}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-sm text-gray-400">—</TableCell>
+                    <TableCell className="text-center">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border bg-yellow-100 text-yellow-700 border-yellow-300">
+                        <RotateCcw className="h-3 w-3" />
+                        Bozza locale
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right text-xs text-gray-400 whitespace-nowrap">
+                      {new Date(bozza.updatedAt).toLocaleDateString('it-IT')}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" asChild title="Continua bozza">
+                          <Link href="/preventivi/nuovo">
+                            <Eye className="h-3.5 w-3.5" />
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-400 hover:text-red-600"
+                          onClick={() => handleScartaBozza(bozza.id)}
+                          title="Scarta bozza"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
               {/* Preventivi in attesa di sync (offline) */}
               {pendingPreventivi.map((p) => {
                 const s = p.input.clienteSnapshot

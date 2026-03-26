@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useMemo, useTransition, useEffect } from 'react'
+import { useState, useMemo, useTransition, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, Save, Loader2, Truck } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Save, Loader2, Truck, RotateCcw } from 'lucide-react'
 import { createPreventivo, updatePreventivo } from '@/actions/preventivi'
 import { db } from '@/lib/db'
 import type { PendingPreventivo } from '@/lib/db'
@@ -75,7 +75,7 @@ function calcolaTrasportoPerCategoria(
   >()
 
   for (const articolo of articoli) {
-    let cat = articolo.listino_id
+    const cat = articolo.listino_id
       ? listini.find((c) => c.listini.some((l) => l.id === articolo.listino_id))
       : articolo.listino_libero_id
       ? listini.find((c) => c.listini_liberi.some((l) => l.id === articolo.listino_libero_id))
@@ -157,10 +157,14 @@ function calcolaQuoteTrasportoWizard(
   return quote
 }
 
+const BOZZA_KEY = 'wizard-draft'
+
 export default function WizardPreventivo({ clienti, listini, aliquote, noteTemplates = [], numerazioneAttiva, preventivo }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [step, setStep] = useState(0)
+  const [bozzaRipristinata, setBozzaRipristinata] = useState(false)
+  const draftLoaded = useRef(false)
 
   // Auto-collassa la sidebar quando si entra nel riepilogo
   useEffect(() => {
@@ -192,6 +196,63 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
   const [mostraSconto, setMostraSconto] = useState(preventivo?.mostra_sconto_riga ?? false)
   const [note, setNote] = useState(preventivo?.note ?? '')
   const [noteAperte, setNoteAperte] = useState(!!(preventivo?.note))
+
+  // Ripristino bozza al mount (solo modalità nuovo)
+  useEffect(() => {
+    if (preventivo || draftLoaded.current) return
+    draftLoaded.current = true
+    db.bozzeWizard.get(BOZZA_KEY).then((bozza) => {
+      if (!bozza) return
+      setClienteId(bozza.clienteId)
+      setSnapshot(bozza.snapshot)
+      setNumero(bozza.numero)
+      setArticoli(bozza.articoli)
+      setScontoGlobale(bozza.scontoGlobale)
+      setMostraSconto(bozza.mostraSconto)
+      setNote(bozza.note)
+      setBozzaRipristinata(true)
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Auto-save bozza con debounce (solo modalità nuovo)
+  useEffect(() => {
+    if (preventivo || !draftLoaded.current) return
+    const hasContent =
+      articoli.length > 0 ||
+      !!clienteId ||
+      !!(snapshot.nome || snapshot.cognome || snapshot.ragione_sociale || snapshot.telefono || snapshot.email) ||
+      !!note ||
+      !!numero
+    if (!hasContent) return
+    const timer = setTimeout(() => {
+      db.bozzeWizard.put({
+        id: BOZZA_KEY,
+        clienteId,
+        snapshot,
+        numero,
+        articoli,
+        scontoGlobale,
+        mostraSconto,
+        note,
+        updatedAt: new Date().toISOString(),
+      })
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [preventivo, clienteId, snapshot, numero, articoli, scontoGlobale, mostraSconto, note])
+
+  const scartaBozza = async () => {
+    await db.bozzeWizard.delete(BOZZA_KEY)
+    setClienteId(null)
+    setSnapshot(SNAPSHOT_VUOTO)
+    setNumero('')
+    setArticoli([])
+    setScontoGlobale(0)
+    setMostraSconto(false)
+    setNote('')
+    setBozzaRipristinata(false)
+    setStep(0)
+  }
 
   // Calcoli riepilogo
   const totali = useMemo(() => {
@@ -244,12 +305,14 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
         if (!navigator.onLine) {
           const pending: PendingPreventivo = { input, createdAt: new Date().toISOString() }
           await db.pendingPreventivi.add(pending)
+          await db.bozzeWizard.delete(BOZZA_KEY)
           toast.success('Preventivo salvato localmente — verrà sincronizzato quando torni online')
           router.push('/preventivi')
           return
         }
 
         const { id } = await createPreventivo(input)
+        await db.bozzeWizard.delete(BOZZA_KEY)
         toast.success('Preventivo creato')
         router.push(`/preventivi/${id}`)
       } catch (e: unknown) {
@@ -273,6 +336,21 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
       )}
 
     <div className={`space-y-6${step === 1 ? ' hidden' : ''}`}>
+      {/* Banner bozza ripristinata */}
+      {bozzaRipristinata && (
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 text-sm text-amber-800">
+          <RotateCcw className="h-4 w-4 shrink-0" />
+          <span className="flex-1">Bozza ripristinata — stai continuando un preventivo salvato automaticamente.</span>
+          <button
+            type="button"
+            onClick={scartaBozza}
+            className="font-medium underline hover:text-amber-900 transition-colors shrink-0"
+          >
+            Scarta bozza
+          </button>
+        </div>
+      )}
+
       {/* Step indicator */}
       <div className="flex items-center gap-2">
         {STEPS.map((label, i) => (
