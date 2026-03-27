@@ -22,7 +22,6 @@ import { Textarea } from '@/components/ui/textarea'
 import StepCliente from './StepCliente'
 import ArticoliEditor from './ArticoliEditor'
 import TabellaArticoli from './TabellaArticoli'
-import ScontoSelect from './ScontoSelect'
 import type { Cliente } from '@/types/cliente'
 import type { CategoriaConListini } from '@/types/listino'
 import type { NoteTemplate } from '@/types/impostazioni'
@@ -208,6 +207,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
       setNumero(bozza.numero)
       setArticoli(bozza.articoli)
       setScontoGlobale(bozza.scontoGlobale)
+      setScontoGlobaleStr(bozza.scontoGlobale > 0 ? formatPct(bozza.scontoGlobale) : '')
       setMostraSconto(bozza.mostraSconto)
       setNote(bozza.note)
       setBozzaRipristinata(true)
@@ -248,23 +248,36 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
     setNumero('')
     setArticoli([])
     setScontoGlobale(0)
+    setScontoGlobaleStr('')
+    setScontoEuroStr('')
     setMostraSconto(false)
     setNote('')
     setBozzaRipristinata(false)
     setStep(0)
   }
 
-  // Campo sconto in euro (sincronizzato bidirezionalmente con scontoGlobale %)
+  // Formatta una percentuale di sconto per la visualizzazione (max 2 decimali)
+  const formatPct = (v: number) => Number.isInteger(v) ? String(v) : v.toFixed(2)
+
+  // Campi testo per sconto % e sconto €, sincronizzati bidirezionalmente
+  const initPct = preventivo?.sconto_globale ?? 0
+  const [scontoGlobaleStr, setScontoGlobaleStr] = useState(initPct > 0 ? formatPct(initPct) : '')
   const [scontoEuroStr, setScontoEuroStr] = useState('')
 
-  const handleScontoGlobaleChange = (pct: number) => {
-    setScontoGlobale(pct)
-    if (pct === 0) {
+  const handleScontoGlobaleStrBlur = () => {
+    const raw = scontoGlobaleStr.replace(',', '.')
+    const val = parseFloat(raw)
+    if (isNaN(val) || val <= 0) {
+      setScontoGlobale(0)
+      setScontoGlobaleStr('')
       setScontoEuroStr('')
-    } else {
-      const sub = calcolaSubtotale(articoli)
-      setScontoEuroStr(sub > 0 ? formatEuro(sub * pct / 100) : '')
+      return
     }
+    const capped = Math.min(val, 50)
+    setScontoGlobale(capped)
+    setScontoGlobaleStr(formatPct(capped))
+    const sub = calcolaSubtotale(articoli)
+    setScontoEuroStr(sub > 0 ? formatEuro(sub * capped / 100) : '')
   }
 
   const handleScontoEuroBlur = () => {
@@ -273,12 +286,14 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
     const sub = calcolaSubtotale(articoli)
     if (isNaN(val) || val <= 0 || sub <= 0) {
       setScontoGlobale(0)
+      setScontoGlobaleStr('')
       setScontoEuroStr('')
       return
     }
-    const capped = Math.min(val, sub * 0.5)  // max 50%
-    const newPct = (capped / sub) * 100      // precisione float piena, nessun arrotondamento
+    const capped = Math.min(val, sub * 0.5)
+    const newPct = (capped / sub) * 100  // precisione float piena
     setScontoGlobale(newPct)
+    setScontoGlobaleStr(formatPct(newPct))
     setScontoEuroStr(formatEuro(capped))
   }
 
@@ -435,9 +450,19 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Sconto globale sul totale</Label>
-                <div className="flex items-center gap-3">
-                  <ScontoSelect value={scontoGlobale} onChange={handleScontoGlobaleChange} max={50} />
-                  <span className="text-gray-400 text-xs shrink-0">oppure €</span>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Input
+                      className="w-24 pr-7"
+                      value={scontoGlobaleStr}
+                      onChange={(e) => setScontoGlobaleStr(e.target.value)}
+                      onBlur={handleScontoGlobaleStrBlur}
+                      placeholder="0"
+                      inputMode="decimal"
+                    />
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">%</span>
+                  </div>
+                  <span className="text-gray-400 text-xs shrink-0">o €</span>
                   <Input
                     className="w-28"
                     value={scontoEuroStr}
@@ -521,7 +546,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
                     <span>€ {formatEuro(totali.subtotale)}</span>
                   </div>
                   <div className="flex justify-between text-red-600">
-                    <span>Sconto globale {scontoGlobale}%</span>
+                    <span>Sconto globale {formatPct(scontoGlobale)}%</span>
                     <span>− € {formatEuro(totali.importoSconto)}</span>
                   </div>
                 </>
