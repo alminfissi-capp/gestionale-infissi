@@ -16,11 +16,12 @@ interface Props {
 
 export default function ScontoSelect({ value, onChange, max = 50, className }: Props) {
   const options = Array.from({ length: Math.floor(max / 5) + 1 }, (_, i) => i * 5)
+  const displayValue = Number.isInteger(value) ? `${value}%` : `${value.toFixed(2)}%`
 
   return (
     <Select value={value.toString()} onValueChange={(v) => onChange(parseInt(v))}>
-      <SelectTrigger className={className}>
-        <span className="mr-auto">{value}%</span>
+      <SelectTrigger className={className ?? 'w-24'}>
+        <span className="mr-auto">{displayValue}</span>
       </SelectTrigger>
       <SelectContent>
         {options.map((o) => (

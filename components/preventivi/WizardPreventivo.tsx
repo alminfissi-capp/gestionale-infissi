@@ -276,8 +276,8 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
       setScontoEuroStr('')
       return
     }
-    const capped = Math.min(val, sub * 0.5)           // max 50%
-    const newPct = Math.round((capped / sub) * 10000) / 100  // 2 decimali
+    const capped = Math.min(val, sub * 0.5)  // max 50%
+    const newPct = (capped / sub) * 100      // precisione float piena, nessun arrotondamento
     setScontoGlobale(newPct)
     setScontoEuroStr(formatEuro(capped))
   }
