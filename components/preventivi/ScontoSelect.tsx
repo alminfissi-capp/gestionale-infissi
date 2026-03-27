@@ -5,7 +5,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select'
 
 interface Props {
@@ -21,7 +20,7 @@ export default function ScontoSelect({ value, onChange, max = 50, className }: P
   return (
     <Select value={value.toString()} onValueChange={(v) => onChange(parseInt(v))}>
       <SelectTrigger className={className}>
-        <SelectValue />
+        <span className="mr-auto">{value}%</span>
       </SelectTrigger>
       <SelectContent>
         {options.map((o) => (

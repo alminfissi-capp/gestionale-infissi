@@ -254,6 +254,34 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
     setStep(0)
   }
 
+  // Campo sconto in euro (sincronizzato bidirezionalmente con scontoGlobale %)
+  const [scontoEuroStr, setScontoEuroStr] = useState('')
+
+  const handleScontoGlobaleChange = (pct: number) => {
+    setScontoGlobale(pct)
+    if (pct === 0) {
+      setScontoEuroStr('')
+    } else {
+      const sub = calcolaSubtotale(articoli)
+      setScontoEuroStr(sub > 0 ? formatEuro(sub * pct / 100) : '')
+    }
+  }
+
+  const handleScontoEuroBlur = () => {
+    const raw = scontoEuroStr.replace(/[^\d,.]/g, '').replace(',', '.')
+    const val = parseFloat(raw)
+    const sub = calcolaSubtotale(articoli)
+    if (isNaN(val) || val <= 0 || sub <= 0) {
+      setScontoGlobale(0)
+      setScontoEuroStr('')
+      return
+    }
+    const capped = Math.min(val, sub * 0.5)           // max 50%
+    const newPct = Math.round((capped / sub) * 10000) / 100  // 2 decimali
+    setScontoGlobale(newPct)
+    setScontoEuroStr(formatEuro(capped))
+  }
+
   // Calcoli riepilogo
   const totali = useMemo(() => {
     const subtotale = calcolaSubtotale(articoli)
@@ -408,7 +436,16 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
               <div className="space-y-1.5">
                 <Label>Sconto globale sul totale</Label>
                 <div className="flex items-center gap-3">
-                  <ScontoSelect value={scontoGlobale} onChange={setScontoGlobale} max={50} />
+                  <ScontoSelect value={scontoGlobale} onChange={handleScontoGlobaleChange} max={50} />
+                  <span className="text-gray-400 text-xs shrink-0">oppure €</span>
+                  <Input
+                    className="w-28"
+                    value={scontoEuroStr}
+                    onChange={(e) => setScontoEuroStr(e.target.value)}
+                    onBlur={handleScontoEuroBlur}
+                    placeholder="0,00"
+                    inputMode="decimal"
+                  />
                   <div className="flex items-center gap-2 shrink-0">
                     <Switch
                       id="mostra-sconto-riga"
