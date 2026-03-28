@@ -227,6 +227,16 @@ export default function CanvasVano({ vano }: Props) {
     if (allPlaced) {
       const xs = Array.from(realPos.values()).map((p) => p.x)
       const ys = Array.from(realPos.values()).map((p) => p.y)
+      for (const seg of vano.forma.shape.segmenti) {
+        if (seg.tipo !== 'arco' || !seg.sagittaNome) continue
+        const sagittaMm = localValori[seg.sagittaNome]
+        if (!sagittaMm || sagittaMm <= 0) continue
+        const fp = realPos.get(seg.fromId), tp = realPos.get(seg.toId)
+        if (!fp || !tp) continue
+        const cpLen = Math.sqrt(seg.cpDx ** 2 + seg.cpDy ** 2) || 1
+        xs.push((fp.x + tp.x) / 2 + (seg.cpDx / cpLen) * sagittaMm)
+        ys.push((fp.y + tp.y) / 2 + (seg.cpDy / cpLen) * sagittaMm)
+      }
       const minX = Math.min(...xs), maxX = Math.max(...xs)
       const minY = Math.min(...ys), maxY = Math.max(...ys)
       const rangeX = maxX - minX || 1
@@ -262,7 +272,7 @@ export default function CanvasVano({ vano }: Props) {
       result.push({ id: seg.id, nome: seg.misuraNome, midX, midY, perpX: -ddy / dlen, perpY: ddx / dlen })
     }
     return result
-  }, [layout, allPlaced, realPos, vano.forma.shape])
+  }, [layout, allPlaced, realPos, localValori, vano.forma.shape])
 
   // ── pixel positions di ogni punto della forma (per rendering telai) ──
   const ptPx = useMemo((): Map<string, { x: number; y: number }> => {
@@ -271,6 +281,17 @@ export default function CanvasVano({ vano }: Props) {
     if (allPlaced && realPos.size > 0) {
       const xs = Array.from(realPos.values()).map((p) => p.x)
       const ys = Array.from(realPos.values()).map((p) => p.y)
+      // Stesso bounding box di realShapePath: include apici degli archi
+      for (const seg of shape.segmenti) {
+        if (seg.tipo !== 'arco' || !seg.sagittaNome) continue
+        const sagittaMm = localValori[seg.sagittaNome]
+        if (!sagittaMm || sagittaMm <= 0) continue
+        const fp = realPos.get(seg.fromId), tp = realPos.get(seg.toId)
+        if (!fp || !tp) continue
+        const cpLen = Math.sqrt(seg.cpDx ** 2 + seg.cpDy ** 2) || 1
+        xs.push((fp.x + tp.x) / 2 + (seg.cpDx / cpLen) * sagittaMm)
+        ys.push((fp.y + tp.y) / 2 + (seg.cpDy / cpLen) * sagittaMm)
+      }
       const minX = Math.min(...xs), maxX = Math.max(...xs)
       const minY = Math.min(...ys), maxY = Math.max(...ys)
       const rangeX = maxX - minX || 1, rangeY = maxY - minY || 1
@@ -300,7 +321,7 @@ export default function CanvasVano({ vano }: Props) {
       })
     }
     return res
-  }, [layout, allPlaced, realPos, vano.forma.shape])
+  }, [layout, allPlaced, realPos, localValori, vano.forma.shape])
 
   // Verso di avvolgimento dalla forma (1=CW su schermo, -1=CCW)
   const pxWinding = useMemo(() => {
@@ -555,11 +576,16 @@ export default function CanvasVano({ vano }: Props) {
                       const sagPx = sagittaMm * realSc
                       const oSag = Math.max(0.5, sagPx - dOuter)
                       const iSag = Math.max(0.5, sagPx - dInner)
+                      // L'arco interno percorre la direzione inversa (iTo→iFrom)
+                      // ma deve curvare nello STESSO senso dell'arco esterno.
+                      // Non si nega cpDir: il cross product col chord invertito
+                      // produce già il sweep corretto (entrambi gli archi curvano
+                      // verso lo stesso lato della forma).
                       const pathD =
                         `M ${oFx.toFixed(1)} ${oFy.toFixed(1)} ` +
                         telaioArcCmd(oFx, oFy, oTx, oTy, oSag, cpDirX, cpDirY, seg.tipoArco) +
                         ` L ${iTx.toFixed(1)} ${iTy.toFixed(1)} ` +
-                        telaioArcCmd(iTx, iTy, iFx, iFy, iSag, -cpDirX, -cpDirY, seg.tipoArco) +
+                        telaioArcCmd(iTx, iTy, iFx, iFy, iSag, cpDirX, cpDirY, seg.tipoArco) +
                         ' Z'
                       return <path key={seg.id} d={pathD} fill={fill} stroke={str} strokeWidth={sw} />
                     }
