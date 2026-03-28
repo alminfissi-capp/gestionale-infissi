@@ -419,7 +419,12 @@ export default function DialogMisure({ open, forma, onClose, onConferma }: Props
                           {campo.nome}
                           {campo.tipo === 'freccia' && (
                             <span className="ml-1 text-[10px] px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded-full">
-                              {campo.tipoArco === 'acuto' ? 'altezza vertice' : 'freccia arco'}
+                              freccia arco
+                            </span>
+                          )}
+                          {campo.tipo === 'vertice_alt' && (
+                            <span className="ml-1 text-[10px] px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded-full">
+                              dal piano all&apos;apice
                             </span>
                           )}
                         </label>

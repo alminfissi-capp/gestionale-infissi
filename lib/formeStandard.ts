@@ -31,13 +31,15 @@ function arcoSeg(
   id: string, fromId: string, toId: string,
   tipoArco: TipoArco, cpDx: number, cpDy: number,
   cordaNome: string,
-  sagittaNome: string, sagittaTipo: 'input' | 'calcolato', sagittaFormula: string
+  sagittaNome: string, sagittaTipo: 'input' | 'calcolato', sagittaFormula: string,
+  verticeAltNome?: string, verticeAltTipo?: 'input' | 'calcolato', verticeAltFormula?: string
 ): ShapeSegment {
   return {
     id, fromId, toId,
     tipo: 'arco', tipoArco, cpDx, cpDy,
     misuraNome: cordaNome, misuraTipo: 'input', misuraFormula: '',
     sagittaNome, sagittaTipo, sagittaFormula,
+    ...(verticeAltNome ? { verticeAltNome, verticeAltTipo, verticeAltFormula } : {}),
   }
 }
 
@@ -91,7 +93,8 @@ export const FORME_STANDARD: FormaSerramentoInput[] = [
         // arc TL→TR: cpDy=-3 → bulge upward di 3 unità griglia (= metà corda da 6)
         arcoSeg('s1','p1','p2','tutto_sesto', 0, -3,
           'Larghezza',
-          'Freccia', 'calcolato', 'Larghezza / 2'),
+          'Freccia', 'calcolato', 'Larghezza / 2',
+          'Alt. Vertice', 'calcolato', 'Altezza + Larghezza / 2'),
         rettaSeg('s2','p2','p3','Altezza'),
         rettaSeg('s3','p3','p0','Larghezza'),      // closing
       ],
@@ -112,9 +115,11 @@ export const FORME_STANDARD: FormaSerramentoInput[] = [
       segmenti: [
         rettaSeg('s0','p0','p1','Altezza'),
         // arc piatto: cpDy=-0.9 (30% di metà corda 3→0.9)
+        // Alt. Vertice = input; Freccia = calcolato = Alt. Vertice - Altezza
         arcoSeg('s1','p1','p2','ribassato', 0, -0.9,
           'Larghezza',
-          'Freccia', 'input', ''),
+          'Freccia', 'calcolato', 'Alt. Vertice - Altezza',
+          'Alt. Vertice', 'input', ''),
         rettaSeg('s2','p2','p3','Altezza'),
         rettaSeg('s3','p3','p0','Larghezza'),
       ],
@@ -136,7 +141,8 @@ export const FORME_STANDARD: FormaSerramentoInput[] = [
         // cpDy=-2.25 (75% di 3 = alto, quasi semicircolare)
         arcoSeg('s1','p1','p2','rialzato', 0, -2.25,
           'Larghezza',
-          'Freccia', 'input', ''),
+          'Freccia', 'calcolato', 'Alt. Vertice - Altezza',
+          'Alt. Vertice', 'input', ''),
         rettaSeg('s2','p2','p3','Altezza'),
         rettaSeg('s3','p3','p0','Larghezza'),
       ],
@@ -159,7 +165,8 @@ export const FORME_STANDARD: FormaSerramentoInput[] = [
         // cpDy=-1.95 (65% di 3)
         arcoSeg('s1','p1','p2','acuto', 0, -1.95,
           'Larghezza',
-          'Vertice', 'input', ''),
+          'Vertice', 'calcolato', 'Alt. Vertice - Altezza',
+          'Alt. Vertice', 'input', ''),
         rettaSeg('s2','p2','p3','Altezza'),
         rettaSeg('s3','p3','p0','Larghezza'),
       ],

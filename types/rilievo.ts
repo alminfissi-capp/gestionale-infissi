@@ -32,6 +32,11 @@ export interface ShapeSegment {
   sagittaNome: string          // es. "Freccia", "Vertice"
   sagittaTipo: 'input' | 'calcolato'
   sagittaFormula: string       // es. "Larghezza / 2" per tutto sesto
+  // Campo opzionale: altezza totale dall'imposta fino all'apice dell'arco.
+  // Se presente, la sagitta diventa calcolato = verticeAlt - altezza_lato.
+  verticeAltNome?: string      // es. "Alt. Vertice"
+  verticeAltTipo?: 'input' | 'calcolato'
+  verticeAltFormula?: string   // es. "Altezza + Larghezza / 2"
 }
 
 export interface AngoloConfig {

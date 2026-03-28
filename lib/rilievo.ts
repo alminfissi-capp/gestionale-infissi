@@ -25,8 +25,8 @@ import { arcRadius, arcRadiusSpezzato } from '@/types/rilievo'
 export interface CampoRilievo {
   /** ID del segmento sorgente */
   segmentoId: string
-  /** 'misura' = lato/corda del segmento; 'freccia' = sagitta/vertice arco */
-  tipo: 'misura' | 'freccia'
+  /** 'misura' = lato/corda; 'freccia' = sagitta/vertice; 'vertice_alt' = altezza dall'imposta all'apice */
+  tipo: 'misura' | 'freccia' | 'vertice_alt'
   /** Etichetta visualizzata all'operatore (es. "Larghezza", "Freccia") */
   nome: string
   /** 'input' = da misurare sul campo; 'calcolato' = derivato da formula */
@@ -101,6 +101,21 @@ export function extractCampiRilievo(shape: FormaShape): CampoRilievo[] {
           formula: seg.sagittaFormula ?? '',
           tipoArco: seg.tipoArco,
         })
+      }
+      // Campo "altezza al vertice" (dall'imposta all'apice) — campo opzionale
+      if (seg.verticeAltNome) {
+        const vkey = `va:${seg.verticeAltNome}`
+        if (!seen.has(vkey)) {
+          seen.add(vkey)
+          campi.push({
+            segmentoId: seg.id,
+            tipo: 'vertice_alt',
+            nome: seg.verticeAltNome,
+            tipoMisura: seg.verticeAltTipo ?? 'input',
+            formula: seg.verticeAltFormula ?? '',
+            tipoArco: seg.tipoArco,
+          })
+        }
       }
     }
   }
