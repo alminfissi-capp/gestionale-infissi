@@ -267,11 +267,21 @@ export function computeRealDimensions(
         seenH.add(seg.misuraNome)
         widthMm = Math.max(widthMm, val)
       }
+      // arco orizzontale: la sagitta si proietta sull'altezza
+      if (seg.tipo === 'arco' && seg.sagittaNome) {
+        const sag = valori[seg.sagittaNome] ?? 0
+        if (sag > 0) heightMm += sag
+      }
     } else {
       // segmento verticale → contribuisce all'altezza
       if (!seenV.has(seg.misuraNome)) {
         seenV.add(seg.misuraNome)
         heightMm = Math.max(heightMm, val)
+      }
+      // arco verticale: la sagitta si proietta sulla larghezza
+      if (seg.tipo === 'arco' && seg.sagittaNome) {
+        const sag = valori[seg.sagittaNome] ?? 0
+        if (sag > 0) widthMm += sag
       }
     }
   }

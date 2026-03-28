@@ -91,7 +91,6 @@ export default function CanvasVano({ vano }: Props) {
       if (state.telai.length > 0) setTelai(state.telai as TelaioAggiunto[])
       if (Object.keys(state.localInput).length > 0) setLocalInput(state.localInput)
     })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vano.id])
 
   // Auto-save with 400ms debounce
@@ -146,6 +145,17 @@ export default function CanvasVano({ vano }: Props) {
     if (!layout || !allPlaced) return null
     const xs = Array.from(realPos.values()).map((p) => p.x)
     const ys = Array.from(realPos.values()).map((p) => p.y)
+    // Espande il bounding box includendo gli apici reali degli archi
+    for (const seg of vano.forma.shape.segmenti) {
+      if (seg.tipo !== 'arco' || !seg.sagittaNome) continue
+      const sagittaMm = localValori[seg.sagittaNome]
+      if (!sagittaMm || sagittaMm <= 0) continue
+      const fp = realPos.get(seg.fromId), tp = realPos.get(seg.toId)
+      if (!fp || !tp) continue
+      const cpLen = Math.sqrt(seg.cpDx ** 2 + seg.cpDy ** 2) || 1
+      xs.push((fp.x + tp.x) / 2 + (seg.cpDx / cpLen) * sagittaMm)
+      ys.push((fp.y + tp.y) / 2 + (seg.cpDy / cpLen) * sagittaMm)
+    }
     const minX = Math.min(...xs), maxX = Math.max(...xs)
     const minY = Math.min(...ys), maxY = Math.max(...ys)
     const rangeX = maxX - minX || 1
@@ -164,15 +174,26 @@ export default function CanvasVano({ vano }: Props) {
         const cpy = (fy + ty) / 2 + seg.cpDy * sc
         d += ` Q ${cpx.toFixed(1)} ${cpy.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)}`
       } else if (seg.tipo === 'arco') {
+        // cpDx/cpDy sono in grid units; sc è px/mm → convertiamo in mm
+        // usando la sagitta reale misurata, mantenendo solo la direzione
+        let effCpDx = seg.cpDx, effCpDy = seg.cpDy
+        if (seg.sagittaNome) {
+          const sagittaMm = localValori[seg.sagittaNome]
+          if (sagittaMm && sagittaMm > 0) {
+            const cpLen = Math.sqrt(seg.cpDx ** 2 + seg.cpDy ** 2) || 1
+            effCpDx = (seg.cpDx / cpLen) * sagittaMm
+            effCpDy = (seg.cpDy / cpLen) * sagittaMm
+          }
+        }
         d += ' ' + (seg.tipoArco === 'acuto'
-          ? arcSvgPathAcutoScaled(fx, fy, tx, ty, seg.cpDx, seg.cpDy, sc, false)
-          : arcSvgPathScaled(fx, fy, tx, ty, seg.cpDx, seg.cpDy, sc, false))
+          ? arcSvgPathAcutoScaled(fx, fy, tx, ty, effCpDx, effCpDy, sc, false)
+          : arcSvgPathScaled(fx, fy, tx, ty, effCpDx, effCpDy, sc, false))
       } else {
         d += ` L ${tx.toFixed(1)} ${ty.toFixed(1)}`
       }
     })
     return d ? d + ' Z' : null
-  }, [layout, allPlaced, realPos, vano.forma.shape])
+  }, [layout, allPlaced, realPos, localValori, vano.forma.shape])
 
   // Dati per etichette per-segmento (posizioni in coordinate gruppo SVG)
   // Funziona sia con posizioni reali (allPlaced) sia con coordinate griglia (fallback)
@@ -851,7 +872,7 @@ function segInfo(
   return { dx, dy, nx, ny }
 }
 
-function miterPt(
+function _miterPt(
   vx:number, vy:number,
   inSeg: SegInfo | null,
   outSeg: SegInfo | null,
