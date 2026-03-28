@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import type { VanoMisurato } from '@/lib/rilievo'
 import { computeRealDimensions, calcolaRaggi, evaluaFormule, extractCampiRilievo, computeRealPositions } from '@/lib/rilievo'
-import { shapeToPathProportional, arcSvgPathScaled, arcSvgPathAcutoScaled } from '@/types/rilievo'
+import { shapeToPathProportional, arcSvgPathScaled, arcSvgPathAcutoScaled, arcRadius, arcRadiusSpezzato } from '@/types/rilievo'
 import { db } from '@/lib/db'
 
 const PAD_LEFT   = 62
@@ -193,6 +193,26 @@ export default function CanvasVano({ vano }: Props) {
       }
     })
     return d ? d + ' Z' : null
+  }, [layout, allPlaced, realPos, localValori, vano.forma.shape])
+
+  // Fattore scala px/mm (identico a quello usato in realShapePath, necessario per telai su archi)
+  const realSc = useMemo(() => {
+    if (!layout || !allPlaced || realPos.size === 0) return 1
+    const xs = Array.from(realPos.values()).map((p) => p.x)
+    const ys = Array.from(realPos.values()).map((p) => p.y)
+    for (const seg of vano.forma.shape.segmenti) {
+      if (seg.tipo !== 'arco' || !seg.sagittaNome) continue
+      const sagittaMm = localValori[seg.sagittaNome]
+      if (!sagittaMm || sagittaMm <= 0) continue
+      const fp = realPos.get(seg.fromId), tp = realPos.get(seg.toId)
+      if (!fp || !tp) continue
+      const cpLen = Math.sqrt(seg.cpDx ** 2 + seg.cpDy ** 2) || 1
+      xs.push((fp.x + tp.x) / 2 + (seg.cpDx / cpLen) * sagittaMm)
+      ys.push((fp.y + tp.y) / 2 + (seg.cpDy / cpLen) * sagittaMm)
+    }
+    const rangeX = Math.max(...xs) - Math.min(...xs) || 1
+    const rangeY = Math.max(...ys) - Math.min(...ys) || 1
+    return Math.min(layout.shapePxW / rangeX, layout.shapePxH / rangeY)
   }, [layout, allPlaced, realPos, localValori, vano.forma.shape])
 
   // Dati per etichette per-segmento (posizioni in coordinate gruppo SVG)
@@ -525,6 +545,26 @@ export default function CanvasVano({ vano }: Props) {
                   const [iFx, iFy] = miterPtAdj(from.x, from.y, prevInfo, dA_in,  cur,      dInner)
                   const [iTx, iTy] = miterPtAdj(to.x,   to.y,   cur,      dInner, nextInfo, dC_in)
 
+                  // Segmenti arco: segui la curva invece di tracciare la corda
+                  if (seg.tipo === 'arco' && seg.sagittaNome) {
+                    const sagittaMm = localValori[seg.sagittaNome]
+                    if (sagittaMm && sagittaMm > 0) {
+                      const cpLen = Math.sqrt(seg.cpDx ** 2 + seg.cpDy ** 2) || 1
+                      const cpDirX = seg.cpDx / cpLen
+                      const cpDirY = seg.cpDy / cpLen
+                      const sagPx = sagittaMm * realSc
+                      const oSag = Math.max(0.5, sagPx - dOuter)
+                      const iSag = Math.max(0.5, sagPx - dInner)
+                      const pathD =
+                        `M ${oFx.toFixed(1)} ${oFy.toFixed(1)} ` +
+                        telaioArcCmd(oFx, oFy, oTx, oTy, oSag, cpDirX, cpDirY, seg.tipoArco) +
+                        ` L ${iTx.toFixed(1)} ${iTy.toFixed(1)} ` +
+                        telaioArcCmd(iTx, iTy, iFx, iFy, iSag, -cpDirX, -cpDirY, seg.tipoArco) +
+                        ' Z'
+                      return <path key={seg.id} d={pathD} fill={fill} stroke={str} strokeWidth={sw} />
+                    }
+                  }
+
                   const pts = `${oFx},${oFy} ${oTx},${oTy} ${iTx},${iTy} ${iFx},${iFy}`
                   return <polygon key={seg.id} points={pts} fill={fill} stroke={str} strokeWidth={sw} />
                 })}
@@ -842,7 +882,7 @@ function TelaioLatiIcon({ lati }: { lati: TelaioLatiId }) {
 }
 
 // ── Geometry helpers per telai ────────────────────────────────
-import type { ShapeSegment } from '@/types/rilievo'
+import type { ShapeSegment, TipoArco } from '@/types/rilievo'
 
 function lineIntersect(
   p1x:number,p1y:number,d1x:number,d1y:number,
@@ -879,6 +919,39 @@ function _miterPt(
   depth: number
 ): [number,number] {
   return miterPtAdj(vx, vy, inSeg, depth, outSeg, depth)
+}
+
+/**
+ * Genera il comando SVG A (o due A per acuto) per un arco del telaio.
+ * sag = sagitta in pixel (già offset rispetto al contorno originale).
+ * cpDirX/Y = direzione normalizzata del rigonfiamento arco.
+ * Per l'arco interno (percorso inverso) passare -cpDirX/-cpDirY.
+ */
+function telaioArcCmd(
+  fx: number, fy: number,
+  tx: number, ty: number,
+  sag: number,
+  cpDirX: number, cpDirY: number,
+  tipoArco?: TipoArco
+): string {
+  const dx = tx - fx, dy = ty - fy
+  const chord = Math.sqrt(dx * dx + dy * dy)
+  if (chord < 0.01 || sag < 0.01) return `L ${tx.toFixed(1)} ${ty.toFixed(1)}`
+  const cross = dx * cpDirY - dy * cpDirX
+  if (tipoArco === 'acuto') {
+    const mx = (fx + tx) / 2 + cpDirX * sag
+    const my = (fy + ty) / 2 + cpDirY * sag
+    const R = arcRadiusSpezzato(chord, sag)
+    const Rf = R.toFixed(2)
+    const sweepL = cross < 0 ? 1 : 0
+    const sweepR = cross < 0 ? 0 : 1
+    return `A ${Rf} ${Rf} 0 0 ${sweepL} ${mx.toFixed(1)} ${my.toFixed(1)} A ${Rf} ${Rf} 0 0 ${sweepR} ${tx.toFixed(1)} ${ty.toFixed(1)}`
+  } else {
+    const R = arcRadius(chord, sag)
+    const large = sag > chord / 2 ? 1 : 0
+    const sweep = cross < 0 ? 1 : 0
+    return `A ${R.toFixed(2)} ${R.toFixed(2)} 0 ${large} ${sweep} ${tx.toFixed(1)} ${ty.toFixed(1)}`
+  }
 }
 
 /**
