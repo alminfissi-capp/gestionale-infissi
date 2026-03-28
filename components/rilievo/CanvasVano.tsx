@@ -566,7 +566,10 @@ export default function CanvasVano({ vano }: Props) {
                   const [iFx, iFy] = miterPtAdj(from.x, from.y, prevInfo, dA_in,  cur,      dInner)
                   const [iTx, iTy] = miterPtAdj(to.x,   to.y,   cur,      dInner, nextInfo, dC_in)
 
-                  // Segmenti arco: segui la curva invece di tracciare la corda
+                  // Segmenti arco: spessore uniforme tramite offset radiale
+                  // Gli archi interni/esterni sono concentrici: i vertici vengono
+                  // spostati lungo il raggio (verso il centro del cerchio) di dOuter/dInner,
+                  // evitando il miter che causa spessore variabile agli angoli.
                   if (seg.tipo === 'arco' && seg.sagittaNome) {
                     const sagittaMm = localValori[seg.sagittaNome]
                     if (sagittaMm && sagittaMm > 0) {
@@ -574,18 +577,40 @@ export default function CanvasVano({ vano }: Props) {
                       const cpDirX = seg.cpDx / cpLen
                       const cpDirY = seg.cpDy / cpLen
                       const sagPx = sagittaMm * realSc
+                      const chord = Math.sqrt((to.x - from.x) ** 2 + (to.y - from.y) ** 2)
                       const oSag = Math.max(0.5, sagPx - dOuter)
                       const iSag = Math.max(0.5, sagPx - dInner)
-                      // L'arco interno percorre la direzione inversa (iTo→iFrom)
-                      // ma deve curvare nello STESSO senso dell'arco esterno.
-                      // Non si nega cpDir: il cross product col chord invertito
-                      // produce già il sweep corretto (entrambi gli archi curvano
-                      // verso lo stesso lato della forma).
+
+                      // Offset radiale per archi circolari semplici (non acuto)
+                      let oFxR = oFx, oFyR = oFy, oTxR = oTx, oTyR = oTy
+                      let iFxR = iFx, iFyR = iFy, iTxR = iTx, iTyR = iTy
+                      if (seg.tipoArco !== 'acuto' && chord > 0.01 && sagPx > 0.01) {
+                        const R = arcRadius(chord, sagPx)
+                        // Centro: midpoint - (R - sag) * cpDir
+                        const midX = (from.x + to.x) / 2
+                        const midY = (from.y + to.y) / 2
+                        const ccx = midX - (R - sagPx) * cpDirX
+                        const ccy = midY - (R - sagPx) * cpDirY
+                        // Vettori dal centro ai due vertici (= raggio, lunghezza R)
+                        const r0x = from.x - ccx, r0y = from.y - ccy
+                        const r1x = to.x   - ccx, r1y = to.y   - ccy
+                        const r0 = Math.sqrt(r0x*r0x + r0y*r0y) || 1
+                        const r1 = Math.sqrt(r1x*r1x + r1y*r1y) || 1
+                        // Sposta verso il centro di dOuter/dInner lungo il raggio
+                        oFxR = from.x - (dOuter/r0)*r0x;  oFyR = from.y - (dOuter/r0)*r0y
+                        oTxR = to.x   - (dOuter/r1)*r1x;  oTyR = to.y   - (dOuter/r1)*r1y
+                        iFxR = from.x - (dInner/r0)*r0x;  iFyR = from.y - (dInner/r0)*r0y
+                        iTxR = to.x   - (dInner/r1)*r1x;  iTyR = to.y   - (dInner/r1)*r1y
+                      }
+
+                      // Arco esterno → lato radiale → arco interno inverso → chiudi
+                      // cpDir non viene negato: con chord invertito il cross product
+                      // produce automaticamente il sweep corretto per entrambi gli archi.
                       const pathD =
-                        `M ${oFx.toFixed(1)} ${oFy.toFixed(1)} ` +
-                        telaioArcCmd(oFx, oFy, oTx, oTy, oSag, cpDirX, cpDirY, seg.tipoArco) +
-                        ` L ${iTx.toFixed(1)} ${iTy.toFixed(1)} ` +
-                        telaioArcCmd(iTx, iTy, iFx, iFy, iSag, cpDirX, cpDirY, seg.tipoArco) +
+                        `M ${oFxR.toFixed(1)} ${oFyR.toFixed(1)} ` +
+                        telaioArcCmd(oFxR, oFyR, oTxR, oTyR, oSag, cpDirX, cpDirY, seg.tipoArco) +
+                        ` L ${iTxR.toFixed(1)} ${iTyR.toFixed(1)} ` +
+                        telaioArcCmd(iTxR, iTyR, iFxR, iFyR, iSag, cpDirX, cpDirY, seg.tipoArco) +
                         ' Z'
                       return <path key={seg.id} d={pathD} fill={fill} stroke={str} strokeWidth={sw} />
                     }
