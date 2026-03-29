@@ -30,6 +30,13 @@ const COMPONENTI: { id: ComponenteId; label: string; desc: string }[] = [
 
 interface EditState { field: string; value: string; cx: number; cy: number }
 interface TelaioAggiunto { id: string; tipo: 'scorrevole' | 'battente'; lati: TelaioLatiId }
+interface AntaBattenteAggiunta {
+  id: string
+  num: number
+  latoCorncia: AntaBattenteLatoId
+  configs: AntaBattenteConfig[]
+  riporto: boolean
+}
 interface Props { vano: VanoMisurato }
 
 export default function CanvasVano({ vano }: Props) {
@@ -67,7 +74,7 @@ export default function CanvasVano({ vano }: Props) {
   const [zoom, setZoom] = useState(1)
   const [pan,  setPan]  = useState({ x: 0, y: 0 })
   const [editing, setEditing]   = useState<EditState | null>(null)
-  const [menuStep, setMenuStep] = useState<null | 'componenti' | 'telaio_tipo' | 'telaio_lati' | 'anta_tipo' | 'anta_battente_num' | 'anta_battente_lati' | 'anta_battente_config'>(null)
+  const [menuStep, setMenuStep] = useState<null | 'componenti' | 'telaio_tipo' | 'telaio_lati' | 'anta_tipo' | 'anta_battente_num' | 'anta_battente_lati' | 'anta_battente_config' | 'anta_battente_riporto'>(null)
   const [telaioTipo, setTelaioTipo] = useState<'scorrevole' | 'battente' | null>(null)
   const [antaBattenteNum, setAntaBattenteNum] = useState(0)
   const [antaBattenteNumStr, setAntaBattenteNumStr] = useState('')
@@ -76,6 +83,7 @@ export default function CanvasVano({ vano }: Props) {
   const [antaBattenteIdx, setAntaBattenteIdx] = useState(0)
   const [antaBattenteConfigs, setAntaBattenteConfigs] = useState<AntaBattenteConfig[]>([])
   const [antaBattenteWip, setAntaBattenteWip] = useState<Partial<AntaBattenteConfig>>({})
+  const [anteBattenti, setAnteBattenti] = useState<AntaBattenteAggiunta[]>([])
   const [telai, setTelai] = useState<TelaioAggiunto[]>([])
   const [selectedTelaioId, setSelectedTelaioId] = useState<string | null>(null)
   const [selectedMenuPos, setSelectedMenuPos]   = useState<{ x: number; y: number } | null>(null)
@@ -666,6 +674,104 @@ export default function CanvasVano({ vano }: Props) {
             </g>
           ))}
 
+          {/* ── ante battenti ── */}
+          {anteBattenti.map((ante) => {
+            if (ptPx.size === 0 || !layout) return null
+            const xs = Array.from(ptPx.values()).map(p => p.x)
+            const ys = Array.from(ptPx.values()).map(p => p.y)
+            const rawX0 = Math.min(...xs), rawX1 = Math.max(...xs)
+            const rawY0 = Math.min(...ys), rawY1 = Math.max(...ys)
+            const bbW = rawX1 - rawX0, bbH = rawY1 - rawY0
+            const bw = Math.max(8, Math.min(bbW, bbH) * 0.07)
+            const di = 2 + Math.max(1, telai.length) * bw
+
+            const inTop    = ante.latoCorncia === 'a_giro' || ante.latoCorncia === '3_lati_no_base'
+            const inBottom = ante.latoCorncia === 'a_giro' || ante.latoCorncia === '3_lati_no_testa'
+            const x0 = rawX0 + di
+            const x1 = rawX1 - di
+            const y0 = rawY0 + (inTop    ? di : 0)
+            const y1 = rawY1 - (inBottom ? di : 0)
+            const W  = x1 - x0
+            const H  = y1 - y0
+            if (W < 1 || H < 1) return null
+
+            const N  = ante.num
+            const rw = ante.riporto ? Math.max(3, bw * 0.5) : 0
+            const antaW = (W - rw * (N - 1)) / N
+            const clr   = '#2563eb'
+            const sw    = s(1.5)
+            const HINGE_W = Math.max(3, bw * 0.35)
+            const HINGE_H = Math.max(6, bw * 0.6)
+            const HDL_W   = Math.max(3, bw * 0.28)
+            const HDL_H   = Math.max(8, bw * 0.55)
+            const arcR    = Math.min(antaW, H * 0.8)
+
+            return (
+              <g key={ante.id}>
+                {ante.configs.map((cfg, i) => {
+                  const ax0 = x0 + i * (antaW + rw)
+                  const ax1c = ax0 + antaW
+                  const isSx  = cfg.lato === 'sx'
+                  const hingeX = isSx ? ax0 : ax1c - HINGE_W
+                  const hdlX   = isSx ? ax1c - HDL_W - bw * 0.3 : ax0 + bw * 0.3
+                  const arcSx = isSx ? ax1c : ax0
+                  const arcEx = isSx ? ax0   : ax1c
+                  const arcSweep = isSx ? 1  : 0
+                  const midY = y0 + H / 2
+                  return (
+                    <g key={i}>
+                      {/* corpo anta */}
+                      <rect
+                        x={ax0} y={y0} width={antaW} height={H}
+                        fill="rgba(219,234,254,0.30)"
+                        stroke={clr} strokeWidth={sw}
+                      />
+                      {/* diagonale leggera */}
+                      <line
+                        x1={ax0} y1={y0} x2={ax1c} y2={y1}
+                        stroke={clr} strokeWidth={s(0.5)} opacity={0.25}
+                      />
+                      {/* arco apertura */}
+                      <path
+                        d={`M ${arcSx} ${y0} A ${arcR} ${arcR} 0 0 ${arcSweep} ${arcEx} ${y0 + arcR}`}
+                        fill="none" stroke={clr}
+                        strokeWidth={s(1)} strokeDasharray={`${s(4)} ${s(3)}`} opacity={0.7}
+                      />
+                      {/* cerniere */}
+                      <rect x={hingeX} y={y0 + H * 0.18} width={HINGE_W} height={HINGE_H} rx={1} fill={clr} />
+                      <rect x={hingeX} y={y0 + H * 0.65} width={HINGE_W} height={HINGE_H} rx={1} fill={clr} />
+                      {/* maniglia */}
+                      <rect x={hdlX} y={midY - HDL_H / 2} width={HDL_W} height={HDL_H} rx={2} fill={clr} opacity={0.85} />
+                      {/* ribalta: linea tratteggiata orizzontale a metà */}
+                      {cfg.ribalta && (
+                        <line
+                          x1={ax0} y1={midY} x2={ax1c} y2={midY}
+                          stroke={clr} strokeWidth={s(1)}
+                          strokeDasharray={`${s(4)} ${s(3)}`} opacity={0.65}
+                        />
+                      )}
+                      {/* badge anta principale */}
+                      {cfg.principale && ante.num > 1 && (
+                        <circle cx={(ax0 + ax1c) / 2} cy={y1 - bw * 0.6} r={bw * 0.28} fill={clr} opacity={0.55} />
+                      )}
+                    </g>
+                  )
+                })}
+                {/* riporto tra le ante */}
+                {ante.riporto && ante.configs.slice(0, -1).map((_, i) => {
+                  const rx0 = x0 + (i + 1) * antaW + i * rw
+                  return (
+                    <rect
+                      key={i}
+                      x={rx0} y={y0} width={rw} height={H}
+                      fill="#e5e7eb" stroke="#374151" strokeWidth={s(0.8)}
+                    />
+                  )
+                })}
+              </g>
+            )
+          })}
+
           {/* ── + button al centro della forma ── */}
           {(() => {
             const cx = shapeOffX + shapePxW / 2
@@ -1099,9 +1205,17 @@ export default function CanvasVano({ vano }: Props) {
                       if (!isLast) {
                         setAntaBattenteIdx(antaBattenteIdx + 1)
                         setAntaBattenteWip({})
+                      } else if (antaBattenteNum > 1) {
+                        setMenuStep('anta_battente_riporto')
                       } else {
+                        setAnteBattenti(prev => [...prev, {
+                          id: Math.random().toString(36).slice(2),
+                          num: antaBattenteNum,
+                          latoCorncia: antaBattenteLatoId!,
+                          configs: newConfigs,
+                          riporto: false,
+                        }])
                         setMenuStep(null)
-                        // TODO: aggiungere ante al canvas con newConfigs
                       }
                     }}
                     className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold disabled:opacity-40 hover:bg-blue-700 active:scale-[0.98] transition-all"
@@ -1111,6 +1225,46 @@ export default function CanvasVano({ vano }: Props) {
                 </div>
               )
             })()}
+
+            {/* ── step: riporto anta battente ── */}
+            {menuStep === 'anta_battente_riporto' && (
+              <div className="px-4 pb-4 pt-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <button
+                    onClick={() => setMenuStep('anta_battente_lati')}
+                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-500"
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                      <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <p className="text-xs font-semibold text-gray-700">Riporto tra le ante?</p>
+                </div>
+                <p className="text-[10px] text-gray-500 mb-3 leading-snug">
+                  Il riporto è il profilo verticale alla giunzione delle ante. Se non serve le ante si toccano direttamente.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {([true, false] as const).map((v) => (
+                    <button
+                      key={String(v)}
+                      onClick={() => {
+                        setAnteBattenti(prev => [...prev, {
+                          id: Math.random().toString(36).slice(2),
+                          num: antaBattenteNum,
+                          latoCorncia: antaBattenteLatoId!,
+                          configs: antaBattenteConfigs,
+                          riporto: v,
+                        }])
+                        setMenuStep(null)
+                      }}
+                      className="py-2 rounded-lg border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 text-xs font-semibold text-gray-700 active:scale-95 transition-all"
+                    >
+                      {v ? 'Sì, con riporto' : 'No, senza riporto'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* ── step: tipo anta ── */}
             {menuStep === 'anta_tipo' && (
