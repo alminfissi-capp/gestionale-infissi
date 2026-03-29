@@ -69,7 +69,8 @@ export default function CanvasVano({ vano }: Props) {
   const [editing, setEditing]   = useState<EditState | null>(null)
   const [menuStep, setMenuStep] = useState<null | 'componenti' | 'telaio_tipo' | 'telaio_lati' | 'anta_tipo' | 'anta_battente_num' | 'anta_battente_config'>(null)
   const [telaioTipo, setTelaioTipo] = useState<'scorrevole' | 'battente' | null>(null)
-  const [antaBattenteNum, setAntaBattenteNum] = useState(1)
+  const [antaBattenteNum, setAntaBattenteNum] = useState(0)
+  const [antaBattenteNumStr, setAntaBattenteNumStr] = useState('')
   const [antaBattenteIdx, setAntaBattenteIdx] = useState(0)
   const [antaBattenteConfigs, setAntaBattenteConfigs] = useState<AntaBattenteConfig[]>([])
   const [antaBattenteWip, setAntaBattenteWip] = useState<Partial<AntaBattenteConfig>>({})
@@ -750,7 +751,7 @@ export default function CanvasVano({ vano }: Props) {
             onClick={() => setMenuStep(null)}
           />
           {/* sheet */}
-          <div className="absolute inset-x-0 bottom-0 z-40 bg-white rounded-t-2xl shadow-2xl">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 bg-white rounded-2xl shadow-2xl w-80 max-w-[calc(100%-2rem)]">
             {/* handle */}
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 bg-gray-200 rounded-full" />
@@ -758,10 +759,10 @@ export default function CanvasVano({ vano }: Props) {
 
             {/* ── step: lista componenti ── */}
             {menuStep === 'componenti' && (
-              <div className="px-5 pb-6 pt-2">
-                <p className="text-sm font-semibold text-gray-700 mb-4">Aggiungi componente</p>
-                <div className="grid grid-cols-3 gap-3">
-                  {COMPONENTI.map(({ id, label, desc }) => (
+              <div className="px-4 pb-4 pt-2">
+                <p className="text-xs font-semibold text-gray-600 mb-2">Aggiungi componente</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {COMPONENTI.map(({ id, label }) => (
                     <button
                       key={id}
                       onClick={() => {
@@ -774,14 +775,11 @@ export default function CanvasVano({ vano }: Props) {
                           // TODO: aprire schermata configurazione per `id`
                         }
                       }}
-                      className="flex flex-col items-center gap-2 px-2 py-3 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all"
+                      className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all"
                     >
                       <ComponenteIcon id={id} />
-                      <span className="text-[11px] font-semibold text-gray-700 text-center leading-tight">
+                      <span className="text-[10px] font-semibold text-gray-700 text-center leading-tight">
                         {label}
-                      </span>
-                      <span className="text-[10px] text-gray-400 text-center leading-tight hidden sm:block">
-                        {desc}
                       </span>
                     </button>
                   ))}
@@ -791,8 +789,8 @@ export default function CanvasVano({ vano }: Props) {
 
             {/* ── step: lati telaio ── */}
             {menuStep === 'telaio_lati' && (
-              <div className="px-5 pb-6 pt-2">
-                <div className="flex items-center gap-2 mb-4">
+              <div className="px-4 pb-4 pt-2">
+                <div className="flex items-center gap-2 mb-2">
                   <button
                     onClick={() => setMenuStep('telaio_tipo')}
                     className="p-1 rounded-lg hover:bg-gray-100 text-gray-500"
@@ -817,10 +815,10 @@ export default function CanvasVano({ vano }: Props) {
                         }])
                         setMenuStep(null)
                       }}
-                      className="flex items-center gap-3 px-3 py-3 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all text-left"
+                      className="flex items-center gap-2 px-2 py-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all text-left"
                     >
                       <TelaioLatiIcon lati={id} />
-                      <span className="text-[12px] font-semibold text-gray-700 leading-tight">{label}</span>
+                      <span className="text-[11px] font-semibold text-gray-700 leading-tight">{label}</span>
                     </button>
                   ))}
                 </div>
@@ -829,8 +827,8 @@ export default function CanvasVano({ vano }: Props) {
 
             {/* ── step: tipo telaio ── */}
             {menuStep === 'telaio_tipo' && (
-              <div className="px-5 pb-6 pt-2">
-                <div className="flex items-center gap-2 mb-4">
+              <div className="px-4 pb-4 pt-2">
+                <div className="flex items-center gap-2 mb-2">
                   <button
                     onClick={() => setMenuStep('componenti')}
                     className="p-1 rounded-lg hover:bg-gray-100 text-gray-500"
@@ -839,17 +837,17 @@ export default function CanvasVano({ vano }: Props) {
                       <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
                     </svg>
                   </button>
-                  <p className="text-sm font-semibold text-gray-700">Telaio — tipo apertura</p>
+                  <p className="text-xs font-semibold text-gray-700">Telaio — tipo apertura</p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => {
                       setTelaioTipo('scorrevole')
                       setMenuStep('telaio_lati')
                     }}
-                    className="flex flex-col items-center gap-3 px-4 py-5 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all"
+                    className="flex flex-col items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all"
                   >
-                    <svg viewBox="0 0 48 48" className="w-12 h-12">
+                    <svg viewBox="0 0 48 48" className="w-9 h-9">
                       {/* cornice */}
                       <rect x="3" y="3" width="42" height="42" rx="3" fill="none" stroke="#0d9488" strokeWidth="3.5" />
                       {/* due ante scorrevoli */}
@@ -861,7 +859,7 @@ export default function CanvasVano({ vano }: Props) {
                       <line x1="38" y1="24" x2="31" y2="24" stroke="#0d9488" strokeWidth="2" strokeLinecap="round" />
                       <polyline points="34,20 30,24 34,28" fill="none" stroke="#0d9488" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                    <span className="text-sm font-semibold text-gray-800">Scorrevole</span>
+                    <span className="text-xs font-semibold text-gray-800">Scorrevole</span>
                   </button>
 
                   <button
@@ -869,9 +867,9 @@ export default function CanvasVano({ vano }: Props) {
                       setTelaioTipo('battente')
                       setMenuStep('telaio_lati')
                     }}
-                    className="flex flex-col items-center gap-3 px-4 py-5 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all"
+                    className="flex flex-col items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all"
                   >
-                    <svg viewBox="0 0 48 48" className="w-12 h-12">
+                    <svg viewBox="0 0 48 48" className="w-9 h-9">
                       {/* cornice */}
                       <rect x="3" y="3" width="42" height="42" rx="3" fill="none" stroke="#0d9488" strokeWidth="3.5" />
                       {/* anta */}
@@ -884,7 +882,7 @@ export default function CanvasVano({ vano }: Props) {
                       {/* maniglia dx */}
                       <rect x="35" y="22" width="4" height="4" rx="2" fill="#0d9488" />
                     </svg>
-                    <span className="text-sm font-semibold text-gray-800">Battente</span>
+                    <span className="text-xs font-semibold text-gray-800">Battente</span>
                   </button>
                 </div>
               </div>
@@ -892,8 +890,8 @@ export default function CanvasVano({ vano }: Props) {
 
             {/* ── step: numero ante battenti ── */}
             {menuStep === 'anta_battente_num' && (
-              <div className="px-5 pb-6 pt-2">
-                <div className="flex items-center gap-2 mb-4">
+              <div className="px-4 pb-4 pt-2">
+                <div className="flex items-center gap-2 mb-2">
                   <button
                     onClick={() => setMenuStep('anta_tipo')}
                     className="p-1 rounded-lg hover:bg-gray-100 text-gray-500"
@@ -902,35 +900,44 @@ export default function CanvasVano({ vano }: Props) {
                       <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
                     </svg>
                   </button>
-                  <p className="text-sm font-semibold text-gray-700">Anta battente — numero di ante</p>
+                  <p className="text-xs font-semibold text-gray-700">Anta battente — numero di ante</p>
                 </div>
-                <div className="flex gap-3 items-center">
+                <div className="flex items-center gap-3">
                   <input
                     type="number"
                     min={1}
-                    max={99}
-                    value={antaBattenteNum}
+                    placeholder="es. 2"
+                    value={antaBattenteNumStr}
                     onChange={(e) => {
+                      setAntaBattenteNumStr(e.target.value)
                       const v = parseInt(e.target.value)
-                      if (!isNaN(v) && v >= 1) setAntaBattenteNum(v)
+                      setAntaBattenteNum(isNaN(v) || v < 1 ? 0 : v)
                     }}
-                    className="w-24 text-center text-2xl font-bold text-blue-600 border border-gray-300 rounded-xl py-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && antaBattenteNum >= 1) {
+                        setAntaBattenteIdx(0)
+                        setAntaBattenteConfigs([])
+                        setAntaBattenteWip({})
+                        setMenuStep('anta_battente_config')
+                      }
+                    }}
+                    className="w-20 text-center text-xl font-bold text-blue-600 border border-gray-300 rounded-lg py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     autoFocus
                   />
                   <span className="text-sm text-gray-500">{antaBattenteNum === 1 ? 'anta' : 'ante'}</span>
+                  <button
+                    disabled={antaBattenteNum < 1}
+                    onClick={() => {
+                      setAntaBattenteIdx(0)
+                      setAntaBattenteConfigs([])
+                      setAntaBattenteWip({})
+                      setMenuStep('anta_battente_config')
+                    }}
+                    className="ml-auto px-4 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-40 hover:bg-blue-700 active:scale-[0.98] transition-all"
+                  >
+                    Avanti
+                  </button>
                 </div>
-                <button
-                  disabled={antaBattenteNum < 1}
-                  onClick={() => {
-                    setAntaBattenteIdx(0)
-                    setAntaBattenteConfigs([])
-                    setAntaBattenteWip({})
-                    setMenuStep('anta_battente_config')
-                  }}
-                  className="mt-4 w-full py-3 rounded-2xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-40 hover:bg-blue-700 active:scale-[0.98] transition-all"
-                >
-                  Avanti
-                </button>
               </div>
             )}
 
@@ -941,8 +948,8 @@ export default function CanvasVano({ vano }: Props) {
               const sel = 'border-blue-500 bg-blue-50 text-blue-700'
               const unsel = 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-blue-50 hover:border-blue-300'
               return (
-                <div className="px-5 pb-6 pt-2">
-                  <div className="flex items-center gap-2 mb-4">
+                <div className="px-4 pb-4 pt-2">
+                  <div className="flex items-center gap-2 mb-2">
                     <button
                       onClick={() => {
                         if (antaBattenteIdx === 0) {
@@ -959,19 +966,19 @@ export default function CanvasVano({ vano }: Props) {
                         <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
                       </svg>
                     </button>
-                    <p className="text-sm font-semibold text-gray-700">
+                    <p className="text-xs font-semibold text-gray-700">
                       Anta {antaBattenteIdx + 1}{antaBattenteNum > 1 ? ` di ${antaBattenteNum}` : ''} — configurazione
                     </p>
                   </div>
 
                   {/* lato apertura */}
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Lato apertura</p>
-                  <div className="grid grid-cols-2 gap-3 mb-4">
+                  <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Lato apertura</p>
+                  <div className="grid grid-cols-2 gap-2 mb-2">
                     {([['sx', 'Sinistra'], ['dx', 'Destra']] as const).map(([v, label]) => (
                       <button
                         key={v}
                         onClick={() => setAntaBattenteWip(w => ({ ...w, lato: v }))}
-                        className={`py-3 rounded-xl border text-sm font-semibold transition-all active:scale-95 ${antaBattenteWip.lato === v ? sel : unsel}`}
+                        className={`py-2 rounded-lg border text-xs font-semibold transition-all active:scale-95 ${antaBattenteWip.lato === v ? sel : unsel}`}
                       >
                         {label}
                       </button>
@@ -979,8 +986,8 @@ export default function CanvasVano({ vano }: Props) {
                   </div>
 
                   {/* verso apertura */}
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Verso apertura</p>
-                  <div className="grid grid-cols-2 gap-3 mb-4">
+                  <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Verso apertura</p>
+                  <div className="grid grid-cols-2 gap-2 mb-2">
                     {([['dentro', 'Verso dentro'], ['fuori', 'Verso fuori']] as const).map(([v, label]) => (
                       <button
                         key={v}
@@ -990,7 +997,7 @@ export default function CanvasVano({ vano }: Props) {
                           // ribalta non disponibile verso fuori
                           ribalta: v === 'fuori' ? false : w.ribalta,
                         }))}
-                        className={`py-3 rounded-xl border text-sm font-semibold transition-all active:scale-95 ${antaBattenteWip.verso === v ? sel : unsel}`}
+                        className={`py-2 rounded-lg border text-xs font-semibold transition-all active:scale-95 ${antaBattenteWip.verso === v ? sel : unsel}`}
                       >
                         {label}
                       </button>
@@ -1000,17 +1007,17 @@ export default function CanvasVano({ vano }: Props) {
                   {/* tipo (solo se verso dentro) */}
                   {antaBattenteWip.verso === 'dentro' && (
                     <>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Tipo</p>
-                      <div className="grid grid-cols-2 gap-3 mb-4">
+                      <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Tipo</p>
+                      <div className="grid grid-cols-2 gap-2 mb-2">
                         <button
                           onClick={() => setAntaBattenteWip(w => ({ ...w, ribalta: false }))}
-                          className={`py-3 rounded-xl border text-sm font-semibold transition-all active:scale-95 ${antaBattenteWip.ribalta === false ? sel : unsel}`}
+                          className={`py-2 rounded-lg border text-xs font-semibold transition-all active:scale-95 ${antaBattenteWip.ribalta === false ? sel : unsel}`}
                         >
                           Normale
                         </button>
                         <button
                           onClick={() => setAntaBattenteWip(w => ({ ...w, ribalta: true }))}
-                          className={`py-3 rounded-xl border text-sm font-semibold transition-all active:scale-95 ${antaBattenteWip.ribalta === true ? sel : unsel}`}
+                          className={`py-2 rounded-lg border text-xs font-semibold transition-all active:scale-95 ${antaBattenteWip.ribalta === true ? sel : unsel}`}
                         >
                           Con ribalta
                         </button>
@@ -1038,7 +1045,7 @@ export default function CanvasVano({ vano }: Props) {
                         // TODO: aggiungere ante al canvas con newConfigs
                       }
                     }}
-                    className="w-full py-3 rounded-2xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-40 hover:bg-blue-700 active:scale-[0.98] transition-all"
+                    className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold disabled:opacity-40 hover:bg-blue-700 active:scale-[0.98] transition-all"
                   >
                     {isLast ? 'Conferma' : `Avanti — anta ${antaBattenteIdx + 2}`}
                   </button>
@@ -1048,8 +1055,8 @@ export default function CanvasVano({ vano }: Props) {
 
             {/* ── step: tipo anta ── */}
             {menuStep === 'anta_tipo' && (
-              <div className="px-5 pb-6 pt-2">
-                <div className="flex items-center gap-2 mb-4">
+              <div className="px-4 pb-4 pt-2">
+                <div className="flex items-center gap-2 mb-2">
                   <button
                     onClick={() => setMenuStep('componenti')}
                     className="p-1 rounded-lg hover:bg-gray-100 text-gray-500"
@@ -1058,20 +1065,21 @@ export default function CanvasVano({ vano }: Props) {
                       <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
                     </svg>
                   </button>
-                  <p className="text-sm font-semibold text-gray-700">Anta — tipo apertura</p>
+                  <p className="text-xs font-semibold text-gray-700">Anta — tipo apertura</p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => {
-                      setAntaBattenteNum(1)
+                      setAntaBattenteNum(0)
+                      setAntaBattenteNumStr('')
                       setAntaBattenteIdx(0)
                       setAntaBattenteConfigs([])
                       setAntaBattenteWip({})
                       setMenuStep('anta_battente_num')
                     }}
-                    className="flex flex-col items-center gap-3 px-4 py-5 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 active:scale-95 transition-all"
+                    className="flex flex-col items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 active:scale-95 transition-all"
                   >
-                    <svg viewBox="0 0 48 48" className="w-12 h-12">
+                    <svg viewBox="0 0 48 48" className="w-9 h-9">
                       {/* cornice */}
                       <rect x="3" y="3" width="42" height="42" rx="3" fill="none" stroke="#2563eb" strokeWidth="3.5" />
                       {/* anta */}
@@ -1084,7 +1092,7 @@ export default function CanvasVano({ vano }: Props) {
                       {/* maniglia dx */}
                       <rect x="35" y="22" width="4" height="4" rx="2" fill="#2563eb" />
                     </svg>
-                    <span className="text-sm font-semibold text-gray-800">Battente</span>
+                    <span className="text-xs font-semibold text-gray-800">Battente</span>
                   </button>
 
                   <button
@@ -1092,9 +1100,9 @@ export default function CanvasVano({ vano }: Props) {
                       setMenuStep(null)
                       // TODO: aggiungere anta scorrevole
                     }}
-                    className="flex flex-col items-center gap-3 px-4 py-5 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-violet-50 hover:border-violet-300 active:scale-95 transition-all"
+                    className="flex flex-col items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-violet-50 hover:border-violet-300 active:scale-95 transition-all"
                   >
-                    <svg viewBox="0 0 48 48" className="w-12 h-12">
+                    <svg viewBox="0 0 48 48" className="w-9 h-9">
                       {/* cornice */}
                       <rect x="3" y="3" width="42" height="42" rx="3" fill="none" stroke="#7c3aed" strokeWidth="3.5" />
                       {/* due ante scorrevoli */}
@@ -1106,7 +1114,7 @@ export default function CanvasVano({ vano }: Props) {
                       <line x1="38" y1="24" x2="31" y2="24" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" />
                       <polyline points="34,20 30,24 34,28" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                    <span className="text-sm font-semibold text-gray-800">Scorrevole</span>
+                    <span className="text-xs font-semibold text-gray-800">Scorrevole</span>
                   </button>
                 </div>
               </div>
