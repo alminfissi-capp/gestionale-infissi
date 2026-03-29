@@ -904,24 +904,33 @@ export default function CanvasVano({ vano }: Props) {
                   </button>
                   <p className="text-sm font-semibold text-gray-700">Anta battente — numero di ante</p>
                 </div>
-                <div className="grid grid-cols-4 gap-3">
-                  {[1, 2, 3, 4].map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => {
-                        setAntaBattenteNum(n)
-                        setAntaBattenteIdx(0)
-                        setAntaBattenteConfigs([])
-                        setAntaBattenteWip({})
-                        setMenuStep('anta_battente_config')
-                      }}
-                      className="flex flex-col items-center justify-center py-5 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 active:scale-95 transition-all"
-                    >
-                      <span className="text-2xl font-bold text-blue-600">{n}</span>
-                      <span className="text-[10px] text-gray-500 mt-1">{n === 1 ? 'anta' : 'ante'}</span>
-                    </button>
-                  ))}
+                <div className="flex gap-3 items-center">
+                  <input
+                    type="number"
+                    min={1}
+                    max={99}
+                    value={antaBattenteNum}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value)
+                      if (!isNaN(v) && v >= 1) setAntaBattenteNum(v)
+                    }}
+                    className="w-24 text-center text-2xl font-bold text-blue-600 border border-gray-300 rounded-xl py-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    autoFocus
+                  />
+                  <span className="text-sm text-gray-500">{antaBattenteNum === 1 ? 'anta' : 'ante'}</span>
                 </div>
+                <button
+                  disabled={antaBattenteNum < 1}
+                  onClick={() => {
+                    setAntaBattenteIdx(0)
+                    setAntaBattenteConfigs([])
+                    setAntaBattenteWip({})
+                    setMenuStep('anta_battente_config')
+                  }}
+                  className="mt-4 w-full py-3 rounded-2xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-40 hover:bg-blue-700 active:scale-[0.98] transition-all"
+                >
+                  Avanti
+                </button>
               </div>
             )}
 
