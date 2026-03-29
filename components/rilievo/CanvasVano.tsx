@@ -687,72 +687,69 @@ export default function CanvasVano({ vano }: Props) {
 
             const inTop    = ante.latoCorncia === 'a_giro' || ante.latoCorncia === '3_lati_no_base'
             const inBottom = ante.latoCorncia === 'a_giro' || ante.latoCorncia === '3_lati_no_testa'
-            const x0 = rawX0 + di
-            const x1 = rawX1 - di
-            const y0 = rawY0 + (inTop    ? di : 0)
-            const y1 = rawY1 - (inBottom ? di : 0)
-            const W  = x1 - x0
-            const H  = y1 - y0
+            const x0 = rawX0 + di, x1 = rawX1 - di
+            const y0 = rawY0 + (inTop ? di : 0), y1 = rawY1 - (inBottom ? di : 0)
+            const W  = x1 - x0, H = y1 - y0
             if (W < 1 || H < 1) return null
 
             const N  = ante.num
-            const rw = ante.riporto ? Math.max(3, bw * 0.5) : 0
+            // riporto = profilo aggiuntivo tra le ante, larghezza = bw
+            const rw = ante.riporto ? bw : 0
             const antaW = (W - rw * (N - 1)) / N
-            const clr   = '#2563eb'
-            const sw    = s(1.5)
-            const HINGE_W = Math.max(3, bw * 0.35)
-            const HINGE_H = Math.max(6, bw * 0.6)
-            const HDL_W   = Math.max(3, bw * 0.28)
-            const HDL_H   = Math.max(8, bw * 0.55)
-            const arcR    = Math.min(antaW, H * 0.8)
+
+            // stesso stile del telaio
+            const profFill   = '#d1d5db'
+            const profStroke = '#374151'
+            const glassFill  = 'rgba(147,197,253,0.45)'
+            const sw = s(1.5)
+            const bwT = inTop    ? bw : 0
+            const bwB = inBottom ? bw : 0
 
             return (
               <g key={ante.id}>
                 {ante.configs.map((cfg, i) => {
                   const ax0 = x0 + i * (antaW + rw)
                   const ax1c = ax0 + antaW
-                  const isSx  = cfg.lato === 'sx'
-                  const hingeX = isSx ? ax0 : ax1c - HINGE_W
-                  const hdlX   = isSx ? ax1c - HDL_W - bw * 0.3 : ax0 + bw * 0.3
-                  const arcSx = isSx ? ax1c : ax0
-                  const arcEx = isSx ? ax0   : ax1c
-                  const arcSweep = isSx ? 1  : 0
+                  const isSx = cfg.lato === 'sx'
+                  // vetro: inset di bw su tutti i lati attivi
+                  const gx0 = ax0 + bw,  gx1 = ax1c - bw
+                  const gy0 = y0 + bwT,  gy1 = y1   - bwB
+                  const gW = gx1 - gx0,  gH  = gy1  - gy0
                   const midY = y0 + H / 2
+                  // maniglia: rettangolo verticale sul lato libero (non-cerniera)
+                  const hdlH = Math.max(10, H * 0.13)
+                  const hdlW = Math.max(3,  bw * 0.32)
+                  const hdlX = isSx
+                    ? ax1c - bw * 0.6 - hdlW / 2
+                    : ax0  + bw * 0.6 - hdlW / 2
+                  // cerniere: sul lato cerniera, all'interno del profilo
+                  const hngX = isSx ? ax0 + bw * 0.1 : ax1c - bw * 0.6
+                  const hngW = bw * 0.5
+                  const hngH = Math.max(6, bw * 0.55)
+
                   return (
                     <g key={i}>
-                      {/* corpo anta */}
-                      <rect
-                        x={ax0} y={y0} width={antaW} height={H}
-                        fill="rgba(219,234,254,0.30)"
-                        stroke={clr} strokeWidth={sw}
-                      />
-                      {/* diagonale leggera */}
-                      <line
-                        x1={ax0} y1={y0} x2={ax1c} y2={y1}
-                        stroke={clr} strokeWidth={s(0.5)} opacity={0.25}
-                      />
-                      {/* arco apertura */}
-                      <path
-                        d={`M ${arcSx} ${y0} A ${arcR} ${arcR} 0 0 ${arcSweep} ${arcEx} ${y0 + arcR}`}
-                        fill="none" stroke={clr}
-                        strokeWidth={s(1)} strokeDasharray={`${s(4)} ${s(3)}`} opacity={0.7}
-                      />
-                      {/* cerniere */}
-                      <rect x={hingeX} y={y0 + H * 0.18} width={HINGE_W} height={HINGE_H} rx={1} fill={clr} />
-                      <rect x={hingeX} y={y0 + H * 0.65} width={HINGE_W} height={HINGE_H} rx={1} fill={clr} />
-                      {/* maniglia */}
-                      <rect x={hdlX} y={midY - HDL_H / 2} width={HDL_W} height={HDL_H} rx={2} fill={clr} opacity={0.85} />
-                      {/* ribalta: linea tratteggiata orizzontale a metà */}
-                      {cfg.ribalta && (
-                        <line
-                          x1={ax0} y1={midY} x2={ax1c} y2={midY}
-                          stroke={clr} strokeWidth={s(1)}
-                          strokeDasharray={`${s(4)} ${s(3)}`} opacity={0.65}
-                        />
+                      {/* profilo anta — stessa fill del telaio */}
+                      <rect x={ax0} y={y0} width={antaW} height={H}
+                        fill={profFill} stroke={profStroke} strokeWidth={sw} />
+                      {/* vetro */}
+                      {gW > 1 && gH > 1 && (
+                        <rect x={gx0} y={gy0} width={gW} height={gH}
+                          fill={glassFill} stroke={profStroke} strokeWidth={s(0.5)} />
                       )}
-                      {/* badge anta principale */}
-                      {cfg.principale && ante.num > 1 && (
-                        <circle cx={(ax0 + ax1c) / 2} cy={y1 - bw * 0.6} r={bw * 0.28} fill={clr} opacity={0.55} />
+                      {/* cerniere */}
+                      <rect x={hngX} y={y0 + H * 0.18} width={hngW} height={hngH}
+                        rx={1} fill={profStroke} />
+                      <rect x={hngX} y={y0 + H * 0.65} width={hngW} height={hngH}
+                        rx={1} fill={profStroke} />
+                      {/* maniglia */}
+                      <rect x={hdlX} y={midY - hdlH / 2} width={hdlW} height={hdlH}
+                        rx={2} fill={profStroke} />
+                      {/* ribalta: linea tratteggiata orizzontale */}
+                      {cfg.ribalta && (
+                        <line x1={ax0} y1={midY} x2={ax1c} y2={midY}
+                          stroke={profStroke} strokeWidth={s(1)}
+                          strokeDasharray={`${s(5)} ${s(3)}`} />
                       )}
                     </g>
                   )
@@ -761,11 +758,8 @@ export default function CanvasVano({ vano }: Props) {
                 {ante.riporto && ante.configs.slice(0, -1).map((_, i) => {
                   const rx0 = x0 + (i + 1) * antaW + i * rw
                   return (
-                    <rect
-                      key={i}
-                      x={rx0} y={y0} width={rw} height={H}
-                      fill="#e5e7eb" stroke="#374151" strokeWidth={s(0.8)}
-                    />
+                    <rect key={i} x={rx0} y={y0} width={rw} height={H}
+                      fill={profFill} stroke={profStroke} strokeWidth={sw} />
                   )
                 })}
               </g>
