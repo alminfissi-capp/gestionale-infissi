@@ -725,10 +725,12 @@ export default function CanvasVano({ vano }: Props) {
             const rw = ante.riporto ? bw : 0
             const antaW = (W - rw * (N - 1)) / N
             const isSelected = selectedAntaId === ante.id
-            const profFill   = isSelected ? '#FDE047' : '#e2e8f0'
+            const profFill   = isSelected ? '#FDE047' : 'white'
             const profStroke = isSelected ? '#ca8a04' : '#2563eb'
             const sw = s(1.5)
             const clipId = `ab-${ante.id}`
+            // Interno del profilo anta: innerPath con ulteriore inset di bw
+            const glassPath = computeInnerPath(vano.forma.shape, ptPx, pxWinding, diAnta + bw, localValori, realSc)
 
             return (
               <g
@@ -749,6 +751,10 @@ export default function CanvasVano({ vano }: Props) {
                   <clipPath id={clipId}>
                     <path d={innerPath} />
                   </clipPath>
+                  {/* Clip per svuotare l'interno del profilo anta (zona vetro/pannello) */}
+                  <clipPath id={`${clipId}-g`}>
+                    <path d={glassPath} />
+                  </clipPath>
                 </defs>
                 {/* tutto clippato al contorno interno della forma */}
                 <g clipPath={`url(#${clipId})`}>
@@ -765,9 +771,12 @@ export default function CanvasVano({ vano }: Props) {
                     const hngH = Math.max(6, bw * 0.55)
                     return (
                       <g key={i}>
-                        {/* profilo anta (grigio) — riempie tutta la colonna, il clip fa il resto */}
+                        {/* profilo anta: riempie la colonna (clip esterno la taglia alla forma) */}
                         <rect x={ax0} y={rawY0 - 50} width={antaW} height={(rawY1 - rawY0) + 100}
                           fill={profFill} />
+                        {/* svuota l'interno: sovrappone il colore canvas → rimane solo la banda bw */}
+                        <rect x={ax0} y={rawY0 - 50} width={antaW} height={(rawY1 - rawY0) + 100}
+                          fill="#dde0e3" clipPath={`url(#${clipId}-g)`} />
                         {/* separatore verticale sinistro (tra ante adiacenti) */}
                         {i > 0 && !ante.riporto && (
                           <line x1={ax0} y1={rawY0 - 50} x2={ax0} y2={rawY1 + 50}
@@ -835,12 +844,18 @@ export default function CanvasVano({ vano }: Props) {
             const antaW = (W - rw * (N - 1)) / N
             const sw = s(1.5)
             const wipClipId = 'ab-wip'
-            const wipInnerPath = computeInnerPath(vano.forma.shape, ptPx, pxWinding, di, localValori, realSc)
+            const ANTA_GAP_WIP = 2
+            const diAntaWip = di + ANTA_GAP_WIP
+            const wipInnerPath = computeInnerPath(vano.forma.shape, ptPx, pxWinding, diAntaWip, localValori, realSc)
+            const wipGlassPath = computeInnerPath(vano.forma.shape, ptPx, pxWinding, diAntaWip + bw, localValori, realSc)
             return (
               <>
                 <defs>
                   <clipPath id={wipClipId}>
                     <path d={wipInnerPath} />
+                  </clipPath>
+                  <clipPath id={`${wipClipId}-g`}>
+                    <path d={wipGlassPath} />
                   </clipPath>
                 </defs>
                 <g opacity={0.45} clipPath={`url(#${wipClipId})`}>
@@ -858,7 +873,9 @@ export default function CanvasVano({ vano }: Props) {
                     return (
                       <g key={i}>
                         <rect x={ax0} y={rawY0 - 50} width={antaW} height={(rawY1 - rawY0) + 100}
-                          fill="#d1d5db" stroke="#374151" strokeWidth={sw} strokeDasharray={`${s(6)} ${s(3)}`} />
+                          fill="white" />
+                        <rect x={ax0} y={rawY0 - 50} width={antaW} height={(rawY1 - rawY0) + 100}
+                          fill="#dde0e3" clipPath={`url(#${wipClipId}-g)`} />
                         <rect x={hngX} y={y0 + H * 0.18} width={hngW} height={hngH} rx={1} fill="#374151" />
                         <rect x={hngX} y={y0 + H * 0.65} width={hngW} height={hngH} rx={1} fill="#374151" />
                         <rect x={hdlX} y={midY - hdlH / 2} width={hdlW} height={hdlH} rx={2} fill="#374151" />
