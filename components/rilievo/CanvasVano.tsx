@@ -367,6 +367,27 @@ export default function CanvasVano({ vano }: Props) {
     return res
   }, [vano.forma.shape])
 
+  // Preview live anta battente (WIP) — aggiornata a ogni cambio di opzione
+  const antaBattenteWipRender = useMemo((): AntaBattenteAggiunta | null => {
+    if (!menuStep?.startsWith('anta_battente_') || menuStep === 'anta_battente_num') return null
+    if (!antaBattenteLatoId || antaBattenteNum < 1) return null
+    const allConfigs: AntaBattenteConfig[] = [...antaBattenteConfigs]
+    // anta corrente (WIP) con defaults se ancora parziale
+    if (allConfigs.length < antaBattenteNum) {
+      allConfigs.push({
+        lato: antaBattenteWip.lato ?? 'sx',
+        verso: antaBattenteWip.verso ?? 'dentro',
+        ribalta: antaBattenteWip.ribalta ?? false,
+        principale: antaBattentePrincipaleIdx === antaBattenteIdx,
+      })
+    }
+    // riempi ante rimanenti con default
+    while (allConfigs.length < antaBattenteNum) {
+      allConfigs.push({ lato: 'sx', verso: 'dentro', ribalta: false, principale: false })
+    }
+    return { id: '__wip__', num: antaBattenteNum, latoCorncia: antaBattenteLatoId, configs: allConfigs, riporto: false }
+  }, [menuStep, antaBattenteNum, antaBattenteLatoId, antaBattenteConfigs, antaBattenteWip, antaBattenteIdx, antaBattentePrincipaleIdx])
+
   // ── zoom/pan event handlers (passive:false) ───────────────
   const wheelHandler = useCallback((e: WheelEvent) => {
     e.preventDefault()
@@ -766,6 +787,62 @@ export default function CanvasVano({ vano }: Props) {
             )
           })}
 
+          {/* ── preview live anta WIP ── */}
+          {antaBattenteWipRender && (() => {
+            const ante = antaBattenteWipRender
+            if (ptPx.size === 0 || !layout) return null
+            const xs = Array.from(ptPx.values()).map(p => p.x)
+            const ys = Array.from(ptPx.values()).map(p => p.y)
+            const rawX0 = Math.min(...xs), rawX1 = Math.max(...xs)
+            const rawY0 = Math.min(...ys), rawY1 = Math.max(...ys)
+            const bbW = rawX1 - rawX0, bbH = rawY1 - rawY0
+            const bw = Math.max(8, Math.min(bbW, bbH) * 0.07)
+            const di = 2 + Math.max(1, telai.length) * bw
+            const inTop    = ante.latoCorncia === 'a_giro' || ante.latoCorncia === '3_lati_no_base'
+            const inBottom = ante.latoCorncia === 'a_giro' || ante.latoCorncia === '3_lati_no_testa'
+            const x0 = rawX0 + di, x1 = rawX1 - di
+            const y0 = rawY0 + (inTop ? di : 0), y1 = rawY1 - (inBottom ? di : 0)
+            const W = x1 - x0, H = y1 - y0
+            if (W < 1 || H < 1) return null
+            const N = ante.num
+            const rw = ante.riporto ? bw : 0
+            const antaW = (W - rw * (N - 1)) / N
+            const bwT = inTop ? bw : 0, bwB = inBottom ? bw : 0
+            const sw = s(1.5)
+            return (
+              <g opacity={0.45}>
+                {ante.configs.map((cfg, i) => {
+                  const ax0 = x0 + i * (antaW + rw)
+                  const ax1c = ax0 + antaW
+                  const isSx = cfg.lato === 'sx'
+                  const gx0 = ax0 + bw, gx1 = ax1c - bw
+                  const gy0 = y0 + bwT, gy1 = y1 - bwB
+                  const gW = gx1 - gx0, gH = gy1 - gy0
+                  const midY = y0 + H / 2
+                  const hdlH = Math.max(10, H * 0.13)
+                  const hdlW = Math.max(3, bw * 0.32)
+                  const hdlX = isSx ? ax1c - bw * 0.6 - hdlW / 2 : ax0 + bw * 0.6 - hdlW / 2
+                  const hngX = isSx ? ax0 + bw * 0.1 : ax1c - bw * 0.6
+                  const hngW = bw * 0.5
+                  const hngH = Math.max(6, bw * 0.55)
+                  return (
+                    <g key={i}>
+                      <rect x={ax0} y={y0} width={antaW} height={H}
+                        fill="#d1d5db" stroke="#374151" strokeWidth={sw} strokeDasharray={`${s(6)} ${s(3)}`} />
+                      {gW > 1 && gH > 1 && (
+                        <rect x={gx0} y={gy0} width={gW} height={gH}
+                          fill="rgba(147,197,253,0.45)" stroke="#374151" strokeWidth={s(0.5)} />
+                      )}
+                      <rect x={hngX} y={y0 + H * 0.18} width={hngW} height={hngH} rx={1} fill="#374151" />
+                      <rect x={hngX} y={y0 + H * 0.65} width={hngW} height={hngH} rx={1} fill="#374151" />
+                      <rect x={hdlX} y={midY - hdlH / 2} width={hdlW} height={hdlH} rx={2} fill="#374151" />
+                    </g>
+                  )
+                })}
+              </g>
+            )
+          })()}
+
           {/* ── + button al centro della forma ── */}
           {(() => {
             const cx = shapeOffX + shapePxW / 2
@@ -847,16 +924,20 @@ export default function CanvasVano({ vano }: Props) {
       {/* ── menu componenti (bottom sheet) ── */}
       {menuStep !== null && (
         <>
-          {/* backdrop */}
-          <div
-            className="absolute inset-0 z-30 bg-black/20"
-            onClick={() => setMenuStep(null)}
-          />
-          {/* sheet */}
+          {/* panel — senza backdrop: la canvas resta sempre visibile */}
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 bg-white rounded-2xl shadow-2xl w-80 max-w-[calc(100%-2rem)]">
-            {/* handle */}
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 bg-gray-200 rounded-full" />
+            {/* barra superiore con close */}
+            <div className="flex items-center justify-between px-4 pt-3 pb-1">
+              <div className="w-8 h-1 bg-gray-200 rounded-full" />
+              <button
+                onClick={() => setMenuStep(null)}
+                className="p-1 rounded-lg hover:bg-gray-100 text-gray-400"
+                aria-label="Chiudi"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                  <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                </svg>
+              </button>
             </div>
 
             {/* ── step: lista componenti ── */}
