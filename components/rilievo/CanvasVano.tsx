@@ -14,19 +14,17 @@ const PAD_RIGHT  = 20
 // ── Componenti serramento ─────────────────────────────────────
 export type ComponenteId =
   | 'telaio'
-  | 'anta_battente'
-  | 'anta_scorrevole'
+  | 'anta'
   | 'traverso'
   | 'montante'
   | 'ferma_vetro'
 
 const COMPONENTI: { id: ComponenteId; label: string; desc: string }[] = [
-  { id: 'telaio',          label: 'Telaio',              desc: 'Cornice/profilo perimetrale' },
-  { id: 'anta_battente',   label: 'Anta battente',       desc: 'Anta a cerniera' },
-  { id: 'anta_scorrevole', label: 'Anta scorrevole',     desc: 'Anta a scorrimento' },
-  { id: 'traverso',        label: 'Traverso',            desc: 'Profilo orizzontale interno' },
-  { id: 'montante',        label: 'Montante',            desc: 'Profilo verticale interno' },
-  { id: 'ferma_vetro',     label: 'Ferma Vetro',         desc: 'Ferma vetro / ferma pannello' },
+  { id: 'telaio',      label: 'Telaio',      desc: 'Cornice/profilo perimetrale' },
+  { id: 'anta',        label: 'Anta',        desc: 'Battente o scorrevole' },
+  { id: 'traverso',    label: 'Traverso',    desc: 'Profilo orizzontale interno' },
+  { id: 'montante',    label: 'Montante',    desc: 'Profilo verticale interno' },
+  { id: 'ferma_vetro', label: 'Ferma Vetro', desc: 'Ferma vetro / ferma pannello' },
 ]
 
 
@@ -69,7 +67,7 @@ export default function CanvasVano({ vano }: Props) {
   const [zoom, setZoom] = useState(1)
   const [pan,  setPan]  = useState({ x: 0, y: 0 })
   const [editing, setEditing]   = useState<EditState | null>(null)
-  const [menuStep, setMenuStep] = useState<null | 'componenti' | 'telaio_tipo' | 'telaio_lati'>(null)
+  const [menuStep, setMenuStep] = useState<null | 'componenti' | 'telaio_tipo' | 'telaio_lati' | 'anta_tipo'>(null)
   const [telaioTipo, setTelaioTipo] = useState<'scorrevole' | 'battente' | null>(null)
   const [telai, setTelai] = useState<TelaioAggiunto[]>([])
   const [selectedTelaioId, setSelectedTelaioId] = useState<string | null>(null)
@@ -765,6 +763,8 @@ export default function CanvasVano({ vano }: Props) {
                       onClick={() => {
                         if (id === 'telaio') {
                           setMenuStep('telaio_tipo')
+                        } else if (id === 'anta') {
+                          setMenuStep('anta_tipo')
                         } else {
                           setMenuStep(null)
                           // TODO: aprire schermata configurazione per `id`
@@ -881,6 +881,69 @@ export default function CanvasVano({ vano }: Props) {
                       <rect x="35" y="22" width="4" height="4" rx="2" fill="#0d9488" />
                     </svg>
                     <span className="text-sm font-semibold text-gray-800">Battente</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── step: tipo anta ── */}
+            {menuStep === 'anta_tipo' && (
+              <div className="px-5 pb-6 pt-2">
+                <div className="flex items-center gap-2 mb-4">
+                  <button
+                    onClick={() => setMenuStep('componenti')}
+                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-500"
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                      <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <p className="text-sm font-semibold text-gray-700">Anta — tipo apertura</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => {
+                      setMenuStep(null)
+                      // TODO: aggiungere anta battente
+                    }}
+                    className="flex flex-col items-center gap-3 px-4 py-5 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 active:scale-95 transition-all"
+                  >
+                    <svg viewBox="0 0 48 48" className="w-12 h-12">
+                      {/* cornice */}
+                      <rect x="3" y="3" width="42" height="42" rx="3" fill="none" stroke="#2563eb" strokeWidth="3.5" />
+                      {/* anta */}
+                      <rect x="9" y="8" width="30" height="32" rx="1.5" fill="none" stroke="#2563eb" strokeWidth="2.5" />
+                      {/* arco apertura */}
+                      <path d="M 39 8 A 30 30 0 0 0 9 38" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeDasharray="3 2" />
+                      {/* cerniere sx */}
+                      <rect x="9" y="12" width="4" height="6" rx="1" fill="#2563eb" />
+                      <rect x="9" y="30" width="4" height="6" rx="1" fill="#2563eb" />
+                      {/* maniglia dx */}
+                      <rect x="35" y="22" width="4" height="4" rx="2" fill="#2563eb" />
+                    </svg>
+                    <span className="text-sm font-semibold text-gray-800">Battente</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setMenuStep(null)
+                      // TODO: aggiungere anta scorrevole
+                    }}
+                    className="flex flex-col items-center gap-3 px-4 py-5 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-violet-50 hover:border-violet-300 active:scale-95 transition-all"
+                  >
+                    <svg viewBox="0 0 48 48" className="w-12 h-12">
+                      {/* cornice */}
+                      <rect x="3" y="3" width="42" height="42" rx="3" fill="none" stroke="#7c3aed" strokeWidth="3.5" />
+                      {/* due ante scorrevoli */}
+                      <rect x="6"  y="8" width="20" height="32" rx="1.5" fill="none" stroke="#7c3aed" strokeWidth="2.5" />
+                      <rect x="22" y="8" width="20" height="32" rx="1.5" fill="none" stroke="#7c3aed" strokeWidth="2.5" />
+                      {/* frecce opposte */}
+                      <line x1="10" y1="24" x2="17" y2="24" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" />
+                      <polyline points="14,20 18,24 14,28" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <line x1="38" y1="24" x2="31" y2="24" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" />
+                      <polyline points="34,20 30,24 34,28" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span className="text-sm font-semibold text-gray-800">Scorrevole</span>
                   </button>
                 </div>
               </div>
@@ -1056,27 +1119,23 @@ function ComponenteIcon({ id }: { id: ComponenteId }) {
           <rect x="8" y="8" width="24" height="24" rx="1" fill="none" stroke="#0d9488" strokeWidth="1.5" strokeDasharray="3 2" />
         </svg>
       )
-    case 'anta_battente':
+    case 'anta':
       return (
         <svg viewBox="0 0 40 40" className={cls}>
+          {/* cornice */}
           <rect x="3" y="3" width="34" height="34" rx="2" fill="none" stroke="#2563eb" strokeWidth="2.5" />
-          <line x1="3"  y1="3"  x2="37" y2="37" stroke="#2563eb" strokeWidth="1.5" />
-          <line x1="37" y1="3"  x2="3"  y2="37" stroke="#2563eb" strokeWidth="1.5" />
-          {/* cerniera sx */}
-          <rect x="3" y="9" width="3" height="5" rx="1" fill="#2563eb" />
-          <rect x="3" y="26" width="3" height="5" rx="1" fill="#2563eb" />
-        </svg>
-      )
-    case 'anta_scorrevole':
-      return (
-        <svg viewBox="0 0 40 40" className={cls}>
-          <rect x="3" y="3" width="34" height="34" rx="2" fill="none" stroke="#7c3aed" strokeWidth="2.5" />
-          {/* due ante sovrapposte */}
-          <rect x="6"  y="7" width="18" height="26" rx="1" fill="none" stroke="#7c3aed" strokeWidth="2" />
-          <rect x="16" y="7" width="18" height="26" rx="1" fill="none" stroke="#7c3aed" strokeWidth="2" />
-          {/* frecce */}
-          <line x1="9" y1="20" x2="14" y2="20" stroke="#7c3aed" strokeWidth="1.5" strokeLinecap="round" />
-          <polyline points="12,17 15,20 12,23" fill="none" stroke="#7c3aed" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          {/* anta battente (sx) */}
+          <rect x="5" y="5" width="14" height="30" rx="1" fill="none" stroke="#2563eb" strokeWidth="1.8" />
+          {/* arco apertura battente */}
+          <path d="M 19 5 A 14 14 0 0 0 5 19" fill="none" stroke="#2563eb" strokeWidth="1" strokeDasharray="2 2" />
+          {/* cerniera battente */}
+          <rect x="5" y="8"  width="2.5" height="4" rx="0.5" fill="#2563eb" />
+          <rect x="5" y="28" width="2.5" height="4" rx="0.5" fill="#2563eb" />
+          {/* anta scorrevole (dx) */}
+          <rect x="21" y="5" width="14" height="30" rx="1" fill="none" stroke="#7c3aed" strokeWidth="1.8" />
+          {/* freccia scorrevole */}
+          <line x1="24" y1="20" x2="30" y2="20" stroke="#7c3aed" strokeWidth="1.5" strokeLinecap="round" />
+          <polyline points="28,17 31,20 28,23" fill="none" stroke="#7c3aed" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )
     case 'traverso':
