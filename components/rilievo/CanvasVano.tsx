@@ -67,8 +67,12 @@ export default function CanvasVano({ vano }: Props) {
   const [zoom, setZoom] = useState(1)
   const [pan,  setPan]  = useState({ x: 0, y: 0 })
   const [editing, setEditing]   = useState<EditState | null>(null)
-  const [menuStep, setMenuStep] = useState<null | 'componenti' | 'telaio_tipo' | 'telaio_lati' | 'anta_tipo'>(null)
+  const [menuStep, setMenuStep] = useState<null | 'componenti' | 'telaio_tipo' | 'telaio_lati' | 'anta_tipo' | 'anta_battente_num' | 'anta_battente_config'>(null)
   const [telaioTipo, setTelaioTipo] = useState<'scorrevole' | 'battente' | null>(null)
+  const [antaBattenteNum, setAntaBattenteNum] = useState(1)
+  const [antaBattenteIdx, setAntaBattenteIdx] = useState(0)
+  const [antaBattenteConfigs, setAntaBattenteConfigs] = useState<AntaBattenteConfig[]>([])
+  const [antaBattenteWip, setAntaBattenteWip] = useState<Partial<AntaBattenteConfig>>({})
   const [telai, setTelai] = useState<TelaioAggiunto[]>([])
   const [selectedTelaioId, setSelectedTelaioId] = useState<string | null>(null)
   const [selectedMenuPos, setSelectedMenuPos]   = useState<{ x: number; y: number } | null>(null)
@@ -886,6 +890,153 @@ export default function CanvasVano({ vano }: Props) {
               </div>
             )}
 
+            {/* ── step: numero ante battenti ── */}
+            {menuStep === 'anta_battente_num' && (
+              <div className="px-5 pb-6 pt-2">
+                <div className="flex items-center gap-2 mb-4">
+                  <button
+                    onClick={() => setMenuStep('anta_tipo')}
+                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-500"
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                      <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <p className="text-sm font-semibold text-gray-700">Anta battente — numero di ante</p>
+                </div>
+                <div className="grid grid-cols-4 gap-3">
+                  {[1, 2, 3, 4].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => {
+                        setAntaBattenteNum(n)
+                        setAntaBattenteIdx(0)
+                        setAntaBattenteConfigs([])
+                        setAntaBattenteWip({})
+                        setMenuStep('anta_battente_config')
+                      }}
+                      className="flex flex-col items-center justify-center py-5 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 active:scale-95 transition-all"
+                    >
+                      <span className="text-2xl font-bold text-blue-600">{n}</span>
+                      <span className="text-[10px] text-gray-500 mt-1">{n === 1 ? 'anta' : 'ante'}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── step: configurazione anta battente ── */}
+            {menuStep === 'anta_battente_config' && (() => {
+              const isLast = antaBattenteIdx === antaBattenteNum - 1
+              const canConfirm = !!antaBattenteWip.lato && !!antaBattenteWip.verso
+              const sel = 'border-blue-500 bg-blue-50 text-blue-700'
+              const unsel = 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-blue-50 hover:border-blue-300'
+              return (
+                <div className="px-5 pb-6 pt-2">
+                  <div className="flex items-center gap-2 mb-4">
+                    <button
+                      onClick={() => {
+                        if (antaBattenteIdx === 0) {
+                          setMenuStep('anta_battente_num')
+                        } else {
+                          setAntaBattenteIdx(antaBattenteIdx - 1)
+                          setAntaBattenteWip(antaBattenteConfigs[antaBattenteIdx - 1] ?? {})
+                          setAntaBattenteConfigs(antaBattenteConfigs.slice(0, antaBattenteIdx - 1))
+                        }
+                      }}
+                      className="p-1 rounded-lg hover:bg-gray-100 text-gray-500"
+                    >
+                      <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                        <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    <p className="text-sm font-semibold text-gray-700">
+                      Anta {antaBattenteIdx + 1}{antaBattenteNum > 1 ? ` di ${antaBattenteNum}` : ''} — configurazione
+                    </p>
+                  </div>
+
+                  {/* lato apertura */}
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Lato apertura</p>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {([['sx', 'Sinistra'], ['dx', 'Destra']] as const).map(([v, label]) => (
+                      <button
+                        key={v}
+                        onClick={() => setAntaBattenteWip(w => ({ ...w, lato: v }))}
+                        className={`py-3 rounded-xl border text-sm font-semibold transition-all active:scale-95 ${antaBattenteWip.lato === v ? sel : unsel}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* verso apertura */}
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Verso apertura</p>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {([['dentro', 'Verso dentro'], ['fuori', 'Verso fuori']] as const).map(([v, label]) => (
+                      <button
+                        key={v}
+                        onClick={() => setAntaBattenteWip(w => ({
+                          ...w,
+                          verso: v,
+                          // ribalta non disponibile verso fuori
+                          ribalta: v === 'fuori' ? false : w.ribalta,
+                        }))}
+                        className={`py-3 rounded-xl border text-sm font-semibold transition-all active:scale-95 ${antaBattenteWip.verso === v ? sel : unsel}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* tipo (solo se verso dentro) */}
+                  {antaBattenteWip.verso === 'dentro' && (
+                    <>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Tipo</p>
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <button
+                          onClick={() => setAntaBattenteWip(w => ({ ...w, ribalta: false }))}
+                          className={`py-3 rounded-xl border text-sm font-semibold transition-all active:scale-95 ${antaBattenteWip.ribalta === false ? sel : unsel}`}
+                        >
+                          Normale
+                        </button>
+                        <button
+                          onClick={() => setAntaBattenteWip(w => ({ ...w, ribalta: true }))}
+                          className={`py-3 rounded-xl border text-sm font-semibold transition-all active:scale-95 ${antaBattenteWip.ribalta === true ? sel : unsel}`}
+                        >
+                          Con ribalta
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {/* CTA */}
+                  <button
+                    disabled={!canConfirm}
+                    onClick={() => {
+                      if (!antaBattenteWip.lato || !antaBattenteWip.verso) return
+                      const config: AntaBattenteConfig = {
+                        lato: antaBattenteWip.lato,
+                        verso: antaBattenteWip.verso,
+                        ribalta: antaBattenteWip.ribalta ?? false,
+                      }
+                      const newConfigs = [...antaBattenteConfigs, config]
+                      setAntaBattenteConfigs(newConfigs)
+                      if (!isLast) {
+                        setAntaBattenteIdx(antaBattenteIdx + 1)
+                        setAntaBattenteWip({})
+                      } else {
+                        setMenuStep(null)
+                        // TODO: aggiungere ante al canvas con newConfigs
+                      }
+                    }}
+                    className="w-full py-3 rounded-2xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-40 hover:bg-blue-700 active:scale-[0.98] transition-all"
+                  >
+                    {isLast ? 'Conferma' : `Avanti — anta ${antaBattenteIdx + 2}`}
+                  </button>
+                </div>
+              )
+            })()}
+
             {/* ── step: tipo anta ── */}
             {menuStep === 'anta_tipo' && (
               <div className="px-5 pb-6 pt-2">
@@ -903,8 +1054,11 @@ export default function CanvasVano({ vano }: Props) {
                 <div className="grid grid-cols-2 gap-4">
                   <button
                     onClick={() => {
-                      setMenuStep(null)
-                      // TODO: aggiungere anta battente
+                      setAntaBattenteNum(1)
+                      setAntaBattenteIdx(0)
+                      setAntaBattenteConfigs([])
+                      setAntaBattenteWip({})
+                      setMenuStep('anta_battente_num')
                     }}
                     className="flex flex-col items-center gap-3 px-4 py-5 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 active:scale-95 transition-all"
                   >
@@ -957,6 +1111,13 @@ export default function CanvasVano({ vano }: Props) {
       </p>
     </div>
   )
+}
+
+// ── Anta battente ────────────────────────────────────────────
+type AntaBattenteConfig = {
+  lato: 'sx' | 'dx'
+  verso: 'dentro' | 'fuori'
+  ribalta: boolean
 }
 
 // ── Telaio lati ──────────────────────────────────────────────
