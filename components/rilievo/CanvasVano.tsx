@@ -710,79 +710,85 @@ export default function CanvasVano({ vano }: Props) {
             const inBottom = ante.latoCorncia === 'a_giro' || ante.latoCorncia === '3_lati_no_testa'
             const x0 = rawX0 + di, x1 = rawX1 - di
             const y0 = rawY0 + (inTop ? di : 0), y1 = rawY1 - (inBottom ? di : 0)
-            const W  = x1 - x0, H = y1 - y0
+            const W = x1 - x0, H = y1 - y0
             if (W < 1 || H < 1) return null
 
+            const innerPath = computeInnerPath(vano.forma.shape, ptPx, pxWinding, di, localValori, realSc)
+
             const N  = ante.num
-            // riporto = profilo aggiuntivo tra le ante, larghezza = bw
             const rw = ante.riporto ? bw : 0
             const antaW = (W - rw * (N - 1)) / N
-
-            // stesso stile del telaio
             const profFill   = '#d1d5db'
             const profStroke = '#374151'
-            const glassFill  = 'rgba(147,197,253,0.45)'
             const sw = s(1.5)
-            const bwT = inTop    ? bw : 0
-            const bwB = inBottom ? bw : 0
+            const clipId = `ab-${ante.id}`
 
             return (
               <g key={ante.id}>
-                {ante.configs.map((cfg, i) => {
-                  const ax0 = x0 + i * (antaW + rw)
-                  const ax1c = ax0 + antaW
-                  const isSx = cfg.lato === 'sx'
-                  // vetro: inset di bw su tutti i lati attivi
-                  const gx0 = ax0 + bw,  gx1 = ax1c - bw
-                  const gy0 = y0 + bwT,  gy1 = y1   - bwB
-                  const gW = gx1 - gx0,  gH  = gy1  - gy0
-                  const midY = y0 + H / 2
-                  // maniglia: rettangolo verticale sul lato libero (non-cerniera)
-                  const hdlH = Math.max(10, H * 0.13)
-                  const hdlW = Math.max(3,  bw * 0.32)
-                  const hdlX = isSx
-                    ? ax1c - bw * 0.6 - hdlW / 2
-                    : ax0  + bw * 0.6 - hdlW / 2
-                  // cerniere: sul lato cerniera, all'interno del profilo
-                  const hngX = isSx ? ax0 + bw * 0.1 : ax1c - bw * 0.6
-                  const hngW = bw * 0.5
-                  const hngH = Math.max(6, bw * 0.55)
-
-                  return (
-                    <g key={i}>
-                      {/* profilo anta — stessa fill del telaio */}
-                      <rect x={ax0} y={y0} width={antaW} height={H}
-                        fill={profFill} stroke={profStroke} strokeWidth={sw} />
-                      {/* vetro */}
-                      {gW > 1 && gH > 1 && (
-                        <rect x={gx0} y={gy0} width={gW} height={gH}
-                          fill={glassFill} stroke={profStroke} strokeWidth={s(0.5)} />
-                      )}
-                      {/* cerniere */}
-                      <rect x={hngX} y={y0 + H * 0.18} width={hngW} height={hngH}
-                        rx={1} fill={profStroke} />
-                      <rect x={hngX} y={y0 + H * 0.65} width={hngW} height={hngH}
-                        rx={1} fill={profStroke} />
-                      {/* maniglia */}
-                      <rect x={hdlX} y={midY - hdlH / 2} width={hdlW} height={hdlH}
-                        rx={2} fill={profStroke} />
-                      {/* ribalta: linea tratteggiata orizzontale */}
-                      {cfg.ribalta && (
-                        <line x1={ax0} y1={midY} x2={ax1c} y2={midY}
-                          stroke={profStroke} strokeWidth={s(1)}
-                          strokeDasharray={`${s(5)} ${s(3)}`} />
-                      )}
-                    </g>
-                  )
-                })}
-                {/* riporto tra le ante */}
-                {ante.riporto && ante.configs.slice(0, -1).map((_, i) => {
-                  const rx0 = x0 + (i + 1) * antaW + i * rw
-                  return (
-                    <rect key={i} x={rx0} y={y0} width={rw} height={H}
-                      fill={profFill} stroke={profStroke} strokeWidth={sw} />
-                  )
-                })}
+                <defs>
+                  <clipPath id={clipId}>
+                    <path d={innerPath} />
+                  </clipPath>
+                </defs>
+                {/* tutto clippato al contorno interno della forma */}
+                <g clipPath={`url(#${clipId})`}>
+                  {ante.configs.map((cfg, i) => {
+                    const ax0 = x0 + i * (antaW + rw)
+                    const ax1c = ax0 + antaW
+                    const isSx = cfg.lato === 'sx'
+                    const midY = y0 + H / 2
+                    const hdlH = Math.max(10, H * 0.13)
+                    const hdlW = Math.max(3, bw * 0.32)
+                    const hdlX = isSx ? ax1c - bw * 0.6 - hdlW / 2 : ax0 + bw * 0.6 - hdlW / 2
+                    const hngX = isSx ? ax0 + bw * 0.1 : ax1c - bw * 0.6
+                    const hngW = bw * 0.5
+                    const hngH = Math.max(6, bw * 0.55)
+                    return (
+                      <g key={i}>
+                        {/* profilo anta (grigio) — riempie tutta la colonna, il clip fa il resto */}
+                        <rect x={ax0} y={rawY0 - 50} width={antaW} height={(rawY1 - rawY0) + 100}
+                          fill={profFill} />
+                        {/* separatore verticale sinistro (tra ante adiacenti) */}
+                        {i > 0 && !ante.riporto && (
+                          <line x1={ax0} y1={rawY0 - 50} x2={ax0} y2={rawY1 + 50}
+                            stroke={profStroke} strokeWidth={sw} />
+                        )}
+                        {/* cerniere */}
+                        <rect x={hngX} y={y0 + H * 0.18} width={hngW} height={hngH}
+                          rx={1} fill={profStroke} />
+                        <rect x={hngX} y={y0 + H * 0.65} width={hngW} height={hngH}
+                          rx={1} fill={profStroke} />
+                        {/* maniglia */}
+                        <rect x={hdlX} y={midY - hdlH / 2} width={hdlW} height={hdlH}
+                          rx={2} fill={profStroke} />
+                        {/* ribalta */}
+                        {cfg.ribalta && (
+                          <line x1={ax0} y1={midY} x2={ax1c} y2={midY}
+                            stroke={profStroke} strokeWidth={s(1)}
+                            strokeDasharray={`${s(5)} ${s(3)}`} />
+                        )}
+                      </g>
+                    )
+                  })}
+                  {/* riporto tra le ante */}
+                  {ante.riporto && ante.configs.slice(0, -1).map((_, i) => {
+                    const rx0 = x0 + (i + 1) * antaW + i * rw
+                    return (
+                      <rect key={i} x={rx0} y={rawY0 - 50} width={rw} height={(rawY1 - rawY0) + 100}
+                        fill={profFill} />
+                    )
+                  })}
+                  {/* bordo esterno del gruppo ante */}
+                  <path d={innerPath} fill="none" stroke={profStroke} strokeWidth={sw} />
+                  {/* separatori verticali tra ante (linee che tagliano tutto il gruppo) */}
+                  {ante.configs.slice(0, -1).map((_, i) => {
+                    const lx = x0 + (i + 1) * antaW + i * rw + (ante.riporto ? rw : 0)
+                    return (
+                      <line key={i} x1={lx} y1={rawY0 - 50} x2={lx} y2={rawY1 + 50}
+                        stroke={profStroke} strokeWidth={sw} />
+                    )
+                  })}
+                </g>
               </g>
             )
           })}
@@ -807,39 +813,40 @@ export default function CanvasVano({ vano }: Props) {
             const N = ante.num
             const rw = ante.riporto ? bw : 0
             const antaW = (W - rw * (N - 1)) / N
-            const bwT = inTop ? bw : 0, bwB = inBottom ? bw : 0
             const sw = s(1.5)
+            const wipClipId = 'ab-wip'
+            const wipInnerPath = computeInnerPath(vano.forma.shape, ptPx, pxWinding, di, localValori, realSc)
             return (
-              <g opacity={0.45}>
-                {ante.configs.map((cfg, i) => {
-                  const ax0 = x0 + i * (antaW + rw)
-                  const ax1c = ax0 + antaW
-                  const isSx = cfg.lato === 'sx'
-                  const gx0 = ax0 + bw, gx1 = ax1c - bw
-                  const gy0 = y0 + bwT, gy1 = y1 - bwB
-                  const gW = gx1 - gx0, gH = gy1 - gy0
-                  const midY = y0 + H / 2
-                  const hdlH = Math.max(10, H * 0.13)
-                  const hdlW = Math.max(3, bw * 0.32)
-                  const hdlX = isSx ? ax1c - bw * 0.6 - hdlW / 2 : ax0 + bw * 0.6 - hdlW / 2
-                  const hngX = isSx ? ax0 + bw * 0.1 : ax1c - bw * 0.6
-                  const hngW = bw * 0.5
-                  const hngH = Math.max(6, bw * 0.55)
-                  return (
-                    <g key={i}>
-                      <rect x={ax0} y={y0} width={antaW} height={H}
-                        fill="#d1d5db" stroke="#374151" strokeWidth={sw} strokeDasharray={`${s(6)} ${s(3)}`} />
-                      {gW > 1 && gH > 1 && (
-                        <rect x={gx0} y={gy0} width={gW} height={gH}
-                          fill="rgba(147,197,253,0.45)" stroke="#374151" strokeWidth={s(0.5)} />
-                      )}
-                      <rect x={hngX} y={y0 + H * 0.18} width={hngW} height={hngH} rx={1} fill="#374151" />
-                      <rect x={hngX} y={y0 + H * 0.65} width={hngW} height={hngH} rx={1} fill="#374151" />
-                      <rect x={hdlX} y={midY - hdlH / 2} width={hdlW} height={hdlH} rx={2} fill="#374151" />
-                    </g>
-                  )
-                })}
-              </g>
+              <>
+                <defs>
+                  <clipPath id={wipClipId}>
+                    <path d={wipInnerPath} />
+                  </clipPath>
+                </defs>
+                <g opacity={0.45} clipPath={`url(#${wipClipId})`}>
+                  {ante.configs.map((cfg, i) => {
+                    const ax0 = x0 + i * (antaW + rw)
+                    const ax1c = ax0 + antaW
+                    const isSx = cfg.lato === 'sx'
+                    const midY = y0 + H / 2
+                    const hdlH = Math.max(10, H * 0.13)
+                    const hdlW = Math.max(3, bw * 0.32)
+                    const hdlX = isSx ? ax1c - bw * 0.6 - hdlW / 2 : ax0 + bw * 0.6 - hdlW / 2
+                    const hngX = isSx ? ax0 + bw * 0.1 : ax1c - bw * 0.6
+                    const hngW = bw * 0.5
+                    const hngH = Math.max(6, bw * 0.55)
+                    return (
+                      <g key={i}>
+                        <rect x={ax0} y={rawY0 - 50} width={antaW} height={(rawY1 - rawY0) + 100}
+                          fill="#d1d5db" stroke="#374151" strokeWidth={sw} strokeDasharray={`${s(6)} ${s(3)}`} />
+                        <rect x={hngX} y={y0 + H * 0.18} width={hngW} height={hngH} rx={1} fill="#374151" />
+                        <rect x={hngX} y={y0 + H * 0.65} width={hngW} height={hngH} rx={1} fill="#374151" />
+                        <rect x={hdlX} y={midY - hdlH / 2} width={hdlW} height={hdlH} rx={2} fill="#374151" />
+                      </g>
+                    )
+                  })}
+                </g>
+              </>
             )
           })()}
 
@@ -1600,6 +1607,70 @@ function latiAttivi(lati: TelaioLatiId) {
     left:   lati === '4_lati' || lati === '3_lati_testa' || lati === '3_lati_base' || lati === 'solo_sx',
     right:  lati === '4_lati' || lati === '3_lati_testa' || lati === '3_lati_base' || lati === 'solo_dx',
   }
+}
+
+/**
+ * Calcola il path SVG del contorno interno della forma, offset verso l'interno di `dInner` px.
+ * Usa la stessa logica miter + offset radiale del telaio.
+ */
+function computeInnerPath(
+  shape: { segmenti: ShapeSegment[]; punti: Array<{ id: string }> },
+  ptPx: Map<string, { x: number; y: number }>,
+  pxWinding: number,
+  dInner: number,
+  localValori: Record<string, number>,
+  realScFactor: number,
+): string {
+  const segs = shape.segmenti
+  const n = segs.length
+  let d = ''
+  for (let idx = 0; idx < n; idx++) {
+    const seg  = segs[idx]
+    const prev = segs[(idx - 1 + n) % n]
+    const next = segs[(idx + 1) % n]
+    const from = ptPx.get(seg.fromId)
+    const to   = ptPx.get(seg.toId)
+    if (!from || !to) continue
+    const curSI  = segInfo(seg,  ptPx, pxWinding)
+    const prevSI = segInfo(prev, ptPx, pxWinding)
+    const nextSI = segInfo(next, ptPx, pxWinding)
+    if (!curSI) continue
+    let [iFx, iFy] = miterPtAdj(from.x, from.y, prevSI, dInner, curSI, dInner)
+    let [iTx, iTy] = miterPtAdj(to.x,   to.y,   curSI,  dInner, nextSI, dInner)
+    if (idx === 0) d += `M ${iFx.toFixed(1)} ${iFy.toFixed(1)} `
+    if (seg.tipo === 'arco' && seg.sagittaNome) {
+      const sagMm = localValori[seg.sagittaNome]
+      if (sagMm && sagMm > 0) {
+        const sagPx  = sagMm * realScFactor
+        const cpLen  = Math.sqrt(seg.cpDx ** 2 + seg.cpDy ** 2) || 1
+        const cpDirX = seg.cpDx / cpLen
+        const cpDirY = seg.cpDy / cpLen
+        const chord  = Math.sqrt((to.x - from.x) ** 2 + (to.y - from.y) ** 2)
+        if (seg.tipoArco !== 'acuto' && chord > 0.01 && sagPx > 0.01) {
+          const R    = arcRadius(chord, sagPx)
+          const midX = (from.x + to.x) / 2
+          const midY = (from.y + to.y) / 2
+          const ccx  = midX - (R - sagPx) * cpDirX
+          const ccy  = midY - (R - sagPx) * cpDirY
+          const r0x  = from.x - ccx, r0y = from.y - ccy
+          const r1x  = to.x   - ccx, r1y = to.y   - ccy
+          const r0   = Math.sqrt(r0x * r0x + r0y * r0y) || 1
+          const r1   = Math.sqrt(r1x * r1x + r1y * r1y) || 1
+          iFx = from.x - (dInner / r0) * r0x
+          iFy = from.y - (dInner / r0) * r0y
+          iTx = to.x   - (dInner / r1) * r1x
+          iTy = to.y   - (dInner / r1) * r1y
+        }
+        const iSag = Math.max(0.5, sagPx - dInner)
+        d += telaioArcCmd(iFx, iFy, iTx, iTy, iSag, cpDirX, cpDirY, seg.tipoArco) + ' '
+      } else {
+        d += `L ${iTx.toFixed(1)} ${iTy.toFixed(1)} `
+      }
+    } else {
+      d += `L ${iTx.toFixed(1)} ${iTy.toFixed(1)} `
+    }
+  }
+  return d.trim() + ' Z'
 }
 
 // ── ComponenteIcon ───────────────────────────────────────────
