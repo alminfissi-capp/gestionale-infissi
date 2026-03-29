@@ -87,6 +87,8 @@ export default function CanvasVano({ vano }: Props) {
   const [telai, setTelai] = useState<TelaioAggiunto[]>([])
   const [selectedTelaioId, setSelectedTelaioId] = useState<string | null>(null)
   const [selectedMenuPos, setSelectedMenuPos]   = useState<{ x: number; y: number } | null>(null)
+  const [selectedAntaId, setSelectedAntaId]     = useState<string | null>(null)
+  const [selectedAntaPos, setSelectedAntaPos]   = useState<{ x: number; y: number } | null>(null)
 
   const panRef     = useRef({ x: 0, y: 0 })
   const dragRef    = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null)
@@ -97,11 +99,12 @@ export default function CanvasVano({ vano }: Props) {
   useEffect(() => { panRef.current = pan }, [pan])
 
   // ── Dexie persistence ────────────────────────────────────────
-  // Load canvas state (telai + localInput overrides) on mount
+  // Load canvas state on mount
   useEffect(() => {
     db.vanoCanvas.get(vano.id).then((state) => {
       if (!state) return
       if (state.telai.length > 0) setTelai(state.telai as TelaioAggiunto[])
+      if ((state.anteBattenti ?? []).length > 0) setAnteBattenti(state.anteBattenti as AntaBattenteAggiunta[])
       if (Object.keys(state.localInput).length > 0) setLocalInput(state.localInput)
     })
   }, [vano.id])
@@ -110,10 +113,10 @@ export default function CanvasVano({ vano }: Props) {
   useEffect(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
-      db.vanoCanvas.put({ vanoId: vano.id, telai, localInput, updatedAt: new Date().toISOString() })
+      db.vanoCanvas.put({ vanoId: vano.id, telai, anteBattenti, localInput, updatedAt: new Date().toISOString() })
     }, 400)
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
-  }, [vano.id, telai, localInput])
+  }, [vano.id, telai, anteBattenti, localInput])
 
   // ── geometry ──────────────────────────────────────────────
   const { widthMm, heightMm } = useMemo(
@@ -514,7 +517,7 @@ export default function CanvasVano({ vano }: Props) {
         onDoubleClick={onDoubleClick}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
-        onClick={() => { if (!wasDragRef.current) { setSelectedTelaioId(null); setSelectedMenuPos(null) } }}
+        onClick={() => { if (!wasDragRef.current) { setSelectedTelaioId(null); setSelectedMenuPos(null); setSelectedAntaId(null); setSelectedAntaPos(null) } }}
       >
         <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
 
@@ -705,26 +708,43 @@ export default function CanvasVano({ vano }: Props) {
             const bbW = rawX1 - rawX0, bbH = rawY1 - rawY0
             const bw = Math.max(8, Math.min(bbW, bbH) * 0.07)
             const di = 2 + Math.max(1, telai.length) * bw
+            // Gap visivo tra telaio e anta: l'anta è chiaramente DENTRO il telaio
+            const ANTA_GAP = 2
+            const diAnta = di + ANTA_GAP
 
             const inTop    = ante.latoCorncia === 'a_giro' || ante.latoCorncia === '3_lati_no_base'
             const inBottom = ante.latoCorncia === 'a_giro' || ante.latoCorncia === '3_lati_no_testa'
-            const x0 = rawX0 + di, x1 = rawX1 - di
-            const y0 = rawY0 + (inTop ? di : 0), y1 = rawY1 - (inBottom ? di : 0)
+            const x0 = rawX0 + diAnta, x1 = rawX1 - diAnta
+            const y0 = rawY0 + (inTop ? diAnta : 0), y1 = rawY1 - (inBottom ? diAnta : 0)
             const W = x1 - x0, H = y1 - y0
             if (W < 1 || H < 1) return null
 
-            const innerPath = computeInnerPath(vano.forma.shape, ptPx, pxWinding, di, localValori, realSc)
+            const innerPath = computeInnerPath(vano.forma.shape, ptPx, pxWinding, diAnta, localValori, realSc)
 
             const N  = ante.num
             const rw = ante.riporto ? bw : 0
             const antaW = (W - rw * (N - 1)) / N
-            const profFill   = '#d1d5db'
-            const profStroke = '#374151'
+            const isSelected = selectedAntaId === ante.id
+            const profFill   = isSelected ? '#FDE047' : '#e2e8f0'
+            const profStroke = isSelected ? '#ca8a04' : '#2563eb'
             const sw = s(1.5)
             const clipId = `ab-${ante.id}`
 
             return (
-              <g key={ante.id}>
+              <g
+                key={ante.id}
+                style={{ cursor: 'pointer' }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (wasDragRef.current) return
+                  const rect = svgRef.current?.getBoundingClientRect()
+                  if (!rect) return
+                  setSelectedTelaioId(null); setSelectedMenuPos(null)
+                  setSelectedAntaId(isSelected ? null : ante.id)
+                  setSelectedAntaPos(isSelected ? null : { x: e.clientX - rect.left, y: e.clientY - rect.top })
+                }}
+              >
                 <defs>
                   <clipPath id={clipId}>
                     <path d={innerPath} />
@@ -850,11 +870,44 @@ export default function CanvasVano({ vano }: Props) {
             )
           })()}
 
-          {/* ── + button al centro della forma ── */}
+          {/* ── + button telaio (sul bordo della forma) ── */}
           {(() => {
+            // Piccolo + in alto a destra della forma — aggiunge sempre un telaio
+            const cx = shapeOffX + shapePxW - s(18)
+            const cy = shapeOffY + s(18)
+            const r  = s(14)
+            return (
+              <g
+                style={{ cursor: 'pointer' }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (!wasDragRef.current) setMenuStep('telaio_tipo')
+                }}
+              >
+                <circle cx={cx} cy={cy} r={r} fill="rgba(13,148,136,0.18)" stroke="#0d9488" strokeWidth={s(1.5)} />
+                <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
+                  fontSize={s(18)} fontWeight="400" fill="#0d9488"
+                  style={{ userSelect: 'none', pointerEvents: 'none' }}>+</text>
+                {/* etichetta "Telaio" se nessun telaio presente */}
+                {telai.length === 0 && (
+                  <text x={cx} y={cy + s(20)} textAnchor="middle" dominantBaseline="middle"
+                    fontSize={s(9)} fill="#0d9488" style={{ userSelect: 'none', pointerEvents: 'none' }}>
+                    telaio
+                  </text>
+                )}
+              </g>
+            )
+          })()}
+
+          {/* ── + button interno (zona interna del telaio) — aggiunge ante, traversi, ecc. ── */}
+          {telai.length > 0 && (() => {
+            const bwEst = Math.max(8, Math.min(shapePxW, shapePxH) * 0.07)
+            const diEst = 2 + telai.length * bwEst + 2 // diAnta
             const cx = shapeOffX + shapePxW / 2
             const cy = shapeOffY + shapePxH / 2
             const r  = s(22)
+            // Non mostrare se editando o menu aperto (sarebbe coperto)
             return (
               <g
                 style={{ cursor: 'pointer' }}
@@ -864,15 +917,15 @@ export default function CanvasVano({ vano }: Props) {
                   if (!wasDragRef.current) setMenuStep('componenti')
                 }}
               >
-                <circle cx={cx} cy={cy} r={r} fill="rgba(13,148,136,0.13)" stroke="#0d9488" strokeWidth={s(2)} />
-                <text
-                  x={cx} y={cy}
-                  textAnchor="middle" dominantBaseline="middle"
-                  fontSize={s(30)} fontWeight="300" fill="#0d9488"
-                  style={{ userSelect: 'none', pointerEvents: 'none' }}
-                >
-                  +
-                </text>
+                <circle cx={cx} cy={cy} r={r}
+                  fill="rgba(37,99,235,0.10)" stroke="#2563eb" strokeWidth={s(2)} />
+                <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
+                  fontSize={s(30)} fontWeight="300" fill="#2563eb"
+                  style={{ userSelect: 'none', pointerEvents: 'none' }}>+</text>
+                {/* halo visivo per indicare la zona interna */}
+                <circle cx={cx} cy={cy} r={diEst} fill="none"
+                  stroke="rgba(37,99,235,0.08)" strokeWidth={s(1.5)}
+                  strokeDasharray={`${s(4)} ${s(3)}`} style={{ pointerEvents: 'none' }} />
               </g>
             )
           })()}
@@ -902,7 +955,33 @@ export default function CanvasVano({ vano }: Props) {
         </div>
       )}
 
-      {/* ── menu contestuale elemento selezionato ── */}
+      {/* ── menu contestuale anta selezionata ── */}
+      {selectedAntaId && selectedAntaPos && (
+        <div
+          className="absolute z-50 bg-white shadow-xl rounded-xl border border-gray-200 flex items-center gap-0.5 p-1"
+          style={{
+            left: Math.max(4, Math.min(cSize.w - 90, selectedAntaPos.x - 18)),
+            top:  Math.max(4, Math.min(cSize.h - 50, selectedAntaPos.y - 52)),
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => {
+              setAnteBattenti((prev) => prev.filter((a) => a.id !== selectedAntaId))
+              setSelectedAntaId(null)
+              setSelectedAntaPos(null)
+            }}
+            className="p-2 rounded-lg hover:bg-red-50 text-red-500 hover:text-red-600 active:scale-95 transition-all"
+            title="Elimina"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+              <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* ── menu contestuale telaio selezionato ── */}
       {selectedTelaioId && selectedMenuPos && (
         <div
           className="absolute z-50 bg-white shadow-xl rounded-xl border border-gray-200 flex items-center gap-0.5 p-1"
@@ -947,25 +1026,23 @@ export default function CanvasVano({ vano }: Props) {
               </button>
             </div>
 
-            {/* ── step: lista componenti ── */}
+            {/* ── step: lista componenti (zona interna — no telaio) ── */}
             {menuStep === 'componenti' && (
               <div className="px-4 pb-4 pt-2">
-                <p className="text-xs font-semibold text-gray-600 mb-2">Aggiungi componente</p>
+                <p className="text-xs font-semibold text-gray-600 mb-2">Aggiungi nella zona interna</p>
                 <div className="grid grid-cols-3 gap-2">
-                  {COMPONENTI.map(({ id, label }) => (
+                  {COMPONENTI.filter(c => c.id !== 'telaio').map(({ id, label }) => (
                     <button
                       key={id}
                       onClick={() => {
-                        if (id === 'telaio') {
-                          setMenuStep('telaio_tipo')
-                        } else if (id === 'anta') {
+                        if (id === 'anta') {
                           setMenuStep('anta_tipo')
                         } else {
                           setMenuStep(null)
-                          // TODO: aprire schermata configurazione per `id`
+                          // TODO: traverso, montante, ferma_vetro, vetro, pannello…
                         }
                       }}
-                      className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-teal-50 hover:border-teal-300 active:scale-95 transition-all"
+                      className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 active:scale-95 transition-all"
                     >
                       <ComponenteIcon id={id} />
                       <span className="text-[10px] font-semibold text-gray-700 text-center leading-tight">

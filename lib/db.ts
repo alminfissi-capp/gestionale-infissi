@@ -31,6 +31,7 @@ export interface RilievoSessione {
 export interface VanoCanvasState {
   vanoId: string
   telai: Array<{ id: string; tipo: string; lati: string }>
+  anteBattenti: Array<unknown>
   localInput: Record<string, number>
   updatedAt: string
 }
