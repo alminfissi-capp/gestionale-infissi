@@ -67,10 +67,12 @@ export default function CanvasVano({ vano }: Props) {
   const [zoom, setZoom] = useState(1)
   const [pan,  setPan]  = useState({ x: 0, y: 0 })
   const [editing, setEditing]   = useState<EditState | null>(null)
-  const [menuStep, setMenuStep] = useState<null | 'componenti' | 'telaio_tipo' | 'telaio_lati' | 'anta_tipo' | 'anta_battente_num' | 'anta_battente_config'>(null)
+  const [menuStep, setMenuStep] = useState<null | 'componenti' | 'telaio_tipo' | 'telaio_lati' | 'anta_tipo' | 'anta_battente_num' | 'anta_battente_lati' | 'anta_battente_config'>(null)
   const [telaioTipo, setTelaioTipo] = useState<'scorrevole' | 'battente' | null>(null)
   const [antaBattenteNum, setAntaBattenteNum] = useState(0)
   const [antaBattenteNumStr, setAntaBattenteNumStr] = useState('')
+  const [antaBattenteLatoId, setAntaBattenteLatoId] = useState<AntaBattenteLatoId | null>(null)
+  const [antaBattentePrincipaleIdx, setAntaBattentePrincipaleIdx] = useState<number | null>(null)
   const [antaBattenteIdx, setAntaBattenteIdx] = useState(0)
   const [antaBattenteConfigs, setAntaBattenteConfigs] = useState<AntaBattenteConfig[]>([])
   const [antaBattenteWip, setAntaBattenteWip] = useState<Partial<AntaBattenteConfig>>({})
@@ -915,10 +917,8 @@ export default function CanvasVano({ vano }: Props) {
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && antaBattenteNum >= 1) {
-                        setAntaBattenteIdx(0)
-                        setAntaBattenteConfigs([])
-                        setAntaBattenteWip({})
-                        setMenuStep('anta_battente_config')
+                        setAntaBattenteLatoId(null)
+                        setMenuStep('anta_battente_lati')
                       }
                     }}
                     className="w-20 text-center text-xl font-bold text-blue-600 border border-gray-300 rounded-lg py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -928,15 +928,49 @@ export default function CanvasVano({ vano }: Props) {
                   <button
                     disabled={antaBattenteNum < 1}
                     onClick={() => {
-                      setAntaBattenteIdx(0)
-                      setAntaBattenteConfigs([])
-                      setAntaBattenteWip({})
-                      setMenuStep('anta_battente_config')
+                      setAntaBattenteLatoId(null)
+                      setMenuStep('anta_battente_lati')
                     }}
                     className="ml-auto px-4 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-40 hover:bg-blue-700 active:scale-[0.98] transition-all"
                   >
                     Avanti
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── step: lati anta battente ── */}
+            {menuStep === 'anta_battente_lati' && (
+              <div className="px-4 pb-4 pt-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <button
+                    onClick={() => setMenuStep('anta_battente_num')}
+                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-500"
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                      <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <p className="text-xs font-semibold text-gray-700">Anta battente — tipologia</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {ANTA_BATTENTE_LATI.map(({ id, label }) => (
+                    <button
+                      key={id}
+                      onClick={() => {
+                        setAntaBattenteLatoId(id)
+                        setAntaBattenteIdx(0)
+                        setAntaBattentePrincipaleIdx(null)
+                        setAntaBattenteConfigs([])
+                        setAntaBattenteWip({})
+                        setMenuStep('anta_battente_config')
+                      }}
+                      className="flex items-center gap-2 px-2 py-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 active:scale-95 transition-all text-left"
+                    >
+                      <AntaLatoIcon lato={id} />
+                      <span className="text-[11px] font-semibold text-gray-700 leading-tight">{label}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -953,7 +987,7 @@ export default function CanvasVano({ vano }: Props) {
                     <button
                       onClick={() => {
                         if (antaBattenteIdx === 0) {
-                          setMenuStep('anta_battente_num')
+                          setMenuStep('anta_battente_lati')
                         } else {
                           setAntaBattenteIdx(antaBattenteIdx - 1)
                           setAntaBattenteWip(antaBattenteConfigs[antaBattenteIdx - 1] ?? {})
@@ -967,9 +1001,33 @@ export default function CanvasVano({ vano }: Props) {
                       </svg>
                     </button>
                     <p className="text-xs font-semibold text-gray-700">
-                      Anta {antaBattenteIdx + 1}{antaBattenteNum > 1 ? ` di ${antaBattenteNum}` : ''} — configurazione
+                      Anta {antaBattenteIdx + 1}{antaBattenteNum > 1 ? ` di ${antaBattenteNum}` : ''}
+                      {antaBattenteLatoId && <span className="ml-1 font-normal text-gray-400">· {ANTA_BATTENTE_LATI.find(l => l.id === antaBattenteLatoId)?.label}</span>}
                     </p>
                   </div>
+
+                  {/* anta principale (solo se ci sono più ante) */}
+                  {antaBattenteNum > 1 && (
+                    <>
+                      <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Anta principale</p>
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <button
+                          onClick={() => setAntaBattentePrincipaleIdx(antaBattenteIdx)}
+                          className={`py-2 rounded-lg border text-xs font-semibold transition-all active:scale-95 ${antaBattentePrincipaleIdx === antaBattenteIdx ? sel : unsel}`}
+                        >
+                          Sì
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (antaBattentePrincipaleIdx === antaBattenteIdx) setAntaBattentePrincipaleIdx(null)
+                          }}
+                          className={`py-2 rounded-lg border text-xs font-semibold transition-all active:scale-95 ${antaBattentePrincipaleIdx !== antaBattenteIdx ? sel : unsel}`}
+                        >
+                          No
+                        </button>
+                      </div>
+                    </>
+                  )}
 
                   {/* lato apertura */}
                   <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Lato apertura</p>
@@ -1034,6 +1092,7 @@ export default function CanvasVano({ vano }: Props) {
                         lato: antaBattenteWip.lato,
                         verso: antaBattenteWip.verso,
                         ribalta: antaBattenteWip.ribalta ?? false,
+                        principale: antaBattenteNum <= 1 || antaBattentePrincipaleIdx === antaBattenteIdx,
                       }
                       const newConfigs = [...antaBattenteConfigs, config]
                       setAntaBattenteConfigs(newConfigs)
@@ -1072,6 +1131,8 @@ export default function CanvasVano({ vano }: Props) {
                     onClick={() => {
                       setAntaBattenteNum(0)
                       setAntaBattenteNumStr('')
+                      setAntaBattenteLatoId(null)
+                      setAntaBattentePrincipaleIdx(null)
                       setAntaBattenteIdx(0)
                       setAntaBattenteConfigs([])
                       setAntaBattenteWip({})
@@ -1131,10 +1192,20 @@ export default function CanvasVano({ vano }: Props) {
 }
 
 // ── Anta battente ────────────────────────────────────────────
+type AntaBattenteLatoId = 'a_giro' | '3_lati_no_base' | '3_lati_no_testa' | 'solo_laterali'
+
+const ANTA_BATTENTE_LATI: { id: AntaBattenteLatoId; label: string }[] = [
+  { id: 'a_giro',          label: 'A giro (4 lati)' },
+  { id: '3_lati_no_base',  label: '3 lati (senza base)' },
+  { id: '3_lati_no_testa', label: '3 lati (senza testa)' },
+  { id: 'solo_laterali',   label: 'Solo lati (sx + dx)' },
+]
+
 type AntaBattenteConfig = {
   lato: 'sx' | 'dx'
   verso: 'dentro' | 'fuori'
   ribalta: boolean
+  principale: boolean
 }
 
 // ── Telaio lati ──────────────────────────────────────────────
@@ -1169,6 +1240,22 @@ function TelaioLatiIcon({ lati }: { lati: TelaioLatiId }) {
       <line x1="1" y1="1" x2="1" y2="21" stroke={left   ? S : D} strokeWidth={W} strokeLinecap="round" />
       {/* lato destro */}
       <line x1="27" y1="1" x2="27" y2="21" stroke={right  ? S : D} strokeWidth={W} strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function AntaLatoIcon({ lato }: { lato: AntaBattenteLatoId }) {
+  const S = '#2563eb'
+  const W = 3
+  const D = '#d1d5db'
+  const top    = lato === 'a_giro' || lato === '3_lati_no_base'
+  const bottom = lato === 'a_giro' || lato === '3_lati_no_testa'
+  return (
+    <svg viewBox="0 0 28 22" className="w-9 h-7 shrink-0">
+      <line x1="1" y1="1"  x2="27" y2="1"  stroke={top    ? S : D} strokeWidth={W} strokeLinecap="round" />
+      <line x1="1" y1="21" x2="27" y2="21" stroke={bottom ? S : D} strokeWidth={W} strokeLinecap="round" />
+      <line x1="1" y1="1"  x2="1"  y2="21" stroke={S}             strokeWidth={W} strokeLinecap="round" />
+      <line x1="27" y1="1" x2="27" y2="21" stroke={S}             strokeWidth={W} strokeLinecap="round" />
     </svg>
   )
 }
