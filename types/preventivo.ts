@@ -102,6 +102,7 @@ export type Preventivo = {
   share_token: string | null
   condiviso_at: string | null
   visualizzato_at: string | null
+  email_aperta_at: string | null
   cataloghi_allegati: string[]
   created_at: string
   updated_at: string
