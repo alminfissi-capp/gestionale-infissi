@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown, RotateCcw } from 'lucide-react'
+import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown, RotateCcw, MailCheck } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
 import { formatEuro } from '@/lib/pricing'
@@ -290,6 +290,11 @@ export default function TabellaPreventivi({ preventivi }: Props) {
                           {p.visualizzato_at && (
                             <span title={`Visionato il ${new Date(p.visualizzato_at).toLocaleDateString('it-IT')}`}>
                               <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                            </span>
+                          )}
+                          {p.email_aperta_at && (
+                            <span title={`Email aperta il ${new Date(p.email_aperta_at).toLocaleDateString('it-IT')}`}>
+                              <MailCheck className="h-3.5 w-3.5 text-blue-500 shrink-0" />
                             </span>
                           )}
                         </div>
