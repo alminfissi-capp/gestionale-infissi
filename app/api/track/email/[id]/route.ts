@@ -11,18 +11,18 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await params
-    const supabase = createServiceClient()
+  const { id } = await params
+  const supabase = createServiceClient()
 
-    // Segna email come aperta solo la prima volta
-    await supabase
-      .from('preventivi')
-      .update({ email_aperta_at: new Date().toISOString() })
-      .eq('id', id)
-      .is('email_aperta_at', null)
-  } catch {
-    // Non bloccare la risposta per errori di tracking
+  // Segna email come aperta solo la prima volta
+  const { error } = await supabase
+    .from('preventivi')
+    .update({ email_aperta_at: new Date().toISOString() })
+    .eq('id', id)
+    .is('email_aperta_at', null)
+
+  if (error) {
+    console.error('[track/email] update error:', error.message)
   }
 
   return new NextResponse(PIXEL, {
