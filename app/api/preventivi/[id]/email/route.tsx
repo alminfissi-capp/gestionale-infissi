@@ -127,10 +127,14 @@ export async function POST(
       attachments: [{ filename, content: pdfBuffer.toString('base64') }],
     })
 
-    // Aggiorna stato a 'inviato' se ancora bozza
-    if (prev.stato === 'bozza') {
-      await supabase.from('preventivi').update({ stato: 'inviato' }).eq('id', id)
-    }
+    // Resetta tracking apertura email + aggiorna stato se bozza
+    await supabase
+      .from('preventivi')
+      .update({
+        email_aperta_at: null,
+        ...(prev.stato === 'bozza' ? { stato: 'inviato' } : {}),
+      })
+      .eq('id', id)
 
     return NextResponse.json({ ok: true })
   } catch (err) {
