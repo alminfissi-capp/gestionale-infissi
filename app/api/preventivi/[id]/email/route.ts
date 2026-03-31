@@ -67,10 +67,12 @@ export async function POST(
 </body>
 </html>`
 
+    const fromEmail = settings?.email || 'onboarding@resend.dev'
+    const fromName = settings?.denominazione || 'Preventivi'
+
     await resend.emails.send({
-      from: 'Preventivi <onboarding@resend.dev>',
+      from: `${fromName} <${fromEmail}>`,
       to: destinatario,
-      ...(settings?.email ? { replyTo: settings.email } : {}),
       subject: oggetto,
       html: emailHtml,
       attachments: [
