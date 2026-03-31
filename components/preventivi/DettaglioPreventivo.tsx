@@ -9,6 +9,7 @@ import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, Shopp
 import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
 import DialogAllegaCatalogo from '@/components/preventivi/DialogAllegaCatalogo'
 import DialogAllegatiCalcoli from '@/components/preventivi/DialogAllegatiCalcoli'
+import DialogInvioEmail from '@/components/preventivi/DialogInvioEmail'
 import { generaShareToken, revokaShareToken } from '@/actions/condivisione'
 import { formatEuro } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
@@ -65,6 +66,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const [shareLoading, startShareTransition] = useTransition()
   const [allegaOpen, setAllegaOpen] = useState(false)
   const [allegatiCalcoliOpen, setAllegatiCalcoliOpen] = useState(false)
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
   const [noteEspanse, setNoteEspanse] = useState(false)
   const [origin, setOrigin] = useState('')
   const [stato, setStato] = useState<StatoPreventivo>(p.stato)
@@ -131,14 +133,6 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
           ? `Gentile ${nomeCliente}, le inviamo il preventivo n. ${p.numero}. In allegato troverà il documento.`
           : `Gentile ${nomeCliente}, le inviamo il preventivo richiesto. In allegato troverà il documento.`)
     return `https://wa.me/${number}?text=${encodeURIComponent(testo)}`
-  })() : null
-
-  const emailUrl = s.email ? (() => {
-    const subject = p.numero ? `Preventivo n. ${p.numero}` : 'Preventivo'
-    const body = p.numero
-      ? `Gentile ${nomeCliente},\n\nle inviamo in allegato il preventivo n. ${p.numero}.\n\nRimanendo a disposizione per qualsiasi informazione,\ncordiamo saluti.`
-      : `Gentile ${nomeCliente},\n\nle inviamo in allegato il preventivo richiesto.\n\nRimanendo a disposizione per qualsiasi informazione,\ncordiamo saluti.`
-    return `mailto:${s.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   })() : null
 
   const handleDuplica = () => {
@@ -210,7 +204,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
               Stampa calcoli
             </Link>
           </Button>
-          {(emailUrl || whatsappUrl) && (
+          {(s.email || whatsappUrl) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -220,12 +214,10 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {emailUrl && (
-                  <DropdownMenuItem asChild>
-                    <a href={emailUrl}>
-                      <Mail className="h-4 w-4 mr-2" />
-                      Email
-                    </a>
+                {s.email && (
+                  <DropdownMenuItem onClick={() => setEmailDialogOpen(true)}>
+                    <Mail className="h-4 w-4 mr-2" />
+                    Email
                   </DropdownMenuItem>
                 )}
                 {whatsappUrl && (
@@ -761,6 +753,13 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
         onClose={() => setAllegatiCalcoliOpen(false)}
         preventivoId={p.id}
         allegati={p.allegati_calcoli_data}
+      />
+
+      <DialogInvioEmail
+        open={emailDialogOpen}
+        onClose={() => setEmailDialogOpen(false)}
+        preventivo={p}
+        nomeCliente={nomeCliente}
       />
     </div>
   )
