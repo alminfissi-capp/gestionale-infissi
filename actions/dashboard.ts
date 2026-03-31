@@ -32,6 +32,7 @@ export type DashboardData = {
   bozze: StatoStats
   inviati: StatoStats
   grafico: GiornoPoint[]
+  graficoPeriodo: GiornoPoint[] // 12 mesi anno corrente
 }
 
 async function getOrgId(): Promise<string> {
@@ -131,6 +132,22 @@ export async function getDashboardData(): Promise<DashboardData> {
     })
   }
 
+  // ── Grafico per mese (anno corrente) ───────────────────────────────────────
+  const MESI = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
+  const graficoPeriodo: GiornoPoint[] = MESI.map((label, idx) => {
+    const monthPrev = prevAnno.filter((p) => {
+      const d = new Date(p.created_at)
+      return d.getMonth() === idx
+    })
+    return {
+      data: label,
+      totale: monthPrev.length,
+      accettati: monthPrev.filter((p) => p.stato === 'accettato').length,
+      rifiutati: monthPrev.filter((p) => p.stato === 'rifiutato').length,
+      bozze: monthPrev.filter((p) => p.stato === 'bozza').length,
+    }
+  })
+
   return {
     attivitaRecenti,
     totale,
@@ -140,5 +157,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     bozze: calcStats('bozza'),
     inviati: calcStats('inviato'),
     grafico,
+    graficoPeriodo,
   }
 }

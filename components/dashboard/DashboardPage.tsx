@@ -2,6 +2,7 @@
 
 import { Activity, FileText, User, BookOpen, Ruler, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -61,9 +62,10 @@ function StatCard({
 // ── Componente principale ─────────────────────────────────────────────────────
 export default function DashboardPage({ data }: { data: DashboardData }) {
   const anno = new Date().getFullYear()
+  const [periodo, setPeriodo] = useState<'30g' | 'anno'>('30g')
 
-  // Filtra giorni con dati per non affollare il grafico
-  const hasData = data.grafico.some((g) => g.totale > 0)
+  const graficoDati = periodo === 'anno' ? data.graficoPeriodo : data.grafico
+  const hasData = graficoDati.some((g) => g.totale > 0)
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -108,19 +110,35 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
 
       {/* ── Grafico andamento ── */}
       <div className="bg-white rounded-lg border p-4">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">
-          Andamento ultimi 30 giorni
-        </p>
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+            {periodo === '30g' ? 'Andamento ultimi 30 giorni' : `Andamento ${anno} per mese`}
+          </p>
+          <div className="flex rounded-md border overflow-hidden text-xs font-medium">
+            <button
+              onClick={() => setPeriodo('30g')}
+              className={`px-3 py-1 transition-colors ${periodo === '30g' ? 'bg-teal-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+            >
+              30 giorni
+            </button>
+            <button
+              onClick={() => setPeriodo('anno')}
+              className={`px-3 py-1 border-l transition-colors ${periodo === 'anno' ? 'bg-teal-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+            >
+              Anno
+            </button>
+          </div>
+        </div>
         {!hasData ? (
           <p className="text-sm text-gray-400 text-center py-8">Nessun dato disponibile</p>
         ) : (
           <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={data.grafico} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+            <LineChart data={graficoDati} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis
                 dataKey="data"
                 tick={{ fontSize: 10, fill: '#9ca3af' }}
-                interval={4}
+                interval={periodo === 'anno' ? 0 : 4}
               />
               <YAxis
                 allowDecimals={false}
