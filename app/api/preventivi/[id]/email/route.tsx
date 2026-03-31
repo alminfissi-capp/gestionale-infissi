@@ -14,6 +14,20 @@ const BASE_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
+/** Scarica un'immagine da URL e la restituisce come data URL base64.
+ *  Necessario perché @react-pdf non riconosce le estensioni dei signed URL Supabase. */
+async function toDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const buf = await res.arrayBuffer()
+    const ct  = res.headers.get('content-type') || 'image/png'
+    return `data:${ct};base64,${Buffer.from(buf).toString('base64')}`
+  } catch {
+    return null
+  }
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -36,19 +50,31 @@ export async function POST(
 
     if (!prev) return NextResponse.json({ error: 'Preventivo non trovato' }, { status: 404 })
 
-    const settings  = settingsRaw as Settings | null
-    const logoUrl   = settings?.logo_url ? await getLogoSignedUrl(settings.logo_url) : null
+    const settings = settingsRaw as Settings | null
+
+    // Converti logo in base64 (i signed URL Supabase non hanno estensione riconoscibile)
+    const rawLogoUrl = settings?.logo_url ? await getLogoSignedUrl(settings.logo_url) : null
+    const logoData   = rawLogoUrl ? await toDataUrl(rawLogoUrl) : null
+
+    // Converti immagini articoli in base64
+    const articoliConImg = await Promise.all(
+      (articoli ?? []).map(async (a) => {
+        if (!a.immagine_url) return a
+        const imgData = await toDataUrl(a.immagine_url)
+        return { ...a, immagine_url: imgData }
+      })
+    )
 
     const preventivo: PreventivoCompleto = {
       ...prev,
-      articoli:                 articoli ?? [],
-      cataloghi_allegati_data:  [],
-      allegati_calcoli_data:    [],
+      articoli:                articoliConImg,
+      cataloghi_allegati_data: [],
+      allegati_calcoli_data:   [],
     }
 
     // ── Genera PDF server-side ──
     const pdfBuffer = await renderToBuffer(
-      <PreventivoPdf preventivo={preventivo} settings={settings} logoUrl={logoUrl} />
+      <PreventivoPdf preventivo={preventivo} settings={settings} logoUrl={logoData} />
     )
     const filename = prev.numero ? `preventivo-${prev.numero}.pdf` : 'preventivo.pdf'
 
