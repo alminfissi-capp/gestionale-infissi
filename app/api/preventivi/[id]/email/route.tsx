@@ -16,12 +16,16 @@ const BASE_URL =
 
 /** Scarica un'immagine da URL e la restituisce come data URL base64.
  *  Necessario perché @react-pdf non riconosce le estensioni dei signed URL Supabase. */
+// Formati supportati da @react-pdf/renderer
+const SUPPORTED_IMG = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
+
 async function toDataUrl(url: string): Promise<string | null> {
   try {
     const res = await fetch(url)
     if (!res.ok) return null
+    const ct = (res.headers.get('content-type') || 'image/png').split(';')[0].trim()
+    if (!SUPPORTED_IMG.includes(ct)) return null   // skip webp e altri
     const buf = await res.arrayBuffer()
-    const ct  = res.headers.get('content-type') || 'image/png'
     return `data:${ct};base64,${Buffer.from(buf).toString('base64')}`
   } catch {
     return null
