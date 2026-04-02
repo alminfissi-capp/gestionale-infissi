@@ -23,7 +23,7 @@ export default function ScontoSelect({ value, onChange, max = 50, className }: P
       <SelectTrigger className={className ?? 'w-24'}>
         <span className="mr-auto">{displayValue}</span>
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent position="popper" sideOffset={4}>
         {options.map((o) => (
           <SelectItem key={o} value={o.toString()}>
             {o}%
