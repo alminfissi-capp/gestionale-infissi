@@ -2,6 +2,7 @@ import React from 'react'
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { renderToBuffer } from '@react-pdf/renderer'
+import sharp from 'sharp'
 import { createClient } from '@/lib/supabase/server'
 import { getLogoSignedUrl } from '@/actions/impostazioni'
 import PreventivoPdf from '@/lib/pdf/preventivoPdf'
@@ -14,9 +15,8 @@ const BASE_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
-/** Scarica un'immagine da URL e la restituisce come data URL base64.
- *  Necessario perché @react-pdf non riconosce le estensioni dei signed URL Supabase. */
-// Formati supportati da @react-pdf/renderer
+/** Scarica un'immagine da URL e la restituisce come data URL base64 (JPEG/PNG).
+ *  I formati non supportati da @react-pdf (es. WebP) vengono convertiti in JPEG via sharp. */
 const SUPPORTED_IMG = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
 
 async function toDataUrl(url: string): Promise<string | null> {
@@ -24,9 +24,13 @@ async function toDataUrl(url: string): Promise<string | null> {
     const res = await fetch(url)
     if (!res.ok) return null
     const ct = (res.headers.get('content-type') || 'image/png').split(';')[0].trim()
-    if (!SUPPORTED_IMG.includes(ct)) return null   // skip webp e altri
-    const buf = await res.arrayBuffer()
-    return `data:${ct};base64,${Buffer.from(buf).toString('base64')}`
+    const buf = Buffer.from(await res.arrayBuffer())
+    if (SUPPORTED_IMG.includes(ct)) {
+      return `data:${ct};base64,${buf.toString('base64')}`
+    }
+    // Converti formati non supportati (WebP, AVIF, ecc.) in JPEG
+    const jpegBuf = await sharp(buf).jpeg({ quality: 85 }).toBuffer()
+    return `data:image/jpeg;base64,${jpegBuf.toString('base64')}`
   } catch {
     return null
   }
