@@ -219,14 +219,14 @@ export default function DialogVoceVeloce({
               <div className="space-y-1.5">
                 <Label>Colore interno</Label>
                 <Select
-                  value={form.colore_interno ?? ''}
-                  onValueChange={(v) => set('colore_interno', v || null)}
+                  value={form.colore_interno ?? '__none__'}
+                  onValueChange={(v) => set('colore_interno', v === '__none__' ? null : v)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleziona…" />
                   </SelectTrigger>
                   <SelectContent position="popper" sideOffset={4}>
-                    <SelectItem value="">—</SelectItem>
+                    <SelectItem value="__none__">—</SelectItem>
                     {opzioni.colori.map((c) => (
                       <SelectItem key={c} value={c}>{c}</SelectItem>
                     ))}
@@ -249,14 +249,14 @@ export default function DialogVoceVeloce({
               <div className="space-y-1.5">
                 <Label>Colore esterno</Label>
                 <Select
-                  value={form.colore_esterno ?? ''}
-                  onValueChange={(v) => set('colore_esterno', v || null)}
+                  value={form.colore_esterno ?? '__none__'}
+                  onValueChange={(v) => set('colore_esterno', v === '__none__' ? null : v)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleziona…" />
                   </SelectTrigger>
                   <SelectContent position="popper" sideOffset={4}>
-                    <SelectItem value="">—</SelectItem>
+                    <SelectItem value="__none__">—</SelectItem>
                     {opzioni.colori.map((c) => (
                       <SelectItem key={c} value={c}>{c}</SelectItem>
                     ))}
@@ -271,14 +271,14 @@ export default function DialogVoceVeloce({
             <div className="space-y-1.5">
               <Label>Tipologia vetro</Label>
               <Select
-                value={form.tipologia_vetro ?? ''}
-                onValueChange={(v) => set('tipologia_vetro', v || null)}
+                value={form.tipologia_vetro ?? '__none__'}
+                onValueChange={(v) => set('tipologia_vetro', v === '__none__' ? null : v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleziona…" />
                 </SelectTrigger>
                 <SelectContent position="popper" sideOffset={4}>
-                  <SelectItem value="">—</SelectItem>
+                  <SelectItem value="__none__">—</SelectItem>
                   {opzioni.vetri.map((v) => (
                     <SelectItem key={v} value={v}>{v}</SelectItem>
                   ))}
@@ -314,14 +314,14 @@ export default function DialogVoceVeloce({
             <div className="space-y-1.5">
               <Label>Tipo serratura</Label>
               <Select
-                value={form.tipo_serratura ?? ''}
-                onValueChange={(v) => set('tipo_serratura', v || null)}
+                value={form.tipo_serratura ?? '__none__'}
+                onValueChange={(v) => set('tipo_serratura', v === '__none__' ? null : v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleziona…" />
                 </SelectTrigger>
                 <SelectContent position="popper" sideOffset={4}>
-                  <SelectItem value="">—</SelectItem>
+                  <SelectItem value="__none__">—</SelectItem>
                   {opzioni.serrature.map((s) => (
                     <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
