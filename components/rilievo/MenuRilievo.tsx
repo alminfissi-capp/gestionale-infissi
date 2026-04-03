@@ -1,14 +1,22 @@
 'use client'
 
 import Link from 'next/link'
-import { ClipboardList, PlusCircle, Database } from 'lucide-react'
+import { ClipboardList, PlusCircle, Database, Zap } from 'lucide-react'
 
 const VOCI = [
   {
+    href: '/rilievo/veloce',
+    icon: Zap,
+    titolo: 'Rilievo veloce',
+    descrizione: 'Rileva rapidamente misure e specifiche dei serramenti',
+    color: 'text-orange-600',
+    bg: 'bg-orange-50 hover:bg-orange-100 border-orange-200',
+  },
+  {
     href: '/rilievo/nuovo',
     icon: PlusCircle,
-    titolo: 'Nuovo rilievo',
-    descrizione: 'Avvia un nuovo rilievo misure cantiere',
+    titolo: 'Nuovo rilievo grafico',
+    descrizione: 'Avvia un nuovo rilievo misure con disegno cantiere',
     color: 'text-teal-600',
     bg: 'bg-teal-50 hover:bg-teal-100 border-teal-200',
   },
