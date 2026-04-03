@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ClipboardList, PlusCircle, Database, Zap } from 'lucide-react'
+import { PlusCircle, Database, Zap } from 'lucide-react'
 
 const VOCI = [
   {
@@ -19,14 +19,6 @@ const VOCI = [
     descrizione: 'Avvia un nuovo rilievo misure con disegno cantiere',
     color: 'text-teal-600',
     bg: 'bg-teal-50 hover:bg-teal-100 border-teal-200',
-  },
-  {
-    href: '/rilievo/elenco',
-    icon: ClipboardList,
-    titolo: 'Elenco rilievi',
-    descrizione: 'Visualizza e gestisci i rilievi salvati',
-    color: 'text-blue-600',
-    bg: 'bg-blue-50 hover:bg-blue-100 border-blue-200',
   },
   {
     href: '/rilievo/impostazioni',
