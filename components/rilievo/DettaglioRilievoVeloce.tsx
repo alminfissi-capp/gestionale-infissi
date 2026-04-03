@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft, Plus, Pencil, Trash2, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -36,7 +35,6 @@ function labelVoce(v: VoceRilievoVeloce | VoceInput): string {
 }
 
 export default function DettaglioRilievoVeloce({ rilievo: rilievoInit, opzioni }: Props) {
-  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [voci, setVoci] = useState<VoceRilievoVeloce[]>(rilievoInit.voci)
   const [note, setNote] = useState(rilievoInit.note ?? '')

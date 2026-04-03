@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Plus, Trash2, ChevronRight, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { deleteRilievoVeloce } from '@/actions/rilievo-veloce'
@@ -24,7 +23,6 @@ function formatData(iso: string): string {
 }
 
 export default function RilievoVeloceList({ rilievi: rilieviInit }: Props) {
-  const router = useRouter()
   const [rilievi, setRilievi] = useState(rilieviInit)
   const [isPending, startTransition] = useTransition()
 
