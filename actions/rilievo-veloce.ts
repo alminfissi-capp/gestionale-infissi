@@ -133,7 +133,7 @@ export async function updateStruttureSerie(id: string, strutture_collegate: stri
     .eq('id', id)
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
-  revalidatePath('/rilievo/impostazioni')
+  // niente revalidatePath: lo stato è gestito ottimisticamente nel client
 }
 
 export async function reordinaOpzioni(tipo: TipoOpzione, ids: string[]): Promise<void> {
