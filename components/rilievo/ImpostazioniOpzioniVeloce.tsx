@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Eye, EyeOff, Check, X, ChevronDown, ChevronUp, Link2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -288,6 +288,9 @@ function SezioneSerieOpzioni({
 export default function ImpostazioniOpzioniVeloce({ opzioni: opzioniInit }: Props) {
   const router  = useRouter()
   const [opzioni, setOpzioni] = useState(opzioniInit)
+
+  // Sincronizza lo stato quando router.refresh() porta dati freschi (con UUID reali)
+  useEffect(() => { setOpzioni(opzioniInit) }, [opzioniInit])
 
   const byTipo = (tipo: TipoOpzione) => opzioni.filter((o) => o.tipo === tipo)
 
