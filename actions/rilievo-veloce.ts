@@ -11,6 +11,8 @@ import type {
   VoceInput,
   OpzioniRilievo,
   TipoOpzione,
+  StrutturaOpzione,
+  SerieOpzione,
 } from '@/types/rilievo-veloce'
 
 // ─── Helper ────────────────────────────────────────────────────────────────
@@ -45,12 +47,21 @@ export async function getOpzioni(): Promise<RilievoOpzione[]> {
 
 export async function getOpzioniRaggruppate(): Promise<OpzioniRilievo> {
   const opzioni = await getOpzioni()
+  const strutture: StrutturaOpzione[] = opzioni
+    .filter((o) => o.tipo === 'struttura' && o.attiva)
+    .map((o) => ({ id: o.id, valore: o.valore }))
+
+  const serie: SerieOpzione[] = opzioni
+    .filter((o) => o.tipo === 'serie' && o.attiva)
+    .map((o) => ({ id: o.id, valore: o.valore, strutture_collegate: o.strutture_collegate }))
+
   return {
     accessori: opzioni.filter((o) => o.tipo === 'accessorio' && o.attiva).map((o) => o.valore),
     colori:    opzioni.filter((o) => o.tipo === 'colore'     && o.attiva).map((o) => o.valore),
     vetri:     opzioni.filter((o) => o.tipo === 'vetro'      && o.attiva).map((o) => o.valore),
     serrature: opzioni.filter((o) => o.tipo === 'serratura'  && o.attiva).map((o) => o.valore),
-    serie:     opzioni.filter((o) => o.tipo === 'serie'      && o.attiva).map((o) => o.valore),
+    strutture,
+    serie,
   }
 }
 
@@ -107,6 +118,18 @@ export async function toggleOpzioneAttiva(id: string, attiva: boolean): Promise<
   const { error } = await supabase
     .from('rilievo_opzioni')
     .update({ attiva })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/rilievo/impostazioni')
+}
+
+export async function updateStruttureSerie(id: string, strutture_collegate: string[]): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('rilievo_opzioni')
+    .update({ strutture_collegate })
     .eq('id', id)
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)

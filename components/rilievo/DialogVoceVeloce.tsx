@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import PreviewSerramento from '@/components/rilievo/PreviewSerramento'
 import type { VoceInput, OpzioniRilievo } from '@/types/rilievo-veloce'
 
 interface Props {
@@ -52,6 +53,9 @@ const VOCE_VUOTA: VoceInput = {
   anta_ribalta: false,
   serratura: false,
   tipo_serratura: null,
+  struttura: null,
+  n_ante: null,
+  anta_principale: null,
   serie_profilo: null,
   note: '',
 }
@@ -68,6 +72,24 @@ export default function DialogVoceVeloce({
 
   const set = <K extends keyof VoceInput>(k: K, v: VoceInput[K]) =>
     setForm((prev) => ({ ...prev, [k]: v }))
+
+  const handleStrutturaChange = (value: string) => {
+    set('struttura', value === '__none__' ? null : value)
+  }
+
+  const handleNAnteChange = (raw: string) => {
+    const n = raw === '' ? null : Math.max(1, Math.min(8, parseInt(raw) || 1))
+    setForm((prev) => ({
+      ...prev,
+      n_ante: n,
+      anta_principale:
+        n == null ? null
+        : n === 1 ? 0
+        : prev.anta_principale != null && prev.anta_principale < n
+          ? prev.anta_principale
+          : 0,
+    }))
+  }
 
   const toggleAccessorio = (val: string) => {
     setForm((prev) => ({
@@ -94,7 +116,7 @@ export default function DialogVoceVeloce({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Modifica serramento' : 'Aggiungi serramento'}</DialogTitle>
         </DialogHeader>
@@ -132,26 +154,87 @@ export default function DialogVoceVeloce({
             />
           </div>
 
-          {/* Serie profilo */}
-          {opzioni.serie.length > 0 && (
-            <div className="space-y-1.5">
-              <Label>Serie profilo</Label>
-              <Select
-                value={form.serie_profilo ?? '__none__'}
-                onValueChange={(v) => set('serie_profilo', v === '__none__' ? null : v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleziona…" />
-                </SelectTrigger>
-                <SelectContent position="popper" sideOffset={4}>
-                  <SelectItem value="__none__">—</SelectItem>
-                  {opzioni.serie.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {/* Struttura + N. ante + Preview */}
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2 space-y-1.5">
+                <Label>Struttura serramento</Label>
+                {opzioni.strutture.length > 0 ? (
+                  <Select value={form.struttura ?? '__none__'} onValueChange={handleStrutturaChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleziona struttura…" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" sideOffset={4}>
+                      <SelectItem value="__none__">—</SelectItem>
+                      {opzioni.strutture.map((s) => (
+                        <SelectItem key={s.id} value={s.valore}>{s.valore}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    placeholder="es. Battente, Scorrevole…"
+                    value={form.struttura ?? ''}
+                    onChange={(e) => set('struttura', e.target.value || null)}
+                  />
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label>N. ante</Label>
+                <Input
+                  type="number"
+                  min={1} max={8}
+                  placeholder="—"
+                  value={form.n_ante ?? ''}
+                  onChange={(e) => handleNAnteChange(e.target.value)}
+                />
+              </div>
             </div>
-          )}
+
+            {/* Preview — visibile se struttura o n_ante impostato */}
+            {(form.struttura || (form.n_ante ?? 0) >= 1) && (
+              <div className="rounded-xl border bg-gray-50 p-4">
+                <PreviewSerramento
+                  struttura={form.struttura}
+                  nAnte={form.n_ante}
+                  larghezza={form.larghezza_mm}
+                  altezza={form.altezza_mm}
+                  antaPrincipale={form.anta_principale}
+                  onSelectAnta={(form.n_ante ?? 0) > 1 ? (idx) => set('anta_principale', idx) : undefined}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Serie profilo — filtrata per struttura selezionata */}
+          {opzioni.serie.length > 0 && (() => {
+            const strutturaOpt = opzioni.strutture.find((s) => s.valore === form.struttura)
+            const serieFiltrate = strutturaOpt
+              ? opzioni.serie.filter(
+                  (s) => s.strutture_collegate.length === 0 || s.strutture_collegate.includes(strutturaOpt.id)
+                )
+              : opzioni.serie
+            if (serieFiltrate.length === 0) return null
+            return (
+              <div className="space-y-1.5">
+                <Label>Serie profilo{strutturaOpt ? ` — ${strutturaOpt.valore}` : ''}</Label>
+                <Select
+                  value={form.serie_profilo ?? '__none__'}
+                  onValueChange={(v) => set('serie_profilo', v === '__none__' ? null : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleziona…" />
+                  </SelectTrigger>
+                  <SelectContent position="popper" sideOffset={4}>
+                    <SelectItem value="__none__">—</SelectItem>
+                    {serieFiltrate.map((s) => (
+                      <SelectItem key={s.id} value={s.valore}>{s.valore}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )
+          })()}
 
           {/* Misure */}
           <div className="grid grid-cols-2 gap-3">
