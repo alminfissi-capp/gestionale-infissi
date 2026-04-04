@@ -18,6 +18,7 @@ interface Props {
 }
 
 const TIPI: { tipo: TipoOpzione; label: string }[] = [
+  { tipo: 'serie',      label: 'Serie profili' },
   { tipo: 'accessorio', label: 'Finitura / Accessori' },
   { tipo: 'colore',     label: 'Colori' },
   { tipo: 'vetro',      label: 'Tipologie vetro' },

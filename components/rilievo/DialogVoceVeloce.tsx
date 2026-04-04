@@ -52,6 +52,7 @@ const VOCE_VUOTA: VoceInput = {
   anta_ribalta: false,
   serratura: false,
   tipo_serratura: null,
+  serie_profilo: null,
   note: '',
 }
 
@@ -130,6 +131,27 @@ export default function DialogVoceVeloce({
               onChange={(e) => set('tipologia', e.target.value)}
             />
           </div>
+
+          {/* Serie profilo */}
+          {opzioni.serie.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>Serie profilo</Label>
+              <Select
+                value={form.serie_profilo ?? '__none__'}
+                onValueChange={(v) => set('serie_profilo', v === '__none__' ? null : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleziona…" />
+                </SelectTrigger>
+                <SelectContent position="popper" sideOffset={4}>
+                  <SelectItem value="__none__">—</SelectItem>
+                  {opzioni.serie.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Misure */}
           <div className="grid grid-cols-2 gap-3">

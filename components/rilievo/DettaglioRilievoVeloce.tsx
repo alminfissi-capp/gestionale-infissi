@@ -192,6 +192,7 @@ export default function DettaglioRilievoVeloce({ rilievo: rilievoInit, opzioni }
                   <p className="text-sm font-medium text-gray-800 truncate">{labelVoce(v)}</p>
                   <p className="text-xs text-gray-500 mt-0.5">
                     Qt. {v.quantita}
+                    {v.serie_profilo ? ` · ${v.serie_profilo}` : ''}
                     {v.colore_interno ? ` · ${v.colore_interno}` : ''}
                     {v.tipologia_vetro ? ` · ${v.tipologia_vetro}` : ''}
                     {v.accessori.length > 0 ? ` · ${v.accessori.join(', ')}` : ''}

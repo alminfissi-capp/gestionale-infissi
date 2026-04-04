@@ -50,6 +50,7 @@ export async function getOpzioniRaggruppate(): Promise<OpzioniRilievo> {
     colori:    opzioni.filter((o) => o.tipo === 'colore'     && o.attiva).map((o) => o.valore),
     vetri:     opzioni.filter((o) => o.tipo === 'vetro'      && o.attiva).map((o) => o.valore),
     serrature: opzioni.filter((o) => o.tipo === 'serratura'  && o.attiva).map((o) => o.valore),
+    serie:     opzioni.filter((o) => o.tipo === 'serie'      && o.attiva).map((o) => o.valore),
   }
 }
 

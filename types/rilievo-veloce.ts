@@ -2,7 +2,7 @@
 // Tipi per il modulo Rilievo Veloce
 // ============================================================
 
-export type TipoOpzione = 'accessorio' | 'colore' | 'vetro' | 'serratura'
+export type TipoOpzione = 'accessorio' | 'colore' | 'vetro' | 'serratura' | 'serie'
 
 export interface RilievoOpzione {
   id: string
@@ -56,6 +56,7 @@ export interface VoceRilievoVeloce {
   anta_ribalta: boolean
   serratura: boolean
   tipo_serratura: string | null
+  serie_profilo: string | null
   note: string | null
   created_at: string
 }
@@ -76,4 +77,5 @@ export interface OpzioniRilievo {
   colori: string[]
   vetri: string[]
   serrature: string[]
+  serie: string[]
 }
