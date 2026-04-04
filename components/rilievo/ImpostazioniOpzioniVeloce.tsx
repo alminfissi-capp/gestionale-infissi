@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useTransition, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -366,23 +365,21 @@ function SezioneSerieOpzioni({
 // ─── Componente principale ────────────────────────────────────
 
 export default function ImpostazioniOpzioniVeloce({ opzioni: opzioniInit }: Props) {
-  const router    = useRouter()
   const [opzioni, setOpzioni]       = useState(opzioniInit)
   const [activeType, setActiveType] = useState<string | null>(null)
   const { blocchi, updateColore, reorder, getColore } = useRilievoUiBlocchi()
 
+  // Sincronizza solo se arrivano props freschi dall'esterno (navigazione)
   useEffect(() => { setOpzioni(opzioniInit) }, [opzioniInit])
 
   const byTipo = (tipo: string) => opzioni.filter((o) => o.tipo === tipo)
 
   const handleAdd = async (tipo: TipoOpzione, valore: string) => {
-    await upsertOpzione(tipo, valore)
-    router.refresh()
-    setOpzioni((prev) => [...prev, {
-      id: `tmp-${Date.now()}`, organization_id: '', tipo, valore,
-      ordine: prev.filter((o) => o.tipo === tipo).length,
-      attiva: true, strutture_collegate: [], created_at: new Date().toISOString(),
-    }])
+    // upsertOpzione restituisce l'item con UUID reale → no tmp-ID, no router.refresh()
+    const newItem = await upsertOpzione(tipo, valore)
+    if (newItem) {
+      setOpzioni((prev) => [...prev, newItem])
+    }
   }
 
   const handleDelete = async (id: string) => {

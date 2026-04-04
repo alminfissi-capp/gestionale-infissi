@@ -69,7 +69,7 @@ export async function upsertOpzione(
   tipo: TipoOpzione,
   valore: string,
   id?: string
-): Promise<void> {
+): Promise<RilievoOpzione | null> {
   const supabase = await createClient()
   const orgId = await getOrgId()
   if (id) {
@@ -79,6 +79,7 @@ export async function upsertOpzione(
       .eq('id', id)
       .eq('organization_id', orgId)
     if (error) throw new Error(error.message)
+    return null
   } else {
     const { data: existing } = await supabase
       .from('rilievo_opzioni')
@@ -88,16 +89,14 @@ export async function upsertOpzione(
       .order('ordine', { ascending: false })
       .limit(1)
     const nextOrdine = (existing?.[0]?.ordine ?? -1) + 1
-    const { error } = await supabase.from('rilievo_opzioni').insert({
-      organization_id: orgId,
-      tipo,
-      valore,
-      ordine: nextOrdine,
-      attiva: true,
-    })
+    const { data, error } = await supabase
+      .from('rilievo_opzioni')
+      .insert({ organization_id: orgId, tipo, valore, ordine: nextOrdine, attiva: true })
+      .select()
+      .single()
     if (error) throw new Error(error.message)
+    return data as RilievoOpzione
   }
-  revalidatePath('/rilievo/impostazioni')
 }
 
 export async function deleteOpzione(id: string): Promise<void> {
