@@ -27,6 +27,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import PreviewSerramento from '@/components/rilievo/PreviewSerramento'
+import { useRilievoUiBlocchi } from '@/hooks/useRilievoUiBlocchi'
 import type { VoceInput, OpzioniRilievo } from '@/types/rilievo-veloce'
 
 interface Props {
@@ -65,6 +66,7 @@ export default function DialogVoceVeloce({
 }: Props) {
   const [form, setForm] = useState<VoceInput>(initialValues ?? VOCE_VUOTA)
   const [accessoriOpen, setAccessoriOpen] = useState(false)
+  const { getColore } = useRilievoUiBlocchi()
 
   useEffect(() => {
     if (open) setForm(initialValues ?? VOCE_VUOTA)
@@ -157,7 +159,7 @@ export default function DialogVoceVeloce({
           {/* Struttura + N. ante + Preview */}
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-2 space-y-1.5">
+              <div className="col-span-2 space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('struttura')}` }}>
                 <Label>Struttura serramento</Label>
                 {opzioni.strutture.length > 0 ? (
                   <Select value={form.struttura ?? '__none__'} onValueChange={handleStrutturaChange}>
@@ -216,7 +218,7 @@ export default function DialogVoceVeloce({
               : opzioni.serie
             if (serieFiltrate.length === 0) return null
             return (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('serie')}` }}>
                 <Label>Serie profilo{strutturaOpt ? ` — ${strutturaOpt.valore}` : ''}</Label>
                 <Select
                   value={form.serie_profilo ?? '__none__'}
@@ -262,7 +264,7 @@ export default function DialogVoceVeloce({
 
           {/* Accessori — multi-select */}
           {opzioni.accessori.length > 0 && (
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('accessorio')}` }}>
               <Label>Finitura / Accessori</Label>
               <Popover open={accessoriOpen} onOpenChange={setAccessoriOpen}>
                 <PopoverTrigger asChild>
@@ -321,7 +323,7 @@ export default function DialogVoceVeloce({
           {/* Colore interno + Bicolore */}
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-3 items-end">
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('colore')}` }}>
                 <Label>Colore interno</Label>
                 <Select
                   value={form.colore_interno ?? '__none__'}
@@ -351,7 +353,7 @@ export default function DialogVoceVeloce({
             </div>
 
             {form.bicolore && (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('colore')}` }}>
                 <Label>Colore esterno</Label>
                 <Select
                   value={form.colore_esterno ?? '__none__'}
@@ -373,7 +375,7 @@ export default function DialogVoceVeloce({
 
           {/* Tipologia vetro */}
           {opzioni.vetri.length > 0 && (
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('vetro')}` }}>
               <Label>Tipologia vetro</Label>
               <Select
                 value={form.tipologia_vetro ?? '__none__'}
@@ -416,7 +418,7 @@ export default function DialogVoceVeloce({
 
           {/* Tipo serratura — visibile solo se serratura = true */}
           {form.serratura && opzioni.serrature.length > 0 && (
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('serratura')}` }}>
               <Label>Tipo serratura</Label>
               <Select
                 value={form.tipo_serratura ?? '__none__'}
