@@ -152,40 +152,33 @@ export default function DialogVoceVeloce({
       : opzioni.telai
   )
 
-  // Classi riutilizzabili per uniformità
-  const inputCls = 'h-11 text-base'
-  const selectCls = 'h-11 text-base'
-  const labelCls = 'text-base font-medium'
-
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="w-[99.5vw] max-w-none h-[98dvh] flex flex-col gap-0 p-0 rounded-lg">
-        <DialogHeader className="px-8 pt-6 pb-4 shrink-0 border-b">
-          <DialogTitle className="text-xl">{isEditing ? 'Modifica serramento' : 'Aggiungi serramento'}</DialogTitle>
+      <DialogContent className="w-[99vw] max-w-none h-[98dvh] flex flex-col gap-0 p-0">
+        <DialogHeader className="px-6 pt-6 pb-3 shrink-0">
+          <DialogTitle>{isEditing ? 'Modifica serramento' : 'Aggiungi serramento'}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-8 py-5">
+        <div className="flex-1 overflow-y-auto px-6 pb-2">
           {/* Layout 3 colonne: sinistra | preview+telai | destra */}
-          <div className="grid grid-cols-3 gap-x-8 items-start">
+          <div className="grid grid-cols-3 gap-x-5 gap-y-0 items-start">
 
             {/* ── COLONNA SINISTRA ── */}
-            <div className="space-y-5">
+            <div className="space-y-3">
 
               {/* Voce + Quantità */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2 space-y-2">
-                  <Label className={labelCls}>Voce / Posizione</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2 space-y-1.5">
+                  <Label>Voce / Posizione</Label>
                   <Input
-                    className={inputCls}
                     placeholder="es. F1, Bagno…"
                     value={form.voce ?? ''}
                     onChange={(e) => set('voce', e.target.value)}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label className={labelCls}>Qtà</Label>
+                <div className="space-y-1.5">
+                  <Label>Qtà</Label>
                   <Input
-                    className={inputCls}
                     type="number"
                     min={1}
                     value={form.quantita}
@@ -195,14 +188,14 @@ export default function DialogVoceVeloce({
               </div>
 
               {/* Tipologia + H Davanzale */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className={cn('space-y-2', form.tipologia === 'Finestra' ? 'col-span-2' : 'col-span-3')}>
-                  <Label className={labelCls}>Tipologia</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <div className={cn('space-y-1.5', form.tipologia === 'Finestra' ? 'col-span-2' : 'col-span-3')}>
+                  <Label>Tipologia</Label>
                   <Select
                     value={form.tipologia ?? '__none__'}
                     onValueChange={(v) => set('tipologia', v === '__none__' ? null : v)}
                   >
-                    <SelectTrigger className={selectCls}>
+                    <SelectTrigger>
                       <SelectValue placeholder="Seleziona…" />
                     </SelectTrigger>
                     <SelectContent position="popper" sideOffset={4}>
@@ -213,10 +206,9 @@ export default function DialogVoceVeloce({
                   </Select>
                 </div>
                 {form.tipologia === 'Finestra' && (
-                  <div className="space-y-2">
-                    <Label className={labelCls}>H Dav. (mm)</Label>
+                  <div className="space-y-1.5">
+                    <Label>H Dav. (mm)</Label>
                     <Input
-                      className={inputCls}
                       type="number"
                       min={0}
                       placeholder="—"
@@ -228,12 +220,12 @@ export default function DialogVoceVeloce({
               </div>
 
               {/* Struttura + N. ante */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2 space-y-2 pl-3 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('struttura')}` }}>
-                  <Label className={labelCls}>Struttura</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2 space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('struttura')}` }}>
+                  <Label>Struttura</Label>
                   {opzioni.strutture.length > 0 ? (
                     <Select value={form.struttura ?? '__none__'} onValueChange={handleStrutturaChange}>
-                      <SelectTrigger className={selectCls}>
+                      <SelectTrigger>
                         <SelectValue placeholder="Seleziona…" />
                       </SelectTrigger>
                       <SelectContent position="popper" sideOffset={4}>
@@ -245,17 +237,15 @@ export default function DialogVoceVeloce({
                     </Select>
                   ) : (
                     <Input
-                      className={inputCls}
                       placeholder="es. Battente…"
                       value={form.struttura ?? ''}
                       onChange={(e) => set('struttura', e.target.value || null)}
                     />
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label className={labelCls}>N. ante</Label>
+                <div className="space-y-1.5">
+                  <Label>N. ante</Label>
                   <Input
-                    className={inputCls}
                     type="number"
                     min={1} max={8}
                     placeholder="—"
@@ -267,13 +257,13 @@ export default function DialogVoceVeloce({
 
               {/* Serie profilo */}
               {serieFiltrate.length > 0 && (
-                <div className="space-y-2 pl-3 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('serie')}` }}>
-                  <Label className={labelCls}>Serie profilo{strutturaOpt ? ` — ${strutturaOpt.valore}` : ''}</Label>
+                <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('serie')}` }}>
+                  <Label>Serie profilo{strutturaOpt ? ` — ${strutturaOpt.valore}` : ''}</Label>
                   <Select
                     value={form.serie_profilo ?? '__none__'}
                     onValueChange={(v) => set('serie_profilo', v === '__none__' ? null : v)}
                   >
-                    <SelectTrigger className={selectCls}>
+                    <SelectTrigger>
                       <SelectValue placeholder="Seleziona…" />
                     </SelectTrigger>
                     <SelectContent position="popper" sideOffset={4}>
@@ -298,20 +288,20 @@ export default function DialogVoceVeloce({
                   <Popover open={telaioOpenLato === 'top'} onOpenChange={(o) => setTelaioOpenLato(o ? 'top' : null)}>
                     <PopoverTrigger asChild>
                       <button type="button" className={cn(
-                        'mb-1 flex w-full items-center justify-center h-10 rounded-t-xl border border-b-0 text-sm gap-2 transition-colors font-medium',
+                        'mb-0.5 flex w-full items-center justify-center h-8 rounded-t-lg border border-b-0 text-[12px] gap-1.5 transition-colors',
                         form.telaio_top
-                          ? 'bg-teal-50 border-teal-300 text-teal-700'
+                          ? 'bg-teal-50 border-teal-300 text-teal-700 font-medium'
                           : 'border-dashed border-gray-300 text-gray-400 hover:bg-gray-50'
                       )}>
                         <span>↑</span>
-                        <span className="truncate max-w-[200px]">{form.telaio_top ?? 'Telaio superiore'}</span>
+                        <span className="truncate max-w-[180px]">{form.telaio_top ?? 'Telaio superiore'}</span>
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-56 p-1" side="top" align="center">
+                    <PopoverContent className="w-52 p-1" side="top" align="center">
                       {[null, ...telaiFiltrati.map(t => t.valore)].map((v) => (
                         <button key={v ?? '__none__'} type="button"
                           onClick={() => { set('telaio_top', v); setTelaioOpenLato(null) }}
-                          className={cn('flex w-full items-center gap-2 rounded-sm px-3 py-2 text-base hover:bg-accent transition-colors', form.telaio_top === v && v !== null && 'bg-accent font-medium')}>
+                          className={cn('flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent transition-colors', form.telaio_top === v && v !== null && 'bg-accent font-medium')}>
                           {v ?? '— nessuno'}
                         </button>
                       ))}
@@ -320,27 +310,27 @@ export default function DialogVoceVeloce({
                 )}
 
                 {/* Riga centrale: sinistro | preview | destro */}
-                <div className="flex items-stretch gap-1">
+                <div className="flex items-stretch gap-0.5">
                   {/* Sinistro */}
                   {telaiFiltrati.length > 0 && (
                     <Popover open={telaioOpenLato === 'left'} onOpenChange={(o) => setTelaioOpenLato(o ? 'left' : null)}>
                       <PopoverTrigger asChild>
                         <button type="button" className={cn(
-                          'flex flex-col items-center justify-center w-11 shrink-0 rounded-l-xl border border-r-0 text-xs transition-colors py-2',
+                          'flex flex-col items-center justify-center w-9 shrink-0 rounded-l-lg border border-r-0 text-[11px] transition-colors py-1',
                           form.telaio_left
                             ? 'bg-teal-50 border-teal-300 text-teal-700 font-medium'
                             : 'border-dashed border-gray-300 text-gray-400 hover:bg-gray-50'
                         )}>
-                          <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', maxHeight: 160 }}>
+                          <span className="truncate" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', maxHeight: 120 }}>
                             {form.telaio_left ?? '← Sinistro'}
                           </span>
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-56 p-1" side="left" align="center">
+                      <PopoverContent className="w-52 p-1" side="left" align="center">
                         {[null, ...telaiFiltrati.map(t => t.valore)].map((v) => (
                           <button key={v ?? '__none__'} type="button"
                             onClick={() => { set('telaio_left', v); setTelaioOpenLato(null) }}
-                            className={cn('flex w-full items-center gap-2 rounded-sm px-3 py-2 text-base hover:bg-accent transition-colors', form.telaio_left === v && v !== null && 'bg-accent font-medium')}>
+                            className={cn('flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent transition-colors', form.telaio_left === v && v !== null && 'bg-accent font-medium')}>
                             {v ?? '— nessuno'}
                           </button>
                         ))}
@@ -350,7 +340,7 @@ export default function DialogVoceVeloce({
 
                   {/* Preview */}
                   {(form.struttura || (form.n_ante ?? 0) >= 1) ? (
-                    <div className="flex-1 rounded-none border bg-gray-50 p-3 min-h-[280px]">
+                    <div className="flex-1 rounded-none border bg-gray-50 p-2 min-h-[200px]">
                       <PreviewSerramento
                         struttura={form.struttura}
                         nAnte={form.n_ante}
@@ -362,8 +352,8 @@ export default function DialogVoceVeloce({
                       />
                     </div>
                   ) : (
-                    <div className="flex-1 border border-dashed border-gray-200 bg-gray-50 rounded-none flex items-center justify-center min-h-[280px]">
-                      <span className="text-sm text-gray-300">anteprima serramento</span>
+                    <div className="flex-1 border border-dashed border-gray-200 bg-gray-50 rounded-none flex items-center justify-center min-h-[200px]">
+                      <span className="text-xs text-gray-300">anteprima serramento</span>
                     </div>
                   )}
 
@@ -372,21 +362,21 @@ export default function DialogVoceVeloce({
                     <Popover open={telaioOpenLato === 'right'} onOpenChange={(o) => setTelaioOpenLato(o ? 'right' : null)}>
                       <PopoverTrigger asChild>
                         <button type="button" className={cn(
-                          'flex flex-col items-center justify-center w-11 shrink-0 rounded-r-xl border border-l-0 text-xs transition-colors py-2',
+                          'flex flex-col items-center justify-center w-9 shrink-0 rounded-r-lg border border-l-0 text-[11px] transition-colors py-1',
                           form.telaio_right
                             ? 'bg-teal-50 border-teal-300 text-teal-700 font-medium'
                             : 'border-dashed border-gray-300 text-gray-400 hover:bg-gray-50'
                         )}>
-                          <span style={{ writingMode: 'vertical-rl', maxHeight: 160 }}>
+                          <span className="truncate" style={{ writingMode: 'vertical-rl', maxHeight: 120 }}>
                             {form.telaio_right ?? 'Destro →'}
                           </span>
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-56 p-1" side="right" align="center">
+                      <PopoverContent className="w-52 p-1" side="right" align="center">
                         {[null, ...telaiFiltrati.map(t => t.valore)].map((v) => (
                           <button key={v ?? '__none__'} type="button"
                             onClick={() => { set('telaio_right', v); setTelaioOpenLato(null) }}
-                            className={cn('flex w-full items-center gap-2 rounded-sm px-3 py-2 text-base hover:bg-accent transition-colors', form.telaio_right === v && v !== null && 'bg-accent font-medium')}>
+                            className={cn('flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent transition-colors', form.telaio_right === v && v !== null && 'bg-accent font-medium')}>
                             {v ?? '— nessuno'}
                           </button>
                         ))}
@@ -400,20 +390,20 @@ export default function DialogVoceVeloce({
                   <Popover open={telaioOpenLato === 'bottom'} onOpenChange={(o) => setTelaioOpenLato(o ? 'bottom' : null)}>
                     <PopoverTrigger asChild>
                       <button type="button" className={cn(
-                        'mt-1 flex w-full items-center justify-center h-10 rounded-b-xl border border-t-0 text-sm gap-2 transition-colors font-medium',
+                        'mt-0.5 flex w-full items-center justify-center h-8 rounded-b-lg border border-t-0 text-[12px] gap-1.5 transition-colors',
                         form.telaio_bottom
-                          ? 'bg-teal-50 border-teal-300 text-teal-700'
+                          ? 'bg-teal-50 border-teal-300 text-teal-700 font-medium'
                           : 'border-dashed border-gray-300 text-gray-400 hover:bg-gray-50'
                       )}>
                         <span>↓</span>
-                        <span className="truncate max-w-[200px]">{form.telaio_bottom ?? 'Telaio inferiore'}</span>
+                        <span className="truncate max-w-[180px]">{form.telaio_bottom ?? 'Telaio inferiore'}</span>
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-56 p-1" side="bottom" align="center">
+                    <PopoverContent className="w-52 p-1" side="bottom" align="center">
                       {[null, ...telaiFiltrati.map(t => t.valore)].map((v) => (
                         <button key={v ?? '__none__'} type="button"
                           onClick={() => { set('telaio_bottom', v); setTelaioOpenLato(null) }}
-                          className={cn('flex w-full items-center gap-2 rounded-sm px-3 py-2 text-base hover:bg-accent transition-colors', form.telaio_bottom === v && v !== null && 'bg-accent font-medium')}>
+                          className={cn('flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent transition-colors', form.telaio_bottom === v && v !== null && 'bg-accent font-medium')}>
                           {v ?? '— nessuno'}
                         </button>
                       ))}
@@ -425,14 +415,13 @@ export default function DialogVoceVeloce({
             </div>
 
             {/* ── COLONNA DESTRA ── */}
-            <div className="space-y-5">
+            <div className="space-y-3">
 
               {/* Misure */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label className={labelCls}>Larghezza (mm)</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label>Larghezza (mm)</Label>
                   <Input
-                    className={inputCls}
                     type="number"
                     min={1}
                     placeholder="es. 900"
@@ -440,10 +429,9 @@ export default function DialogVoceVeloce({
                     onChange={(e) => set('larghezza_mm', e.target.value ? parseInt(e.target.value) : null)}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label className={labelCls}>Altezza (mm)</Label>
+                <div className="space-y-1.5">
+                  <Label>Altezza (mm)</Label>
                   <Input
-                    className={inputCls}
                     type="number"
                     min={1}
                     placeholder="es. 1200"
@@ -455,14 +443,14 @@ export default function DialogVoceVeloce({
 
               {/* Accessori */}
               {opzioni.accessori.length > 0 && (
-                <div className="space-y-2 pl-3 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('accessorio')}` }}>
-                  <Label className={labelCls}>Finitura / Accessori</Label>
+                <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('accessorio')}` }}>
+                  <Label>Finitura / Accessori</Label>
                   <Popover open={accessoriOpen} onOpenChange={setAccessoriOpen}>
                     <PopoverTrigger asChild>
                       <button
                         type="button"
                         className={cn(
-                          'flex w-full min-h-11 items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs transition-colors hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                          'flex w-full min-h-9 items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-colors hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                           form.accessori.length === 0 && 'text-muted-foreground'
                         )}
                       >
@@ -471,14 +459,14 @@ export default function DialogVoceVeloce({
                             <span>Seleziona accessori…</span>
                           ) : (
                             form.accessori.map((a) => (
-                              <Badge key={a} variant="secondary" className="text-sm">
+                              <Badge key={a} variant="secondary" className="text-xs">
                                 {a}
                                 <span
                                   role="button"
                                   className="ml-1 cursor-pointer"
                                   onClick={(e) => { e.stopPropagation(); toggleAccessorio(a) }}
                                 >
-                                  <X className="h-3 w-3" />
+                                  <X className="h-2.5 w-2.5" />
                                 </span>
                               </Badge>
                             ))
@@ -493,15 +481,15 @@ export default function DialogVoceVeloce({
                           key={a}
                           type="button"
                           onClick={() => toggleAccessorio(a)}
-                          className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-base hover:bg-accent transition-colors"
+                          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent transition-colors"
                         >
                           <div className={cn(
-                            'flex h-5 w-5 items-center justify-center rounded-sm border',
+                            'flex h-4 w-4 items-center justify-center rounded-sm border',
                             form.accessori.includes(a)
                               ? 'bg-primary border-primary text-primary-foreground'
                               : 'border-input'
                           )}>
-                            {form.accessori.includes(a) && <Check className="h-3.5 w-3.5" />}
+                            {form.accessori.includes(a) && <Check className="h-3 w-3" />}
                           </div>
                           {a}
                         </button>
@@ -512,15 +500,15 @@ export default function DialogVoceVeloce({
               )}
 
               {/* Colore interno + Bicolore */}
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3 items-end">
-                  <div className="space-y-2 pl-3 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('colore')}` }}>
-                    <Label className={labelCls}>Colore interno</Label>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2 items-end">
+                  <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('colore')}` }}>
+                    <Label>Colore interno</Label>
                     <Select
                       value={form.colore_interno ?? '__none__'}
                       onValueChange={(v) => set('colore_interno', v === '__none__' ? null : v)}
                     >
-                      <SelectTrigger className={selectCls}>
+                      <SelectTrigger>
                         <SelectValue placeholder="Seleziona…" />
                       </SelectTrigger>
                       <SelectContent position="popper" sideOffset={4}>
@@ -531,26 +519,26 @@ export default function DialogVoceVeloce({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex items-center gap-3 pb-1">
+                  <div className="flex items-center gap-2 pb-2">
                     <input
                       id="bicolore"
                       type="checkbox"
                       checked={form.bicolore}
                       onChange={(e) => set('bicolore', e.target.checked)}
-                      className="h-5 w-5 rounded border-input accent-primary"
+                      className="h-4 w-4 rounded border-input accent-primary"
                     />
-                    <Label htmlFor="bicolore" className={cn(labelCls, 'cursor-pointer font-normal')}>Bicolore</Label>
+                    <Label htmlFor="bicolore" className="cursor-pointer font-normal">Bicolore</Label>
                   </div>
                 </div>
 
                 {form.bicolore && (
-                  <div className="space-y-2 pl-3 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('colore')}` }}>
-                    <Label className={labelCls}>Colore esterno</Label>
+                  <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('colore')}` }}>
+                    <Label>Colore esterno</Label>
                     <Select
                       value={form.colore_esterno ?? '__none__'}
                       onValueChange={(v) => set('colore_esterno', v === '__none__' ? null : v)}
                     >
-                      <SelectTrigger className={selectCls}>
+                      <SelectTrigger>
                         <SelectValue placeholder="Seleziona…" />
                       </SelectTrigger>
                       <SelectContent position="popper" sideOffset={4}>
@@ -566,13 +554,13 @@ export default function DialogVoceVeloce({
 
               {/* Tipologia vetro */}
               {opzioni.vetri.length > 0 && (
-                <div className="space-y-2 pl-3 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('vetro')}` }}>
-                  <Label className={labelCls}>Tipologia vetro</Label>
+                <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('vetro')}` }}>
+                  <Label>Tipologia vetro</Label>
                   <Select
                     value={form.tipologia_vetro ?? '__none__'}
                     onValueChange={(v) => set('tipologia_vetro', v === '__none__' ? null : v)}
                   >
-                    <SelectTrigger className={selectCls}>
+                    <SelectTrigger>
                       <SelectValue placeholder="Seleziona…" />
                     </SelectTrigger>
                     <SelectContent position="popper" sideOffset={4}>
@@ -586,36 +574,36 @@ export default function DialogVoceVeloce({
               )}
 
               {/* Anta ribalta + Serratura */}
-              <div className="grid grid-cols-2 gap-3">
-                <label className="flex items-center gap-3 cursor-pointer select-none p-3 rounded-lg border border-input hover:bg-accent/20 transition-colors">
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={form.anta_ribalta}
                     onChange={(e) => set('anta_ribalta', e.target.checked)}
-                    className="h-5 w-5 rounded border-input accent-primary"
+                    className="h-4 w-4 rounded border-input accent-primary"
                   />
-                  <span className="text-base">Kit anta ribalta</span>
+                  <span className="text-sm">Kit anta ribalta</span>
                 </label>
-                <label className="flex items-center gap-3 cursor-pointer select-none p-3 rounded-lg border border-input hover:bg-accent/20 transition-colors">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={form.serratura}
                     onChange={(e) => set('serratura', e.target.checked)}
-                    className="h-5 w-5 rounded border-input accent-primary"
+                    className="h-4 w-4 rounded border-input accent-primary"
                   />
-                  <span className="text-base">Serratura</span>
+                  <span className="text-sm">Serratura</span>
                 </label>
               </div>
 
               {/* Tipo serratura */}
               {form.serratura && opzioni.serrature.length > 0 && (
-                <div className="space-y-2 pl-3 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('serratura')}` }}>
-                  <Label className={labelCls}>Tipo serratura</Label>
+                <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('serratura')}` }}>
+                  <Label>Tipo serratura</Label>
                   <Select
                     value={form.tipo_serratura ?? '__none__'}
                     onValueChange={(v) => set('tipo_serratura', v === '__none__' ? null : v)}
                   >
-                    <SelectTrigger className={selectCls}>
+                    <SelectTrigger>
                       <SelectValue placeholder="Seleziona…" />
                     </SelectTrigger>
                     <SelectContent position="popper" sideOffset={4}>
@@ -629,10 +617,10 @@ export default function DialogVoceVeloce({
               )}
 
               {/* Note */}
-              <div className="space-y-2">
-                <Label className={labelCls}>Note</Label>
+              <div className="space-y-1.5">
+                <Label>Note</Label>
                 <textarea
-                  className="w-full min-h-[80px] rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                  className="w-full min-h-[60px] rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
                   placeholder="Note aggiuntive…"
                   value={form.note ?? ''}
                   onChange={(e) => set('note', e.target.value)}
@@ -643,9 +631,9 @@ export default function DialogVoceVeloce({
           </div>
         </div>
 
-        <DialogFooter className="px-8 py-5 shrink-0 border-t">
-          <Button variant="outline" size="lg" onClick={onClose}>Annulla</Button>
-          <Button size="lg" onClick={handleSave} disabled={!canSave}>
+        <DialogFooter className="px-6 py-4 shrink-0 border-t">
+          <Button variant="outline" onClick={onClose}>Annulla</Button>
+          <Button onClick={handleSave} disabled={!canSave}>
             {isEditing ? 'Salva modifiche' : 'Aggiungi'}
           </Button>
         </DialogFooter>
