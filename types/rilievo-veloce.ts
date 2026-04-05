@@ -2,7 +2,7 @@
 // Tipi per il modulo Rilievo Veloce
 // ============================================================
 
-export type TipoOpzione = 'accessorio' | 'colore' | 'vetro' | 'serratura' | 'serie' | 'struttura'
+export type TipoOpzione = 'accessorio' | 'colore' | 'vetro' | 'serratura' | 'serie' | 'struttura' | 'telaio'
 
 export interface RilievoOpzione {
   id: string
@@ -11,7 +11,7 @@ export interface RilievoOpzione {
   valore: string
   ordine: number
   attiva: boolean
-  strutture_collegate: string[]   // UUID delle strutture compatibili (usato da tipo='serie')
+  strutture_collegate: string[]   // UUID delle strutture compatibili (tipo='serie') o delle serie compatibili (tipo='telaio')
   created_at: string
 }
 
@@ -57,12 +57,16 @@ export interface VoceRilievoVeloce {
   anta_ribalta: boolean
   serratura: boolean
   tipo_serratura: string | null
-  struttura: string | null        // valore libero configurato dall'utente (es. "Scorrevole")
+  struttura: string | null
   n_ante: number | null
   anta_principale: number | null
   serie_profilo: string | null
   h_davanzale_mm: number | null
   pos_maniglia: 'right' | 'left' | 'top' | 'bottom' | null
+  telaio_top: string | null
+  telaio_left: string | null
+  telaio_bottom: string | null
+  telaio_right: string | null
   note: string | null
   created_at: string
 }
@@ -90,6 +94,13 @@ export interface SerieOpzione {
   strutture_collegate: string[]
 }
 
+/** Opzione telaio — contiene le serie profilo compatibili */
+export interface TelaioOpzione {
+  id: string
+  valore: string
+  serie_collegate: string[]   // UUID delle serie profilo compatibili (vuoto = valido per tutte)
+}
+
 /** Opzioni raggruppate per tipo — usate nel form */
 export interface OpzioniRilievo {
   accessori: string[]
@@ -98,4 +109,5 @@ export interface OpzioniRilievo {
   serrature: string[]
   strutture: StrutturaOpzione[]
   serie: SerieOpzione[]
+  telai: TelaioOpzione[]
 }

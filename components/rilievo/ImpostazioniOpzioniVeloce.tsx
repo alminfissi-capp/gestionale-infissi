@@ -11,7 +11,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import {
   Plus, Trash2, Eye, EyeOff, Check, X, Link2, ChevronDown, ChevronUp,
-  ChevronLeft, LayoutGrid, Wrench, Palette, Layers, Lock, Package, GripVertical,
+  ChevronLeft, LayoutGrid, Wrench, Palette, Layers, Lock, Package, GripVertical, Frame,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,6 +37,7 @@ function TipoIcon({ tipo, className }: { tipo: string; className?: string }) {
     case 'vetro':      return <Layers className={cls} />
     case 'serratura':  return <Lock className={cls} />
     case 'serie':      return <Package className={cls} />
+    case 'telaio':     return <Frame className={cls} />
     default:           return <LayoutGrid className={cls} />
   }
 }
@@ -362,6 +363,160 @@ function SezioneSerieOpzioni({
   )
 }
 
+// ─── Sezione telaio (con link serie) ─────────────────────────
+
+interface SezioneTelaioProps {
+  items: RilievoOpzione[]
+  serie: RilievoOpzione[]
+  onAdd: (tipo: TipoOpzione, valore: string) => Promise<void>
+  onDelete: (id: string) => Promise<void>
+  onToggle: (id: string, attiva: boolean) => Promise<void>
+  onUpdateStrutture: (id: string, serie_collegate: string[]) => Promise<void>
+}
+
+function SezioneTelaioOpzioni({
+  items, serie, onAdd, onDelete, onToggle, onUpdateStrutture,
+}: SezioneTelaioProps) {
+  const [adding, setAdding]             = useState(false)
+  const [nuovoValore, setNuovo]         = useState('')
+  const [expandedId, setExpandedId]     = useState<string | null>(null)
+  const [pendingLinks, setPendingLinks] = useState<Record<string, string[]>>({})
+  const [isPending, start]              = useTransition()
+
+  const handleAdd = () => {
+    const v = nuovoValore.trim()
+    if (!v) return
+    start(async () => {
+      try { await onAdd('telaio', v); setNuovo(''); setAdding(false); toast.success('Tipo telaio aggiunto') }
+      catch { toast.error('Errore aggiunta') }
+    })
+  }
+
+  const toggleExpand = (id: string, current: string[]) => {
+    if (expandedId === id) { setExpandedId(null); return }
+    setExpandedId(id)
+    setPendingLinks((prev) => ({ ...prev, [id]: current }))
+  }
+
+  const toggleLink = (telaioId: string, serieId: string) => {
+    setPendingLinks((prev) => {
+      const curr = prev[telaioId] ?? []
+      return { ...prev, [telaioId]: curr.includes(serieId) ? curr.filter((x) => x !== serieId) : [...curr, serieId] }
+    })
+  }
+
+  const saveLinks = (id: string) => {
+    const links = pendingLinks[id] ?? []
+    start(async () => {
+      try { await onUpdateStrutture(id, links); setExpandedId(null); toast.success('Serie aggiornate') }
+      catch { toast.error('Errore salvataggio') }
+    })
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-end">
+        <Button size="sm" variant="outline" onClick={() => setAdding(true)} disabled={adding || isPending}>
+          <Plus className="h-3.5 w-3.5 mr-1" /> Aggiungi
+        </Button>
+      </div>
+
+      {adding && (
+        <div className="flex gap-2">
+          <Input autoFocus placeholder="Tipo telaio (es. Battente, Ribalta, Fisso…)" value={nuovoValore}
+            onChange={(e) => setNuovo(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { setAdding(false); setNuovo('') } }}
+            className="h-8 text-sm" />
+          <button onClick={handleAdd} disabled={!nuovoValore.trim() || isPending}
+            className="p-1.5 rounded-md text-white bg-primary hover:bg-primary/90 disabled:opacity-50">
+            <Check className="h-4 w-4" />
+          </button>
+          <button onClick={() => { setAdding(false); setNuovo('') }}
+            className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {items.length === 0 && !adding ? (
+        <p className="text-sm text-gray-400 py-4 text-center">Nessun tipo telaio. Clicca <strong>Aggiungi</strong> per iniziare.</p>
+      ) : (
+        <div className="space-y-1">
+          {items.map((item) => {
+            const isExp      = expandedId === item.id
+            const links      = isExp ? (pendingLinks[item.id] ?? item.strutture_collegate) : item.strutture_collegate
+            const linkedNomi = serie.filter((s) => item.strutture_collegate.includes(s.id)).map((s) => s.valore)
+
+            return (
+              <div key={item.id} className={`rounded-lg border transition-opacity ${item.attiva ? 'bg-white' : 'opacity-50 bg-gray-50'}`}>
+                <div className="flex items-center gap-2 px-3 py-2 text-sm">
+                  <span className="flex-1 min-w-0 truncate text-gray-800">{item.valore}</span>
+                  {linkedNomi.length > 0 && !isExp && (
+                    <div className="flex gap-1 flex-wrap max-w-[160px]">
+                      {linkedNomi.map((n) => (
+                        <span key={n} className="text-[10px] bg-teal-50 text-teal-700 border border-teal-200 px-1.5 py-0.5 rounded">{n}</span>
+                      ))}
+                    </div>
+                  )}
+                  {linkedNomi.length === 0 && !isExp && serie.length > 0 && (
+                    <span className="text-[10px] text-gray-400">tutte le serie</span>
+                  )}
+                  {!item.attiva && <span className="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">inattiva</span>}
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    {serie.length > 0 && (
+                      <button onClick={() => toggleExpand(item.id, item.strutture_collegate)}
+                        title="Collega serie profilo" disabled={isPending}
+                        className="p-1.5 rounded-md text-gray-400 hover:text-teal-600 hover:bg-teal-50 flex items-center gap-0.5">
+                        <Link2 className="h-3.5 w-3.5" />
+                        {isExp ? <ChevronUp className="h-2.5 w-2.5" /> : <ChevronDown className="h-2.5 w-2.5" />}
+                      </button>
+                    )}
+                    <button onClick={() => start(async () => { try { await onToggle(item.id, item.attiva) } catch { toast.error('Errore') } })}
+                      disabled={isPending} title={item.attiva ? 'Disattiva' : 'Attiva'}
+                      className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+                      {item.attiva ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                    </button>
+                    <button onClick={() => { if (!confirm('Eliminare?')) return; start(async () => { try { await onDelete(item.id); toast.success('Eliminato') } catch { toast.error('Errore') } }) }}
+                      disabled={isPending} title="Elimina"
+                      className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {isExp && (
+                  <div className="border-t bg-gray-50 px-3 py-2.5 space-y-2">
+                    <p className="text-xs text-gray-500 font-medium">Serie profilo compatibili — vuoto = valido per tutte</p>
+                    <div className="flex flex-wrap gap-2">
+                      {serie.map((s) => {
+                        const checked = links.includes(s.id)
+                        return (
+                          <label key={s.id}
+                            className={`flex items-center gap-1.5 cursor-pointer rounded-md border px-2.5 py-1 text-sm select-none transition-colors ${checked ? 'bg-teal-50 border-teal-300 text-teal-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+                            <input type="checkbox" className="sr-only" checked={checked} onChange={() => toggleLink(item.id, s.id)} />
+                            <div className={`h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 ${checked ? 'bg-teal-600 border-teal-600' : 'border-gray-300'}`}>
+                              {checked && <Check className="h-2.5 w-2.5 text-white" />}
+                            </div>
+                            {s.valore}
+                          </label>
+                        )
+                      })}
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button size="sm" onClick={() => saveLinks(item.id)} disabled={isPending}>Salva</Button>
+                      <Button size="sm" variant="outline" onClick={() => setExpandedId(null)}>Annulla</Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Componente principale ────────────────────────────────────
 
 export default function ImpostazioniOpzioniVeloce({ opzioni: opzioniInit }: Props) {
@@ -440,6 +595,12 @@ export default function ImpostazioniOpzioniVeloce({ opzioni: opzioniInit }: Prop
         {activeType === 'serie' ? (
           <SezioneSerieOpzioni
             items={items} strutture={strutture}
+            onAdd={handleAdd} onDelete={handleDelete}
+            onToggle={handleToggle} onUpdateStrutture={handleUpdateStrutture}
+          />
+        ) : activeType === 'telaio' ? (
+          <SezioneTelaioOpzioni
+            items={items} serie={byTipo('serie')}
             onAdd={handleAdd} onDelete={handleDelete}
             onToggle={handleToggle} onUpdateStrutture={handleUpdateStrutture}
           />

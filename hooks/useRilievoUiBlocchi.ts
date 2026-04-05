@@ -16,6 +16,7 @@ const DEFAULTS: BloccoUIConfig[] = [
   { tipo: 'vetro',      label: 'Tipologie vetro',     colore: '#06b6d4', ordine: 3 },
   { tipo: 'serratura',  label: 'Serrature',           colore: '#ef4444', ordine: 4 },
   { tipo: 'serie',      label: 'Serie profili',       colore: '#8b5cf6', ordine: 5 },
+  { tipo: 'telaio',    label: 'Tipologie telaio',    colore: '#0d9488', ordine: 6 },
 ]
 
 const LS_KEY = 'rilievo-ui-blocchi-v1'

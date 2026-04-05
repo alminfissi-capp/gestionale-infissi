@@ -13,6 +13,7 @@ import type {
   TipoOpzione,
   StrutturaOpzione,
   SerieOpzione,
+  TelaioOpzione,
 } from '@/types/rilievo-veloce'
 
 // ─── Helper ────────────────────────────────────────────────────────────────
@@ -55,6 +56,10 @@ export async function getOpzioniRaggruppate(): Promise<OpzioniRilievo> {
     .filter((o) => o.tipo === 'serie' && o.attiva)
     .map((o) => ({ id: o.id, valore: o.valore, strutture_collegate: o.strutture_collegate }))
 
+  const telai: TelaioOpzione[] = opzioni
+    .filter((o) => o.tipo === 'telaio' && o.attiva)
+    .map((o) => ({ id: o.id, valore: o.valore, serie_collegate: o.strutture_collegate }))
+
   return {
     accessori: opzioni.filter((o) => o.tipo === 'accessorio' && o.attiva).map((o) => o.valore),
     colori:    opzioni.filter((o) => o.tipo === 'colore'     && o.attiva).map((o) => o.valore),
@@ -62,6 +67,7 @@ export async function getOpzioniRaggruppate(): Promise<OpzioniRilievo> {
     serrature: opzioni.filter((o) => o.tipo === 'serratura'  && o.attiva).map((o) => o.valore),
     strutture,
     serie,
+    telai,
   }
 }
 

@@ -60,6 +60,10 @@ const VOCE_VUOTA: VoceInput = {
   serie_profilo: null,
   h_davanzale_mm: null,
   pos_maniglia: null,
+  telaio_top: null,
+  telaio_left: null,
+  telaio_bottom: null,
+  telaio_right: null,
   note: '',
 }
 
@@ -136,6 +140,15 @@ export default function DialogVoceVeloce({
           (s) => s.strutture_collegate.length === 0 || s.strutture_collegate.includes(strutturaOpt.id)
         )
       : opzioni.serie
+  )
+
+  const serieSelezionata = opzioni.serie.find((s) => s.valore === form.serie_profilo)
+  const telaiFiltrati = opzioni.telai.length === 0 ? [] : (
+    serieSelezionata
+      ? opzioni.telai.filter(
+          (t) => t.serie_collegate.length === 0 || t.serie_collegate.includes(serieSelezionata.id)
+        )
+      : opzioni.telai
   )
 
   return (
@@ -276,6 +289,40 @@ export default function DialogVoceVeloce({
                   </Select>
                 </div>
               )}
+
+            {/* Tipologie telaio per lato */}
+            {telaiFiltrati.length > 0 && (() => {
+              const telaioSelect = (lato: 'telaio_top' | 'telaio_left' | 'telaio_bottom' | 'telaio_right', label: string) => (
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-gray-400 font-medium">{label}</span>
+                  <Select
+                    value={form[lato] ?? '__none__'}
+                    onValueChange={(v) => set(lato, v === '__none__' ? null : v)}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" sideOffset={4}>
+                      <SelectItem value="__none__">—</SelectItem>
+                      {telaiFiltrati.map((t) => (
+                        <SelectItem key={t.id} value={t.valore}>{t.valore}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )
+              return (
+                <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('telaio')}` }}>
+                  <Label>Profilo telaio per lato</Label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <div className="col-span-2">{telaioSelect('telaio_top', '↑ Superiore')}</div>
+                    {telaioSelect('telaio_left', '← Sinistro')}
+                    {telaioSelect('telaio_right', 'Destro →')}
+                    <div className="col-span-2">{telaioSelect('telaio_bottom', '↓ Inferiore')}</div>
+                  </div>
+                </div>
+              )
+            })()}
 
             </div>
 
