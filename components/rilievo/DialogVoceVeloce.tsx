@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Check, ChevronsUpDown, Camera, PenLine } from 'lucide-react'
+import { X, Check, ChevronsUpDown, PenLine } from 'lucide-react'
+import AllegatiVoce from '@/components/rilievo/AllegatiVoce'
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ interface Props {
   opzioni: OpzioniRilievo
   initialValues?: VoceInput
   isEditing?: boolean
+  voceId?: string
 }
 
 const VOCE_VUOTA: VoceInput = {
@@ -68,7 +70,7 @@ const VOCE_VUOTA: VoceInput = {
 }
 
 export default function DialogVoceVeloce({
-  open, onClose, onSave, opzioni, initialValues, isEditing,
+  open, onClose, onSave, opzioni, initialValues, isEditing, voceId,
 }: Props) {
   const [form, setForm] = useState<VoceInput>(initialValues ?? VOCE_VUOTA)
   const [accessoriOpen, setAccessoriOpen] = useState(false)
@@ -402,21 +404,19 @@ export default function DialogVoceVeloce({
                 />
               </div>
 
-              {/* Foto / PDF + Disegno manuale */}
-              <div className="grid grid-cols-2 gap-2">
-                <button type="button" disabled
-                  className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 px-3 py-2.5 text-sm text-gray-400 cursor-not-allowed select-none"
-                  title="Prossimamente">
-                  <Camera className="h-4 w-4" />
-                  <span>Foto / PDF</span>
-                </button>
-                <button type="button" disabled
-                  className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 px-3 py-2.5 text-sm text-gray-400 cursor-not-allowed select-none"
-                  title="Prossimamente">
-                  <PenLine className="h-4 w-4" />
-                  <span>Disegno manuale</span>
-                </button>
-              </div>
+              {/* Foto / PDF */}
+              {voceId ? (
+                <AllegatiVoce voceId={voceId} />
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" disabled
+                    className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-gray-200 px-3 py-2.5 text-sm text-gray-300 cursor-not-allowed select-none"
+                    title="Disponibile dopo il salvataggio">
+                    <PenLine className="h-4 w-4" />
+                    <span className="text-xs">Foto/PDF dopo salvataggio</span>
+                  </button>
+                </div>
+              )}
 
             </div>
           </div>

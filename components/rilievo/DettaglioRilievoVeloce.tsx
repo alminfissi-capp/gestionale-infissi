@@ -232,6 +232,7 @@ export default function DettaglioRilievoVeloce({ rilievo: rilievoInit, opzioni }
         opzioni={opzioni}
         initialValues={editingVoce ?? undefined}
         isEditing={!!editingVoce}
+        voceId={editingVoce?.id}
       />
     </div>
   )
