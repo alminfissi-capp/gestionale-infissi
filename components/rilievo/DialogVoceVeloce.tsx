@@ -58,6 +58,7 @@ const VOCE_VUOTA: VoceInput = {
   n_ante: null,
   anta_principale: null,
   serie_profilo: null,
+  h_davanzale_mm: null,
   note: '',
 }
 
@@ -163,6 +164,20 @@ export default function DialogVoceVeloce({
               </SelectContent>
             </Select>
           </div>
+
+          {/* H Davanzale — solo per Finestra */}
+          {form.tipologia === 'Finestra' && (
+            <div className="space-y-1.5">
+              <Label>H Davanzale (mm)</Label>
+              <Input
+                type="number"
+                min={0}
+                placeholder="es. 900"
+                value={form.h_davanzale_mm ?? ''}
+                onChange={(e) => set('h_davanzale_mm', e.target.value === '' ? null : parseInt(e.target.value) || null)}
+              />
+            </div>
+          )}
 
           {/* Struttura + N. ante + Preview */}
           <div className="space-y-3">
