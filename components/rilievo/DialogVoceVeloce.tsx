@@ -59,6 +59,7 @@ const VOCE_VUOTA: VoceInput = {
   anta_principale: null,
   serie_profilo: null,
   h_davanzale_mm: null,
+  pos_maniglia: null,
   note: '',
 }
 
@@ -78,6 +79,17 @@ export default function DialogVoceVeloce({
 
   const handleStrutturaChange = (value: string) => {
     set('struttura', value === '__none__' ? null : value)
+  }
+
+  const CYCLE_MANIGLIA: Array<'right' | 'left' | 'top' | 'bottom'> = ['right', 'left', 'top', 'bottom']
+  const handleAntaClick = (idx: number) => {
+    if (idx === form.anta_principale) {
+      const curr = form.pos_maniglia ?? 'right'
+      const next = CYCLE_MANIGLIA[(CYCLE_MANIGLIA.indexOf(curr) + 1) % CYCLE_MANIGLIA.length]
+      set('pos_maniglia', next)
+    } else {
+      set('anta_principale', idx)
+    }
   }
 
   const handleNAnteChange = (raw: string) => {
@@ -238,7 +250,8 @@ export default function DialogVoceVeloce({
                     larghezza={form.larghezza_mm}
                     altezza={form.altezza_mm}
                     antaPrincipale={form.anta_principale}
-                    onSelectAnta={(form.n_ante ?? 0) > 1 ? (idx) => set('anta_principale', idx) : undefined}
+                    posManiglia={form.pos_maniglia}
+                    onSelectAnta={(form.n_ante ?? 0) >= 1 ? handleAntaClick : undefined}
                   />
                 </div>
               )}

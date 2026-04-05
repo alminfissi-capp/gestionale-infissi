@@ -62,6 +62,7 @@ export interface VoceRilievoVeloce {
   anta_principale: number | null
   serie_profilo: string | null
   h_davanzale_mm: number | null
+  pos_maniglia: 'right' | 'left' | 'top' | 'bottom' | null
   note: string | null
   created_at: string
 }

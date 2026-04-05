@@ -18,21 +18,24 @@ const C_ABORD_S = '#1d4ed8'
 const C_HANDLE  = '#1e3a5f'
 const C_DIM     = '#64748b'
 
+type PosManiglia = 'right' | 'left' | 'top' | 'bottom'
+
 // ─── Componente ──────────────────────────────────────────────
 
 interface Props {
-  struttura: string | null      // label libera (solo per mostrare il nome)
+  struttura: string | null
   nAnte: number | null
   larghezza: number | null
   altezza: number | null
   antaPrincipale: number | null
+  posManiglia?: PosManiglia | null
   onSelectAnta?: (idx: number) => void
   className?: string
 }
 
 export default function PreviewSerramento({
   struttura, nAnte, larghezza, altezza,
-  antaPrincipale, onSelectAnta, className,
+  antaPrincipale, posManiglia, onSelectAnta, className,
 }: Props) {
   const ratio  = larghezza && altezza && larghezza > 0 ? altezza / larghezza : 4 / 3
   const SVG_H  = Math.max(90, Math.min(320, Math.round(SVG_W * ratio)))
@@ -40,8 +43,8 @@ export default function PreviewSerramento({
   const iw = SVG_W - FW * 2
   const ih = SVG_H - FW * 2
 
-  const numAnte   = Math.max(0, Math.min(nAnte ?? 0, 8))
-  const canClick  = !!onSelectAnta && numAnte > 1
+  const numAnte  = Math.max(0, Math.min(nAnte ?? 0, 8))
+  const canClick = !!onSelectAnta && numAnte >= 1
 
   // Costruisce i rettangoli delle ante
   const ante = Array.from({ length: numAnte }, (_, i) => ({
@@ -52,8 +55,8 @@ export default function PreviewSerramento({
     idx: i,
   }))
 
-  // Lato della maniglia: verso il centro del serramento
-  function handleSide(idx: number): 'left' | 'right' {
+  // Lato maniglia di default (verso centro) — usato solo se posManiglia è null
+  function defaultSide(idx: number): PosManiglia {
     if (numAnte === 1) return 'right'
     return idx < numAnte / 2 ? 'right' : 'left'
   }
@@ -93,7 +96,7 @@ export default function PreviewSerramento({
         {/* Ante */}
         {ante.map((a) => {
           const isPrinc = antaPrincipale === a.idx
-          const hs      = handleSide(a.idx)
+          const side: PosManiglia = isPrinc && posManiglia ? posManiglia : defaultSide(a.idx)
           return (
             <g key={a.idx}
               onClick={() => canClick && onSelectAnta?.(a.idx)}
@@ -109,8 +112,8 @@ export default function PreviewSerramento({
                 strokeWidth={isPrinc ? 1.5 : 0.5}
               />
               {/* Maniglia */}
-              {isPrinc && <Handle a={a} side={hs} />}
-              {/* Indicatore click */}
+              {isPrinc && <Handle a={a} side={side} />}
+              {/* Indicatori */}
               {canClick && !isPrinc && (
                 <text x={a.x + a.w / 2} y={a.y + a.h / 2 + 4}
                   textAnchor="middle" fontSize={14} fill="#94a3b8" opacity={0.8}>
@@ -140,21 +143,59 @@ export default function PreviewSerramento({
 
       {canClick && (
         <p className="text-[10px] text-gray-400 text-center leading-tight">
-          Tocca un&apos;anta per impostare quella con la maniglia
+          {numAnte > 1
+            ? "Tocca un'anta per selezionarla · tocca quella selezionata per ruotare la maniglia"
+            : "Tocca l'anta per ruotare la maniglia"}
         </p>
       )}
     </div>
   )
 }
 
-function Handle({ a, side }: { a: { x: number; y: number; w: number; h: number }; side: 'left' | 'right' }) {
-  const midY   = a.y + a.h / 2
-  const plateX = side === 'right' ? a.x + a.w - AW - 3.5 : a.x + AW + 0.5
-  const leverX = side === 'right' ? plateX - 7 : plateX + 3.5
+function Handle({ a, side }: { a: { x: number; y: number; w: number; h: number }; side: PosManiglia }) {
+  const midX = a.x + a.w / 2
+  const midY = a.y + a.h / 2
+
+  if (side === 'right') {
+    const plateX = a.x + a.w - AW - 3.5
+    const leverX = plateX - 7
+    return (
+      <g fill={C_HANDLE}>
+        <rect x={plateX} y={midY - 9} width={3.5} height={18} rx={1.75} />
+        <rect x={leverX} y={midY - 2} width={8} height={4} rx={2} />
+      </g>
+    )
+  }
+
+  if (side === 'left') {
+    const plateX = a.x + AW + 0.5
+    const leverX = plateX + 3.5
+    return (
+      <g fill={C_HANDLE}>
+        <rect x={plateX} y={midY - 9} width={3.5} height={18} rx={1.75} />
+        <rect x={leverX} y={midY - 2} width={8} height={4} rx={2} />
+      </g>
+    )
+  }
+
+  if (side === 'top') {
+    const plateY = a.y + AW + 0.5
+    const leverY = plateY + 3.5
+    return (
+      <g fill={C_HANDLE}>
+        <rect x={midX - 9} y={plateY} width={18} height={3.5} rx={1.75} />
+        <rect x={midX - 2} y={leverY} width={4} height={8} rx={2} />
+      </g>
+    )
+  }
+
+  // bottom
+  const plateY = a.y + a.h - AW - 4
+  const leverY = plateY - 8
   return (
     <g fill={C_HANDLE}>
-      <rect x={plateX} y={midY - 9} width={3.5} height={18} rx={1.75} />
-      <rect x={leverX} y={midY - 2} width={8} height={4} rx={2} />
+      <rect x={midX - 9} y={plateY} width={18} height={3.5} rx={1.75} />
+      <rect x={midX - 2} y={leverY} width={4} height={8} rx={2} />
     </g>
   )
 }
