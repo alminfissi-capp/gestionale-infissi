@@ -148,12 +148,20 @@ export default function DialogVoceVeloce({
 
           {/* Tipologia */}
           <div className="space-y-1.5">
-            <Label>Tipologia / Descrizione</Label>
-            <Input
-              placeholder="es. Finestra a 2 ante, Porta scorrevole…"
-              value={form.tipologia ?? ''}
-              onChange={(e) => set('tipologia', e.target.value)}
-            />
+            <Label>Tipologia</Label>
+            <Select
+              value={form.tipologia ?? '__none__'}
+              onValueChange={(v) => set('tipologia', v === '__none__' ? null : v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleziona tipologia…" />
+              </SelectTrigger>
+              <SelectContent position="popper" sideOffset={4}>
+                <SelectItem value="__none__">—</SelectItem>
+                <SelectItem value="Finestra">Finestra</SelectItem>
+                <SelectItem value="Porta">Porta</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Struttura + N. ante + Preview */}
