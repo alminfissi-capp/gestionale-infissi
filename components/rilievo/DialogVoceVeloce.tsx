@@ -117,358 +117,369 @@ export default function DialogVoceVeloce({
 
   const canSave = !!form.tipologia?.trim() || !!form.voce?.trim()
 
+  const strutturaOpt = opzioni.strutture.find((s) => s.valore === form.struttura)
+  const serieFiltrate = opzioni.serie.length === 0 ? [] : (
+    strutturaOpt
+      ? opzioni.serie.filter(
+          (s) => s.strutture_collegate.length === 0 || s.strutture_collegate.includes(strutturaOpt.id)
+        )
+      : opzioni.serie
+  )
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Modifica serramento' : 'Aggiungi serramento'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-1">
+        <div className="py-1">
+          {/* Layout 2 colonne */}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-0 items-start">
 
-          {/* Riga 1: Voce + Quantità */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2 space-y-1.5">
-              <Label>Voce / Posizione</Label>
-              <Input
-                placeholder="es. F1, Bagno, Camera letto…"
-                value={form.voce ?? ''}
-                onChange={(e) => set('voce', e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Quantità</Label>
-              <Input
-                type="number"
-                min={1}
-                value={form.quantita}
-                onChange={(e) => set('quantita', Math.max(1, parseInt(e.target.value) || 1))}
-              />
-            </div>
-          </div>
+            {/* ── COLONNA SINISTRA ── */}
+            <div className="space-y-3">
 
-          {/* Tipologia */}
-          <div className="space-y-1.5">
-            <Label>Tipologia</Label>
-            <Select
-              value={form.tipologia ?? '__none__'}
-              onValueChange={(v) => set('tipologia', v === '__none__' ? null : v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleziona tipologia…" />
-              </SelectTrigger>
-              <SelectContent position="popper" sideOffset={4}>
-                <SelectItem value="__none__">—</SelectItem>
-                <SelectItem value="Finestra">Finestra</SelectItem>
-                <SelectItem value="Porta">Porta</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              {/* Voce + Quantità */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2 space-y-1.5">
+                  <Label>Voce / Posizione</Label>
+                  <Input
+                    placeholder="es. F1, Bagno…"
+                    value={form.voce ?? ''}
+                    onChange={(e) => set('voce', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Qtà</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={form.quantita}
+                    onChange={(e) => set('quantita', Math.max(1, parseInt(e.target.value) || 1))}
+                  />
+                </div>
+              </div>
 
-          {/* H Davanzale — solo per Finestra */}
-          {form.tipologia === 'Finestra' && (
-            <div className="space-y-1.5">
-              <Label>H Davanzale (mm)</Label>
-              <Input
-                type="number"
-                min={0}
-                placeholder="es. 900"
-                value={form.h_davanzale_mm ?? ''}
-                onChange={(e) => set('h_davanzale_mm', e.target.value === '' ? null : parseInt(e.target.value) || null)}
-              />
-            </div>
-          )}
-
-          {/* Struttura + N. ante + Preview */}
-          <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-2 space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('struttura')}` }}>
-                <Label>Struttura serramento</Label>
-                {opzioni.strutture.length > 0 ? (
-                  <Select value={form.struttura ?? '__none__'} onValueChange={handleStrutturaChange}>
+              {/* Tipologia + H Davanzale */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className={cn('space-y-1.5', form.tipologia === 'Finestra' ? 'col-span-2' : 'col-span-3')}>
+                  <Label>Tipologia</Label>
+                  <Select
+                    value={form.tipologia ?? '__none__'}
+                    onValueChange={(v) => set('tipologia', v === '__none__' ? null : v)}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Seleziona struttura…" />
+                      <SelectValue placeholder="Seleziona…" />
                     </SelectTrigger>
                     <SelectContent position="popper" sideOffset={4}>
                       <SelectItem value="__none__">—</SelectItem>
-                      {opzioni.strutture.map((s) => (
+                      <SelectItem value="Finestra">Finestra</SelectItem>
+                      <SelectItem value="Porta">Porta</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {form.tipologia === 'Finestra' && (
+                  <div className="space-y-1.5">
+                    <Label>H Dav. (mm)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="—"
+                      value={form.h_davanzale_mm ?? ''}
+                      onChange={(e) => set('h_davanzale_mm', e.target.value === '' ? null : parseInt(e.target.value) || null)}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Struttura + N. ante */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2 space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('struttura')}` }}>
+                  <Label>Struttura</Label>
+                  {opzioni.strutture.length > 0 ? (
+                    <Select value={form.struttura ?? '__none__'} onValueChange={handleStrutturaChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleziona…" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" sideOffset={4}>
+                        <SelectItem value="__none__">—</SelectItem>
+                        {opzioni.strutture.map((s) => (
+                          <SelectItem key={s.id} value={s.valore}>{s.valore}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      placeholder="es. Battente…"
+                      value={form.struttura ?? ''}
+                      onChange={(e) => set('struttura', e.target.value || null)}
+                    />
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>N. ante</Label>
+                  <Input
+                    type="number"
+                    min={1} max={8}
+                    placeholder="—"
+                    value={form.n_ante ?? ''}
+                    onChange={(e) => handleNAnteChange(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Preview */}
+              {(form.struttura || (form.n_ante ?? 0) >= 1) && (
+                <div className="rounded-xl border bg-gray-50 p-3">
+                  <PreviewSerramento
+                    struttura={form.struttura}
+                    nAnte={form.n_ante}
+                    larghezza={form.larghezza_mm}
+                    altezza={form.altezza_mm}
+                    antaPrincipale={form.anta_principale}
+                    onSelectAnta={(form.n_ante ?? 0) > 1 ? (idx) => set('anta_principale', idx) : undefined}
+                  />
+                </div>
+              )}
+
+              {/* Serie profilo */}
+              {serieFiltrate.length > 0 && (
+                <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('serie')}` }}>
+                  <Label>Serie profilo{strutturaOpt ? ` — ${strutturaOpt.valore}` : ''}</Label>
+                  <Select
+                    value={form.serie_profilo ?? '__none__'}
+                    onValueChange={(v) => set('serie_profilo', v === '__none__' ? null : v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleziona…" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" sideOffset={4}>
+                      <SelectItem value="__none__">—</SelectItem>
+                      {serieFiltrate.map((s) => (
                         <SelectItem key={s.id} value={s.valore}>{s.valore}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                ) : (
+                </div>
+              )}
+
+            </div>
+
+            {/* ── COLONNA DESTRA ── */}
+            <div className="space-y-3">
+
+              {/* Misure */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label>Larghezza (mm)</Label>
                   <Input
-                    placeholder="es. Battente, Scorrevole…"
-                    value={form.struttura ?? ''}
-                    onChange={(e) => set('struttura', e.target.value || null)}
+                    type="number"
+                    min={1}
+                    placeholder="es. 900"
+                    value={form.larghezza_mm ?? ''}
+                    onChange={(e) => set('larghezza_mm', e.target.value ? parseInt(e.target.value) : null)}
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Altezza (mm)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="es. 1200"
+                    value={form.altezza_mm ?? ''}
+                    onChange={(e) => set('altezza_mm', e.target.value ? parseInt(e.target.value) : null)}
+                  />
+                </div>
+              </div>
+
+              {/* Accessori */}
+              {opzioni.accessori.length > 0 && (
+                <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('accessorio')}` }}>
+                  <Label>Finitura / Accessori</Label>
+                  <Popover open={accessoriOpen} onOpenChange={setAccessoriOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className={cn(
+                          'flex w-full min-h-9 items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-colors hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                          form.accessori.length === 0 && 'text-muted-foreground'
+                        )}
+                      >
+                        <div className="flex flex-wrap gap-1 flex-1 text-left">
+                          {form.accessori.length === 0 ? (
+                            <span>Seleziona accessori…</span>
+                          ) : (
+                            form.accessori.map((a) => (
+                              <Badge key={a} variant="secondary" className="text-xs">
+                                {a}
+                                <span
+                                  role="button"
+                                  className="ml-1 cursor-pointer"
+                                  onClick={(e) => { e.stopPropagation(); toggleAccessorio(a) }}
+                                >
+                                  <X className="h-2.5 w-2.5" />
+                                </span>
+                              </Badge>
+                            ))
+                          )}
+                        </div>
+                        <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-1" align="start">
+                      {opzioni.accessori.map((a) => (
+                        <button
+                          key={a}
+                          type="button"
+                          onClick={() => toggleAccessorio(a)}
+                          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent transition-colors"
+                        >
+                          <div className={cn(
+                            'flex h-4 w-4 items-center justify-center rounded-sm border',
+                            form.accessori.includes(a)
+                              ? 'bg-primary border-primary text-primary-foreground'
+                              : 'border-input'
+                          )}>
+                            {form.accessori.includes(a) && <Check className="h-3 w-3" />}
+                          </div>
+                          {a}
+                        </button>
+                      ))}
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
+
+              {/* Colore interno + Bicolore */}
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2 items-end">
+                  <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('colore')}` }}>
+                    <Label>Colore interno</Label>
+                    <Select
+                      value={form.colore_interno ?? '__none__'}
+                      onValueChange={(v) => set('colore_interno', v === '__none__' ? null : v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleziona…" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" sideOffset={4}>
+                        <SelectItem value="__none__">—</SelectItem>
+                        {opzioni.colori.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2 pb-2">
+                    <input
+                      id="bicolore"
+                      type="checkbox"
+                      checked={form.bicolore}
+                      onChange={(e) => set('bicolore', e.target.checked)}
+                      className="h-4 w-4 rounded border-input accent-primary"
+                    />
+                    <Label htmlFor="bicolore" className="cursor-pointer font-normal">Bicolore</Label>
+                  </div>
+                </div>
+
+                {form.bicolore && (
+                  <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('colore')}` }}>
+                    <Label>Colore esterno</Label>
+                    <Select
+                      value={form.colore_esterno ?? '__none__'}
+                      onValueChange={(v) => set('colore_esterno', v === '__none__' ? null : v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleziona…" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" sideOffset={4}>
+                        <SelectItem value="__none__">—</SelectItem>
+                        {opzioni.colori.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 )}
               </div>
-              <div className="space-y-1.5">
-                <Label>N. ante</Label>
-                <Input
-                  type="number"
-                  min={1} max={8}
-                  placeholder="—"
-                  value={form.n_ante ?? ''}
-                  onChange={(e) => handleNAnteChange(e.target.value)}
-                />
-              </div>
-            </div>
 
-            {/* Preview — visibile se struttura o n_ante impostato */}
-            {(form.struttura || (form.n_ante ?? 0) >= 1) && (
-              <div className="rounded-xl border bg-gray-50 p-4">
-                <PreviewSerramento
-                  struttura={form.struttura}
-                  nAnte={form.n_ante}
-                  larghezza={form.larghezza_mm}
-                  altezza={form.altezza_mm}
-                  antaPrincipale={form.anta_principale}
-                  onSelectAnta={(form.n_ante ?? 0) > 1 ? (idx) => set('anta_principale', idx) : undefined}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Serie profilo — filtrata per struttura selezionata */}
-          {opzioni.serie.length > 0 && (() => {
-            const strutturaOpt = opzioni.strutture.find((s) => s.valore === form.struttura)
-            const serieFiltrate = strutturaOpt
-              ? opzioni.serie.filter(
-                  (s) => s.strutture_collegate.length === 0 || s.strutture_collegate.includes(strutturaOpt.id)
-                )
-              : opzioni.serie
-            if (serieFiltrate.length === 0) return null
-            return (
-              <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('serie')}` }}>
-                <Label>Serie profilo{strutturaOpt ? ` — ${strutturaOpt.valore}` : ''}</Label>
-                <Select
-                  value={form.serie_profilo ?? '__none__'}
-                  onValueChange={(v) => set('serie_profilo', v === '__none__' ? null : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleziona…" />
-                  </SelectTrigger>
-                  <SelectContent position="popper" sideOffset={4}>
-                    <SelectItem value="__none__">—</SelectItem>
-                    {serieFiltrate.map((s) => (
-                      <SelectItem key={s.id} value={s.valore}>{s.valore}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )
-          })()}
-
-          {/* Misure */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Larghezza (mm)</Label>
-              <Input
-                type="number"
-                min={1}
-                placeholder="es. 900"
-                value={form.larghezza_mm ?? ''}
-                onChange={(e) => set('larghezza_mm', e.target.value ? parseInt(e.target.value) : null)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Altezza (mm)</Label>
-              <Input
-                type="number"
-                min={1}
-                placeholder="es. 1200"
-                value={form.altezza_mm ?? ''}
-                onChange={(e) => set('altezza_mm', e.target.value ? parseInt(e.target.value) : null)}
-              />
-            </div>
-          </div>
-
-          {/* Accessori — multi-select */}
-          {opzioni.accessori.length > 0 && (
-            <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('accessorio')}` }}>
-              <Label>Finitura / Accessori</Label>
-              <Popover open={accessoriOpen} onOpenChange={setAccessoriOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className={cn(
-                      'flex w-full min-h-9 items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-colors hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                      form.accessori.length === 0 && 'text-muted-foreground'
-                    )}
+              {/* Tipologia vetro */}
+              {opzioni.vetri.length > 0 && (
+                <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('vetro')}` }}>
+                  <Label>Tipologia vetro</Label>
+                  <Select
+                    value={form.tipologia_vetro ?? '__none__'}
+                    onValueChange={(v) => set('tipologia_vetro', v === '__none__' ? null : v)}
                   >
-                    <div className="flex flex-wrap gap-1 flex-1 text-left">
-                      {form.accessori.length === 0 ? (
-                        <span>Seleziona accessori…</span>
-                      ) : (
-                        form.accessori.map((a) => (
-                          <Badge key={a} variant="secondary" className="text-xs">
-                            {a}
-                            <span
-                              role="button"
-                              className="ml-1 cursor-pointer"
-                              onClick={(e) => { e.stopPropagation(); toggleAccessorio(a) }}
-                            >
-                              <X className="h-2.5 w-2.5" />
-                            </span>
-                          </Badge>
-                        ))
-                      )}
-                    </div>
-                    <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-1" align="start">
-                  {opzioni.accessori.map((a) => (
-                    <button
-                      key={a}
-                      type="button"
-                      onClick={() => toggleAccessorio(a)}
-                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent transition-colors"
-                    >
-                      <div className={cn(
-                        'flex h-4 w-4 items-center justify-center rounded-sm border',
-                        form.accessori.includes(a)
-                          ? 'bg-primary border-primary text-primary-foreground'
-                          : 'border-input'
-                      )}>
-                        {form.accessori.includes(a) && <Check className="h-3 w-3" />}
-                      </div>
-                      {a}
-                    </button>
-                  ))}
-                </PopoverContent>
-              </Popover>
-            </div>
-          )}
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleziona…" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" sideOffset={4}>
+                      <SelectItem value="__none__">—</SelectItem>
+                      {opzioni.vetri.map((v) => (
+                        <SelectItem key={v} value={v}>{v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
-          {/* Colore interno + Bicolore */}
-          <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-3 items-end">
-              <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('colore')}` }}>
-                <Label>Colore interno</Label>
-                <Select
-                  value={form.colore_interno ?? '__none__'}
-                  onValueChange={(v) => set('colore_interno', v === '__none__' ? null : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleziona…" />
-                  </SelectTrigger>
-                  <SelectContent position="popper" sideOffset={4}>
-                    <SelectItem value="__none__">—</SelectItem>
-                    {opzioni.colori.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Anta ribalta + Serratura */}
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={form.anta_ribalta}
+                    onChange={(e) => set('anta_ribalta', e.target.checked)}
+                    className="h-4 w-4 rounded border-input accent-primary"
+                  />
+                  <span className="text-sm">Kit anta ribalta</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={form.serratura}
+                    onChange={(e) => set('serratura', e.target.checked)}
+                    className="h-4 w-4 rounded border-input accent-primary"
+                  />
+                  <span className="text-sm">Serratura</span>
+                </label>
               </div>
-              <div className="flex items-center gap-2 pb-2">
-                <input
-                  id="bicolore"
-                  type="checkbox"
-                  checked={form.bicolore}
-                  onChange={(e) => set('bicolore', e.target.checked)}
-                  className="h-4 w-4 rounded border-input accent-primary"
+
+              {/* Tipo serratura */}
+              {form.serratura && opzioni.serrature.length > 0 && (
+                <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('serratura')}` }}>
+                  <Label>Tipo serratura</Label>
+                  <Select
+                    value={form.tipo_serratura ?? '__none__'}
+                    onValueChange={(v) => set('tipo_serratura', v === '__none__' ? null : v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleziona…" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" sideOffset={4}>
+                      <SelectItem value="__none__">—</SelectItem>
+                      {opzioni.serrature.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Note */}
+              <div className="space-y-1.5">
+                <Label>Note</Label>
+                <textarea
+                  className="w-full min-h-[60px] rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                  placeholder="Note aggiuntive…"
+                  value={form.note ?? ''}
+                  onChange={(e) => set('note', e.target.value)}
                 />
-                <Label htmlFor="bicolore" className="cursor-pointer font-normal">Bicolore</Label>
               </div>
+
             </div>
-
-            {form.bicolore && (
-              <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('colore')}` }}>
-                <Label>Colore esterno</Label>
-                <Select
-                  value={form.colore_esterno ?? '__none__'}
-                  onValueChange={(v) => set('colore_esterno', v === '__none__' ? null : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleziona…" />
-                  </SelectTrigger>
-                  <SelectContent position="popper" sideOffset={4}>
-                    <SelectItem value="__none__">—</SelectItem>
-                    {opzioni.colori.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-
-          {/* Tipologia vetro */}
-          {opzioni.vetri.length > 0 && (
-            <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('vetro')}` }}>
-              <Label>Tipologia vetro</Label>
-              <Select
-                value={form.tipologia_vetro ?? '__none__'}
-                onValueChange={(v) => set('tipologia_vetro', v === '__none__' ? null : v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleziona…" />
-                </SelectTrigger>
-                <SelectContent position="popper" sideOffset={4}>
-                  <SelectItem value="__none__">—</SelectItem>
-                  {opzioni.vetri.map((v) => (
-                    <SelectItem key={v} value={v}>{v}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Anta ribalta + Serratura */}
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={form.anta_ribalta}
-                onChange={(e) => set('anta_ribalta', e.target.checked)}
-                className="h-4 w-4 rounded border-input accent-primary"
-              />
-              <span className="text-sm">Kit anta ribalta</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={form.serratura}
-                onChange={(e) => set('serratura', e.target.checked)}
-                className="h-4 w-4 rounded border-input accent-primary"
-              />
-              <span className="text-sm">Serratura</span>
-            </label>
-          </div>
-
-          {/* Tipo serratura — visibile solo se serratura = true */}
-          {form.serratura && opzioni.serrature.length > 0 && (
-            <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('serratura')}` }}>
-              <Label>Tipo serratura</Label>
-              <Select
-                value={form.tipo_serratura ?? '__none__'}
-                onValueChange={(v) => set('tipo_serratura', v === '__none__' ? null : v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleziona…" />
-                </SelectTrigger>
-                <SelectContent position="popper" sideOffset={4}>
-                  <SelectItem value="__none__">—</SelectItem>
-                  {opzioni.serrature.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Note */}
-          <div className="space-y-1.5">
-            <Label>Note</Label>
-            <textarea
-              className="w-full min-h-[72px] rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
-              placeholder="Note aggiuntive…"
-              value={form.note ?? ''}
-              onChange={(e) => set('note', e.target.value)}
-            />
           </div>
         </div>
 
