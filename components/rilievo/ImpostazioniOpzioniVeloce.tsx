@@ -6,18 +6,18 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core'
 import {
-  SortableContext, useSortable, rectSortingStrategy,
+  SortableContext, useSortable, rectSortingStrategy, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
   Plus, Trash2, Eye, EyeOff, Check, X, Link2, ChevronDown, ChevronUp,
   ChevronLeft, LayoutGrid, Wrench, Palette, Layers, Lock, Package, GripVertical, Frame,
-  ArrowUp, ArrowDown, Pencil,
+  Pencil,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
-  upsertOpzione, deleteOpzione, toggleOpzioneAttiva, updateStruttureSerie, swapOrdineOpzioni,
+  upsertOpzione, deleteOpzione, toggleOpzioneAttiva, updateStruttureSerie, bulkUpdateOrdini,
 } from '@/actions/rilievo-veloce'
 import { useRilievoUiBlocchi } from '@/hooks/useRilievoUiBlocchi'
 import { toast } from 'sonner'
@@ -129,6 +129,24 @@ function BloccoCard({ id, tipo, label, colore, count, onClick, onColorChange }: 
   )
 }
 
+// ─── Drag handle condiviso per gli item ──────────────────────
+
+function SortableRow({ id, children }: { id: string; children: (handle: React.ReactNode) => React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }
+  const handle = (
+    <button
+      {...attributes} {...listeners}
+      type="button"
+      className="p-1.5 rounded-md text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none shrink-0"
+      title="Trascina per riordinare"
+    >
+      <GripVertical className="h-3.5 w-3.5" />
+    </button>
+  )
+  return <div ref={setNodeRef} style={style}>{children(handle)}</div>
+}
+
 // ─── Sezione opzioni (dettaglio) ─────────────────────────────
 
 interface SezioneProps {
@@ -138,15 +156,24 @@ interface SezioneProps {
   onDelete: (id: string) => Promise<void>
   onToggle: (id: string, attiva: boolean) => Promise<void>
   onEdit: (id: string, tipo: TipoOpzione, valore: string) => Promise<void>
-  onSwapOrdine: (id1: string, ord1: number, id2: string, ord2: number) => Promise<void>
+  onReorder: (newItems: RilievoOpzione[]) => void
 }
 
-function SezioneOpzioni({ tipo, items, onAdd, onDelete, onToggle, onEdit, onSwapOrdine }: SezioneProps) {
+function SezioneOpzioni({ tipo, items, onAdd, onDelete, onToggle, onEdit, onReorder }: SezioneProps) {
   const [adding, setAdding]       = useState(false)
   const [nuovoValore, setNuovo]   = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   const [isPending, start]        = useTransition()
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIdx = items.findIndex((i) => i.id === active.id)
+    const newIdx = items.findIndex((i) => i.id === over.id)
+    if (oldIdx !== -1 && newIdx !== -1) onReorder(arrayMove(items, oldIdx, newIdx))
+  }
 
   const handleAdd = () => {
     const v = nuovoValore.trim()
@@ -196,59 +223,56 @@ function SezioneOpzioni({ tipo, items, onAdd, onDelete, onToggle, onEdit, onSwap
       {items.length === 0 && !adding ? (
         <p className="text-sm text-gray-400 py-4 text-center">Nessuna opzione. Clicca <strong>Aggiungi</strong> per iniziare.</p>
       ) : (
-        <div className="space-y-1">
-          {items.map((item, idx) => (
-            <div key={item.id}
-              className={`rounded-lg border text-sm transition-opacity ${item.attiva ? 'bg-white' : 'opacity-50 bg-gray-50'}`}>
-              {editingId === item.id ? (
-                <div className="flex gap-2 px-3 py-2">
-                  <Input autoFocus value={editValue} onChange={(e) => setEditValue(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') confirmEdit(item); if (e.key === 'Escape') cancelEdit() }}
-                    className="h-8 text-sm flex-1" />
-                  <button onClick={() => confirmEdit(item)} disabled={!editValue.trim() || isPending}
-                    className="p-1.5 rounded-md text-white bg-primary hover:bg-primary/90 disabled:opacity-50">
-                    <Check className="h-4 w-4" />
-                  </button>
-                  <button onClick={cancelEdit}
-                    className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 px-3 py-2">
-                  <span className="flex-1 truncate text-gray-800">{item.valore}</span>
-                  {!item.attiva && <span className="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">inattiva</span>}
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    <button onClick={() => startEdit(item)} disabled={isPending} title="Modifica"
-                      className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => { if (idx > 0) start(async () => { try { await onSwapOrdine(item.id, item.ordine, items[idx-1].id, items[idx-1].ordine) } catch { toast.error('Errore') } }) }}
-                      disabled={isPending || idx === 0} title="Sposta su"
-                      className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-30">
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => { if (idx < items.length - 1) start(async () => { try { await onSwapOrdine(item.id, item.ordine, items[idx+1].id, items[idx+1].ordine) } catch { toast.error('Errore') } }) }}
-                      disabled={isPending || idx === items.length - 1} title="Sposta giù"
-                      className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-30">
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => start(async () => { try { await onToggle(item.id, item.attiva) } catch { toast.error('Errore') } })}
-                      disabled={isPending} title={item.attiva ? 'Disattiva' : 'Attiva'}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100">
-                      {item.attiva ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                    </button>
-                    <button onClick={() => { if (!confirm('Eliminare questa opzione?')) return; start(async () => { try { await onDelete(item.id); toast.success('Eliminata') } catch { toast.error('Errore') } }) }}
-                      disabled={isPending} title="Elimina"
-                      className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              )}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-1">
+              {items.map((item) => (
+                <SortableRow key={item.id} id={item.id}>
+                  {(handle) => (
+                    <div className={`rounded-lg border text-sm transition-opacity ${item.attiva ? 'bg-white' : 'opacity-50 bg-gray-50'}`}>
+                      {editingId === item.id ? (
+                        <div className="flex gap-2 px-3 py-2">
+                          <Input autoFocus value={editValue} onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') confirmEdit(item); if (e.key === 'Escape') cancelEdit() }}
+                            className="h-8 text-sm flex-1" />
+                          <button onClick={() => confirmEdit(item)} disabled={!editValue.trim() || isPending}
+                            className="p-1.5 rounded-md text-white bg-primary hover:bg-primary/90 disabled:opacity-50">
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button onClick={cancelEdit} className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100">
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 px-2 py-2">
+                          {handle}
+                          <span className="flex-1 truncate text-gray-800">{item.valore}</span>
+                          {!item.attiva && <span className="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">inattiva</span>}
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <button onClick={() => startEdit(item)} disabled={isPending} title="Modifica"
+                              className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button onClick={() => start(async () => { try { await onToggle(item.id, item.attiva) } catch { toast.error('Errore') } })}
+                              disabled={isPending} title={item.attiva ? 'Disattiva' : 'Attiva'}
+                              className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+                              {item.attiva ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                            </button>
+                            <button onClick={() => { if (!confirm('Eliminare questa opzione?')) return; start(async () => { try { await onDelete(item.id); toast.success('Eliminata') } catch { toast.error('Errore') } }) }}
+                              disabled={isPending} title="Elimina"
+                              className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </SortableRow>
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+        </DndContext>
       )}
     </div>
   )
@@ -264,11 +288,11 @@ interface SezioneSeriePros {
   onToggle: (id: string, attiva: boolean) => Promise<void>
   onUpdateStrutture: (id: string, strutture_collegate: string[]) => Promise<void>
   onEdit: (id: string, tipo: TipoOpzione, valore: string) => Promise<void>
-  onSwapOrdine: (id1: string, ord1: number, id2: string, ord2: number) => Promise<void>
+  onReorder: (newItems: RilievoOpzione[]) => void
 }
 
 function SezioneSerieOpzioni({
-  items, strutture, onAdd, onDelete, onToggle, onUpdateStrutture, onEdit, onSwapOrdine,
+  items, strutture, onAdd, onDelete, onToggle, onUpdateStrutture, onEdit, onReorder,
 }: SezioneSeriePros) {
   const [adding, setAdding]             = useState(false)
   const [nuovoValore, setNuovo]         = useState('')
@@ -277,6 +301,15 @@ function SezioneSerieOpzioni({
   const [editingId, setEditingId]       = useState<string | null>(null)
   const [editValue, setEditValue]       = useState('')
   const [isPending, start]              = useTransition()
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIdx = items.findIndex((i) => i.id === active.id)
+    const newIdx = items.findIndex((i) => i.id === over.id)
+    if (oldIdx !== -1 && newIdx !== -1) onReorder(arrayMove(items, oldIdx, newIdx))
+  }
 
   const startEdit = (item: RilievoOpzione) => { setEditingId(item.id); setEditValue(item.valore); setExpandedId(null) }
   const cancelEdit = () => setEditingId(null)
@@ -347,107 +380,102 @@ function SezioneSerieOpzioni({
       {items.length === 0 && !adding ? (
         <p className="text-sm text-gray-400 py-4 text-center">Nessuna serie. Clicca <strong>Aggiungi</strong> per iniziare.</p>
       ) : (
-        <div className="space-y-1">
-          {items.map((item, idx) => {
-            const isExp      = expandedId === item.id
-            const links      = isExp ? (pendingLinks[item.id] ?? item.strutture_collegate) : item.strutture_collegate
-            const linkedNomi = strutture.filter((s) => item.strutture_collegate.includes(s.id)).map((s) => s.valore)
-
-            return (
-              <div key={item.id} className={`rounded-lg border transition-opacity ${item.attiva ? 'bg-white' : 'opacity-50 bg-gray-50'}`}>
-                {editingId === item.id ? (
-                  <div className="flex gap-2 px-3 py-2">
-                    <Input autoFocus value={editValue} onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') confirmEdit(item); if (e.key === 'Escape') cancelEdit() }}
-                      className="h-8 text-sm flex-1" />
-                    <button onClick={() => confirmEdit(item)} disabled={!editValue.trim() || isPending}
-                      className="p-1.5 rounded-md text-white bg-primary hover:bg-primary/90 disabled:opacity-50">
-                      <Check className="h-4 w-4" />
-                    </button>
-                    <button onClick={cancelEdit}
-                      className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100">
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                <div className="flex items-center gap-2 px-3 py-2 text-sm">
-                  <span className="flex-1 min-w-0 truncate text-gray-800">{item.valore}</span>
-                  {linkedNomi.length > 0 && !isExp && (
-                    <div className="flex gap-1 flex-wrap max-w-[160px]">
-                      {linkedNomi.map((n) => (
-                        <span key={n} className="text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded">{n}</span>
-                      ))}
-                    </div>
-                  )}
-                  {linkedNomi.length === 0 && !isExp && strutture.length > 0 && (
-                    <span className="text-[10px] text-gray-400">tutte</span>
-                  )}
-                  {!item.attiva && <span className="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">inattiva</span>}
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    <button onClick={() => startEdit(item)} disabled={isPending} title="Modifica"
-                      className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => { if (idx > 0) start(async () => { try { await onSwapOrdine(item.id, item.ordine, items[idx-1].id, items[idx-1].ordine) } catch { toast.error('Errore') } }) }}
-                      disabled={isPending || idx === 0} title="Sposta su"
-                      className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-30">
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => { if (idx < items.length - 1) start(async () => { try { await onSwapOrdine(item.id, item.ordine, items[idx+1].id, items[idx+1].ordine) } catch { toast.error('Errore') } }) }}
-                      disabled={isPending || idx === items.length - 1} title="Sposta giù"
-                      className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-30">
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </button>
-                    {strutture.length > 0 && (
-                      <button onClick={() => toggleExpand(item.id, item.strutture_collegate)}
-                        title="Collega strutture" disabled={isPending}
-                        className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 flex items-center gap-0.5">
-                        <Link2 className="h-3.5 w-3.5" />
-                        {isExp ? <ChevronUp className="h-2.5 w-2.5" /> : <ChevronDown className="h-2.5 w-2.5" />}
-                      </button>
-                    )}
-                    <button onClick={() => start(async () => { try { await onToggle(item.id, item.attiva) } catch { toast.error('Errore') } })}
-                      disabled={isPending} title={item.attiva ? 'Disattiva' : 'Attiva'}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100">
-                      {item.attiva ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                    </button>
-                    <button onClick={() => { if (!confirm('Eliminare?')) return; start(async () => { try { await onDelete(item.id); toast.success('Eliminata') } catch { toast.error('Errore') } }) }}
-                      disabled={isPending} title="Elimina"
-                      className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-                )}
-
-                {isExp && (
-                  <div className="border-t bg-gray-50 px-3 py-2.5 space-y-2">
-                    <p className="text-xs text-gray-500 font-medium">Strutture compatibili — vuoto = valida per tutte</p>
-                    <div className="flex flex-wrap gap-2">
-                      {strutture.map((s) => {
-                        const checked = links.includes(s.id)
-                        return (
-                          <label key={s.id}
-                            className={`flex items-center gap-1.5 cursor-pointer rounded-md border px-2.5 py-1 text-sm select-none transition-colors ${checked ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
-                            <input type="checkbox" className="sr-only" checked={checked} onChange={() => toggleLink(item.id, s.id)} />
-                            <div className={`h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 ${checked ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
-                              {checked && <Check className="h-2.5 w-2.5 text-white" />}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-1">
+              {items.map((item) => {
+                const isExp      = expandedId === item.id
+                const links      = isExp ? (pendingLinks[item.id] ?? item.strutture_collegate) : item.strutture_collegate
+                const linkedNomi = strutture.filter((s) => item.strutture_collegate.includes(s.id)).map((s) => s.valore)
+                return (
+                  <SortableRow key={item.id} id={item.id}>
+                    {(handle) => (
+                      <div className={`rounded-lg border transition-opacity ${item.attiva ? 'bg-white' : 'opacity-50 bg-gray-50'}`}>
+                        {editingId === item.id ? (
+                          <div className="flex gap-2 px-3 py-2">
+                            <Input autoFocus value={editValue} onChange={(e) => setEditValue(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') confirmEdit(item); if (e.key === 'Escape') cancelEdit() }}
+                              className="h-8 text-sm flex-1" />
+                            <button onClick={() => confirmEdit(item)} disabled={!editValue.trim() || isPending}
+                              className="p-1.5 rounded-md text-white bg-primary hover:bg-primary/90 disabled:opacity-50">
+                              <Check className="h-4 w-4" />
+                            </button>
+                            <button onClick={cancelEdit} className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100">
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 px-2 py-2 text-sm">
+                            {handle}
+                            <span className="flex-1 min-w-0 truncate text-gray-800">{item.valore}</span>
+                            {linkedNomi.length > 0 && !isExp && (
+                              <div className="flex gap-1 flex-wrap max-w-[140px]">
+                                {linkedNomi.map((n) => (
+                                  <span key={n} className="text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded">{n}</span>
+                                ))}
+                              </div>
+                            )}
+                            {linkedNomi.length === 0 && !isExp && strutture.length > 0 && (
+                              <span className="text-[10px] text-gray-400">tutte</span>
+                            )}
+                            {!item.attiva && <span className="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">inattiva</span>}
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <button onClick={() => startEdit(item)} disabled={isPending} title="Modifica"
+                                className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50">
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              {strutture.length > 0 && (
+                                <button onClick={() => toggleExpand(item.id, item.strutture_collegate)}
+                                  title="Collega strutture" disabled={isPending}
+                                  className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 flex items-center gap-0.5">
+                                  <Link2 className="h-3.5 w-3.5" />
+                                  {isExp ? <ChevronUp className="h-2.5 w-2.5" /> : <ChevronDown className="h-2.5 w-2.5" />}
+                                </button>
+                              )}
+                              <button onClick={() => start(async () => { try { await onToggle(item.id, item.attiva) } catch { toast.error('Errore') } })}
+                                disabled={isPending} title={item.attiva ? 'Disattiva' : 'Attiva'}
+                                className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+                                {item.attiva ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                              </button>
+                              <button onClick={() => { if (!confirm('Eliminare?')) return; start(async () => { try { await onDelete(item.id); toast.success('Eliminata') } catch { toast.error('Errore') } }) }}
+                                disabled={isPending} title="Elimina"
+                                className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
                             </div>
-                            {s.valore}
-                          </label>
-                        )
-                      })}
-                    </div>
-                    <div className="flex gap-2 pt-1">
-                      <Button size="sm" onClick={() => saveLinks(item.id)} disabled={isPending}>Salva</Button>
-                      <Button size="sm" variant="outline" onClick={() => setExpandedId(null)}>Annulla</Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+                          </div>
+                        )}
+                        {isExp && (
+                          <div className="border-t bg-gray-50 px-3 py-2.5 space-y-2">
+                            <p className="text-xs text-gray-500 font-medium">Strutture compatibili — vuoto = valida per tutte</p>
+                            <div className="flex flex-wrap gap-2">
+                              {strutture.map((s) => {
+                                const checked = links.includes(s.id)
+                                return (
+                                  <label key={s.id} className={`flex items-center gap-1.5 cursor-pointer rounded-md border px-2.5 py-1 text-sm select-none transition-colors ${checked ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+                                    <input type="checkbox" className="sr-only" checked={checked} onChange={() => toggleLink(item.id, s.id)} />
+                                    <div className={`h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 ${checked ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                                      {checked && <Check className="h-2.5 w-2.5 text-white" />}
+                                    </div>
+                                    {s.valore}
+                                  </label>
+                                )
+                              })}
+                            </div>
+                            <div className="flex gap-2 pt-1">
+                              <Button size="sm" onClick={() => saveLinks(item.id)} disabled={isPending}>Salva</Button>
+                              <Button size="sm" variant="outline" onClick={() => setExpandedId(null)}>Annulla</Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </SortableRow>
+                )
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
     </div>
   )
@@ -463,11 +491,11 @@ interface SezioneTelaioProps {
   onToggle: (id: string, attiva: boolean) => Promise<void>
   onUpdateStrutture: (id: string, serie_collegate: string[]) => Promise<void>
   onEdit: (id: string, tipo: TipoOpzione, valore: string) => Promise<void>
-  onSwapOrdine: (id1: string, ord1: number, id2: string, ord2: number) => Promise<void>
+  onReorder: (newItems: RilievoOpzione[]) => void
 }
 
 function SezioneTelaioOpzioni({
-  items, serie, onAdd, onDelete, onToggle, onUpdateStrutture, onEdit, onSwapOrdine,
+  items, serie, onAdd, onDelete, onToggle, onUpdateStrutture, onEdit, onReorder,
 }: SezioneTelaioProps) {
   const [adding, setAdding]             = useState(false)
   const [nuovoValore, setNuovo]         = useState('')
@@ -476,6 +504,15 @@ function SezioneTelaioOpzioni({
   const [editingId, setEditingId]       = useState<string | null>(null)
   const [editValue, setEditValue]       = useState('')
   const [isPending, start]              = useTransition()
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIdx = items.findIndex((i) => i.id === active.id)
+    const newIdx = items.findIndex((i) => i.id === over.id)
+    if (oldIdx !== -1 && newIdx !== -1) onReorder(arrayMove(items, oldIdx, newIdx))
+  }
 
   const startEdit = (item: RilievoOpzione) => { setEditingId(item.id); setEditValue(item.valore); setExpandedId(null) }
   const cancelEdit = () => setEditingId(null)
@@ -546,107 +583,102 @@ function SezioneTelaioOpzioni({
       {items.length === 0 && !adding ? (
         <p className="text-sm text-gray-400 py-4 text-center">Nessun tipo telaio. Clicca <strong>Aggiungi</strong> per iniziare.</p>
       ) : (
-        <div className="space-y-1">
-          {items.map((item, idx) => {
-            const isExp      = expandedId === item.id
-            const links      = isExp ? (pendingLinks[item.id] ?? item.strutture_collegate) : item.strutture_collegate
-            const linkedNomi = serie.filter((s) => item.strutture_collegate.includes(s.id)).map((s) => s.valore)
-
-            return (
-              <div key={item.id} className={`rounded-lg border transition-opacity ${item.attiva ? 'bg-white' : 'opacity-50 bg-gray-50'}`}>
-                {editingId === item.id ? (
-                  <div className="flex gap-2 px-3 py-2">
-                    <Input autoFocus value={editValue} onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') confirmEdit(item); if (e.key === 'Escape') cancelEdit() }}
-                      className="h-8 text-sm flex-1" />
-                    <button onClick={() => confirmEdit(item)} disabled={!editValue.trim() || isPending}
-                      className="p-1.5 rounded-md text-white bg-primary hover:bg-primary/90 disabled:opacity-50">
-                      <Check className="h-4 w-4" />
-                    </button>
-                    <button onClick={cancelEdit}
-                      className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100">
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                <div className="flex items-center gap-2 px-3 py-2 text-sm">
-                  <span className="flex-1 min-w-0 truncate text-gray-800">{item.valore}</span>
-                  {linkedNomi.length > 0 && !isExp && (
-                    <div className="flex gap-1 flex-wrap max-w-[160px]">
-                      {linkedNomi.map((n) => (
-                        <span key={n} className="text-[10px] bg-teal-50 text-teal-700 border border-teal-200 px-1.5 py-0.5 rounded">{n}</span>
-                      ))}
-                    </div>
-                  )}
-                  {linkedNomi.length === 0 && !isExp && serie.length > 0 && (
-                    <span className="text-[10px] text-gray-400">tutte le serie</span>
-                  )}
-                  {!item.attiva && <span className="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">inattiva</span>}
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    <button onClick={() => startEdit(item)} disabled={isPending} title="Modifica"
-                      className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => { if (idx > 0) start(async () => { try { await onSwapOrdine(item.id, item.ordine, items[idx-1].id, items[idx-1].ordine) } catch { toast.error('Errore') } }) }}
-                      disabled={isPending || idx === 0} title="Sposta su"
-                      className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-30">
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => { if (idx < items.length - 1) start(async () => { try { await onSwapOrdine(item.id, item.ordine, items[idx+1].id, items[idx+1].ordine) } catch { toast.error('Errore') } }) }}
-                      disabled={isPending || idx === items.length - 1} title="Sposta giù"
-                      className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-30">
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </button>
-                    {serie.length > 0 && (
-                      <button onClick={() => toggleExpand(item.id, item.strutture_collegate)}
-                        title="Collega serie profilo" disabled={isPending}
-                        className="p-1.5 rounded-md text-gray-400 hover:text-teal-600 hover:bg-teal-50 flex items-center gap-0.5">
-                        <Link2 className="h-3.5 w-3.5" />
-                        {isExp ? <ChevronUp className="h-2.5 w-2.5" /> : <ChevronDown className="h-2.5 w-2.5" />}
-                      </button>
-                    )}
-                    <button onClick={() => start(async () => { try { await onToggle(item.id, item.attiva) } catch { toast.error('Errore') } })}
-                      disabled={isPending} title={item.attiva ? 'Disattiva' : 'Attiva'}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100">
-                      {item.attiva ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                    </button>
-                    <button onClick={() => { if (!confirm('Eliminare?')) return; start(async () => { try { await onDelete(item.id); toast.success('Eliminato') } catch { toast.error('Errore') } }) }}
-                      disabled={isPending} title="Elimina"
-                      className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-                )}
-
-                {isExp && (
-                  <div className="border-t bg-gray-50 px-3 py-2.5 space-y-2">
-                    <p className="text-xs text-gray-500 font-medium">Serie profilo compatibili — vuoto = valido per tutte</p>
-                    <div className="flex flex-wrap gap-2">
-                      {serie.map((s) => {
-                        const checked = links.includes(s.id)
-                        return (
-                          <label key={s.id}
-                            className={`flex items-center gap-1.5 cursor-pointer rounded-md border px-2.5 py-1 text-sm select-none transition-colors ${checked ? 'bg-teal-50 border-teal-300 text-teal-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
-                            <input type="checkbox" className="sr-only" checked={checked} onChange={() => toggleLink(item.id, s.id)} />
-                            <div className={`h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 ${checked ? 'bg-teal-600 border-teal-600' : 'border-gray-300'}`}>
-                              {checked && <Check className="h-2.5 w-2.5 text-white" />}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-1">
+              {items.map((item) => {
+                const isExp      = expandedId === item.id
+                const links      = isExp ? (pendingLinks[item.id] ?? item.strutture_collegate) : item.strutture_collegate
+                const linkedNomi = serie.filter((s) => item.strutture_collegate.includes(s.id)).map((s) => s.valore)
+                return (
+                  <SortableRow key={item.id} id={item.id}>
+                    {(handle) => (
+                      <div className={`rounded-lg border transition-opacity ${item.attiva ? 'bg-white' : 'opacity-50 bg-gray-50'}`}>
+                        {editingId === item.id ? (
+                          <div className="flex gap-2 px-3 py-2">
+                            <Input autoFocus value={editValue} onChange={(e) => setEditValue(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') confirmEdit(item); if (e.key === 'Escape') cancelEdit() }}
+                              className="h-8 text-sm flex-1" />
+                            <button onClick={() => confirmEdit(item)} disabled={!editValue.trim() || isPending}
+                              className="p-1.5 rounded-md text-white bg-primary hover:bg-primary/90 disabled:opacity-50">
+                              <Check className="h-4 w-4" />
+                            </button>
+                            <button onClick={cancelEdit} className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100">
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 px-2 py-2 text-sm">
+                            {handle}
+                            <span className="flex-1 min-w-0 truncate text-gray-800">{item.valore}</span>
+                            {linkedNomi.length > 0 && !isExp && (
+                              <div className="flex gap-1 flex-wrap max-w-[140px]">
+                                {linkedNomi.map((n) => (
+                                  <span key={n} className="text-[10px] bg-teal-50 text-teal-700 border border-teal-200 px-1.5 py-0.5 rounded">{n}</span>
+                                ))}
+                              </div>
+                            )}
+                            {linkedNomi.length === 0 && !isExp && serie.length > 0 && (
+                              <span className="text-[10px] text-gray-400">tutte le serie</span>
+                            )}
+                            {!item.attiva && <span className="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">inattiva</span>}
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <button onClick={() => startEdit(item)} disabled={isPending} title="Modifica"
+                                className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50">
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              {serie.length > 0 && (
+                                <button onClick={() => toggleExpand(item.id, item.strutture_collegate)}
+                                  title="Collega serie profilo" disabled={isPending}
+                                  className="p-1.5 rounded-md text-gray-400 hover:text-teal-600 hover:bg-teal-50 flex items-center gap-0.5">
+                                  <Link2 className="h-3.5 w-3.5" />
+                                  {isExp ? <ChevronUp className="h-2.5 w-2.5" /> : <ChevronDown className="h-2.5 w-2.5" />}
+                                </button>
+                              )}
+                              <button onClick={() => start(async () => { try { await onToggle(item.id, item.attiva) } catch { toast.error('Errore') } })}
+                                disabled={isPending} title={item.attiva ? 'Disattiva' : 'Attiva'}
+                                className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+                                {item.attiva ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                              </button>
+                              <button onClick={() => { if (!confirm('Eliminare?')) return; start(async () => { try { await onDelete(item.id); toast.success('Eliminato') } catch { toast.error('Errore') } }) }}
+                                disabled={isPending} title="Elimina"
+                                className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
                             </div>
-                            {s.valore}
-                          </label>
-                        )
-                      })}
-                    </div>
-                    <div className="flex gap-2 pt-1">
-                      <Button size="sm" onClick={() => saveLinks(item.id)} disabled={isPending}>Salva</Button>
-                      <Button size="sm" variant="outline" onClick={() => setExpandedId(null)}>Annulla</Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+                          </div>
+                        )}
+                        {isExp && (
+                          <div className="border-t bg-gray-50 px-3 py-2.5 space-y-2">
+                            <p className="text-xs text-gray-500 font-medium">Serie profilo compatibili — vuoto = valido per tutte</p>
+                            <div className="flex flex-wrap gap-2">
+                              {serie.map((s) => {
+                                const checked = links.includes(s.id)
+                                return (
+                                  <label key={s.id} className={`flex items-center gap-1.5 cursor-pointer rounded-md border px-2.5 py-1 text-sm select-none transition-colors ${checked ? 'bg-teal-50 border-teal-300 text-teal-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+                                    <input type="checkbox" className="sr-only" checked={checked} onChange={() => toggleLink(item.id, s.id)} />
+                                    <div className={`h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 ${checked ? 'bg-teal-600 border-teal-600' : 'border-gray-300'}`}>
+                                      {checked && <Check className="h-2.5 w-2.5 text-white" />}
+                                    </div>
+                                    {s.valore}
+                                  </label>
+                                )
+                              })}
+                            </div>
+                            <div className="flex gap-2 pt-1">
+                              <Button size="sm" onClick={() => saveLinks(item.id)} disabled={isPending}>Salva</Button>
+                              <Button size="sm" variant="outline" onClick={() => setExpandedId(null)}>Annulla</Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </SortableRow>
+                )
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
     </div>
   )
@@ -692,13 +724,13 @@ export default function ImpostazioniOpzioniVeloce({ opzioni: opzioniInit }: Prop
     setOpzioni((prev) => prev.map((o) => o.id === id ? { ...o, valore } : o))
   }
 
-  const handleSwapOrdine = async (id1: string, ord1: number, id2: string, ord2: number) => {
-    await swapOrdineOpzioni(id1, ord1, id2, ord2)
+  const handleReorder = (newItems: RilievoOpzione[]) => {
+    const updates = newItems.map((item, idx) => ({ id: item.id, ordine: idx }))
     setOpzioni((prev) => prev.map((o) => {
-      if (o.id === id1) return { ...o, ordine: ord2 }
-      if (o.id === id2) return { ...o, ordine: ord1 }
-      return o
+      const upd = updates.find((u) => u.id === o.id)
+      return upd ? { ...o, ordine: upd.ordine } : o
     }))
+    bulkUpdateOrdini(updates).catch(() => toast.error('Errore riordinamento'))
   }
 
   // ── DnD ────────────────────────────────────────────────────
@@ -746,20 +778,20 @@ export default function ImpostazioniOpzioniVeloce({ opzioni: opzioniInit }: Prop
             items={items} strutture={strutture}
             onAdd={handleAdd} onDelete={handleDelete}
             onToggle={handleToggle} onUpdateStrutture={handleUpdateStrutture}
-            onEdit={handleEdit} onSwapOrdine={handleSwapOrdine}
+            onEdit={handleEdit} onReorder={handleReorder}
           />
         ) : activeType === 'telaio' ? (
           <SezioneTelaioOpzioni
             items={items} serie={byTipo('serie')}
             onAdd={handleAdd} onDelete={handleDelete}
             onToggle={handleToggle} onUpdateStrutture={handleUpdateStrutture}
-            onEdit={handleEdit} onSwapOrdine={handleSwapOrdine}
+            onEdit={handleEdit} onReorder={handleReorder}
           />
         ) : (
           <SezioneOpzioni
             tipo={activeType as TipoOpzione} items={items}
             onAdd={handleAdd} onDelete={handleDelete} onToggle={handleToggle}
-            onEdit={handleEdit} onSwapOrdine={handleSwapOrdine}
+            onEdit={handleEdit} onReorder={handleReorder}
           />
         )}
       </div>
