@@ -129,6 +129,16 @@ export async function toggleOpzioneAttiva(id: string, attiva: boolean): Promise<
   revalidatePath('/rilievo/impostazioni')
 }
 
+export async function bulkUpdateOrdini(updates: { id: string; ordine: number }[]): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  await Promise.all(
+    updates.map(({ id, ordine }) =>
+      supabase.from('rilievo_opzioni').update({ ordine }).eq('id', id).eq('organization_id', orgId)
+    )
+  )
+}
+
 export async function swapOrdineOpzioni(
   id1: string, ordine1: number,
   id2: string, ordine2: number,
