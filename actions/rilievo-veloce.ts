@@ -129,6 +129,18 @@ export async function toggleOpzioneAttiva(id: string, attiva: boolean): Promise<
   revalidatePath('/rilievo/impostazioni')
 }
 
+export async function swapOrdineOpzioni(
+  id1: string, ordine1: number,
+  id2: string, ordine2: number,
+): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  await Promise.all([
+    supabase.from('rilievo_opzioni').update({ ordine: ordine2 }).eq('id', id1).eq('organization_id', orgId),
+    supabase.from('rilievo_opzioni').update({ ordine: ordine1 }).eq('id', id2).eq('organization_id', orgId),
+  ])
+}
+
 export async function updateStruttureSerie(id: string, strutture_collegate: string[]): Promise<void> {
   const supabase = await createClient()
   const orgId = await getOrgId()
