@@ -421,53 +421,28 @@ export default function DialogVoceVeloce({
             </div>
           </div>
 
-          {/* SEZIONE BASSA: preview + telai (occupa lo spazio restante) */}
-          <div className="flex-1 flex flex-col px-6 py-4 min-h-[280px]">
+          {/* SEZIONE BASSA: preview a sinistra (larghezza fissa) + spazio futuro a destra */}
+          <div className="flex-1 flex gap-4 px-6 py-4 min-h-[240px]">
 
-            {/* Superiore */}
-            {telaiFiltrati.length > 0 && (
-              <Popover open={telaioOpenLato === 'top'} onOpenChange={(o) => setTelaioOpenLato(o ? 'top' : null)}>
-                <PopoverTrigger asChild>
-                  <button type="button" className={cn(
-                    'mb-1 flex w-full items-center justify-center h-8 rounded-t-lg border border-b-0 text-sm gap-2 transition-colors',
-                    form.telaio_top ? 'bg-teal-50 border-teal-300 text-teal-700 font-medium' : 'border-dashed border-gray-300 text-gray-400 hover:bg-gray-50'
-                  )}>
-                    <span>↑</span><span className="truncate max-w-[240px]">{form.telaio_top ?? 'Telaio superiore'}</span>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-1" side="top" align="center">
-                  {[null, ...telaiFiltrati.map(t => t.valore)].map((v) => (
-                    <button key={v ?? '__none__'} type="button"
-                      onClick={() => { set('telaio_top', v); setTelaioOpenLato(null) }}
-                      className={cn('flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent transition-colors', form.telaio_top === v && v !== null && 'bg-accent font-medium')}>
-                      {v ?? '— nessuno'}
-                    </button>
-                  ))}
-                </PopoverContent>
-              </Popover>
-            )}
+            {/* ── BLOCCO PREVIEW + TELAI (sinistra, larghezza fissa) ── */}
+            <div className="w-80 shrink-0 flex flex-col">
 
-            {/* Riga: sinistro | preview | destro */}
-            <div className="flex-1 flex items-stretch gap-1">
-
-              {/* Sinistro */}
+              {/* Superiore */}
               {telaiFiltrati.length > 0 && (
-                <Popover open={telaioOpenLato === 'left'} onOpenChange={(o) => setTelaioOpenLato(o ? 'left' : null)}>
+                <Popover open={telaioOpenLato === 'top'} onOpenChange={(o) => setTelaioOpenLato(o ? 'top' : null)}>
                   <PopoverTrigger asChild>
                     <button type="button" className={cn(
-                      'flex flex-col items-center justify-center w-10 shrink-0 rounded-l-lg border border-r-0 text-xs transition-colors',
-                      form.telaio_left ? 'bg-teal-50 border-teal-300 text-teal-700 font-medium' : 'border-dashed border-gray-300 text-gray-400 hover:bg-gray-50'
+                      'mb-0.5 flex w-full items-center justify-center h-7 rounded-t-lg border border-b-0 text-xs gap-1.5 transition-colors',
+                      form.telaio_top ? 'bg-teal-50 border-teal-300 text-teal-700 font-medium' : 'border-dashed border-gray-300 text-gray-400 hover:bg-gray-50'
                     )}>
-                      <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
-                        {form.telaio_left ?? '← Sinistro'}
-                      </span>
+                      <span>↑</span><span className="truncate">{form.telaio_top ?? 'Telaio superiore'}</span>
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-56 p-1" side="left" align="center">
+                  <PopoverContent className="w-52 p-1" side="top" align="center">
                     {[null, ...telaiFiltrati.map(t => t.valore)].map((v) => (
                       <button key={v ?? '__none__'} type="button"
-                        onClick={() => { set('telaio_left', v); setTelaioOpenLato(null) }}
-                        className={cn('flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent transition-colors', form.telaio_left === v && v !== null && 'bg-accent font-medium')}>
+                        onClick={() => { set('telaio_top', v); setTelaioOpenLato(null) }}
+                        className={cn('flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent transition-colors', form.telaio_top === v && v !== null && 'bg-accent font-medium')}>
                         {v ?? '— nessuno'}
                       </button>
                     ))}
@@ -475,43 +450,96 @@ export default function DialogVoceVeloce({
                 </Popover>
               )}
 
-              {/* Preview */}
-              {(form.struttura || (form.n_ante ?? 0) >= 1) ? (
-                <div className="flex-1 border bg-gray-50 p-3">
-                  <PreviewSerramento
-                    struttura={form.struttura}
-                    nAnte={form.n_ante}
-                    larghezza={form.larghezza_mm}
-                    altezza={form.altezza_mm}
-                    antaPrincipale={form.anta_principale}
-                    posManiglia={form.pos_maniglia}
-                    onSelectAnta={(form.n_ante ?? 0) >= 1 ? handleAntaClick : undefined}
-                  />
-                </div>
-              ) : (
-                <div className="flex-1 border border-dashed border-gray-200 bg-gray-50 flex items-center justify-center">
-                  <span className="text-sm text-gray-300">Imposta struttura o numero ante per vedere l&apos;anteprima</span>
-                </div>
-              )}
+              {/* Riga: sinistro | preview | destro */}
+              <div className="flex-1 flex items-stretch gap-0.5">
 
-              {/* Destro */}
+                {/* Sinistro */}
+                {telaiFiltrati.length > 0 && (
+                  <Popover open={telaioOpenLato === 'left'} onOpenChange={(o) => setTelaioOpenLato(o ? 'left' : null)}>
+                    <PopoverTrigger asChild>
+                      <button type="button" className={cn(
+                        'flex flex-col items-center justify-center w-8 shrink-0 rounded-l-lg border border-r-0 text-[10px] transition-colors',
+                        form.telaio_left ? 'bg-teal-50 border-teal-300 text-teal-700 font-medium' : 'border-dashed border-gray-300 text-gray-400 hover:bg-gray-50'
+                      )}>
+                        <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+                          {form.telaio_left ?? '← Sin'}
+                        </span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-52 p-1" side="left" align="center">
+                      {[null, ...telaiFiltrati.map(t => t.valore)].map((v) => (
+                        <button key={v ?? '__none__'} type="button"
+                          onClick={() => { set('telaio_left', v); setTelaioOpenLato(null) }}
+                          className={cn('flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent transition-colors', form.telaio_left === v && v !== null && 'bg-accent font-medium')}>
+                          {v ?? '— nessuno'}
+                        </button>
+                      ))}
+                    </PopoverContent>
+                  </Popover>
+                )}
+
+                {/* Preview */}
+                {(form.struttura || (form.n_ante ?? 0) >= 1) ? (
+                  <div className="flex-1 border bg-gray-50 p-2">
+                    <PreviewSerramento
+                      struttura={form.struttura}
+                      nAnte={form.n_ante}
+                      larghezza={form.larghezza_mm}
+                      altezza={form.altezza_mm}
+                      antaPrincipale={form.anta_principale}
+                      posManiglia={form.pos_maniglia}
+                      onSelectAnta={(form.n_ante ?? 0) >= 1 ? handleAntaClick : undefined}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex-1 border border-dashed border-gray-200 bg-gray-50 flex items-center justify-center">
+                    <span className="text-xs text-gray-300 text-center px-2">Imposta struttura o numero ante</span>
+                  </div>
+                )}
+
+                {/* Destro */}
+                {telaiFiltrati.length > 0 && (
+                  <Popover open={telaioOpenLato === 'right'} onOpenChange={(o) => setTelaioOpenLato(o ? 'right' : null)}>
+                    <PopoverTrigger asChild>
+                      <button type="button" className={cn(
+                        'flex flex-col items-center justify-center w-8 shrink-0 rounded-r-lg border border-l-0 text-[10px] transition-colors',
+                        form.telaio_right ? 'bg-teal-50 border-teal-300 text-teal-700 font-medium' : 'border-dashed border-gray-300 text-gray-400 hover:bg-gray-50'
+                      )}>
+                        <span style={{ writingMode: 'vertical-rl' }}>
+                          {form.telaio_right ?? 'Des →'}
+                        </span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-52 p-1" side="right" align="center">
+                      {[null, ...telaiFiltrati.map(t => t.valore)].map((v) => (
+                        <button key={v ?? '__none__'} type="button"
+                          onClick={() => { set('telaio_right', v); setTelaioOpenLato(null) }}
+                          className={cn('flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent transition-colors', form.telaio_right === v && v !== null && 'bg-accent font-medium')}>
+                          {v ?? '— nessuno'}
+                        </button>
+                      ))}
+                    </PopoverContent>
+                  </Popover>
+                )}
+
+              </div>
+
+              {/* Inferiore */}
               {telaiFiltrati.length > 0 && (
-                <Popover open={telaioOpenLato === 'right'} onOpenChange={(o) => setTelaioOpenLato(o ? 'right' : null)}>
+                <Popover open={telaioOpenLato === 'bottom'} onOpenChange={(o) => setTelaioOpenLato(o ? 'bottom' : null)}>
                   <PopoverTrigger asChild>
                     <button type="button" className={cn(
-                      'flex flex-col items-center justify-center w-10 shrink-0 rounded-r-lg border border-l-0 text-xs transition-colors',
-                      form.telaio_right ? 'bg-teal-50 border-teal-300 text-teal-700 font-medium' : 'border-dashed border-gray-300 text-gray-400 hover:bg-gray-50'
+                      'mt-0.5 flex w-full items-center justify-center h-7 rounded-b-lg border border-t-0 text-xs gap-1.5 transition-colors',
+                      form.telaio_bottom ? 'bg-teal-50 border-teal-300 text-teal-700 font-medium' : 'border-dashed border-gray-300 text-gray-400 hover:bg-gray-50'
                     )}>
-                      <span style={{ writingMode: 'vertical-rl' }}>
-                        {form.telaio_right ?? 'Destro →'}
-                      </span>
+                      <span>↓</span><span className="truncate">{form.telaio_bottom ?? 'Telaio inferiore'}</span>
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-56 p-1" side="right" align="center">
+                  <PopoverContent className="w-52 p-1" side="bottom" align="center">
                     {[null, ...telaiFiltrati.map(t => t.valore)].map((v) => (
                       <button key={v ?? '__none__'} type="button"
-                        onClick={() => { set('telaio_right', v); setTelaioOpenLato(null) }}
-                        className={cn('flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent transition-colors', form.telaio_right === v && v !== null && 'bg-accent font-medium')}>
+                        onClick={() => { set('telaio_bottom', v); setTelaioOpenLato(null) }}
+                        className={cn('flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent transition-colors', form.telaio_bottom === v && v !== null && 'bg-accent font-medium')}>
                         {v ?? '— nessuno'}
                       </button>
                     ))}
@@ -521,28 +549,8 @@ export default function DialogVoceVeloce({
 
             </div>
 
-            {/* Inferiore */}
-            {telaiFiltrati.length > 0 && (
-              <Popover open={telaioOpenLato === 'bottom'} onOpenChange={(o) => setTelaioOpenLato(o ? 'bottom' : null)}>
-                <PopoverTrigger asChild>
-                  <button type="button" className={cn(
-                    'mt-1 flex w-full items-center justify-center h-8 rounded-b-lg border border-t-0 text-sm gap-2 transition-colors',
-                    form.telaio_bottom ? 'bg-teal-50 border-teal-300 text-teal-700 font-medium' : 'border-dashed border-gray-300 text-gray-400 hover:bg-gray-50'
-                  )}>
-                    <span>↓</span><span className="truncate max-w-[240px]">{form.telaio_bottom ?? 'Telaio inferiore'}</span>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-1" side="bottom" align="center">
-                  {[null, ...telaiFiltrati.map(t => t.valore)].map((v) => (
-                    <button key={v ?? '__none__'} type="button"
-                      onClick={() => { set('telaio_bottom', v); setTelaioOpenLato(null) }}
-                      className={cn('flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent transition-colors', form.telaio_bottom === v && v !== null && 'bg-accent font-medium')}>
-                      {v ?? '— nessuno'}
-                    </button>
-                  ))}
-                </PopoverContent>
-              </Popover>
-            )}
+            {/* ── SPAZIO DESTRA — riservato per funzioni future ── */}
+            <div className="flex-1" />
 
           </div>
         </div>
