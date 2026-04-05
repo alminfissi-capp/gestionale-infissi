@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { Camera, FileText, Trash2, ExternalLink, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -33,7 +33,6 @@ export default function AllegatiVoce({ voceId }: Props) {
   const [uploading, setUploading] = useState(false)
   const [openingId, setOpeningId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [, startTransition] = useTransition()
 
   useEffect(() => {
@@ -94,34 +93,27 @@ export default function AllegatiVoce({ voceId }: Props) {
 
   return (
     <div className="space-y-2">
-      {/* Bottone upload */}
-      <button
-        type="button"
-        disabled={uploading}
-        onClick={() => fileInputRef.current?.click()}
-        className={cn(
-          'flex items-center justify-center gap-2 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors',
-          uploading
-            ? 'border-gray-200 text-gray-300 cursor-not-allowed'
-            : 'border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50'
-        )}
-      >
+      {/* Label wrappa l'input — garantisce gesture diretta su tutti i browser/mobile */}
+      <label className={cn(
+        'flex items-center justify-center gap-2 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors select-none',
+        uploading
+          ? 'border-gray-200 text-gray-300 cursor-not-allowed pointer-events-none'
+          : 'border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer'
+      )}>
         {uploading
           ? <><Loader2 className="h-4 w-4 animate-spin" /><span>Caricamento…</span></>
           : <><Camera className="h-4 w-4" /><span>Foto / PDF</span></>
         }
-      </button>
-
-      {/* Input file nascosto */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,.pdf"
-        multiple
-        capture="environment"
-        className="hidden"
-        onChange={handleFileChange}
-      />
+        {/* Input dentro il label — nessun .click() programmativo necessario */}
+        <input
+          type="file"
+          accept="image/*,.pdf"
+          multiple
+          className="hidden"
+          disabled={uploading}
+          onChange={handleFileChange}
+        />
+      </label>
 
       {/* Lista allegati */}
       {loading && (
