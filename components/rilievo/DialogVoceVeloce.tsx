@@ -154,7 +154,7 @@ export default function DialogVoceVeloce({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="w-[95vw] max-w-5xl max-h-[95dvh] flex flex-col gap-0 p-0">
+      <DialogContent className="w-[98vw] max-w-none h-[96dvh] flex flex-col gap-0 p-0">
         <DialogHeader className="px-6 pt-6 pb-3 shrink-0">
           <DialogTitle>{isEditing ? 'Modifica serramento' : 'Aggiungi serramento'}</DialogTitle>
         </DialogHeader>
