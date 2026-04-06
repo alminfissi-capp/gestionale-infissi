@@ -59,15 +59,18 @@ export default function DettaglioRilievoVeloce({ rilievo: rilievoInit, opzioni }
           await updateVoce(editingVoce.id, input)
           setVoci((prev) => prev.map((v) => v.id === editingVoce.id ? { ...v, ...input } : v))
           toast.success('Serramento aggiornato')
+          setDialogOpen(false)
         } else {
           const nuova = await addVoce(rilievoInit.id, input)
           setVoci((prev) => [...prev, nuova])
-          toast.success('Serramento aggiunto')
+          toast.success('Serramento aggiunto — puoi ora allegare foto')
+          // rimane aperto in modalità modifica per consentire upload immediato
+          setEditingVoce(nuova)
         }
       } catch {
         toast.error('Errore salvataggio')
+        setDialogOpen(false)
       }
-      setDialogOpen(false)
     })
   }
 
