@@ -118,26 +118,27 @@ export default function AllegatiVoce({ voceId }: Props) {
 
   return (
     <div className="space-y-2">
-      {/* Bottone upload */}
-      <label className={cn(
-        'flex items-center justify-center gap-2 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors select-none',
+      {/* Bottone upload — input overlay trasparente per massima compatibilità mobile/dialog */}
+      <div className={cn(
+        'relative flex items-center justify-center gap-2 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors select-none overflow-hidden',
         uploading
-          ? 'border-gray-200 text-gray-300 cursor-not-allowed pointer-events-none'
-          : 'border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer'
+          ? 'border-gray-200 text-gray-300'
+          : 'border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50'
       )}>
         {uploading
           ? <><Loader2 className="h-4 w-4 animate-spin" /><span>Caricamento…</span></>
           : <><Camera className="h-4 w-4" /><span>Foto / PDF</span></>
         }
-        <input
-          type="file"
-          accept="image/*,.pdf"
-          multiple
-          className="hidden"
-          disabled={uploading}
-          onChange={handleFileChange}
-        />
-      </label>
+        {!uploading && (
+          <input
+            type="file"
+            accept="image/*,.pdf"
+            multiple
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            onChange={handleFileChange}
+          />
+        )}
+      </div>
 
       {/* Errore upload */}
       {uploadError && (
