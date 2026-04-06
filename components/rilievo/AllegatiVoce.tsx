@@ -118,27 +118,25 @@ export default function AllegatiVoce({ voceId }: Props) {
 
   return (
     <div className="space-y-2">
-      {/* Bottone upload — input overlay trasparente per massima compatibilità mobile/dialog */}
-      <div className={cn(
-        'relative flex items-center justify-center gap-2 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors select-none overflow-hidden',
-        uploading
-          ? 'border-gray-200 text-gray-300'
-          : 'border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50'
-      )}>
-        {uploading
-          ? <><Loader2 className="h-4 w-4 animate-spin" /><span>Caricamento…</span></>
-          : <><Camera className="h-4 w-4" /><span>Foto / PDF</span></>
-        }
-        {!uploading && (
-          <input
-            type="file"
-            accept="image/*,.pdf"
-            multiple
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            onChange={handleFileChange}
-          />
-        )}
-      </div>
+      {/* Bottone upload */}
+      {uploading ? (
+        <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Caricamento in corso…</span>
+        </div>
+      ) : (
+        <input
+          type="file"
+          accept="image/*,.pdf"
+          multiple
+          disabled={uploading}
+          onChange={handleFileChange}
+          className="block w-full text-sm text-gray-500 cursor-pointer
+            file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-gray-300
+            file:text-sm file:font-normal file:cursor-pointer file:bg-white file:text-gray-600
+            hover:file:border-blue-400 hover:file:text-blue-600 hover:file:bg-blue-50"
+        />
+      )}
 
       {/* Errore upload */}
       {uploadError && (
