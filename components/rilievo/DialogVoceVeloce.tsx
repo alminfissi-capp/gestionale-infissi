@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { X, Check, ChevronsUpDown } from 'lucide-react'
-import AllegatiVoce from '@/components/rilievo/AllegatiVoce'
 import {
   Dialog,
   DialogContent,
@@ -38,7 +37,6 @@ interface Props {
   opzioni: OpzioniRilievo
   initialValues?: VoceInput
   isEditing?: boolean
-  voceId?: string
 }
 
 const VOCE_VUOTA: VoceInput = {
@@ -70,7 +68,7 @@ const VOCE_VUOTA: VoceInput = {
 }
 
 export default function DialogVoceVeloce({
-  open, onClose, onSave, opzioni, initialValues, isEditing, voceId,
+  open, onClose, onSave, opzioni, initialValues, isEditing,
 }: Props) {
   const [form, setForm] = useState<VoceInput>(initialValues ?? VOCE_VUOTA)
   const [accessoriOpen, setAccessoriOpen] = useState(false)
@@ -275,16 +273,6 @@ export default function DialogVoceVeloce({
 
             {/* ── COL DESTRA: finiture + note ── */}
             <div className="space-y-3">
-
-              {/* Foto / PDF — in cima per visibilità immediata */}
-              <div className="space-y-1">
-                <Label>Foto e documenti</Label>
-                {voceId ? (
-                  <AllegatiVoce voceId={voceId} />
-                ) : (
-                  <p className="text-xs text-gray-400 italic">Salva prima per allegare foto/PDF</p>
-                )}
-              </div>
 
               {/* Accessori */}
               {opzioni.accessori.length > 0 && (

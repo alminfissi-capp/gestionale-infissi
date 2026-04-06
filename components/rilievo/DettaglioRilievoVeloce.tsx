@@ -6,6 +6,7 @@ import { ChevronLeft, Plus, Pencil, Trash2, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import DialogVoceVeloce from '@/components/rilievo/DialogVoceVeloce'
+import AllegatiVoce from '@/components/rilievo/AllegatiVoce'
 import {
   addVoce,
   updateVoce,
@@ -187,40 +188,47 @@ export default function DettaglioRilievoVeloce({ rilievo: rilievoInit, opzioni }
             Nessun serramento. Clicca <strong>Aggiungi</strong> per inserirne uno.
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {voci.map((v) => (
-              <div key={v.id} className="flex items-center gap-3 rounded-lg border px-3 py-2.5 bg-gray-50">
-                <GripVertical className="h-4 w-4 text-gray-300 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate">{labelVoce(v)}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Qt. {v.quantita}
-                    {v.serie_profilo ? ` · ${v.serie_profilo}` : ''}
-                    {v.colore_interno ? ` · ${v.colore_interno}` : ''}
-                    {v.tipologia_vetro ? ` · ${v.tipologia_vetro}` : ''}
-                    {v.accessori.length > 0 ? ` · ${v.accessori.join(', ')}` : ''}
-                    {v.anta_ribalta ? ' · Anta ribalta' : ''}
-                    {v.serratura ? ` · Serratura${v.tipo_serratura ? `: ${v.tipo_serratura}` : ''}` : ''}
-                  </p>
-                  {v.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{v.note}</p>}
+              <div key={v.id} className="rounded-lg border bg-gray-50">
+                {/* Riga principale voce */}
+                <div className="flex items-center gap-3 px-3 py-2.5">
+                  <GripVertical className="h-4 w-4 text-gray-300 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">{labelVoce(v)}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Qt. {v.quantita}
+                      {v.serie_profilo ? ` · ${v.serie_profilo}` : ''}
+                      {v.colore_interno ? ` · ${v.colore_interno}` : ''}
+                      {v.tipologia_vetro ? ` · ${v.tipologia_vetro}` : ''}
+                      {v.accessori.length > 0 ? ` · ${v.accessori.join(', ')}` : ''}
+                      {v.anta_ribalta ? ' · Anta ribalta' : ''}
+                      {v.serratura ? ` · Serratura${v.tipo_serratura ? `: ${v.tipo_serratura}` : ''}` : ''}
+                    </p>
+                    {v.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{v.note}</p>}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => openEdit(v)}
+                      disabled={isPending}
+                      className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-white transition-colors"
+                      title="Modifica"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteVoce(v)}
+                      disabled={isPending}
+                      className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                      title="Elimina"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={() => openEdit(v)}
-                    disabled={isPending}
-                    className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-white transition-colors"
-                    title="Modifica"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteVoce(v)}
-                    disabled={isPending}
-                    className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                    title="Elimina"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                {/* Allegati foto/PDF — direttamente sulla pagina, fuori da qualsiasi overflow */}
+                <div className="border-t border-gray-100 px-3 pb-3 pt-2">
+                  <AllegatiVoce voceId={v.id} />
                 </div>
               </div>
             ))}
@@ -235,7 +243,6 @@ export default function DettaglioRilievoVeloce({ rilievo: rilievoInit, opzioni }
         opzioni={opzioni}
         initialValues={editingVoce ?? undefined}
         isEditing={!!editingVoce}
-        voceId={editingVoce?.id}
       />
     </div>
   )
