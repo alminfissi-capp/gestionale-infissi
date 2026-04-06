@@ -4,9 +4,11 @@ import { useState, useEffect, useTransition } from 'react'
 import { Camera, FileText, Trash2, ExternalLink, Loader2, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 import {
+  prepareUpload,
+  saveAllegatoMetadata,
   getAllegatiVoce,
-  uploadAllegatoVoce,
   deleteAllegatoVoce,
   getSignedUrlAllegato,
   type AllegatoVoce,
@@ -45,7 +47,6 @@ export default function AllegatiVoce({ voceId }: Props) {
       .catch((err) => {
         const msg = err instanceof Error ? err.message : 'Errore sconosciuto'
         setLoadError(msg)
-        toast.error('Errore caricamento allegati')
       })
       .finally(() => setLoading(false))
   }, [voceId])
@@ -57,11 +58,25 @@ export default function AllegatiVoce({ voceId }: Props) {
     setUploading(true)
     setUploadError(null)
     try {
+      const supabase = createClient()
       for (const file of Array.from(files)) {
-        const formData = new FormData()
-        formData.append('file', file)
-        formData.append('voceId', voceId)
-        const allegato = await uploadAllegatoVoce(formData)
+        // 1. Ottieni path dal server (include orgId per RLS)
+        const { storagePath } = await prepareUpload(voceId, file.name)
+
+        // 2. Upload diretto dal browser a Supabase Storage (nessun limite Next.js)
+        const { error: storageError } = await supabase.storage
+          .from('rilievo-allegati')
+          .upload(storagePath, file, { contentType: file.type || 'application/octet-stream', upsert: false })
+        if (storageError) throw new Error(storageError.message)
+
+        // 3. Salva metadati nel DB tramite server action
+        const allegato = await saveAllegatoMetadata(
+          voceId,
+          storagePath,
+          file.name,
+          file.type || null,
+          file.size,
+        )
         setAllegati((prev) => [...prev, allegato])
       }
       toast.success('File caricato')
@@ -128,7 +143,7 @@ export default function AllegatiVoce({ voceId }: Props) {
       {uploadError && (
         <div className="flex items-start gap-1.5 rounded-md bg-red-50 border border-red-200 px-2.5 py-2 text-xs text-red-700">
           <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-          <span>Errore upload: {uploadError}</span>
+          <span>Errore: {uploadError}</span>
         </div>
       )}
 
@@ -144,7 +159,7 @@ export default function AllegatiVoce({ voceId }: Props) {
       {!loading && loadError && (
         <div className="flex items-start gap-1.5 rounded-md bg-red-50 border border-red-200 px-2.5 py-2 text-xs text-red-700">
           <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-          <span>Errore lista: {loadError}</span>
+          <span>Errore: {loadError}</span>
         </div>
       )}
 

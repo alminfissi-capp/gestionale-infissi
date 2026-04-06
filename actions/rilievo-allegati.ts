@@ -26,6 +26,40 @@ async function getOrgId(): Promise<string> {
   return profile.organization_id
 }
 
+/** Restituisce orgId + storagePath precalcolato per l'upload client-side */
+export async function prepareUpload(voceId: string, fileName: string): Promise<{ orgId: string; storagePath: string }> {
+  const orgId = await getOrgId()
+  const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const storagePath = `${orgId}/${voceId}/${Date.now()}_${safeName}`
+  return { orgId, storagePath }
+}
+
+/** Salva solo i metadati nel DB dopo che il client ha fatto l'upload allo storage */
+export async function saveAllegatoMetadata(
+  voceId: string,
+  storagePath: string,
+  nomeFile: string,
+  mimeType: string | null,
+  dimensione: number | null,
+): Promise<AllegatoVoce> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data, error } = await supabase
+    .from('rilievo_voci_allegati')
+    .insert({
+      voce_id: voceId,
+      organization_id: orgId,
+      nome_file: nomeFile,
+      storage_path: storagePath,
+      mime_type: mimeType,
+      dimensione,
+    })
+    .select()
+    .single()
+  if (error || !data) throw new Error(error?.message ?? 'Errore salvataggio allegato')
+  return data as AllegatoVoce
+}
+
 export async function getAllegatiVoce(voceId: string): Promise<AllegatoVoce[]> {
   const supabase = await createClient()
   const orgId = await getOrgId()
@@ -37,41 +71,6 @@ export async function getAllegatiVoce(voceId: string): Promise<AllegatoVoce[]> {
     .order('created_at')
   if (error) throw new Error(error.message)
   return data ?? []
-}
-
-export async function uploadAllegatoVoce(formData: FormData): Promise<AllegatoVoce> {
-  const supabase = await createClient()
-  const orgId = await getOrgId()
-
-  const file = formData.get('file') as File
-  const voceId = formData.get('voceId') as string
-  if (!file || !voceId) throw new Error('Parametri mancanti')
-
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const storagePath = `${orgId}/${voceId}/${Date.now()}_${safeName}`
-
-  const { error: uploadError } = await supabase.storage
-    .from('rilievo-allegati')
-    .upload(storagePath, file, { contentType: file.type, upsert: false })
-  if (uploadError) throw new Error(uploadError.message)
-
-  const { data, error } = await supabase
-    .from('rilievo_voci_allegati')
-    .insert({
-      voce_id: voceId,
-      organization_id: orgId,
-      nome_file: file.name,
-      storage_path: storagePath,
-      mime_type: file.type || null,
-      dimensione: file.size,
-    })
-    .select()
-    .single()
-  if (error || !data) {
-    await supabase.storage.from('rilievo-allegati').remove([storagePath])
-    throw new Error(error?.message ?? 'Errore salvataggio allegato')
-  }
-  return data as AllegatoVoce
 }
 
 export async function deleteAllegatoVoce(id: string, storagePath: string): Promise<void> {
