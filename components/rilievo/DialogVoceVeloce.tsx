@@ -276,6 +276,16 @@ export default function DialogVoceVeloce({
             {/* ── COL DESTRA: finiture + note ── */}
             <div className="space-y-3">
 
+              {/* Foto / PDF — in cima per visibilità immediata */}
+              <div className="space-y-1">
+                <Label>Foto e documenti</Label>
+                {voceId ? (
+                  <AllegatiVoce voceId={voceId} />
+                ) : (
+                  <p className="text-xs text-gray-400 italic">Salva prima per allegare foto/PDF</p>
+                )}
+              </div>
+
               {/* Accessori */}
               {opzioni.accessori.length > 0 && (
                 <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('accessorio')}` }}>
@@ -535,15 +545,8 @@ export default function DialogVoceVeloce({
 
             </div>
 
-            {/* ── DESTRA: allegati foto/PDF + spazio per funzioni future ── */}
-            <div className="flex-1 flex flex-col gap-3 pt-1">
-              <p className="text-xs font-medium text-gray-500">Foto e documenti</p>
-              {voceId ? (
-                <AllegatiVoce voceId={voceId} />
-              ) : (
-                <p className="text-xs text-gray-300">Salva prima il serramento per allegare foto e documenti</p>
-              )}
-            </div>
+            {/* ── DESTRA: riservato per funzioni future ── */}
+            <div className="flex-1" />
 
           </div>
         </div>
