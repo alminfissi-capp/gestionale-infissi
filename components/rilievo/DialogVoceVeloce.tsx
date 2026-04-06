@@ -26,7 +26,11 @@ import {
 } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import PreviewSerramento from '@/components/rilievo/PreviewSerramento'
+import PreviewSerramento, {
+  APERTURE_BATTENTE,
+  LABEL_APERTURA,
+  defaultAperturaAnte,
+} from '@/components/rilievo/PreviewSerramento'
 import { useRilievoUiBlocchi } from '@/hooks/useRilievoUiBlocchi'
 import type { VoceInput, OpzioniRilievo } from '@/types/rilievo-veloce'
 
@@ -65,6 +69,8 @@ const VOCE_VUOTA: VoceInput = {
   telaio_bottom: null,
   telaio_right: null,
   note: '',
+  tipo_apertura: null,
+  apertura_ante: [],
 }
 
 export default function DialogVoceVeloce({
@@ -87,13 +93,37 @@ export default function DialogVoceVeloce({
   }
 
   const CYCLE_MANIGLIA: Array<'right' | 'left' | 'top' | 'bottom'> = ['right', 'left', 'top', 'bottom']
+
+  const handleTipoAperturaChange = (tipo: VoceInput['tipo_apertura']) => {
+    const n = form.n_ante ?? 0
+    setForm((prev) => ({
+      ...prev,
+      tipo_apertura: tipo,
+      apertura_ante: tipo && n > 0 ? defaultAperturaAnte(tipo, n) : [],
+    }))
+  }
+
   const handleAntaClick = (idx: number) => {
-    if (idx === form.anta_principale) {
-      const curr = form.pos_maniglia ?? 'right'
-      const next = CYCLE_MANIGLIA[(CYCLE_MANIGLIA.indexOf(curr) + 1) % CYCLE_MANIGLIA.length]
-      set('pos_maniglia', next)
-    } else {
+    if (form.tipo_apertura === 'battente') {
+      // Seleziona anta per configurazione nel pannello a destra
       set('anta_principale', idx)
+    } else if (form.tipo_apertura === 'scorrevole' || form.tipo_apertura === 'alzante_scorrevole') {
+      // Cicla mobile_sx → mobile_dx → fisso
+      const CICLO = ['mobile_sx', 'mobile_dx', 'fisso']
+      const curr = form.apertura_ante[idx] ?? 'mobile_sx'
+      const next = CICLO[(CICLO.indexOf(curr) + 1) % CICLO.length]
+      const newAnte = [...form.apertura_ante]
+      newAnte[idx] = next
+      set('apertura_ante', newAnte)
+    } else {
+      // Comportamento legacy: cicla pos_maniglia
+      if (idx === form.anta_principale) {
+        const curr = form.pos_maniglia ?? 'right'
+        const next = CYCLE_MANIGLIA[(CYCLE_MANIGLIA.indexOf(curr) + 1) % CYCLE_MANIGLIA.length]
+        set('pos_maniglia', next)
+      } else {
+        set('anta_principale', idx)
+      }
     }
   }
 
@@ -108,6 +138,9 @@ export default function DialogVoceVeloce({
         : prev.anta_principale != null && prev.anta_principale < n
           ? prev.anta_principale
           : 0,
+      apertura_ante: prev.tipo_apertura && n != null
+        ? defaultAperturaAnte(prev.tipo_apertura, n)
+        : prev.apertura_ante,
     }))
   }
 
@@ -237,6 +270,30 @@ export default function DialogVoceVeloce({
                     />
                   </div>
                 )}
+              </div>
+
+              {/* Tipo apertura */}
+              <div className="space-y-1.5">
+                <Label>Tipo apertura</Label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {([
+                    { val: null,                  label: '—' },
+                    { val: 'battente',            label: 'Battente' },
+                    { val: 'scorrevole',          label: 'Scorrevole' },
+                    { val: 'alzante_scorrevole',  label: 'Alz. Scor.' },
+                  ] as const).map(({ val, label }) => (
+                    <button key={label} type="button"
+                      onClick={() => handleTipoAperturaChange(val)}
+                      className={cn(
+                        'px-2.5 py-1 rounded-md text-xs border transition-colors',
+                        form.tipo_apertura === val
+                          ? 'bg-blue-600 border-blue-600 text-white'
+                          : 'border-gray-300 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
+                      )}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Struttura */}
@@ -472,6 +529,8 @@ export default function DialogVoceVeloce({
                       altezza={form.altezza_mm}
                       antaPrincipale={form.anta_principale}
                       posManiglia={form.pos_maniglia}
+                      tipoApertura={form.tipo_apertura}
+                      aperturaAnte={form.apertura_ante}
                       onSelectAnta={(form.n_ante ?? 0) >= 1 ? handleAntaClick : undefined}
                     />
                   </div>
@@ -533,8 +592,47 @@ export default function DialogVoceVeloce({
 
             </div>
 
-            {/* ── DESTRA: riservato per funzioni future ── */}
-            <div className="flex-1" />
+            {/* ── DESTRA: configurazione apertura per anta ── */}
+            <div className="flex-1 flex flex-col gap-2 pt-1 min-w-0">
+              {form.tipo_apertura === 'battente' && (
+                <>
+                  <p className="text-xs font-medium text-gray-500">
+                    {form.anta_principale !== null
+                      ? `Anta ${form.anta_principale + 1} — tipo apertura`
+                      : 'Tocca un\'anta nel preview per configurarla'}
+                  </p>
+                  {form.anta_principale !== null && (() => {
+                    const idx = form.anta_principale
+                    return (
+                      <div className="flex flex-wrap gap-1.5">
+                        {APERTURE_BATTENTE.map((tipo) => (
+                          <button key={tipo} type="button"
+                            onClick={() => {
+                              const newAnte = [...form.apertura_ante]
+                              newAnte[idx] = tipo
+                              set('apertura_ante', newAnte)
+                            }}
+                            className={cn(
+                              'px-2 py-1 rounded-md text-xs border transition-colors text-left',
+                              form.apertura_ante[idx] === tipo
+                                ? 'bg-blue-600 border-blue-600 text-white'
+                                : 'border-gray-300 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
+                            )}>
+                            {LABEL_APERTURA[tipo]}
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })()}
+                </>
+              )}
+              {(form.tipo_apertura === 'scorrevole' || form.tipo_apertura === 'alzante_scorrevole') && (
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  Tocca un&apos;anta nel preview per cambiarne il tipo:<br />
+                  <span className="font-medium text-gray-600">← scorrevole sx → scorrevole dx · fisso</span>
+                </p>
+              )}
+            </div>
 
           </div>
         </div>

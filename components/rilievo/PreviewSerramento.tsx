@@ -17,8 +17,167 @@ const C_ABORDER = '#475569'
 const C_ABORD_S = '#1d4ed8'
 const C_HANDLE  = '#1e3a5f'
 const C_DIM     = '#64748b'
+const C_LINE    = '#475569'
 
 type PosManiglia = 'right' | 'left' | 'top' | 'bottom'
+export type TipoApertura = 'battente' | 'scorrevole' | 'alzante_scorrevole' | null
+
+// ─── Etichette e ordini ciclo ─────────────────────────────────
+
+export const APERTURE_BATTENTE = [
+  'battente_interno_sx',
+  'battente_interno_dx',
+  'battente_esterno_sx',
+  'battente_esterno_dx',
+  'vasistas',
+  'vasistas_rovescio',
+  'vasistas_spingere',
+  'bilico_v',
+  'bilico_h',
+  'fisso',
+] as const
+
+export const APERTURE_SCORREVOLE = [
+  'mobile_sx',
+  'mobile_dx',
+  'fisso',
+] as const
+
+export const LABEL_APERTURA: Record<string, string> = {
+  battente_interno_sx:  'Battente interno — cer. sx',
+  battente_interno_dx:  'Battente interno — cer. dx',
+  battente_esterno_sx:  'Battente esterno — cer. sx',
+  battente_esterno_dx:  'Battente esterno — cer. dx',
+  vasistas:             'Vasistas',
+  vasistas_rovescio:    'Vasistas rovescio',
+  vasistas_spingere:    'Vasistas a spingere',
+  bilico_v:             'Bilico verticale',
+  bilico_h:             'Bilico orizzontale',
+  fisso:                'Fisso',
+  mobile_sx:            '← Scorrevole sx',
+  mobile_dx:            'Scorrevole dx →',
+}
+
+// ─── Helpers ─────────────────────────────────────────────────
+
+/** Posizione maniglia ricavata dal tipo di apertura */
+export function aperturaToHandle(tipo: string): PosManiglia | null {
+  if (!tipo || tipo === 'fisso') return null
+  if (tipo === 'battente_interno_sx' || tipo === 'battente_esterno_sx') return 'right'
+  if (tipo === 'battente_interno_dx' || tipo === 'battente_esterno_dx') return 'left'
+  if (tipo === 'vasistas' || tipo === 'vasistas_spingere') return 'bottom'
+  if (tipo === 'vasistas_rovescio') return 'top'
+  if (tipo === 'bilico_v') return 'right'
+  if (tipo === 'bilico_h') return 'bottom'
+  if (tipo === 'mobile_sx') return 'right'
+  if (tipo === 'mobile_dx') return 'left'
+  return null
+}
+
+/** Defaults apertura_ante quando si imposta tipo_apertura o cambia n_ante */
+export function defaultAperturaAnte(tipo: TipoApertura, nAnte: number): string[] {
+  if (tipo === 'battente') {
+    return Array.from({ length: nAnte }, (_, i) => {
+      if (nAnte === 1) return 'battente_interno_sx'
+      if (i === 0) return 'battente_interno_sx'
+      if (i === nAnte - 1) return 'battente_interno_dx'
+      return 'fisso'
+    })
+  }
+  if (tipo === 'scorrevole' || tipo === 'alzante_scorrevole') {
+    if (nAnte === 1) return ['mobile_sx']
+    return Array.from({ length: nAnte }, (_, i) => {
+      if (nAnte === 2) return i === 0 ? 'mobile_sx' : 'fisso'
+      if (i === 0) return 'mobile_sx'
+      if (i === nAnte - 1) return 'mobile_dx'
+      return 'fisso'
+    })
+  }
+  return Array(nAnte).fill('')
+}
+
+// ─── Simbolo apertura SVG ─────────────────────────────────────
+
+function AperturaSymbol({
+  tipo, gx, gy, gw, gh,
+}: { tipo: string; gx: number; gy: number; gw: number; gh: number }) {
+  const cx = gx + gw / 2
+  const cy = gy + gh / 2
+  const lw = 1
+
+  if (tipo === 'fisso') return (
+    <g opacity={0.35}>
+      <line x1={gx} y1={gy} x2={gx + gw} y2={gy + gh} stroke={C_LINE} strokeWidth={lw} />
+      <line x1={gx + gw} y1={gy} x2={gx} y2={gy + gh} stroke={C_LINE} strokeWidth={lw} />
+    </g>
+  )
+
+  // Battente interno sx — diagonale piena da TL a BR
+  if (tipo === 'battente_interno_sx') return (
+    <line x1={gx} y1={gy} x2={gx + gw} y2={gy + gh} stroke={C_LINE} strokeWidth={lw} />
+  )
+  // Battente interno dx — diagonale piena da TR a BL
+  if (tipo === 'battente_interno_dx') return (
+    <line x1={gx + gw} y1={gy} x2={gx} y2={gy + gh} stroke={C_LINE} strokeWidth={lw} />
+  )
+  // Battente esterno sx — diagonale tratteggiata da TL a BR
+  if (tipo === 'battente_esterno_sx') return (
+    <line x1={gx} y1={gy} x2={gx + gw} y2={gy + gh} stroke={C_LINE} strokeWidth={lw} strokeDasharray="3,2" />
+  )
+  // Battente esterno dx — diagonale tratteggiata da TR a BL
+  if (tipo === 'battente_esterno_dx') return (
+    <line x1={gx + gw} y1={gy} x2={gx} y2={gy + gh} stroke={C_LINE} strokeWidth={lw} strokeDasharray="3,2" />
+  )
+
+  // Vasistas — V dal basso (cardine in alto, apre verso interno)
+  if (tipo === 'vasistas') return (
+    <g>
+      <line x1={gx} y1={gy} x2={cx} y2={gy + gh} stroke={C_LINE} strokeWidth={lw} />
+      <line x1={gx + gw} y1={gy} x2={cx} y2={gy + gh} stroke={C_LINE} strokeWidth={lw} />
+    </g>
+  )
+  // Vasistas rovescio — V dall'alto (cardine in basso)
+  if (tipo === 'vasistas_rovescio') return (
+    <g>
+      <line x1={gx} y1={gy + gh} x2={cx} y2={gy} stroke={C_LINE} strokeWidth={lw} />
+      <line x1={gx + gw} y1={gy + gh} x2={cx} y2={gy} stroke={C_LINE} strokeWidth={lw} />
+    </g>
+  )
+  // Vasistas a spingere — V tratteggiata (cardine in alto, apre verso esterno)
+  if (tipo === 'vasistas_spingere') return (
+    <g>
+      <line x1={gx} y1={gy} x2={cx} y2={gy + gh} stroke={C_LINE} strokeWidth={lw} strokeDasharray="3,2" />
+      <line x1={gx + gw} y1={gy} x2={cx} y2={gy + gh} stroke={C_LINE} strokeWidth={lw} strokeDasharray="3,2" />
+    </g>
+  )
+
+  // Bilico verticale — linea verticale centrale + frecce
+  if (tipo === 'bilico_v') return (
+    <g>
+      <line x1={cx} y1={gy} x2={cx} y2={gy + gh} stroke={C_LINE} strokeWidth={lw} strokeDasharray="2,1.5" />
+      <text x={gx + 3} y={cy + 3} fontSize={7} fill={C_LINE}>←</text>
+      <text x={gx + gw - 3} y={cy + 3} fontSize={7} fill={C_LINE} textAnchor="end">→</text>
+    </g>
+  )
+  // Bilico orizzontale — linea orizzontale centrale + frecce
+  if (tipo === 'bilico_h') return (
+    <g>
+      <line x1={gx} y1={cy} x2={gx + gw} y2={cy} stroke={C_LINE} strokeWidth={lw} strokeDasharray="2,1.5" />
+      <text x={cx} y={gy + 8} fontSize={7} fill={C_LINE} textAnchor="middle">↑</text>
+      <text x={cx} y={gy + gh - 3} fontSize={7} fill={C_LINE} textAnchor="middle">↓</text>
+    </g>
+  )
+
+  // Scorrevole sx/dx — freccia grande
+  if (tipo === 'mobile_sx') return (
+    <text x={cx} y={cy + 5} fontSize={16} fill={C_LINE} textAnchor="middle" fontWeight="bold">←</text>
+  )
+  if (tipo === 'mobile_dx') return (
+    <text x={cx} y={cy + 5} fontSize={16} fill={C_LINE} textAnchor="middle" fontWeight="bold">→</text>
+  )
+
+  return null
+}
 
 // ─── Componente ──────────────────────────────────────────────
 
@@ -28,14 +187,18 @@ interface Props {
   larghezza: number | null
   altezza: number | null
   antaPrincipale: number | null
-  posManiglia?: PosManiglia | null
+  posManiglia?: PosManiglia | null    // usato solo se tipo_apertura è null
+  tipoApertura?: TipoApertura
+  aperturaAnte?: string[]
   onSelectAnta?: (idx: number) => void
   className?: string
 }
 
 export default function PreviewSerramento({
   struttura, nAnte, larghezza, altezza,
-  antaPrincipale, posManiglia, onSelectAnta, className,
+  antaPrincipale, posManiglia,
+  tipoApertura, aperturaAnte,
+  onSelectAnta, className,
 }: Props) {
   const ratio  = larghezza && altezza && larghezza > 0 ? altezza / larghezza : 4 / 3
   const SVG_H  = Math.max(90, Math.min(320, Math.round(SVG_W * ratio)))
@@ -46,7 +209,6 @@ export default function PreviewSerramento({
   const numAnte  = Math.max(0, Math.min(nAnte ?? 0, 8))
   const canClick = !!onSelectAnta && numAnte >= 1
 
-  // Costruisce i rettangoli delle ante
   const ante = Array.from({ length: numAnte }, (_, i) => ({
     x: ix + Math.round((iw / numAnte) * i),
     y: iy,
@@ -55,11 +217,30 @@ export default function PreviewSerramento({
     idx: i,
   }))
 
-  // Lato maniglia di default (verso centro) — usato solo se posManiglia è null
-  function defaultSide(idx: number): PosManiglia {
-    if (numAnte === 1) return 'right'
-    return idx < numAnte / 2 ? 'right' : 'left'
+  function getAperturaAnta(idx: number): string {
+    return aperturaAnte?.[idx] ?? ''
   }
+
+  // Lato maniglia: usa apertura_ante se tipo_apertura impostato, altrimenti pos_maniglia legacy
+  function getHandleSide(idx: number): PosManiglia | null {
+    if (tipoApertura) {
+      return aperturaToHandle(getAperturaAnta(idx))
+    }
+    // Comportamento legacy
+    const isPrinc = antaPrincipale === idx
+    if (!isPrinc) return null
+    if (posManiglia) return posManiglia
+    return numAnte === 1 ? 'right' : (idx < numAnte / 2 ? 'right' : 'left')
+  }
+
+  // Per scorrevole: hint text ciclo
+  const hintText = tipoApertura === 'battente'
+    ? "Tocca un'anta per configurarla"
+    : tipoApertura === 'scorrevole' || tipoApertura === 'alzante_scorrevole'
+      ? "Tocca un'anta per cambiare tipo (← / → / fisso)"
+      : numAnte > 1
+        ? "Tocca un'anta per selezionarla · tocca quella selezionata per ruotare la maniglia"
+        : "Tocca l'anta per ruotare la maniglia"
 
   return (
     <div className={cn('flex flex-col items-center gap-1.5', className)}>
@@ -96,7 +277,18 @@ export default function PreviewSerramento({
         {/* Ante */}
         {ante.map((a) => {
           const isPrinc = antaPrincipale === a.idx
-          const side: PosManiglia = isPrinc && posManiglia ? posManiglia : defaultSide(a.idx)
+          const apertura = getAperturaAnta(a.idx)
+          const handleSide = getHandleSide(a.idx)
+          const gx = a.x + AW, gy = a.y + AW, gw = a.w - AW * 2, gh = a.h - AW * 2
+
+          // Per scorrevole il fisso ha vetro più scuro
+          const isFisso = apertura === 'fisso'
+          const glassColor = tipoApertura
+            ? (isPrinc ? C_GLASS_S : isFisso ? '#cbd5e1' : C_GLASS)
+            : (isPrinc ? C_GLASS_S : C_GLASS)
+          const borderColor = isPrinc ? C_ABORD_S : C_ABORDER
+          const borderWidth = isPrinc ? 1.5 : 0.5
+
           return (
             <g key={a.idx}
               onClick={() => canClick && onSelectAnta?.(a.idx)}
@@ -104,27 +296,22 @@ export default function PreviewSerramento({
               {/* Frame anta */}
               <rect x={a.x} y={a.y} width={a.w} height={a.h} fill={C_FRAME} />
               {/* Vetro */}
-              <rect
-                x={a.x + AW} y={a.y + AW}
-                width={a.w - AW * 2} height={a.h - AW * 2}
-                fill={isPrinc ? C_GLASS_S : C_GLASS}
-                stroke={isPrinc ? C_ABORD_S : C_ABORDER}
-                strokeWidth={isPrinc ? 1.5 : 0.5}
-              />
-              {/* Maniglia */}
-              {isPrinc && <Handle a={a} side={side} />}
-              {/* Indicatori */}
-              {canClick && !isPrinc && (
-                <text x={a.x + a.w / 2} y={a.y + a.h / 2 + 4}
-                  textAnchor="middle" fontSize={14} fill="#94a3b8" opacity={0.8}>
-                  ○
-                </text>
+              <rect x={gx} y={gy} width={gw} height={gh}
+                fill={glassColor} stroke={borderColor} strokeWidth={borderWidth} />
+              {/* Simbolo apertura */}
+              {apertura && tipoApertura && (
+                <AperturaSymbol tipo={apertura} gx={gx} gy={gy} gw={gw} gh={gh} />
               )}
-              {isPrinc && numAnte > 1 && (
+              {/* Maniglia */}
+              {handleSide && <Handle a={a} side={handleSide} />}
+              {/* Indicatori legacy (solo senza tipo_apertura) */}
+              {!tipoApertura && canClick && !isPrinc && (
                 <text x={a.x + a.w / 2} y={a.y + a.h / 2 + 4}
-                  textAnchor="middle" fontSize={14} fill={C_ABORD_S}>
-                  ●
-                </text>
+                  textAnchor="middle" fontSize={14} fill="#94a3b8" opacity={0.8}>○</text>
+              )}
+              {!tipoApertura && isPrinc && numAnte > 1 && (
+                <text x={a.x + a.w / 2} y={a.y + a.h / 2 + 4}
+                  textAnchor="middle" fontSize={14} fill={C_ABORD_S}>●</text>
               )}
             </g>
           )
@@ -142,11 +329,7 @@ export default function PreviewSerramento({
       </svg>
 
       {canClick && (
-        <p className="text-[10px] text-gray-400 text-center leading-tight">
-          {numAnte > 1
-            ? "Tocca un'anta per selezionarla · tocca quella selezionata per ruotare la maniglia"
-            : "Tocca l'anta per ruotare la maniglia"}
-        </p>
+        <p className="text-[10px] text-gray-400 text-center leading-tight">{hintText}</p>
       )}
     </div>
   )
@@ -158,44 +341,36 @@ function Handle({ a, side }: { a: { x: number; y: number; w: number; h: number }
 
   if (side === 'right') {
     const plateX = a.x + a.w - AW - 3.5
-    const leverX = plateX - 7
     return (
       <g fill={C_HANDLE}>
         <rect x={plateX} y={midY - 9} width={3.5} height={18} rx={1.75} />
-        <rect x={leverX} y={midY - 2} width={8} height={4} rx={2} />
+        <rect x={plateX - 7} y={midY - 2} width={8} height={4} rx={2} />
       </g>
     )
   }
-
   if (side === 'left') {
     const plateX = a.x + AW + 0.5
-    const leverX = plateX + 3.5
     return (
       <g fill={C_HANDLE}>
         <rect x={plateX} y={midY - 9} width={3.5} height={18} rx={1.75} />
-        <rect x={leverX} y={midY - 2} width={8} height={4} rx={2} />
+        <rect x={plateX + 3.5} y={midY - 2} width={8} height={4} rx={2} />
       </g>
     )
   }
-
   if (side === 'top') {
     const plateY = a.y + AW + 0.5
-    const leverY = plateY + 3.5
     return (
       <g fill={C_HANDLE}>
         <rect x={midX - 9} y={plateY} width={18} height={3.5} rx={1.75} />
-        <rect x={midX - 2} y={leverY} width={4} height={8} rx={2} />
+        <rect x={midX - 2} y={plateY + 3.5} width={4} height={8} rx={2} />
       </g>
     )
   }
-
-  // bottom
   const plateY = a.y + a.h - AW - 4
-  const leverY = plateY - 8
   return (
     <g fill={C_HANDLE}>
       <rect x={midX - 9} y={plateY} width={18} height={3.5} rx={1.75} />
-      <rect x={midX - 2} y={leverY} width={4} height={8} rx={2} />
+      <rect x={midX - 2} y={plateY - 8} width={4} height={8} rx={2} />
     </g>
   )
 }

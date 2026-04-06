@@ -68,6 +68,8 @@ export interface VoceRilievoVeloce {
   telaio_bottom: string | null
   telaio_right: string | null
   note: string | null
+  tipo_apertura: 'battente' | 'scorrevole' | 'alzante_scorrevole' | null
+  apertura_ante: string[]   // per-anta: es. 'battente_interno_sx', 'mobile_dx', 'fisso'…
   created_at: string
 }
 
