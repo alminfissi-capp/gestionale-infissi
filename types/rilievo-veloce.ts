@@ -59,6 +59,7 @@ export interface VoceRilievoVeloce {
   tipo_serratura: string | null
   struttura: string | null
   n_ante: number | null
+  n_traverse: number | null
   anta_principale: number | null
   serie_profilo: string | null
   h_davanzale_mm: number | null

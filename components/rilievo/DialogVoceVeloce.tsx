@@ -60,6 +60,7 @@ const VOCE_VUOTA: VoceInput = {
   tipo_serratura: null,
   struttura: null,
   n_ante: null,
+  n_traverse: null,
   anta_principale: null,
   serie_profilo: null,
   h_davanzale_mm: null,
@@ -99,7 +100,7 @@ export default function DialogVoceVeloce({
     setForm((prev) => ({
       ...prev,
       tipo_apertura: tipo,
-      apertura_ante: tipo && n > 0 ? defaultAperturaAnte(tipo, n) : [],
+      apertura_ante: tipo && n > 0 ? defaultAperturaAnte(tipo, n, prev.n_traverse ?? 0) : [],
     }))
   }
 
@@ -129,17 +130,32 @@ export default function DialogVoceVeloce({
 
   const handleNAnteChange = (raw: string) => {
     const n = raw === '' ? null : Math.max(1, Math.min(8, parseInt(raw) || 1))
+    setForm((prev) => {
+      const nRows = (prev.n_traverse ?? 0) + 1
+      const totalCells = n != null ? n * nRows : 0
+      return {
+        ...prev,
+        n_ante: n,
+        anta_principale:
+          n == null ? null
+          : prev.anta_principale != null && prev.anta_principale < totalCells
+            ? prev.anta_principale
+            : 0,
+        apertura_ante: prev.tipo_apertura && n != null
+          ? defaultAperturaAnte(prev.tipo_apertura, n, prev.n_traverse ?? 0)
+          : prev.apertura_ante,
+      }
+    })
+  }
+
+  const handleNTraverseChange = (raw: string) => {
+    const n = raw === '' ? null : Math.max(0, Math.min(4, parseInt(raw) || 0))
     setForm((prev) => ({
       ...prev,
-      n_ante: n,
-      anta_principale:
-        n == null ? null
-        : n === 1 ? 0
-        : prev.anta_principale != null && prev.anta_principale < n
-          ? prev.anta_principale
-          : 0,
-      apertura_ante: prev.tipo_apertura && n != null
-        ? defaultAperturaAnte(prev.tipo_apertura, n)
+      n_traverse: n,
+      anta_principale: 0,
+      apertura_ante: prev.tipo_apertura && prev.n_ante != null
+        ? defaultAperturaAnte(prev.tipo_apertura, prev.n_ante, n ?? 0)
         : prev.apertura_ante,
     }))
   }
@@ -241,8 +257,8 @@ export default function DialogVoceVeloce({
                 </div>
               </div>
 
-              {/* Tipologia + N. ante + H Davanzale */}
-              <div className="grid grid-cols-3 gap-2">
+              {/* Tipologia + N. ante + N. traverse + H Davanzale */}
+              <div className="grid grid-cols-4 gap-2">
                 <div className="col-span-1 space-y-1.5">
                   <Label>Tipologia</Label>
                   <Select value={form.tipologia ?? '__none__'} onValueChange={(v) => set('tipologia', v === '__none__' ? null : v)}>
@@ -259,6 +275,13 @@ export default function DialogVoceVeloce({
                   <Input type="number" min={1} max={8} placeholder="—"
                     value={form.n_ante ?? ''}
                     onChange={(e) => handleNAnteChange(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Traverse</Label>
+                  <Input type="number" min={0} max={4} placeholder="0"
+                    value={form.n_traverse ?? ''}
+                    onChange={(e) => handleNTraverseChange(e.target.value)}
                   />
                 </div>
                 {form.tipologia === 'Finestra' && (
@@ -525,6 +548,7 @@ export default function DialogVoceVeloce({
                     <PreviewSerramento
                       struttura={form.struttura}
                       nAnte={form.n_ante}
+                      nTraverse={form.n_traverse}
                       larghezza={form.larghezza_mm}
                       altezza={form.altezza_mm}
                       antaPrincipale={form.anta_principale}
