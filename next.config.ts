@@ -11,9 +11,6 @@ if (existsSync(workerSrc) && !existsSync(workerDst)) {
 }
 
 const nextConfig: NextConfig = {
-  experimental: {
-    serverActionsBodySizeLimit: '20mb',
-  },
   images: {
     remotePatterns: [
       {
