@@ -51,31 +51,19 @@ export default function AllegatiVoce({ voceId }: Props) {
       .finally(() => setLoading(false))
   }, [voceId])
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
-    e.target.value = ''
+  const processFiles = async (files: FileList) => {
     setUploading(true)
     setUploadError(null)
     try {
       const supabase = createClient()
       for (const file of Array.from(files)) {
-        // 1. Ottieni path dal server (include orgId per RLS)
         const { storagePath } = await prepareUpload(voceId, file.name)
-
-        // 2. Upload diretto dal browser a Supabase Storage (nessun limite Next.js)
         const { error: storageError } = await supabase.storage
           .from('rilievo-allegati')
           .upload(storagePath, file, { contentType: file.type || 'application/octet-stream', upsert: false })
         if (storageError) throw new Error(storageError.message)
-
-        // 3. Salva metadati nel DB tramite server action
         const allegato = await saveAllegatoMetadata(
-          voceId,
-          storagePath,
-          file.name,
-          file.type || null,
-          file.size,
+          voceId, storagePath, file.name, file.type || null, file.size,
         )
         setAllegati((prev) => [...prev, allegato])
       }
@@ -87,6 +75,22 @@ export default function AllegatiVoce({ voceId }: Props) {
     } finally {
       setUploading(false)
     }
+  }
+
+  // Crea l'input direttamente su document.body — bypassa qualsiasi overflow antenato (fix iOS/Android)
+  const triggerFilePicker = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*,application/pdf'
+    input.multiple = true
+    input.style.cssText = 'position:fixed;top:-200px;left:-200px;width:1px;height:1px;'
+    document.body.appendChild(input)
+    input.addEventListener('change', (e) => {
+      const files = (e.target as HTMLInputElement).files
+      document.body.removeChild(input)
+      if (files && files.length > 0) processFiles(files)
+    })
+    input.click()
   }
 
   const handleOpen = async (allegato: AllegatoVoce) => {
@@ -119,24 +123,17 @@ export default function AllegatiVoce({ voceId }: Props) {
   return (
     <div className="space-y-2">
       {/* Bottone upload */}
-      {uploading ? (
-        <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Caricamento in corso…</span>
-        </div>
-      ) : (
-        <input
-          type="file"
-          accept="image/*,.pdf"
-          multiple
-          disabled={uploading}
-          onChange={handleFileChange}
-          className="block w-full text-sm text-gray-500 cursor-pointer
-            file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-gray-300
-            file:text-sm file:font-normal file:cursor-pointer file:bg-white file:text-gray-600
-            hover:file:border-blue-400 hover:file:text-blue-600 hover:file:bg-blue-50"
-        />
-      )}
+      <button
+        type="button"
+        onClick={triggerFilePicker}
+        disabled={uploading}
+        className="flex items-center justify-center gap-2 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors select-none border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        {uploading
+          ? <><Loader2 className="h-4 w-4 animate-spin" /><span>Caricamento…</span></>
+          : <><Camera className="h-4 w-4" /><span>Foto / PDF</span></>
+        }
+      </button>
 
       {/* Errore upload */}
       {uploadError && (
