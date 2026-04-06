@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Check, ChevronsUpDown, PenLine } from 'lucide-react'
+import { X, Check, ChevronsUpDown } from 'lucide-react'
 import AllegatiVoce from '@/components/rilievo/AllegatiVoce'
 import {
   Dialog,
@@ -404,25 +404,11 @@ export default function DialogVoceVeloce({
                 />
               </div>
 
-              {/* Foto / PDF */}
-              {voceId ? (
-                <AllegatiVoce voceId={voceId} />
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  <button type="button" disabled
-                    className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-gray-200 px-3 py-2.5 text-sm text-gray-300 cursor-not-allowed select-none"
-                    title="Disponibile dopo il salvataggio">
-                    <PenLine className="h-4 w-4" />
-                    <span className="text-xs">Foto/PDF dopo salvataggio</span>
-                  </button>
-                </div>
-              )}
-
             </div>
           </div>
 
-          {/* SEZIONE BASSA: preview a sinistra (larghezza fissa) + spazio futuro a destra */}
-          <div className="flex-1 flex gap-4 px-6 py-4 min-h-[240px]">
+          {/* SEZIONE BASSA: preview a sinistra (larghezza fissa) + allegati/funzioni a destra */}
+          <div className="flex-1 flex gap-6 px-6 pt-5 pb-4 min-h-[260px] border-t border-dashed border-gray-100">
 
             {/* ── BLOCCO PREVIEW + TELAI (sinistra, larghezza fissa) ── */}
             <div className="w-80 shrink-0 flex flex-col">
@@ -549,8 +535,15 @@ export default function DialogVoceVeloce({
 
             </div>
 
-            {/* ── SPAZIO DESTRA — riservato per funzioni future ── */}
-            <div className="flex-1" />
+            {/* ── DESTRA: allegati foto/PDF + spazio per funzioni future ── */}
+            <div className="flex-1 flex flex-col gap-3 pt-1">
+              <p className="text-xs font-medium text-gray-500">Foto e documenti</p>
+              {voceId ? (
+                <AllegatiVoce voceId={voceId} />
+              ) : (
+                <p className="text-xs text-gray-300">Salva prima il serramento per allegare foto e documenti</p>
+              )}
+            </div>
 
           </div>
         </div>

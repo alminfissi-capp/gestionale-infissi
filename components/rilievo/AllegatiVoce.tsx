@@ -128,8 +128,8 @@ export default function AllegatiVoce({ voceId }: Props) {
           {allegati.map((a) => (
             <div key={a.id} className="flex items-center gap-2 rounded-md border border-gray-100 bg-gray-50 px-2 py-1.5 group">
               {isImage(a.mime_type)
-                ? <Camera className="h-3.5 w-3.5 text-blue-400 shrink-0" />
-                : <FileText className="h-3.5 w-3.5 text-red-400 shrink-0" />
+                ? <Camera className="h-4 w-4 text-blue-500 shrink-0" />
+                : <FileText className="h-4 w-4 text-red-500 shrink-0" />
               }
               <button
                 type="button"
