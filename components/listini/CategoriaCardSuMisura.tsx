@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { ChevronDown, ChevronRight, Plus, Pencil, Trash2, Ruler } from 'lucide-react'
+import Image from 'next/image'
 import { deleteCategoria, deleteListinoSuMisura } from '@/actions/listini'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -114,6 +115,17 @@ export default function CategoriaCardSuMisura({ categoria, dragHandle, onSuccess
             <div className="divide-y divide-gray-50">
               {listini.map((lsm) => (
                 <div key={lsm.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
+                  {lsm.immagine_url ? (
+                    <Image
+                      src={lsm.immagine_url}
+                      alt={lsm.nome}
+                      width={40}
+                      height={40}
+                      className="rounded object-cover border border-gray-200 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded border border-gray-100 bg-gray-50 shrink-0" />
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-800 truncate">{lsm.nome}</span>

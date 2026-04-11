@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight, Upload, X } from 'lucide-react'
+import Image from 'next/image'
 import { toast } from 'sonner'
-import { createListinoSuMisura, updateListinoSuMisura } from '@/actions/listini'
+import { createListinoSuMisura, updateListinoSuMisura, getCurrentOrgId } from '@/actions/listini'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -41,6 +43,25 @@ type GruppoState = {
   ordine: number
   expanded: boolean
   accessori: AccessorioState[]
+}
+
+async function resizeImage(file: File, maxDim = 600): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new window.Image()
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
+      const w = Math.round(img.width * scale)
+      const h = Math.round(img.height * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = w; canvas.height = h
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Canvas error'))), 'image/webp', 0.85)
+    }
+    img.onerror = reject
+    img.src = url
+  })
 }
 
 const UNITA_LABEL: Record<string, string> = { pz: 'Pezzo (pz)', mq: 'Metro quadro (mq)', ml: 'Metro lineare (ml)' }
@@ -99,7 +120,33 @@ export default function DialogListinoSuMisura({ open, onOpenChange, categoriaId,
   // Tab Accessori (gruppi)
   const [gruppi, setGruppi] = useState<GruppoState[]>(initGruppi(listino))
 
+  const [immagineUrl, setImmagineUrl] = useState<string | null>(listino?.immagine_url ?? null)
+  const [uploadingImg, setUploadingImg] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [saving, setSaving] = useState(false)
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingImg(true)
+    try {
+      const blob = await resizeImage(file, 600)
+      const orgId = await getCurrentOrgId()
+      const supabase = createClient()
+      const fileName = `${orgId}/${crypto.randomUUID()}.webp`
+      const { error } = await supabase.storage
+        .from('listini-immagini')
+        .upload(fileName, blob, { contentType: 'image/webp', upsert: false })
+      if (error) throw error
+      const { data: { publicUrl } } = supabase.storage.from('listini-immagini').getPublicUrl(fileName)
+      setImmagineUrl(publicUrl)
+    } catch {
+      toast.error('Errore nel caricamento immagine')
+    } finally {
+      setUploadingImg(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
 
   // Reset quando si apre con un listino diverso
   useEffect(() => {
@@ -113,6 +160,7 @@ export default function DialogListinoSuMisura({ open, onOpenChange, categoriaId,
       setAltezzaMin(listino?.altezza_min ?? 0)
       setAltezzaMax(listino?.altezza_max ?? 9999)
       setMqMinimo(listino?.mq_minimo ?? 0)
+      setImmagineUrl(listino?.immagine_url ?? null)
       setAttivo(listino?.attivo ?? true)
       setFiniture(listino?.finiture.map((f, i) => ({ nome: f.nome, tipo_maggiorazione: f.tipo_maggiorazione, valore: f.valore, prezzo_acquisto: f.prezzo_acquisto, ordine: i })) ?? [])
       setGruppi(initGruppi(listino))
@@ -169,6 +217,7 @@ export default function DialogListinoSuMisura({ open, onOpenChange, categoriaId,
         altezza_min: altezzaMin,
         altezza_max: altezzaMax,
         mq_minimo: mqMinimo,
+        immagine_url: immagineUrl,
         attivo,
         finiture: finiture.map((f, i) => ({ ...f, ordine: i })),
         gruppi_accessori: gruppi.map((g, gi) => ({
@@ -288,6 +337,60 @@ export default function DialogListinoSuMisura({ open, onOpenChange, categoriaId,
                     ))}
                   </div>
                 </div>
+              </div>
+
+              {/* Immagine prodotto */}
+              <div className="space-y-2 border-t pt-3">
+                <Label>Immagine prodotto</Label>
+                {immagineUrl ? (
+                  <div className="flex items-center gap-3">
+                    <Image
+                      src={immagineUrl}
+                      alt=""
+                      width={80}
+                      height={80}
+                      className="rounded-md object-cover border border-gray-200"
+                    />
+                    <div className="space-y-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingImg}
+                      >
+                        <Upload className="h-4 w-4 mr-1" />
+                        {uploadingImg ? 'Caricamento...' : 'Sostituisci'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setImmagineUrl(null)}
+                        className="text-red-500 hover:text-red-700 block"
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Rimuovi
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="flex flex-col items-center justify-center h-24 rounded-md border-2 border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:border-gray-400 transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-5 w-5 text-gray-400 mb-1" />
+                    <span className="text-xs text-gray-500">{uploadingImg ? 'Caricamento...' : 'Clicca per caricare'}</span>
+                    <span className="text-xs text-gray-400 mt-0.5">PNG, JPG, WEBP — ridimensionata a 600px</span>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
               </div>
             </TabsContent>
 

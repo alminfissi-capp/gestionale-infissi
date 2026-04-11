@@ -128,6 +128,7 @@ export type ListinoSuMisura = {
   altezza_min: number
   altezza_max: number
   mq_minimo: number
+  immagine_url: string | null
   ordine: number
   attivo: boolean
   created_at: string

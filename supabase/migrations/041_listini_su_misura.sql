@@ -36,6 +36,7 @@ CREATE TABLE listini_su_misura (
   altezza_min         INTEGER     NOT NULL DEFAULT 0,
   altezza_max         INTEGER     NOT NULL DEFAULT 9999,
   mq_minimo           NUMERIC(6,3) NOT NULL DEFAULT 0,
+  immagine_url        TEXT,
   ordine              INTEGER     NOT NULL DEFAULT 0,
   attivo              BOOLEAN     NOT NULL DEFAULT true,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),

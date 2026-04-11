@@ -894,6 +894,7 @@ export type ListinoSuMisuraInput = {
   altezza_min: number
   altezza_max: number
   mq_minimo: number
+  immagine_url: string | null
   attivo: boolean
   finiture: FinituraSuMisuraInput[]
   gruppi_accessori: GruppoAccessoriSuMisuraInput[]
@@ -924,6 +925,7 @@ export async function createListinoSuMisura(
       altezza_min: input.altezza_min,
       altezza_max: input.altezza_max,
       mq_minimo: input.mq_minimo,
+      immagine_url: input.immagine_url,
       attivo: input.attivo,
       ordine: ordine ?? 0,
     })
@@ -979,6 +981,7 @@ export async function updateListinoSuMisura(
       altezza_min: input.altezza_min,
       altezza_max: input.altezza_max,
       mq_minimo: input.mq_minimo,
+      immagine_url: input.immagine_url,
       attivo: input.attivo,
       updated_at: new Date().toISOString(),
     })

@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useEffect } from 'react'
+import Image from 'next/image'
 import { Plus } from 'lucide-react'
 import { calcolaSuMisura, formatEuro } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
@@ -256,7 +257,7 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
       finitura_aumento: finitura?.tipo_maggiorazione === 'percentuale' ? finitura.valore : 0,
       finitura_aumento_euro: finitura?.tipo_maggiorazione === 'fisso' ? finitura.valore : 0,
       note: noteBreakdown || null,
-      immagine_url: null,
+      immagine_url: listino.immagine_url ?? null,
       quantita: quantitaN,
       prezzo_base: listino.prezzo_mq,
       prezzo_unitario,
@@ -296,8 +297,21 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
             ))}
           </SelectContent>
         </Select>
-        {listino?.descrizione && (
-          <p className="text-xs text-gray-400">{listino.descrizione}</p>
+        {listino && (
+          <div className="flex items-start gap-3 mt-1">
+            {listino.immagine_url && (
+              <Image
+                src={listino.immagine_url}
+                alt={listino.nome}
+                width={64}
+                height={64}
+                className="rounded-md object-cover border border-gray-200 shrink-0"
+              />
+            )}
+            {listino.descrizione && (
+              <p className="text-xs text-gray-400 self-center">{listino.descrizione}</p>
+            )}
+          </div>
         )}
       </div>
 
