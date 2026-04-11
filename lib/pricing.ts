@@ -186,6 +186,41 @@ export function calcolaAccessorioGriglia(
   }
 }
 
+/**
+ * Calcola prezzo per articolo su misura (€/mq con finitura opzionale).
+ * Restituisce mq fatturati, prezzo €/mq finale e totale prodotto.
+ */
+export function calcolaSuMisura(
+  larghezza: number, // mm
+  altezza: number,   // mm
+  prezzoMq: number,
+  mqMinimo: number,
+  finitura: { tipo_maggiorazione: 'percentuale' | 'mq' | 'fisso'; valore: number } | null
+): { mq: number; prezzo_mq_finale: number; totale_prodotto: number; maggiorazione_flat: number } {
+  const mqCalcolato = (larghezza / 1000) * (altezza / 1000)
+  const mq = Math.max(mqCalcolato, mqMinimo)
+
+  let prezzo_mq_finale = prezzoMq
+  let maggiorazione_flat = 0
+
+  if (finitura) {
+    switch (finitura.tipo_maggiorazione) {
+      case 'percentuale':
+        prezzo_mq_finale = prezzoMq * (1 + finitura.valore / 100)
+        break
+      case 'mq':
+        prezzo_mq_finale = prezzoMq + finitura.valore
+        break
+      case 'fisso':
+        maggiorazione_flat = finitura.valore
+        break
+    }
+  }
+
+  const totale_prodotto = prezzo_mq_finale * mq + maggiorazione_flat
+  return { mq, prezzo_mq_finale, totale_prodotto, maggiorazione_flat }
+}
+
 /** Formatta un numero come euro italiano (es. 1.234,56) — non dipende dalla locale di sistema */
 export function formatEuro(value: number): string {
   const fixed = Math.abs(value).toFixed(2)

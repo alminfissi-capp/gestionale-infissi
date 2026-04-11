@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import FormVoceLibera from './FormVoceLibera'
 import FormScorrevole from './FormScorrevole'
+import FormArticoloSuMisura from './FormArticoloSuMisura'
 import DialogConfigurazione from './DialogConfigurazione'
 import IconaCategoria from '@/components/listini/IconaCategoria'
 import { formatEuro, calcolaSubtotale } from '@/lib/pricing'
@@ -34,6 +35,7 @@ export default function ArticoliEditor({
   scorevoliListino,
 }: Props) {
   const [categoriaSel, setCategoriaSel] = useState<string | 'libera' | 'scorrevole'>(listini[0]?.id ?? 'libera')
+  const [editingSuMisura, setEditingSuMisura] = useState<ArticoloWizard | null>(null)
   const [itemConfig, setItemConfig] = useState<ItemSel | null>(null)
   const [ricerca, setRicerca] = useState('')
   const [editingTempId, setEditingTempId] = useState<string | null>(null)
@@ -78,6 +80,15 @@ export default function ArticoliEditor({
       setCategoriaSel('scorrevole')
       return
     }
+    if (article.tipo === 'su_misura') {
+      const cat = listini.find((c) => c.nome === article.categoria_nome && c.tipo === 'su_misura')
+      if (cat) {
+        setEditingTempId(article.tempId)
+        setEditingSuMisura(article)
+        setCategoriaSel(cat.id)
+      }
+      return
+    }
     const item = findItemSel(article)
     if (!item) return
     setEditingTempId(article.tempId)
@@ -98,6 +109,10 @@ export default function ArticoliEditor({
       onArticoliChange([...articoli, copy])
       return
     }
+    if (article.tipo === 'su_misura') {
+      onArticoliChange([...articoli, copy])
+      return
+    }
     const item = findItemSel(article)
     if (!item) return
     setEditingTempId(null) // aggiunge come nuovo
@@ -110,10 +125,12 @@ export default function ArticoliEditor({
       onArticoliChange(articoli.map((art) => art.tempId === editingTempId ? a : art))
       setEditingTempId(null)
       setEditingLibera(null)
+      setEditingSuMisura(null)
       setConfigValues(null)
     } else {
       onArticoliChange([...articoli, a])
       setEditingLibera(null)
+      setEditingSuMisura(null)
       setConfigValues(null)
     }
     setItemConfig(null)
@@ -123,6 +140,7 @@ export default function ArticoliEditor({
     if (editingTempId === tempId) {
       setEditingTempId(null)
       setEditingLibera(null)
+      setEditingSuMisura(null)
       setConfigValues(null)
     }
     onArticoliChange(articoli.filter((a) => a.tempId !== tempId))
@@ -210,14 +228,19 @@ export default function ArticoliEditor({
             {/* Categorie listini */}
             {listini.map((cat) => {
               const isActive = categoriaSel === cat.id
+              const isSuMisura = cat.tipo === 'su_misura'
               return (
                 <button
                   key={cat.id}
-                  onClick={() => handleSelectCategoria(cat.id)}
+                  onClick={() => { handleSelectCategoria(cat.id); setEditingSuMisura(null); setEditingTempId(null) }}
                   className={`w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-all text-sm font-medium ${
                     isActive
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                      ? isSuMisura
+                        ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
+                        : 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : isSuMisura
+                        ? 'bg-white text-gray-600 border-gray-200 hover:border-violet-300 hover:bg-violet-50'
+                        : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:bg-blue-50'
                   }`}
                 >
                   <span className="shrink-0">
@@ -283,7 +306,16 @@ export default function ArticoliEditor({
                 isEditing={!!editingTempId}
                 onAdd={handleAddOrEdit}
               />
-            ) : !categoria ? null : categoria.tipo === 'griglia' ? (
+            ) : !categoria ? null : categoria.tipo === 'su_misura' ? (
+              <FormArticoloSuMisura
+                key={editingSuMisura?.tempId ?? `su-misura-${categoria.id}`}
+                categoria={categoria}
+                aliquote={aliquote}
+                initialValues={editingSuMisura ?? undefined}
+                isEditing={!!editingTempId && !!editingSuMisura}
+                onAdd={handleAddOrEdit}
+              />
+            ) : categoria.tipo === 'griglia' ? (
               <GrigliaList
                 categoria={categoria}
                 filtro={ricerca}

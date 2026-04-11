@@ -40,7 +40,13 @@ export async function getCategorie(): Promise<CategoriaConListini[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('categorie_listini')
-    .select('*, finiture_categoria(*), listini(*, finiture(*), accessori_griglia(*)), listini_liberi(*, prodotti_listino(*), accessori_listino(*))')
+    .select(`
+      *,
+      finiture_categoria(*),
+      listini(*, finiture(*), accessori_griglia(*)),
+      listini_liberi(*, prodotti_listino(*), accessori_listino(*)),
+      listini_su_misura(*, finiture_su_misura(*), gruppi_accessori_su_misura(*, accessori_su_misura(*)))
+    `)
     .order('ordine')
 
   if (error) throw new Error(error.message)
@@ -72,6 +78,25 @@ export async function getCategorie(): Promise<CategoriaConListini[]> {
         accessori: (ll.accessori_listino ?? []).sort(
           (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
         ),
+      })),
+    listini_su_misura: (cat.listini_su_misura ?? [])
+      .sort((a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine)
+      .map((lsm: {
+        finiture_su_misura: { ordine: number }[]
+        gruppi_accessori_su_misura: { ordine: number; accessori_su_misura: { ordine: number }[] }[]
+      }) => ({
+        ...lsm,
+        finiture: (lsm.finiture_su_misura ?? []).sort(
+          (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
+        ),
+        gruppi_accessori: (lsm.gruppi_accessori_su_misura ?? [])
+          .sort((a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine)
+          .map((g: { ordine: number; accessori_su_misura: { ordine: number }[] }) => ({
+            ...g,
+            accessori: (g.accessori_su_misura ?? []).sort(
+              (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
+            ),
+          })),
       })),
   }))
 }
@@ -833,3 +858,167 @@ export async function addAccessoriATuttiListini(
 
 // Ri-esporta FinituraCategoria type per uso esterno
 export type { FinituraCategoria }
+
+// ── Listini su misura ─────────────────────────────────────────────────────────
+
+export type FinituraSuMisuraInput = {
+  nome: string
+  tipo_maggiorazione: 'percentuale' | 'mq' | 'fisso'
+  valore: number
+  prezzo_acquisto: number
+}
+
+export type AccessorioSuMisuraInput = {
+  nome: string
+  unita: 'pz' | 'mq' | 'ml'
+  prezzo: number
+  prezzo_acquisto: number
+  qty_modificabile: boolean
+  qty_default: number
+}
+
+export type GruppoAccessoriSuMisuraInput = {
+  nome: string
+  tipo_scelta: 'singolo' | 'multiplo' | 'incluso'
+  accessori: AccessorioSuMisuraInput[]
+}
+
+export type ListinoSuMisuraInput = {
+  categoria_id: string
+  nome: string
+  descrizione: string
+  prezzo_mq: number
+  prezzo_acquisto_mq: number
+  larghezza_min: number
+  larghezza_max: number
+  altezza_min: number
+  altezza_max: number
+  mq_minimo: number
+  attivo: boolean
+  finiture: FinituraSuMisuraInput[]
+  gruppi_accessori: GruppoAccessoriSuMisuraInput[]
+}
+
+export async function createListinoSuMisura(
+  input: ListinoSuMisuraInput
+): Promise<{ id: string }> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { count: ordine } = await supabase
+    .from('listini_su_misura')
+    .select('id', { count: 'exact', head: true })
+    .eq('categoria_id', input.categoria_id)
+
+  const { data: listino, error: lErr } = await supabase
+    .from('listini_su_misura')
+    .insert({
+      organization_id: orgId,
+      categoria_id: input.categoria_id,
+      nome: input.nome,
+      descrizione: input.descrizione || null,
+      prezzo_mq: input.prezzo_mq,
+      prezzo_acquisto_mq: input.prezzo_acquisto_mq,
+      larghezza_min: input.larghezza_min,
+      larghezza_max: input.larghezza_max,
+      altezza_min: input.altezza_min,
+      altezza_max: input.altezza_max,
+      mq_minimo: input.mq_minimo,
+      attivo: input.attivo,
+      ordine: ordine ?? 0,
+    })
+    .select('id')
+    .single()
+
+  if (lErr || !listino) throw new Error(lErr?.message ?? 'Errore creazione listino')
+
+  if (input.finiture.length > 0) {
+    const { error } = await supabase.from('finiture_su_misura').insert(
+      input.finiture.map((f, i) => ({ ...f, listino_id: listino.id, organization_id: orgId, ordine: i }))
+    )
+    if (error) throw new Error(error.message)
+  }
+
+  for (let gi = 0; gi < input.gruppi_accessori.length; gi++) {
+    const g = input.gruppi_accessori[gi]
+    const { data: gruppo, error: gErr } = await supabase
+      .from('gruppi_accessori_su_misura')
+      .insert({ nome: g.nome, tipo_scelta: g.tipo_scelta, listino_id: listino.id, organization_id: orgId, ordine: gi })
+      .select('id')
+      .single()
+    if (gErr || !gruppo) throw new Error(gErr?.message ?? 'Errore gruppo')
+
+    if (g.accessori.length > 0) {
+      const { error } = await supabase.from('accessori_su_misura').insert(
+        g.accessori.map((a, i) => ({ ...a, gruppo_id: gruppo.id, organization_id: orgId, ordine: i }))
+      )
+      if (error) throw new Error(error.message)
+    }
+  }
+
+  revalidatePath('/listini')
+  return { id: listino.id }
+}
+
+export async function updateListinoSuMisura(
+  id: string,
+  input: ListinoSuMisuraInput
+): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { error: lErr } = await supabase
+    .from('listini_su_misura')
+    .update({
+      nome: input.nome,
+      descrizione: input.descrizione || null,
+      prezzo_mq: input.prezzo_mq,
+      prezzo_acquisto_mq: input.prezzo_acquisto_mq,
+      larghezza_min: input.larghezza_min,
+      larghezza_max: input.larghezza_max,
+      altezza_min: input.altezza_min,
+      altezza_max: input.altezza_max,
+      mq_minimo: input.mq_minimo,
+      attivo: input.attivo,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+  if (lErr) throw new Error(lErr.message)
+
+  // Rimpiazza finiture
+  await supabase.from('finiture_su_misura').delete().eq('listino_id', id)
+  if (input.finiture.length > 0) {
+    const { error } = await supabase.from('finiture_su_misura').insert(
+      input.finiture.map((f, i) => ({ ...f, listino_id: id, organization_id: orgId, ordine: i }))
+    )
+    if (error) throw new Error(error.message)
+  }
+
+  // Rimpiazza gruppi + accessori (cascata ON DELETE)
+  await supabase.from('gruppi_accessori_su_misura').delete().eq('listino_id', id)
+  for (let gi = 0; gi < input.gruppi_accessori.length; gi++) {
+    const g = input.gruppi_accessori[gi]
+    const { data: gruppo, error: gErr } = await supabase
+      .from('gruppi_accessori_su_misura')
+      .insert({ nome: g.nome, tipo_scelta: g.tipo_scelta, listino_id: id, organization_id: orgId, ordine: gi })
+      .select('id')
+      .single()
+    if (gErr || !gruppo) throw new Error(gErr?.message ?? 'Errore gruppo')
+
+    if (g.accessori.length > 0) {
+      const { error } = await supabase.from('accessori_su_misura').insert(
+        g.accessori.map((a, i) => ({ ...a, gruppo_id: gruppo.id, organization_id: orgId, ordine: i }))
+      )
+      if (error) throw new Error(error.message)
+    }
+  }
+
+  revalidatePath('/listini')
+}
+
+export async function deleteListinoSuMisura(id: string): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase.from('listini_su_misura').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/listini')
+}

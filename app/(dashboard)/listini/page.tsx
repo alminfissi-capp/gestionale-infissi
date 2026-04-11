@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import CategoriaCard from '@/components/listini/CategoriaCard'
 import CategoriaCardLibera from '@/components/listini/CategoriaCardLibera'
+import CategoriaCardSuMisura from '@/components/listini/CategoriaCardSuMisura'
 import DialogCategoria from '@/components/listini/DialogCategoria'
 import { toast } from 'sonner'
 import type { CategoriaConListini } from '@/types/listino'
@@ -53,6 +54,8 @@ function SortableCategoriaWrapper({ categoria, onSuccess }: { categoria: Categor
     <div ref={setNodeRef} style={style}>
       {categoria.tipo === 'libero' ? (
         <CategoriaCardLibera categoria={categoria} dragHandle={dragHandle} onSuccess={onSuccess} />
+      ) : categoria.tipo === 'su_misura' ? (
+        <CategoriaCardSuMisura categoria={categoria} dragHandle={dragHandle} onSuccess={onSuccess} />
       ) : (
         <CategoriaCard categoria={categoria} dragHandle={dragHandle} onSuccess={onSuccess} />
       )}
@@ -106,7 +109,7 @@ export default function ListiniPage() {
     : categorie
 
   const totaleListini = categorie.reduce(
-    (sum, c) => sum + c.listini.length + c.listini_liberi.length,
+    (sum, c) => sum + c.listini.length + c.listini_liberi.length + (c.listini_su_misura?.length ?? 0),
     0
   )
 

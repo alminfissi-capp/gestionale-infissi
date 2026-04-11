@@ -270,6 +270,20 @@ export default function DialogCategoria({ open, onOpenChange, categoria, onSucce
                       Prodotti con prezzo fisso e accessori
                     </div>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setTipo('su_misura')}
+                    className={`flex-1 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors text-left ${
+                      tipo === 'su_misura'
+                        ? 'border-violet-500 bg-violet-50 text-violet-700'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="font-semibold">📐 Su misura €/mq</div>
+                    <div className="text-xs font-normal text-gray-500 mt-0.5">
+                      Prezzo al mq, finiture e accessori flessibili
+                    </div>
+                  </button>
                 </div>
               </div>
             )}

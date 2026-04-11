@@ -1,4 +1,4 @@
-export type TipoCategoria = 'griglia' | 'libero'
+export type TipoCategoria = 'griglia' | 'libero' | 'su_misura'
 
 export type Categoria = {
   id: string
@@ -113,12 +113,75 @@ export type ListinoLiberoCompleto = ListinoLibero & {
   accessori: AccessorioListino[]
 }
 
+// ---- Listino su misura ----
+
+export type ListinoSuMisura = {
+  id: string
+  organization_id: string
+  categoria_id: string
+  nome: string
+  descrizione: string | null
+  prezzo_mq: number
+  prezzo_acquisto_mq: number
+  larghezza_min: number
+  larghezza_max: number
+  altezza_min: number
+  altezza_max: number
+  mq_minimo: number
+  ordine: number
+  attivo: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type FinituraSuMisura = {
+  id: string
+  organization_id: string
+  listino_id: string
+  nome: string
+  tipo_maggiorazione: 'percentuale' | 'mq' | 'fisso'
+  valore: number
+  prezzo_acquisto: number
+  ordine: number
+  created_at: string
+}
+
+export type GruppoAccessoriSuMisura = {
+  id: string
+  organization_id: string
+  listino_id: string
+  nome: string
+  tipo_scelta: 'singolo' | 'multiplo' | 'incluso'
+  ordine: number
+  accessori: AccessorioSuMisura[]
+}
+
+export type AccessorioSuMisura = {
+  id: string
+  organization_id: string
+  gruppo_id: string
+  nome: string
+  unita: 'pz' | 'mq' | 'ml'
+  prezzo: number
+  prezzo_acquisto: number
+  qty_modificabile: boolean
+  qty_default: number
+  ordine: number
+  created_at: string
+}
+
+export type ListinoSuMisuraCompleto = ListinoSuMisura & {
+  finiture: FinituraSuMisura[]
+  gruppi_accessori: GruppoAccessoriSuMisura[]
+}
+
 // ---- Categoria con listini ----
 
 export type CategoriaConListini = Categoria & {
   listini: ListinoCompleto[]
   finiture_categoria: FinituraCategoria[]
   listini_liberi: ListinoLiberoCompleto[]
+  listini_su_misura: ListinoSuMisuraCompleto[]
 }
 
 export type GrigliaData = {

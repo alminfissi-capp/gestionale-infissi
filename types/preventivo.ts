@@ -37,11 +37,41 @@ export type AccessorioGrigliaSelezionato = {
   mq_minimo: number | null
 }
 
+export type AccessorioSuMisuraSelezionato = {
+  accessorio_id: string
+  gruppo_id: string
+  nome: string
+  unita: 'pz' | 'mq' | 'ml'
+  qty: number
+  prezzo_unitario: number
+  totale: number
+}
+
+export type ConfigSuMisuraArticolo = {
+  listino_id: string
+  nome_prodotto: string
+  larghezza: number
+  altezza: number
+  mq: number
+  finitura_id: string | null
+  nome_finitura: string | null
+  tipo_maggiorazione_finitura: 'percentuale' | 'mq' | 'fisso' | null
+  prezzo_mq_base: number
+  prezzo_mq_finale: number
+  totale_prodotto: number
+  accessori: AccessorioSuMisuraSelezionato[]
+  totale_accessori: number
+  mano_dopera: number
+  utile_percentuale: number | null
+  utile_fisso: number | null
+  utile_calcolato: number
+}
+
 export type ArticoloPreventivoRow = {
   id: string
   preventivo_id: string
   organization_id: string
-  tipo: 'listino' | 'libera' | 'listino_libero' | 'scorrevole'
+  tipo: 'listino' | 'libera' | 'listino_libero' | 'scorrevole' | 'su_misura'
   listino_id: string | null
   listino_libero_id: string | null
   prodotto_id: string | null
@@ -73,6 +103,8 @@ export type ArticoloPreventivoRow = {
   quota_trasporto?: number
   /** Configurazione completa per articoli tipo 'scorrevole' */
   config_scorrevole?: import('@/types/scorrevoli').ConfigScorrevoleArticolo | null
+  /** Configurazione completa per articoli tipo 'su_misura' */
+  config_su_misura?: ConfigSuMisuraArticolo | null
 }
 
 // Articolo durante la compilazione del wizard (non ancora salvato)
