@@ -3,6 +3,7 @@ import { getPreventivo } from '@/actions/preventivi'
 import { getClienti } from '@/actions/clienti'
 import { getCategorie } from '@/actions/listini'
 import { getSettings, getNoteTemplates } from '@/actions/impostazioni'
+import { getScorevoliListino } from '@/actions/scorrevoli'
 import WizardPreventivo from '@/components/preventivi/WizardPreventivo'
 
 interface Props {
@@ -11,12 +12,13 @@ interface Props {
 
 export default async function ModificaPreventivoPage({ params }: Props) {
   const { id } = await params
-  const [preventivo, clienti, listini, settings, noteTemplates] = await Promise.all([
+  const [preventivo, clienti, listini, settings, noteTemplates, scorevoliListino] = await Promise.all([
     getPreventivo(id),
     getClienti(),
     getCategorie(),
     getSettings(),
     getNoteTemplates(),
+    getScorevoliListino().catch(() => null),
   ])
 
   if (!preventivo) notFound()
@@ -38,6 +40,7 @@ export default async function ModificaPreventivoPage({ params }: Props) {
         aliquote={aliquote}
         noteTemplates={noteTemplates}
         numerazioneAttiva={!!settings?.num_prefisso}
+        scorevoliListino={scorevoliListino}
       />
     </div>
   )

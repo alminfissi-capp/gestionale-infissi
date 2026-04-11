@@ -25,6 +25,7 @@ import TabellaArticoli from './TabellaArticoli'
 import type { Cliente } from '@/types/cliente'
 import type { CategoriaConListini } from '@/types/listino'
 import type { NoteTemplate } from '@/types/impostazioni'
+import type { ScorevoliListino } from '@/actions/scorrevoli'
 import type {
   ArticoloWizard,
   ClienteSnapshot,
@@ -61,6 +62,7 @@ interface Props {
   numerazioneAttiva?: boolean
   /** Se valorizzato: modalità modifica */
   preventivo?: PreventivoCompleto
+  scorevoliListino?: ScorevoliListino | null
 }
 
 /** Calcola spese trasporto raggruppando gli articoli per categoria */
@@ -158,7 +160,7 @@ function calcolaQuoteTrasportoWizard(
 
 const BOZZA_KEY = 'wizard-draft'
 
-export default function WizardPreventivo({ clienti, listini, aliquote, noteTemplates = [], numerazioneAttiva, preventivo }: Props) {
+export default function WizardPreventivo({ clienti, listini, aliquote, noteTemplates = [], numerazioneAttiva, preventivo, scorevoliListino }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [step, setStep] = useState(0)
@@ -375,6 +377,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
           onArticoliChange={setArticoli}
           onConferma={() => setStep(2)}
           onAnnulla={() => setStep(0)}
+          scorevoliListino={scorevoliListino}
         />
       )}
 

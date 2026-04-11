@@ -41,7 +41,7 @@ export type ArticoloPreventivoRow = {
   id: string
   preventivo_id: string
   organization_id: string
-  tipo: 'listino' | 'libera' | 'listino_libero'
+  tipo: 'listino' | 'libera' | 'listino_libero' | 'scorrevole'
   listino_id: string | null
   listino_libero_id: string | null
   prodotto_id: string | null
@@ -71,6 +71,8 @@ export type ArticoloPreventivoRow = {
   created_at: string
   /** Quota di spese trasporto attribuita a questo articolo (calcolata al volo, non in DB) */
   quota_trasporto?: number
+  /** Configurazione completa per articoli tipo 'scorrevole' */
+  config_scorrevole?: import('@/types/scorrevoli').ConfigScorrevoleArticolo | null
 }
 
 // Articolo durante la compilazione del wizard (non ancora salvato)

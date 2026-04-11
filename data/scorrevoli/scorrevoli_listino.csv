@@ -1,0 +1,110 @@
+categoria;modello;codice;descrizione;prezzo;unita;note
+PREZZO BASE MQ;alpha;alpha-mq;Alpha - Prezzo €/mq;280;€/mq;H min fatturazione 1600mm - Anta L 500-1100mm
+PREZZO BASE MQ;alpha_plus;alpha_plus-mq;Alpha Plus - Prezzo €/mq;295;€/mq;H min fatturazione 1600mm - Anta L 500-1100mm
+PREZZO BASE MQ;maxima;maxima-mq;Maxima - Prezzo €/mq;310;€/mq;H min fatturazione 1600mm - Anta L 500-1100mm
+PREZZO BASE MQ;prisma;prisma-mq-f1;Prisma - Prezzo €/mq fascia H ≤1400mm;550;€/mq;Mq min 3 - H min fatt 1400mm - Anta L max 700mm
+PREZZO BASE MQ;prisma;prisma-mq-f2;Prisma - Prezzo €/mq fascia H 1401-2000mm;464;€/mq;Mq min 3 - Anta L max 700mm
+PREZZO BASE MQ;prisma;prisma-mq-f3;Prisma - Prezzo €/mq fascia H 2001-3000mm;375;€/mq;Mq min 3 - Anta L max 700mm
+CONFIGURAZIONE FISSA;maxima;maxima-lat-2-2200-2600;Maxima - Laterale - 2 ante - L.max 2200mm - H.max 2600mm;719;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-lat-3-3300-2600;Maxima - Laterale - 3 ante - L.max 3300mm - H.max 2600mm;932;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-lat-4-4400-2600;Maxima - Laterale - 4 ante - L.max 4400mm - H.max 2600mm;1255;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-lat-5-5500-2600;Maxima - Laterale - 5 ante - L.max 5500mm - H.max 2600mm;1605;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-lat-6-6600-2600;Maxima - Laterale - 6 ante - L.max 6600mm - H.max 2600mm;2144;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-lat-7-7700-2600;Maxima - Laterale - 7 ante - L.max 7700mm - H.max 2600mm;2625;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-lat-2-2200-3000;Maxima - Laterale - 2 ante - L.max 2200mm - H.max 3000mm;737;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-lat-3-3300-3000;Maxima - Laterale - 3 ante - L.max 3300mm - H.max 3000mm;954;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-lat-4-4400-3000;Maxima - Laterale - 4 ante - L.max 4400mm - H.max 3000mm;1280;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-lat-5-5500-3000;Maxima - Laterale - 5 ante - L.max 5500mm - H.max 3000mm;1635;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-lat-6-6600-3000;Maxima - Laterale - 6 ante - L.max 6600mm - H.max 3000mm;2178;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-lat-7-7700-3000;Maxima - Laterale - 7 ante - L.max 7700mm - H.max 3000mm;2664;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-cen-2+2-4400-2600;Maxima - Centrale - 2+2 ante - L.max 4400mm - H.max 2600mm;1320;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-cen-3+3-6600-2600;Maxima - Centrale - 3+3 ante - L.max 6600mm - H.max 2600mm;1792;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-cen-4+4-8800-2600;Maxima - Centrale - 4+4 ante - L.max 8800mm - H.max 2600mm;2433;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-cen-5+5-11000-2600;Maxima - Centrale - 5+5 ante - L.max 11000mm - H.max 2600mm;3012;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-cen-6+6-12000-2600;Maxima - Centrale - 6+6 ante - L.max 12000mm - H.max 2600mm;4550;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-cen-7+7-14000-2600;Maxima - Centrale - 7+7 ante - L.max 14000mm - H.max 2600mm;5376;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-cen-2+2-4400-3000;Maxima - Centrale - 2+2 ante - L.max 4400mm - H.max 3000mm;1340;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-cen-3+3-6600-3000;Maxima - Centrale - 3+3 ante - L.max 6600mm - H.max 3000mm;1821;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-cen-4+4-8800-3000;Maxima - Centrale - 4+4 ante - L.max 8800mm - H.max 3000mm;2470;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-cen-5+5-11000-3000;Maxima - Centrale - 5+5 ante - L.max 11000mm - H.max 3000mm;3061;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-cen-6+6-12000-3000;Maxima - Centrale - 6+6 ante - L.max 12000mm - H.max 3000mm;4606;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;maxima;maxima-cen-7+7-14000-3000;Maxima - Centrale - 7+7 ante - L.max 14000mm - H.max 3000mm;5442;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha_plus;alpha_plus-lat-2-2200-2600;Alpha Plus - Laterale - 2 ante - L.max 2200mm - H.max 2600mm;692;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha_plus;alpha_plus-lat-3-3300-2600;Alpha Plus - Laterale - 3 ante - L.max 3300mm - H.max 2600mm;889;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha_plus;alpha_plus-lat-4-4400-2600;Alpha Plus - Laterale - 4 ante - L.max 4400mm - H.max 2600mm;1179;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha_plus;alpha_plus-lat-5-5500-2600;Alpha Plus - Laterale - 5 ante - L.max 5500mm - H.max 2600mm;1511;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha_plus;alpha_plus-lat-2-2200-3000;Alpha Plus - Laterale - 2 ante - L.max 2200mm - H.max 3000mm;709;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha_plus;alpha_plus-lat-3-3300-3000;Alpha Plus - Laterale - 3 ante - L.max 3300mm - H.max 3000mm;910;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha_plus;alpha_plus-lat-4-4400-3000;Alpha Plus - Laterale - 4 ante - L.max 4400mm - H.max 3000mm;1203;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha_plus;alpha_plus-lat-5-5500-3000;Alpha Plus - Laterale - 5 ante - L.max 5500mm - H.max 3000mm;1541;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha_plus;alpha_plus-cen-2+2-4400-2600;Alpha Plus - Centrale - 2+2 ante - L.max 4400mm - H.max 2600mm;1263;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha_plus;alpha_plus-cen-3+3-6600-2600;Alpha Plus - Centrale - 3+3 ante - L.max 6600mm - H.max 2600mm;1705;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha_plus;alpha_plus-cen-4+4-8800-2600;Alpha Plus - Centrale - 4+4 ante - L.max 8800mm - H.max 2600mm;2278;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha_plus;alpha_plus-cen-5+5-11000-2600;Alpha Plus - Centrale - 5+5 ante - L.max 11000mm - H.max 2600mm;2825;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha_plus;alpha_plus-cen-2+2-4400-3000;Alpha Plus - Centrale - 2+2 ante - L.max 4400mm - H.max 3000mm;1283;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha_plus;alpha_plus-cen-3+3-6600-3000;Alpha Plus - Centrale - 3+3 ante - L.max 6600mm - H.max 3000mm;1735;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha_plus;alpha_plus-cen-4+4-8800-3000;Alpha Plus - Centrale - 4+4 ante - L.max 8800mm - H.max 3000mm;2317;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha_plus;alpha_plus-cen-5+5-11000-3000;Alpha Plus - Centrale - 5+5 ante - L.max 11000mm - H.max 3000mm;2873;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha;alpha-lat-2-2000-2600;Alpha - Laterale - 2 ante - L.max 2000mm - H.max 2600mm;738;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha;alpha-lat-3-3000-2600;Alpha - Laterale - 3 ante - L.max 3000mm - H.max 2600mm;943;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha;alpha-lat-4-4000-2600;Alpha - Laterale - 4 ante - L.max 4000mm - H.max 2600mm;1194;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha;alpha-lat-5-5000-2600;Alpha - Laterale - 5 ante - L.max 5000mm - H.max 2600mm;1396;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha;alpha-lat-2-2000-3000;Alpha - Laterale - 2 ante - L.max 2000mm - H.max 3000mm;755;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha;alpha-lat-3-3000-3000;Alpha - Laterale - 3 ante - L.max 3000mm - H.max 3000mm;965;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha;alpha-lat-4-4000-3000;Alpha - Laterale - 4 ante - L.max 4000mm - H.max 3000mm;1219;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha;alpha-lat-5-5000-3000;Alpha - Laterale - 5 ante - L.max 5000mm - H.max 3000mm;1426;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha;alpha-cen-2+2-4000-2600;Alpha - Centrale - 2+2 ante - L.max 4000mm - H.max 2600mm;1321;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha;alpha-cen-3+3-6000-2600;Alpha - Centrale - 3+3 ante - L.max 6000mm - H.max 2600mm;1725;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha;alpha-cen-4+4-8000-2600;Alpha - Centrale - 4+4 ante - L.max 8000mm - H.max 2600mm;2129;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha;alpha-cen-5+5-10000-2600;Alpha - Centrale - 5+5 ante - L.max 10000mm - H.max 2600mm;2534;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha;alpha-cen-2+2-4000-3000;Alpha - Centrale - 2+2 ante - L.max 4000mm - H.max 3000mm;1341;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha;alpha-cen-3+3-6000-3000;Alpha - Centrale - 3+3 ante - L.max 6000mm - H.max 3000mm;1754;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha;alpha-cen-4+4-8000-3000;Alpha - Centrale - 4+4 ante - L.max 8000mm - H.max 3000mm;2168;€/pz;Prezzo fisso per configurazione da Listino_modulo
+CONFIGURAZIONE FISSA;alpha;alpha-cen-5+5-10000-3000;Alpha - Centrale - 5+5 ante - L.max 10000mm - H.max 3000mm;2581;€/pz;Prezzo fisso per configurazione da Listino_modulo
+OPTIONAL;alpha - alpha_plus - maxima;serratura_laterale;Serratura per apertura laterale con maniglia in alluminio ossidata argento;334;€/pz;
+OPTIONAL;alpha - alpha_plus - maxima;serratura_centrale;Serratura per apertura centrale con maniglia e contromaniglia in alluminio ossidata argento;323;€/pz;ATTENZIONE: foglio Listino riporta 500 euro per articolo analogo - verificare con fornitore
+OPTIONAL;alpha - alpha_plus - maxima;kit_angolo_90;Kit angolo 90°;80;€/pz;
+OPTIONAL;prisma;kit_angolo_prisma;Kit angolo (Prisma - disponibile da 09/2024);250;€/pz;
+OPTIONAL;alpha;guida_incassata;Guida incassata con scarico acqua;96;€/ml;Solo per modello Alpha
+OPTIONAL;alpha - alpha_plus - maxima;guida_compensata;Guida compensata con gradazione variabile;65;€/ml;
+OPTIONAL;alpha - alpha_plus - maxima;profilo_l_due_lati;Profilo a "L" 50×30 (due lati);34;€/ml;
+OPTIONAL;alpha - alpha_plus - maxima;profilo_l_un_lato;Profilo a "L" 50×30 (un lato);17;€/ml;
+OPTIONAL;alpha - alpha_plus - maxima;kit_apertura_centrale;Kit per apertura centrale;158;€/pz;
+OPTIONAL;prisma;kit_apertura_centrale_prisma;Kit per apertura centrale Prisma;150;€/pz;
+OPTIONAL;tutti;anta_addizionale;Anta addizionale rispetto alla configurazione standard;200;€/pz;
+OPTIONAL;prisma;seconda_anta_apribile;Seconda anta apribile per apertura centrale Prisma;150;€/pz;
+OPTIONAL;prisma;sgancio_anta;Sgancio anta Prisma;75;€/pz;Uno ogni sette ante incluso nel prezzo base
+OPTIONAL;alpha - alpha_plus - maxima;coppia_maniglie_pratica;Coppia di maniglie ad incollare Pratica Colors;100;€/pz;
+OPTIONAL;prisma;chiusura_farfalla_singola;Chiusura con farfalla singola lato interno (CLPN + CL95);304;€/pz;
+OPTIONAL;prisma;chiusura_doppia_farfalla;Chiusura con doppia farfalla e maniglia int/est (CLPM + CL105);365;€/pz;
+OPTIONAL;prisma;chiusura_doppia_maniglia;Chiusura con doppia maniglia cilindro esterno e farfalla interna (CHN31 + CL95);424;€/pz;
+OPTIONAL;tutti;vetro_extrachiaro;Vetro extrachiaro (sovrapprezzo su vetro standard);70;€/mq;
+OPTIONAL;tutti;vetro_satinato;Vetro satinato (sovrapprezzo su vetro standard);70;€/mq;
+OPTIONAL;tutti;vetro_fume;Vetro fumè (sovrapprezzo su vetro standard);70;€/mq;
+OPTIONAL;prisma;porta_battente_r40;Porta/finestra a battente in alluminio R40 vetri 3+3 colori standard;;a preventivo;
+OPTIONAL;prisma;struttura_fissa_r40;Struttura fissa in alluminio R40 vetri 3+3 colori standard;;a preventivo;
+COLORE STRUTTURA;tutti;col-9010;Bianco Lucido RAL 9010;0;incluso;Standard tutti i modelli
+COLORE STRUTTURA;tutti;col-9010op;Bianco Opaco RAL 9010OP;0;incluso;Standard tutti i modelli
+COLORE STRUTTURA;tutti;col-1013;Avorio Lucido RAL 1013;0;incluso;Standard tutti i modelli
+COLORE STRUTTURA;tutti;col-1013op;Avorio Opaco RAL 1013OP;0;incluso;Standard tutti i modelli
+COLORE STRUTTURA;tutti;col-8017;Marrone Lucido RAL 8017;0;incluso;Standard tutti i modelli
+COLORE STRUTTURA;tutti;col-8017op;Marrone Opaco RAL 8017OP;0;incluso;Standard tutti i modelli
+COLORE STRUTTURA;tutti;col-grigio-argento;Grigio Laccato Simil Argento;0;incluso;Standard tutti i modelli
+COLORE STRUTTURA;tutti;col-9005;Nero Opaco RAL 9005;0;incluso;Standard tutti i modelli
+COLORE STRUTTURA;alpha - alpha_plus - maxima;col-ox-argento;OX Argento Sabbiato;0;incluso;Standard solo Alpha/Alpha Plus/Maxima
+COLORE STRUTTURA;alpha - alpha_plus - maxima;col-7016;Grigio Antracite Lucido RAL 7016;0;incluso;Standard per Alpha/Alpha Plus/Maxima - EXTRA +10% per Prisma
+COLORE STRUTTURA;alpha - alpha_plus - maxima;col-7016op;Grigio Antracite Opaco RAL 7016OP;0;incluso;Standard per Alpha/Alpha Plus/Maxima - EXTRA +10% per Prisma
+COLORE STRUTTURA;prisma;col-7016-prisma;Grigio Antracite Lucido RAL 7016 (Prisma);0,10;extra (% su totale);Extra per Prisma
+COLORE STRUTTURA;prisma;col-7016op-prisma;Grigio Antracite Opaco RAL 7016OP (Prisma);0,10;extra (% su totale);Extra per Prisma
+COLORE STRUTTURA;alpha - alpha_plus - maxima;col-7016grinz;Grigio Antracite Grinz RAL 7016GRINZ (texture);0,10;extra (% su totale);Solo Alpha/Alpha Plus/Maxima - texture ruvida esclusa per Prisma
+COLORE STRUTTURA;alpha - alpha_plus - maxima;col-dx05;Grigio Ferro RAL DX05;0,10;extra (% su totale);
+COLORE STRUTTURA;alpha - alpha_plus - maxima;col-corten;Corten;0,10;extra (% su totale);
+COLORE STRUTTURA;alpha - alpha_plus - maxima;col-bronze;Bronze Déco;0,10;extra (% su totale);
+COLORE STRUTTURA;alpha - alpha_plus - maxima;col-dw049;Noce RAL DW049 (effetto legno);0,30;extra (% su totale);Escluso per Prisma
+COLORE STRUTTURA;alpha - alpha_plus - maxima;col-dw29;Douglas RAL DW29 (effetto legno);0,30;extra (% su totale);Escluso per Prisma
+COLORE STRUTTURA;alpha - alpha_plus - maxima;col-dp138;Rovere Sbiancato RAL DP138 (effetto legno);0,30;extra (% su totale);Escluso per Prisma
+COLORE STRUTTURA;tutti;col-ral-altri;Altri colori RAL non a catalogo;0,30;extra (% su totale);Per Prisma: escluse texture ruvide
+PARAMETRI COMMERCIALI;;sconto_vetrata_prisma;Sconto su vetrata Prisma (default);0,50;% sconto;Editabile per commessa
+PARAMETRI COMMERCIALI;;sconto_optional;Sconto su optional tutti i modelli (default);0,45;% sconto;Editabile per commessa
+PARAMETRI COMMERCIALI;;trasporto;Trasporto (% su totale documento, default);0,04;% su totale;Editabile per commessa
+PARAMETRI COMMERCIALI;;iva;IVA;0,22;% su imponibile;Editabile per commessa

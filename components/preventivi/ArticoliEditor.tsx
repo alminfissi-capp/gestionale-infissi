@@ -1,16 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, FileText, Table2, Package, Trash2, Pencil, Plus, Search, X, Copy } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, FileText, Table2, Package, Trash2, Pencil, Plus, Search, X, Copy, Layers } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import FormVoceLibera from './FormVoceLibera'
+import FormScorrevole from './FormScorrevole'
 import DialogConfigurazione from './DialogConfigurazione'
 import IconaCategoria from '@/components/listini/IconaCategoria'
 import { formatEuro, calcolaSubtotale } from '@/lib/pricing'
 import type { CategoriaConListini } from '@/types/listino'
 import type { ArticoloWizard } from '@/types/preventivo'
 import type { ItemSel } from './DialogConfigurazione'
+import type { ScorevoliListino } from '@/actions/scorrevoli'
 
 interface Props {
   listini: CategoriaConListini[]
@@ -19,6 +21,7 @@ interface Props {
   onArticoliChange: (articoli: ArticoloWizard[]) => void
   onConferma: () => void
   onAnnulla: () => void
+  scorevoliListino?: ScorevoliListino | null
 }
 
 export default function ArticoliEditor({
@@ -28,8 +31,9 @@ export default function ArticoliEditor({
   onArticoliChange,
   onConferma,
   onAnnulla,
+  scorevoliListino,
 }: Props) {
-  const [categoriaSel, setCategoriaSel] = useState<string | 'libera'>(listini[0]?.id ?? 'libera')
+  const [categoriaSel, setCategoriaSel] = useState<string | 'libera' | 'scorrevole'>(listini[0]?.id ?? 'libera')
   const [itemConfig, setItemConfig] = useState<ItemSel | null>(null)
   const [ricerca, setRicerca] = useState('')
   const [editingTempId, setEditingTempId] = useState<string | null>(null)
@@ -39,7 +43,7 @@ export default function ArticoliEditor({
 
   const categoria = listini.find((c) => c.id === categoriaSel)
 
-  const handleSelectCategoria = (id: string | 'libera') => {
+  const handleSelectCategoria = (id: string | 'libera' | 'scorrevole') => {
     setCategoriaSel(id)
     setRicerca('')
   }
@@ -69,6 +73,11 @@ export default function ArticoliEditor({
       setCategoriaSel('libera')
       return
     }
+    if (article.tipo === 'scorrevole') {
+      setEditingTempId(article.tempId)
+      setCategoriaSel('scorrevole')
+      return
+    }
     const item = findItemSel(article)
     if (!item) return
     setEditingTempId(article.tempId)
@@ -79,9 +88,14 @@ export default function ArticoliEditor({
   const handleDuplicate = (article: ArticoloWizard) => {
     const copy = { ...article, tempId: crypto.randomUUID() }
     if (article.tipo === 'libera') {
-      setEditingTempId(null) // aggiunge come nuovo
+      setEditingTempId(null)
       setEditingLibera(copy)
       setCategoriaSel('libera')
+      return
+    }
+    if (article.tipo === 'scorrevole') {
+      // Aggiunge direttamente la copia senza aprire l'editor
+      onArticoliChange([...articoli, copy])
       return
     }
     const item = findItemSel(article)
@@ -178,6 +192,21 @@ export default function ArticoliEditor({
               <span className="truncate">Voce libera</span>
             </button>
 
+            {/* Vetrate Scorrevoli */}
+            {scorevoliListino && (
+              <button
+                onClick={() => handleSelectCategoria('scorrevole')}
+                className={`w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-all text-sm font-medium ${
+                  categoriaSel === 'scorrevole'
+                    ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-teal-300 hover:bg-teal-50'
+                }`}
+              >
+                <Layers className="h-4 w-4 shrink-0" />
+                <span className="truncate">Scorrevoli COPRAL</span>
+              </button>
+            )}
+
             {/* Categorie listini */}
             {listini.map((cat) => {
               const isActive = categoriaSel === cat.id
@@ -243,6 +272,17 @@ export default function ArticoliEditor({
                   onAdd={handleAddOrEdit}
                 />
               </div>
+            ) : categoriaSel === 'scorrevole' && scorevoliListino ? (
+              <FormScorrevole
+                key={editingTempId ?? 'new-sc'}
+                listino={scorevoliListino}
+                aliquote={aliquote}
+                initialValues={editingTempId && articoli.find(a => a.tempId === editingTempId)?.tipo === 'scorrevole'
+                  ? articoli.find(a => a.tempId === editingTempId)
+                  : undefined}
+                isEditing={!!editingTempId}
+                onAdd={handleAddOrEdit}
+              />
             ) : !categoria ? null : categoria.tipo === 'griglia' ? (
               <GrigliaList
                 categoria={categoria}

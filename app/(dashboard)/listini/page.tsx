@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, GripVertical, Search } from 'lucide-react'
+import { Plus, GripVertical, Search, ExternalLink } from 'lucide-react'
+import Link from 'next/link'
 import {
   DndContext,
   closestCenter,
@@ -118,10 +119,18 @@ export default function ListiniPage() {
             {loading ? '...' : `${categorie.length} categorie · ${totaleListini} listini`}
           </p>
         </div>
-        <Button onClick={() => setNewCatOpen(true)}>
-          <Plus className="h-4 w-4 mr-1" />
-          Nuova categoria
-        </Button>
+        <div className="flex gap-2">
+          <Link href="/listini/scorrevoli">
+            <Button variant="outline">
+              <ExternalLink className="h-4 w-4 mr-1" />
+              Scorrevoli COPRAL
+            </Button>
+          </Link>
+          <Button onClick={() => setNewCatOpen(true)}>
+            <Plus className="h-4 w-4 mr-1" />
+            Nuova categoria
+          </Button>
+        </div>
       </div>
 
       {!loading && categorie.length > 0 && (

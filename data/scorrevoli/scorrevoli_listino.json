@@ -1,0 +1,1132 @@
+{
+  "_meta": {
+    "fonte": "Mod. PREVENTIVO - Scorrevoli, Prisma e Kit (vers. 03.11.2025)-ALM.xlsx",
+    "fornitore": "COPRAL",
+    "data_estrazione": "2026-04-11",
+    "nota": "Tutti i prezzi sono prezzi FORNITORE (IVA esclusa). Misure in mm finite. Sconti e parametri commerciali sono editabili per commessa."
+  },
+  "modelli": [
+    {
+      "id": "alpha",
+      "nome": "Alpha",
+      "descrizione": "Vetrata panoramica scorrevole ideale per luoghi di frequente passaggio e divisione spazi interni. Design moderno e minimale.",
+      "prezzo_mq": 280,
+      "altezza_min_fatturazione_mm": 1600,
+      "larghezza_anta_min_mm": 500,
+      "larghezza_anta_max_mm": 1100,
+      "mq_minimi_fatturazione": null,
+      "altezza_max_mm": 3000,
+      "note": "Unico modello con guida incassata con scarico acqua disponibile."
+    },
+    {
+      "id": "alpha_plus",
+      "nome": "Alpha Plus",
+      "descrizione": "Vetrata panoramica scorrevole con caratteristiche avanzate rispetto ad Alpha.",
+      "prezzo_mq": 295,
+      "altezza_min_fatturazione_mm": 1600,
+      "larghezza_anta_min_mm": 500,
+      "larghezza_anta_max_mm": 1100,
+      "mq_minimi_fatturazione": null,
+      "altezza_max_mm": 3000,
+      "note": null
+    },
+    {
+      "id": "maxima",
+      "nome": "Maxima",
+      "descrizione": "Vetrata panoramica scorrevole per grandi dimensioni (oltre 14m larghezza, fino a 3m altezza). Massima tenuta al vento.",
+      "prezzo_mq": 155,
+      "altezza_min_fatturazione_mm": 1600,
+      "larghezza_anta_min_mm": 500,
+      "larghezza_anta_max_mm": 1100,
+      "mq_minimi_fatturazione": null,
+      "altezza_max_mm": 3000,
+      "note": null
+    },
+    {
+      "id": "prisma",
+      "nome": "Prisma",
+      "descrizione": "Vetrata panoramica scorrevole con fasce di prezzo per altezza. Anta max 700mm larghezza.",
+      "prezzo_mq_fasce": [
+        {
+          "fascia": "H fino a 1400 mm",
+          "altezza_max_mm": 1400,
+          "prezzo_mq": 550
+        },
+        {
+          "fascia": "H da 1401 a 2000 mm",
+          "altezza_min_mm": 1401,
+          "altezza_max_mm": 2000,
+          "prezzo_mq": 464
+        },
+        {
+          "fascia": "H da 2001 a 3000 mm",
+          "altezza_min_mm": 2001,
+          "altezza_max_mm": 3000,
+          "prezzo_mq": 375
+        }
+      ],
+      "altezza_min_fatturazione_mm": 1400,
+      "larghezza_anta_min_mm": 400,
+      "larghezza_anta_max_mm": 700,
+      "mq_minimi_fatturazione": 3,
+      "altezza_max_mm": 3000,
+      "configurazione_ante_per_larghezza": [
+        {
+          "larghezza_max_mm": 700,
+          "nr_ante": 1
+        },
+        {
+          "larghezza_max_mm": 1400,
+          "nr_ante": 2
+        },
+        {
+          "larghezza_max_mm": 2100,
+          "nr_ante": 3
+        },
+        {
+          "larghezza_max_mm": 2800,
+          "nr_ante": 4
+        },
+        {
+          "larghezza_max_mm": 3500,
+          "nr_ante": 5
+        },
+        {
+          "larghezza_max_mm": 4200,
+          "nr_ante": 6
+        },
+        {
+          "larghezza_max_mm": 4900,
+          "nr_ante": 7
+        },
+        {
+          "larghezza_max_mm": 5600,
+          "nr_ante": 8
+        },
+        {
+          "larghezza_max_mm": 6300,
+          "nr_ante": 9
+        },
+        {
+          "larghezza_max_mm": 7000,
+          "nr_ante": 10
+        },
+        {
+          "larghezza_max_mm": 7700,
+          "nr_ante": 11
+        },
+        {
+          "larghezza_max_mm": 8400,
+          "nr_ante": 12
+        },
+        {
+          "larghezza_max_mm": 9100,
+          "nr_ante": 13
+        },
+        {
+          "larghezza_max_mm": 9800,
+          "nr_ante": 14
+        },
+        {
+          "larghezza_max_mm": 10500,
+          "nr_ante": 15
+        },
+        {
+          "larghezza_max_mm": 11200,
+          "nr_ante": 16
+        },
+        {
+          "larghezza_max_mm": 11900,
+          "nr_ante": 17
+        },
+        {
+          "larghezza_max_mm": 12600,
+          "nr_ante": 18
+        },
+        {
+          "larghezza_max_mm": 13300,
+          "nr_ante": 19
+        },
+        {
+          "larghezza_max_mm": 14000,
+          "nr_ante": 20
+        }
+      ],
+      "note": "Vetro standard: 8mm per H<=1800mm, 10mm per H>1800mm. Escluse verniciature texture ruvida."
+    }
+  ],
+  "configurazioni_fisse": [
+    {
+      "modello": "maxima",
+      "apertura": "laterale",
+      "nr_ante": 2,
+      "larghezza_max_mm": 2200,
+      "altezza_max_mm": 2600,
+      "prezzo": 719
+    },
+    {
+      "modello": "maxima",
+      "apertura": "laterale",
+      "nr_ante": 3,
+      "larghezza_max_mm": 3300,
+      "altezza_max_mm": 2600,
+      "prezzo": 932
+    },
+    {
+      "modello": "maxima",
+      "apertura": "laterale",
+      "nr_ante": 4,
+      "larghezza_max_mm": 4400,
+      "altezza_max_mm": 2600,
+      "prezzo": 1255
+    },
+    {
+      "modello": "maxima",
+      "apertura": "laterale",
+      "nr_ante": 5,
+      "larghezza_max_mm": 5500,
+      "altezza_max_mm": 2600,
+      "prezzo": 1605
+    },
+    {
+      "modello": "maxima",
+      "apertura": "laterale",
+      "nr_ante": 6,
+      "larghezza_max_mm": 6600,
+      "altezza_max_mm": 2600,
+      "prezzo": 2144
+    },
+    {
+      "modello": "maxima",
+      "apertura": "laterale",
+      "nr_ante": 7,
+      "larghezza_max_mm": 7700,
+      "altezza_max_mm": 2600,
+      "prezzo": 2625
+    },
+    {
+      "modello": "maxima",
+      "apertura": "laterale",
+      "nr_ante": 2,
+      "larghezza_max_mm": 2200,
+      "altezza_max_mm": 3000,
+      "prezzo": 737
+    },
+    {
+      "modello": "maxima",
+      "apertura": "laterale",
+      "nr_ante": 3,
+      "larghezza_max_mm": 3300,
+      "altezza_max_mm": 3000,
+      "prezzo": 954
+    },
+    {
+      "modello": "maxima",
+      "apertura": "laterale",
+      "nr_ante": 4,
+      "larghezza_max_mm": 4400,
+      "altezza_max_mm": 3000,
+      "prezzo": 1280
+    },
+    {
+      "modello": "maxima",
+      "apertura": "laterale",
+      "nr_ante": 5,
+      "larghezza_max_mm": 5500,
+      "altezza_max_mm": 3000,
+      "prezzo": 1635
+    },
+    {
+      "modello": "maxima",
+      "apertura": "laterale",
+      "nr_ante": 6,
+      "larghezza_max_mm": 6600,
+      "altezza_max_mm": 3000,
+      "prezzo": 2178
+    },
+    {
+      "modello": "maxima",
+      "apertura": "laterale",
+      "nr_ante": 7,
+      "larghezza_max_mm": 7700,
+      "altezza_max_mm": 3000,
+      "prezzo": 2664
+    },
+    {
+      "modello": "maxima",
+      "apertura": "centrale",
+      "nr_ante": "2+2",
+      "larghezza_max_mm": 4400,
+      "altezza_max_mm": 2600,
+      "prezzo": 1320
+    },
+    {
+      "modello": "maxima",
+      "apertura": "centrale",
+      "nr_ante": "3+3",
+      "larghezza_max_mm": 6600,
+      "altezza_max_mm": 2600,
+      "prezzo": 1792
+    },
+    {
+      "modello": "maxima",
+      "apertura": "centrale",
+      "nr_ante": "4+4",
+      "larghezza_max_mm": 8800,
+      "altezza_max_mm": 2600,
+      "prezzo": 2433
+    },
+    {
+      "modello": "maxima",
+      "apertura": "centrale",
+      "nr_ante": "5+5",
+      "larghezza_max_mm": 11000,
+      "altezza_max_mm": 2600,
+      "prezzo": 3012
+    },
+    {
+      "modello": "maxima",
+      "apertura": "centrale",
+      "nr_ante": "6+6",
+      "larghezza_max_mm": 12000,
+      "altezza_max_mm": 2600,
+      "prezzo": 4550
+    },
+    {
+      "modello": "maxima",
+      "apertura": "centrale",
+      "nr_ante": "7+7",
+      "larghezza_max_mm": 14000,
+      "altezza_max_mm": 2600,
+      "prezzo": 5376
+    },
+    {
+      "modello": "maxima",
+      "apertura": "centrale",
+      "nr_ante": "2+2",
+      "larghezza_max_mm": 4400,
+      "altezza_max_mm": 3000,
+      "prezzo": 1340
+    },
+    {
+      "modello": "maxima",
+      "apertura": "centrale",
+      "nr_ante": "3+3",
+      "larghezza_max_mm": 6600,
+      "altezza_max_mm": 3000,
+      "prezzo": 1821
+    },
+    {
+      "modello": "maxima",
+      "apertura": "centrale",
+      "nr_ante": "4+4",
+      "larghezza_max_mm": 8800,
+      "altezza_max_mm": 3000,
+      "prezzo": 2470
+    },
+    {
+      "modello": "maxima",
+      "apertura": "centrale",
+      "nr_ante": "5+5",
+      "larghezza_max_mm": 11000,
+      "altezza_max_mm": 3000,
+      "prezzo": 3061
+    },
+    {
+      "modello": "maxima",
+      "apertura": "centrale",
+      "nr_ante": "6+6",
+      "larghezza_max_mm": 12000,
+      "altezza_max_mm": 3000,
+      "prezzo": 4606
+    },
+    {
+      "modello": "maxima",
+      "apertura": "centrale",
+      "nr_ante": "7+7",
+      "larghezza_max_mm": 14000,
+      "altezza_max_mm": 3000,
+      "prezzo": 5442
+    },
+    {
+      "modello": "alpha_plus",
+      "apertura": "laterale",
+      "nr_ante": 2,
+      "larghezza_max_mm": 2200,
+      "altezza_max_mm": 2600,
+      "prezzo": 692
+    },
+    {
+      "modello": "alpha_plus",
+      "apertura": "laterale",
+      "nr_ante": 3,
+      "larghezza_max_mm": 3300,
+      "altezza_max_mm": 2600,
+      "prezzo": 889
+    },
+    {
+      "modello": "alpha_plus",
+      "apertura": "laterale",
+      "nr_ante": 4,
+      "larghezza_max_mm": 4400,
+      "altezza_max_mm": 2600,
+      "prezzo": 1179
+    },
+    {
+      "modello": "alpha_plus",
+      "apertura": "laterale",
+      "nr_ante": 5,
+      "larghezza_max_mm": 5500,
+      "altezza_max_mm": 2600,
+      "prezzo": 1511
+    },
+    {
+      "modello": "alpha_plus",
+      "apertura": "laterale",
+      "nr_ante": 2,
+      "larghezza_max_mm": 2200,
+      "altezza_max_mm": 3000,
+      "prezzo": 709
+    },
+    {
+      "modello": "alpha_plus",
+      "apertura": "laterale",
+      "nr_ante": 3,
+      "larghezza_max_mm": 3300,
+      "altezza_max_mm": 3000,
+      "prezzo": 910
+    },
+    {
+      "modello": "alpha_plus",
+      "apertura": "laterale",
+      "nr_ante": 4,
+      "larghezza_max_mm": 4400,
+      "altezza_max_mm": 3000,
+      "prezzo": 1203
+    },
+    {
+      "modello": "alpha_plus",
+      "apertura": "laterale",
+      "nr_ante": 5,
+      "larghezza_max_mm": 5500,
+      "altezza_max_mm": 3000,
+      "prezzo": 1541
+    },
+    {
+      "modello": "alpha_plus",
+      "apertura": "centrale",
+      "nr_ante": "2+2",
+      "larghezza_max_mm": 4400,
+      "altezza_max_mm": 2600,
+      "prezzo": 1263
+    },
+    {
+      "modello": "alpha_plus",
+      "apertura": "centrale",
+      "nr_ante": "3+3",
+      "larghezza_max_mm": 6600,
+      "altezza_max_mm": 2600,
+      "prezzo": 1705
+    },
+    {
+      "modello": "alpha_plus",
+      "apertura": "centrale",
+      "nr_ante": "4+4",
+      "larghezza_max_mm": 8800,
+      "altezza_max_mm": 2600,
+      "prezzo": 2278
+    },
+    {
+      "modello": "alpha_plus",
+      "apertura": "centrale",
+      "nr_ante": "5+5",
+      "larghezza_max_mm": 11000,
+      "altezza_max_mm": 2600,
+      "prezzo": 2825
+    },
+    {
+      "modello": "alpha_plus",
+      "apertura": "centrale",
+      "nr_ante": "2+2",
+      "larghezza_max_mm": 4400,
+      "altezza_max_mm": 3000,
+      "prezzo": 1283
+    },
+    {
+      "modello": "alpha_plus",
+      "apertura": "centrale",
+      "nr_ante": "3+3",
+      "larghezza_max_mm": 6600,
+      "altezza_max_mm": 3000,
+      "prezzo": 1735
+    },
+    {
+      "modello": "alpha_plus",
+      "apertura": "centrale",
+      "nr_ante": "4+4",
+      "larghezza_max_mm": 8800,
+      "altezza_max_mm": 3000,
+      "prezzo": 2317
+    },
+    {
+      "modello": "alpha_plus",
+      "apertura": "centrale",
+      "nr_ante": "5+5",
+      "larghezza_max_mm": 11000,
+      "altezza_max_mm": 3000,
+      "prezzo": 2873
+    },
+    {
+      "modello": "alpha",
+      "apertura": "laterale",
+      "nr_ante": 2,
+      "larghezza_max_mm": 2000,
+      "altezza_max_mm": 2600,
+      "prezzo": 738
+    },
+    {
+      "modello": "alpha",
+      "apertura": "laterale",
+      "nr_ante": 3,
+      "larghezza_max_mm": 3000,
+      "altezza_max_mm": 2600,
+      "prezzo": 943
+    },
+    {
+      "modello": "alpha",
+      "apertura": "laterale",
+      "nr_ante": 4,
+      "larghezza_max_mm": 4000,
+      "altezza_max_mm": 2600,
+      "prezzo": 1194
+    },
+    {
+      "modello": "alpha",
+      "apertura": "laterale",
+      "nr_ante": 5,
+      "larghezza_max_mm": 5000,
+      "altezza_max_mm": 2600,
+      "prezzo": 1396
+    },
+    {
+      "modello": "alpha",
+      "apertura": "laterale",
+      "nr_ante": 2,
+      "larghezza_max_mm": 2000,
+      "altezza_max_mm": 3000,
+      "prezzo": 755
+    },
+    {
+      "modello": "alpha",
+      "apertura": "laterale",
+      "nr_ante": 3,
+      "larghezza_max_mm": 3000,
+      "altezza_max_mm": 3000,
+      "prezzo": 965
+    },
+    {
+      "modello": "alpha",
+      "apertura": "laterale",
+      "nr_ante": 4,
+      "larghezza_max_mm": 4000,
+      "altezza_max_mm": 3000,
+      "prezzo": 1219
+    },
+    {
+      "modello": "alpha",
+      "apertura": "laterale",
+      "nr_ante": 5,
+      "larghezza_max_mm": 5000,
+      "altezza_max_mm": 3000,
+      "prezzo": 1426
+    },
+    {
+      "modello": "alpha",
+      "apertura": "centrale",
+      "nr_ante": "2+2",
+      "larghezza_max_mm": 4000,
+      "altezza_max_mm": 2600,
+      "prezzo": 1321
+    },
+    {
+      "modello": "alpha",
+      "apertura": "centrale",
+      "nr_ante": "3+3",
+      "larghezza_max_mm": 6000,
+      "altezza_max_mm": 2600,
+      "prezzo": 1725
+    },
+    {
+      "modello": "alpha",
+      "apertura": "centrale",
+      "nr_ante": "4+4",
+      "larghezza_max_mm": 8000,
+      "altezza_max_mm": 2600,
+      "prezzo": 2129
+    },
+    {
+      "modello": "alpha",
+      "apertura": "centrale",
+      "nr_ante": "5+5",
+      "larghezza_max_mm": 10000,
+      "altezza_max_mm": 2600,
+      "prezzo": 2534
+    },
+    {
+      "modello": "alpha",
+      "apertura": "centrale",
+      "nr_ante": "2+2",
+      "larghezza_max_mm": 4000,
+      "altezza_max_mm": 3000,
+      "prezzo": 1341
+    },
+    {
+      "modello": "alpha",
+      "apertura": "centrale",
+      "nr_ante": "3+3",
+      "larghezza_max_mm": 6000,
+      "altezza_max_mm": 3000,
+      "prezzo": 1754
+    },
+    {
+      "modello": "alpha",
+      "apertura": "centrale",
+      "nr_ante": "4+4",
+      "larghezza_max_mm": 8000,
+      "altezza_max_mm": 3000,
+      "prezzo": 2168
+    },
+    {
+      "modello": "alpha",
+      "apertura": "centrale",
+      "nr_ante": "5+5",
+      "larghezza_max_mm": 10000,
+      "altezza_max_mm": 3000,
+      "prezzo": 2581
+    }
+  ],
+  "colori_struttura": [
+    {
+      "nome": "Bianco Lucido",
+      "ral": "9010",
+      "tipo": "standard",
+      "maggiorazione": 0,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima",
+        "prisma"
+      ]
+    },
+    {
+      "nome": "Bianco Opaco",
+      "ral": "9010OP",
+      "tipo": "standard",
+      "maggiorazione": 0,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima",
+        "prisma"
+      ]
+    },
+    {
+      "nome": "Avorio Lucido",
+      "ral": "1013",
+      "tipo": "standard",
+      "maggiorazione": 0,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima",
+        "prisma"
+      ]
+    },
+    {
+      "nome": "Avorio Opaco",
+      "ral": "1013OP",
+      "tipo": "standard",
+      "maggiorazione": 0,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima",
+        "prisma"
+      ]
+    },
+    {
+      "nome": "Marrone Lucido",
+      "ral": "8017",
+      "tipo": "standard",
+      "maggiorazione": 0,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima",
+        "prisma"
+      ]
+    },
+    {
+      "nome": "Marrone Opaco",
+      "ral": "8017OP",
+      "tipo": "standard",
+      "maggiorazione": 0,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima",
+        "prisma"
+      ]
+    },
+    {
+      "nome": "Grigio Laccato Simil Argento",
+      "ral": null,
+      "tipo": "standard",
+      "maggiorazione": 0,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima",
+        "prisma"
+      ]
+    },
+    {
+      "nome": "Nero Opaco",
+      "ral": "9005",
+      "tipo": "standard",
+      "maggiorazione": 0,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima",
+        "prisma"
+      ]
+    },
+    {
+      "nome": "OX Argento Sabbiato",
+      "ral": null,
+      "tipo": "standard",
+      "maggiorazione": 0,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ]
+    },
+    {
+      "nome": "Grigio Antracite Lucido",
+      "ral": "7016",
+      "tipo": "standard",
+      "maggiorazione": 0,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ],
+      "nota": "Per Prisma questo colore è EXTRA +10%"
+    },
+    {
+      "nome": "Grigio Antracite Lucido",
+      "ral": "7016",
+      "tipo": "extra",
+      "maggiorazione": 0.1,
+      "modelli_applicabili": [
+        "prisma"
+      ],
+      "nota": "Standard per Alpha/Alpha Plus/Maxima, extra per Prisma"
+    },
+    {
+      "nome": "Grigio Antracite Opaco",
+      "ral": "7016OP",
+      "tipo": "standard",
+      "maggiorazione": 0,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ],
+      "nota": "Per Prisma questo colore è EXTRA +10%"
+    },
+    {
+      "nome": "Grigio Antracite Opaco",
+      "ral": "7016OP",
+      "tipo": "extra",
+      "maggiorazione": 0.1,
+      "modelli_applicabili": [
+        "prisma"
+      ],
+      "nota": "Standard per Alpha/Alpha Plus/Maxima, extra per Prisma"
+    },
+    {
+      "nome": "Grigio Antracite Grinz (texture)",
+      "ral": "7016GRINZ",
+      "tipo": "extra",
+      "maggiorazione": 0.1,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ],
+      "nota": "Texture ruvida - escluso per Prisma"
+    },
+    {
+      "nome": "Grigio Ferro",
+      "ral": "DX05",
+      "tipo": "extra",
+      "maggiorazione": 0.1,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ]
+    },
+    {
+      "nome": "Corten",
+      "ral": null,
+      "tipo": "extra",
+      "maggiorazione": 0.1,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ]
+    },
+    {
+      "nome": "Bronze Déco",
+      "ral": null,
+      "tipo": "extra",
+      "maggiorazione": 0.1,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ]
+    },
+    {
+      "nome": "Noce",
+      "ral": "DW049",
+      "tipo": "extra",
+      "maggiorazione": 0.3,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ],
+      "nota": "Effetto legno - escluso per Prisma"
+    },
+    {
+      "nome": "Douglas",
+      "ral": "DW29",
+      "tipo": "extra",
+      "maggiorazione": 0.3,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ],
+      "nota": "Effetto legno - escluso per Prisma"
+    },
+    {
+      "nome": "Rovere Sbiancato",
+      "ral": "DP138",
+      "tipo": "extra",
+      "maggiorazione": 0.3,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ],
+      "nota": "Effetto legno - escluso per Prisma"
+    },
+    {
+      "nome": "Altri colori RAL non a catalogo",
+      "ral": null,
+      "tipo": "extra",
+      "maggiorazione": 0.3,
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima",
+        "prisma"
+      ],
+      "nota": "Per Prisma: escluse verniciature con texture ruvida"
+    }
+  ],
+  "colori_accessori": [
+    {
+      "nome": "Bianco"
+    },
+    {
+      "nome": "Avorio"
+    },
+    {
+      "nome": "Marrone"
+    },
+    {
+      "nome": "Nero"
+    },
+    {
+      "nome": "Grigio"
+    }
+  ],
+  "optional": [
+    {
+      "id": "serratura_laterale",
+      "descrizione": "Serratura per apertura laterale con maniglia in alluminio ossidata argento",
+      "prezzo": 334,
+      "unita": "€/pz",
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ]
+    },
+    {
+      "id": "serratura_centrale",
+      "descrizione": "Serratura per apertura centrale con maniglia e contromaniglia in alluminio ossidata argento",
+      "prezzo": 323,
+      "unita": "€/pz",
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ],
+      "nota": "Fonte: foglio Listino_modulo. Attenzione: foglio Listino riporta 500 €/pz per articolo simile — verificare con fornitore."
+    },
+    {
+      "id": "kit_angolo_90",
+      "descrizione": "Kit angolo 90°",
+      "prezzo": 80,
+      "unita": "€/pz",
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ]
+    },
+    {
+      "id": "kit_angolo_prisma",
+      "descrizione": "Kit angolo (Prisma)",
+      "prezzo": 250,
+      "unita": "€/pz",
+      "modelli_applicabili": [
+        "prisma"
+      ],
+      "nota": "Disponibile da settembre 2024. Prezzo diverso da Alpha/Alpha Plus/Maxima."
+    },
+    {
+      "id": "guida_incassata",
+      "descrizione": "Guida incassata con scarico acqua",
+      "prezzo": 96,
+      "unita": "€/ml",
+      "modelli_applicabili": [
+        "alpha"
+      ],
+      "nota": "Disponibile SOLO per modello Alpha"
+    },
+    {
+      "id": "guida_compensata",
+      "descrizione": "Guida compensata con gradazione variabile",
+      "prezzo": 65,
+      "unita": "€/ml",
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ]
+    },
+    {
+      "id": "profilo_l_due_lati",
+      "descrizione": "Profilo a \"L\" 50×30 (due lati)",
+      "prezzo": 34,
+      "unita": "€/ml",
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ]
+    },
+    {
+      "id": "profilo_l_un_lato",
+      "descrizione": "Profilo a \"L\" 50×30 (un lato)",
+      "prezzo": 17,
+      "unita": "€/ml",
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ]
+    },
+    {
+      "id": "kit_apertura_centrale",
+      "descrizione": "Kit per apertura centrale",
+      "prezzo": 158,
+      "unita": "€/pz",
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ]
+    },
+    {
+      "id": "kit_apertura_centrale_prisma",
+      "descrizione": "Kit per apertura centrale (Prisma)",
+      "prezzo": 150,
+      "unita": "€/pz",
+      "modelli_applicabili": [
+        "prisma"
+      ]
+    },
+    {
+      "id": "anta_addizionale",
+      "descrizione": "Anta addizionale rispetto alla configurazione standard",
+      "prezzo": 200,
+      "unita": "€/pz",
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima",
+        "prisma"
+      ]
+    },
+    {
+      "id": "seconda_anta_apribile_prisma",
+      "descrizione": "Seconda anta apribile per apertura centrale (Prisma)",
+      "prezzo": 150,
+      "unita": "€/pz",
+      "modelli_applicabili": [
+        "prisma"
+      ]
+    },
+    {
+      "id": "sgancio_anta_prisma",
+      "descrizione": "Sgancio anta Prisma",
+      "prezzo": 75,
+      "unita": "€/pz",
+      "modelli_applicabili": [
+        "prisma"
+      ],
+      "nota": "Uno ogni sette ante è incluso nel prezzo di base"
+    },
+    {
+      "id": "coppia_maniglie_pratica",
+      "descrizione": "Coppia di maniglie ad incollare Pratica Colors",
+      "prezzo": 100,
+      "unita": "€/pz",
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima"
+      ]
+    },
+    {
+      "id": "chiusura_farfalla_singola_prisma",
+      "descrizione": "Chiusura con farfalla singola lato interno (cod. CLPN + incontro a vetro cod. CL95)",
+      "prezzo": 304,
+      "unita": "€/pz",
+      "modelli_applicabili": [
+        "prisma"
+      ]
+    },
+    {
+      "id": "chiusura_doppia_farfalla_prisma",
+      "descrizione": "Chiusura con doppia farfalla e maniglia lato interno ed esterno (cod. CLPM + incontro a vetro cod. CL105)",
+      "prezzo": 365,
+      "unita": "€/pz",
+      "modelli_applicabili": [
+        "prisma"
+      ]
+    },
+    {
+      "id": "chiusura_doppia_maniglia_prisma",
+      "descrizione": "Chiusura con doppia maniglia, cilindro esterno e farfalla interna (cod. CHN31 + incontro a vetro cod. CL95)",
+      "prezzo": 424,
+      "unita": "€/pz",
+      "modelli_applicabili": [
+        "prisma"
+      ]
+    },
+    {
+      "id": "vetro_extrachiaro",
+      "descrizione": "Vetro extrachiaro (sovrapprezzo su vetro standard)",
+      "prezzo": 70,
+      "unita": "€/mq",
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima",
+        "prisma"
+      ]
+    },
+    {
+      "id": "vetro_satinato",
+      "descrizione": "Vetro satinato (sovrapprezzo su vetro standard)",
+      "prezzo": 70,
+      "unita": "€/mq",
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima",
+        "prisma"
+      ]
+    },
+    {
+      "id": "vetro_fume",
+      "descrizione": "Vetro fumè (sovrapprezzo su vetro standard)",
+      "prezzo": 70,
+      "unita": "€/mq",
+      "modelli_applicabili": [
+        "alpha",
+        "alpha_plus",
+        "maxima",
+        "prisma"
+      ]
+    },
+    {
+      "id": "porta_battente_r40_prisma",
+      "descrizione": "Porta o finestra a battente in alluminio profilo R40 vetri 3+3, colori standard",
+      "prezzo": null,
+      "unita": "a preventivo",
+      "modelli_applicabili": [
+        "prisma"
+      ]
+    },
+    {
+      "id": "struttura_fissa_r40_prisma",
+      "descrizione": "Struttura fissa in alluminio profilo R40 vetri 3+3, colori standard",
+      "prezzo": null,
+      "unita": "a preventivo",
+      "modelli_applicabili": [
+        "prisma"
+      ]
+    }
+  ],
+  "parametri_commerciali": {
+    "_nota": "Tutti i parametri sono editabili per commessa. I valori indicati sono i default da listino fornitore.",
+    "sconto_vetrata_prisma": {
+      "valore": 0.5,
+      "descrizione": "Sconto applicato al totale vetrata Prisma",
+      "editabile": true
+    },
+    "sconto_optional": {
+      "valore": 0.45,
+      "descrizione": "Sconto applicato al totale optional (tutti i modelli)",
+      "editabile": true
+    },
+    "trasporto": {
+      "valore": 0.04,
+      "descrizione": "Trasporto (% su totale documento)",
+      "editabile": true
+    },
+    "iva": {
+      "valore": 0.22,
+      "descrizione": "IVA 22%",
+      "editabile": true
+    },
+    "margine_alm": {
+      "valore": null,
+      "descrizione": "Margine rivenditore ALM da impostare per commessa",
+      "editabile": true
+    }
+  }
+}
