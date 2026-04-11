@@ -62,6 +62,9 @@ export type ConfigSuMisuraArticolo = {
   accessori: AccessorioSuMisuraSelezionato[]
   totale_accessori: number
   mano_dopera: number
+  spese_varie_percentuale: number | null
+  spese_varie_fisso: number | null
+  spese_varie_calcolate: number
   utile_percentuale: number | null
   utile_fisso: number | null
   utile_calcolato: number

@@ -64,9 +64,17 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
     return {}
   })
 
-  // ── Mano d'opera e utile ──────────────────────────────────────────────────
+  // ── Mano d'opera, spese varie e utile ────────────────────────────────────
   const [manoDopera, setManoDopera] = useState<string>(
     initialValues?.config_su_misura ? String(initialValues.config_su_misura.mano_dopera || '') : ''
+  )
+  const [modoSpese, setModoSpese] = useState<ModoUtile>(
+    initialValues?.config_su_misura?.spese_varie_percentuale != null ? 'percentuale' : 'fisso'
+  )
+  const [speseVal, setSpeseVal] = useState<string>(
+    initialValues?.config_su_misura
+      ? String(initialValues.config_su_misura.spese_varie_percentuale ?? initialValues.config_su_misura.spese_varie_fisso ?? '')
+      : ''
   )
   const [modoUtile, setModoUtile] = useState<ModoUtile>(
     initialValues?.config_su_misura?.utile_percentuale != null ? 'percentuale' : 'fisso'
@@ -127,9 +135,11 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
 
   const base = totale_prodotto + totale_accessori
   const manoDoperaN = parseFloat(manoDopera) || 0
+  const speseValN = parseFloat(speseVal) || 0
+  const spese_calcolate = modoSpese === 'percentuale' ? base * speseValN / 100 : speseValN
   const utileValN = parseFloat(utileVal) || 0
   const utile_calcolato = modoUtile === 'percentuale' ? base * utileValN / 100 : utileValN
-  const prezzo_unitario = base + manoDoperaN + utile_calcolato
+  const prezzo_unitario = base + manoDoperaN + spese_calcolate + utile_calcolato
 
   const quantitaN = parseInt(quantita) || 1
   const prezzoDopoSconto = prezzo_unitario * (1 - sconto / 100)
@@ -222,6 +232,9 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
       accessori: accSel,
       totale_accessori,
       mano_dopera: manoDoperaN,
+      spese_varie_percentuale: modoSpese === 'percentuale' ? speseValN : null,
+      spese_varie_fisso: modoSpese === 'fisso' ? speseValN : null,
+      spese_varie_calcolate: spese_calcolate,
       utile_percentuale: modoUtile === 'percentuale' ? utileValN : null,
       utile_fisso: modoUtile === 'fisso' ? utileValN : null,
       utile_calcolato,
@@ -232,6 +245,9 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
       finitura ? `Finitura: ${getFinituraLabel(finitura)}` : null,
       accSel.length > 0 ? `Accessori: ${accSel.map((a) => a.nome).join(', ')}` : null,
       manoDoperaN > 0 ? `Posa: ${formatEuro(manoDoperaN)} €` : null,
+      spese_calcolate > 0
+        ? `Spese varie: ${modoSpese === 'percentuale' ? `${speseValN}% = ${formatEuro(spese_calcolate)} €` : `${formatEuro(spese_calcolate)} €`}`
+        : null,
       utile_calcolato > 0
         ? `Utile: ${modoUtile === 'percentuale' ? `${utileValN}% = ${formatEuro(utile_calcolato)} €` : `${formatEuro(utile_calcolato)} €`}`
         : null,
@@ -459,6 +475,35 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
             />
           </div>
 
+          {/* Spese varie */}
+          <div className="space-y-1.5">
+            <Label>Spese varie</Label>
+            <div className="flex gap-2">
+              <div className="flex rounded-md border overflow-hidden text-sm w-fit shrink-0">
+                {(['percentuale', 'fisso'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setModoSpese(m)}
+                    className={`px-3 py-1.5 transition-colors ${modoSpese === m ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 border-l'}`}
+                  >
+                    {m === 'percentuale' ? '%' : '€'}
+                  </button>
+                ))}
+              </div>
+              <Input
+                type="number"
+                min={0}
+                step={modoSpese === 'percentuale' ? 0.1 : 0.01}
+                value={speseVal}
+                onChange={(e) => setSpeseVal(e.target.value)}
+                placeholder={modoSpese === 'percentuale' ? '0,0' : '0,00'}
+                className="text-right flex-1"
+              />
+              <span className="self-center text-xs text-gray-400 shrink-0">{modoSpese === 'percentuale' ? '%' : '€'}</span>
+            </div>
+          </div>
+
           {/* Utile */}
           <div className="space-y-1.5">
             <Label>Utile / Margine</Label>
@@ -505,6 +550,12 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
                 <div className="flex justify-between text-gray-600">
                   <span>Mano d&apos;opera</span>
                   <span>{formatEuro(manoDoperaN)} €</span>
+                </div>
+              )}
+              {spese_calcolate > 0 && (
+                <div className="flex justify-between text-gray-600">
+                  <span>Spese varie {modoSpese === 'percentuale' ? `(${speseValN}%)` : ''}</span>
+                  <span>+{formatEuro(spese_calcolate)} €</span>
                 </div>
               )}
               {utile_calcolato > 0 && (
