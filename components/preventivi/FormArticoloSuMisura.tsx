@@ -138,8 +138,9 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
   const speseValN = parseFloat(speseVal) || 0
   const spese_calcolate = modoSpese === 'percentuale' ? base * speseValN / 100 : speseValN
   const utileValN = parseFloat(utileVal) || 0
-  const utile_calcolato = modoUtile === 'percentuale' ? base * utileValN / 100 : utileValN
-  const prezzo_unitario = base + manoDoperaN + spese_calcolate + utile_calcolato
+  const costi_totali = base + manoDoperaN + spese_calcolate
+  const utile_calcolato = modoUtile === 'percentuale' ? costi_totali * utileValN / 100 : utileValN
+  const prezzo_unitario = costi_totali + utile_calcolato
 
   const quantitaN = parseInt(quantita) || 1
   const prezzoDopoSconto = prezzo_unitario * (1 - sconto / 100)
