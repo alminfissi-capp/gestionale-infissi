@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import Image from 'next/image'
 import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
 import { calcolaSuMisura, formatEuro } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -148,21 +149,19 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
 
   // ── Gestione accessori UI ─────────────────────────────────────────────────
   const setAccessorioQty = (accId: string, qty: number | null) => {
-    setAccessoriSel((prev) => {
-      const next = { ...prev }
-      if (qty == null || qty <= 0) delete next[accId]
-      else next[accId] = qty
-      return next
-    })
+    setAccessoriSel((prev) => ({ ...prev, [accId]: qty ?? 0 }))
   }
 
   const toggleAccessorioSingolo = (gruppoId: string, accId: string, accessori: AccessorioSuMisura[]) => {
-    // rimuove tutti gli altri del gruppo, attiva/disattiva questo
     setAccessoriSel((prev) => {
       const next = { ...prev }
+      const wasSelected = accId in prev
       for (const a of accessori) delete next[a.id]
-      if (prev[accId]) delete next[accId]
-      else next[accId] = 1
+      if (!wasSelected) {
+        const acc = accessori.find((a) => a.id === accId)
+        // qty_modificabile con input visibile → parte vuoto (0), altrimenti fisso a 1
+        next[accId] = acc?.qty_modificabile && acc.unita !== 'mq' ? 0 : 1
+      }
       return next
     })
   }
@@ -170,8 +169,11 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
   const toggleAccessorioMultiplo = (accId: string, acc: AccessorioSuMisura) => {
     setAccessoriSel((prev) => {
       const next = { ...prev }
-      if (next[accId]) delete next[accId]
-      else next[accId] = acc.qty_modificabile ? acc.qty_default : 1
+      if (accId in prev) {
+        delete next[accId]
+      } else {
+        next[accId] = acc.qty_modificabile && acc.unita !== 'mq' ? 0 : 1
+      }
       return next
     })
   }
@@ -191,6 +193,23 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
     if (!listino) { return }
     if (larghezzaN <= 0 || altezzaN <= 0) { return }
 
+    // Rimuove accessori selezionati ma senza quantità → avviso e prosegue
+    const accSenzaQty: string[] = []
+    const effectiveAccSel = { ...accessoriSel }
+    for (const gruppo of listino.gruppi_accessori) {
+      if (gruppo.tipo_scelta === 'incluso') continue
+      for (const acc of gruppo.accessori) {
+        if (acc.id in effectiveAccSel && effectiveAccSel[acc.id] === 0) {
+          accSenzaQty.push(acc.nome)
+          delete effectiveAccSel[acc.id]
+        }
+      }
+    }
+    if (accSenzaQty.length > 0) {
+      toast.warning(`Accessori senza quantità non inclusi: ${accSenzaQty.join(', ')}`)
+      setAccessoriSel(effectiveAccSel)
+    }
+
     // Raccogli accessori selezionati
     const accSel: AccessorioSuMisuraSelezionato[] = []
     if (listino) {
@@ -200,7 +219,7 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
           if (gruppo.tipo_scelta === 'incluso') {
             qty = acc.qty_default
           } else {
-            qty = accessoriSel[acc.id] ?? null
+            qty = effectiveAccSel[acc.id] ?? null
           }
           if (qty != null && qty > 0) {
             const qtyEffettiva = acc.unita === 'mq' ? mq * qty : qty
@@ -415,8 +434,8 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
                       key={acc.id}
                       acc={acc}
                       mq={mq}
-                      selected={!!accessoriSel[acc.id]}
-                      qty={accessoriSel[acc.id] ?? acc.qty_default}
+                      selected={acc.id in accessoriSel}
+                      qty={accessoriSel[acc.id] ?? 0}
                       onToggle={() => toggleAccessorioSingolo(gruppo.id, acc.id, gruppo.accessori)}
                       onQtyChange={(q) => setAccessorioQty(acc.id, q)}
                       inputType="radio"
@@ -433,8 +452,8 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
                       key={acc.id}
                       acc={acc}
                       mq={mq}
-                      selected={!!accessoriSel[acc.id]}
-                      qty={accessoriSel[acc.id] ?? acc.qty_default}
+                      selected={acc.id in accessoriSel}
+                      qty={accessoriSel[acc.id] ?? 0}
                       onToggle={() => toggleAccessorioMultiplo(acc.id, acc)}
                       onQtyChange={(q) => setAccessorioQty(acc.id, q)}
                       inputType="checkbox"
@@ -664,15 +683,16 @@ function AccessorioRow({ acc, mq, selected, qty, onToggle, onQtyChange, inputTyp
       {selected && acc.qty_modificabile && acc.unita !== 'mq' && (
         <Input
           type="number"
-          min={0.01}
+          min={0}
           step={acc.unita === 'pz' ? 1 : 0.1}
-          value={qty}
-          onChange={(e) => onQtyChange(parseFloat(e.target.value) || acc.qty_default)}
-          className="w-16 h-7 text-xs text-right"
+          value={qty === 0 ? '' : qty}
+          placeholder="qtà"
+          onChange={(e) => onQtyChange(parseFloat(e.target.value) || 0)}
+          className={`w-16 h-7 text-xs text-right ${qty === 0 ? 'border-orange-300 focus-visible:ring-orange-400' : ''}`}
           onClick={(e) => e.stopPropagation()}
         />
       )}
-      {selected && acc.prezzo > 0 && (
+      {selected && acc.prezzo > 0 && qty > 0 && (
         <span className="text-xs font-medium text-violet-700 shrink-0">
           {formatEuro(totale)} €
         </span>
