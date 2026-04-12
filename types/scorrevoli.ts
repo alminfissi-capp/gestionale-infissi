@@ -80,6 +80,9 @@ export type ConfigScorrevoleArticolo = {
     totale_optional_netto: number
     totale_riga: number
   }
+  posa: number
+  ricarico_percentuale: number | null
+  ricarico_fisso: number | null
 }
 
 export type PreventivoScorrevoli = {

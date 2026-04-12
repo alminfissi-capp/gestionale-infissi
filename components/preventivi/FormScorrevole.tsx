@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { calcolaRiga, getNrAntePrisma, formatEuroScorrevoli } from '@/lib/scorrevoli-pricing'
+import { formatEuro } from '@/lib/pricing'
 import type { ScorevoliListino } from '@/actions/scorrevoli'
 import type { RigaScorrevoli, OptionalRiga, ConfigScorrevoleArticolo } from '@/types/scorrevoli'
 import type { ArticoloWizard } from '@/types/preventivo'
@@ -34,6 +35,11 @@ function buildNote(cfg: ConfigScorrevoleArticolo): string {
   if (d.maggiorazione_colore > 0) parts.push(`Magg. colore: +€${formatEuroScorrevoli(d.maggiorazione_colore)}`)
   if (d.prezzo_vetro_extra > 0) parts.push(`Vetro speciale: +€${formatEuroScorrevoli(d.prezzo_vetro_extra)}`)
   if (d.totale_optional > 0) parts.push(`Optional (netto): €${formatEuroScorrevoli(d.totale_optional_netto)}`)
+  if (cfg.posa > 0) parts.push(`Posa: ${formatEuro(cfg.posa)} €`)
+  if (cfg.ricarico_percentuale != null && cfg.ricarico_percentuale > 0)
+    parts.push(`Ricarico: ${cfg.ricarico_percentuale}%`)
+  else if (cfg.ricarico_fisso != null && cfg.ricarico_fisso > 0)
+    parts.push(`Ricarico: ${formatEuro(cfg.ricarico_fisso)} €`)
   if (cfg.riga.note) parts.push(cfg.riga.note)
   return parts.join(' | ')
 }
@@ -78,6 +84,18 @@ export default function FormScorrevole({ listino, aliquote, initialValues, isEdi
   )
   const [scontoOptional, setScontoOptional] = useState(() =>
     initialValues?.config_scorrevole?.sconto_optional ?? p.sconto_optional.valore
+  )
+  const [posa, setPosa] = useState<string>(
+    initialValues?.config_scorrevole?.posa ? String(initialValues.config_scorrevole.posa) : ''
+  )
+  type ModoRicarico = 'percentuale' | 'fisso'
+  const [modoRicarico, setModoRicarico] = useState<ModoRicarico>(
+    initialValues?.config_scorrevole?.ricarico_percentuale != null ? 'percentuale' : 'fisso'
+  )
+  const [ricaricoval, setRicaricoVal] = useState<string>(
+    initialValues?.config_scorrevole
+      ? String(initialValues.config_scorrevole.ricarico_percentuale ?? initialValues.config_scorrevole.ricarico_fisso ?? '')
+      : ''
   )
 
   // Reset quando si cambia modello
@@ -135,13 +153,26 @@ export default function FormScorrevole({ listino, aliquote, initialValues, isEdi
 
   // Calcolo live
   const dettaglio = calcolaRiga(listino, riga, scontoVetrata, scontoOptional)
-  const totaleUnitario = dettaglio.totale_riga
-  const totaleRiga = dettaglio.totale_riga_x_qty
+  const posaN = parseFloat(posa) || 0
+  const ricaricoValN = parseFloat(ricaricoval) || 0
+  const ricarico_calcolato = modoRicarico === 'percentuale'
+    ? (dettaglio.totale_riga + posaN) * ricaricoValN / 100
+    : ricaricoValN
+  const totaleUnitario = dettaglio.totale_riga + posaN + ricarico_calcolato
+  const totaleRiga = totaleUnitario * riga.quantita
   const canAdd = riga.larghezza_mm > 0 && riga.altezza_mm > 0
 
   const handleAdd = () => {
     if (!canAdd) return
-    const cfg: ConfigScorrevoleArticolo = { riga, sconto_vetrata_prisma: scontoVetrata, sconto_optional: scontoOptional, dettaglio }
+    const cfg: ConfigScorrevoleArticolo = {
+      riga,
+      sconto_vetrata_prisma: scontoVetrata,
+      sconto_optional: scontoOptional,
+      dettaglio,
+      posa: posaN,
+      ricarico_percentuale: modoRicarico === 'percentuale' ? ricaricoValN : null,
+      ricarico_fisso: modoRicarico === 'fisso' ? ricaricoValN : null,
+    }
     const aliquota = aliquote.includes(22) ? 22 : aliquote[0]
     const articolo: ArticoloWizard = {
       tempId: initialValues?.tempId ?? crypto.randomUUID(),
@@ -170,7 +201,7 @@ export default function FormScorrevole({ listino, aliquote, initialValues, isEdi
       sconto_articolo: 0,
       prezzo_totale_riga: totaleRiga,
       costo_acquisto_unitario: 0,
-      costo_posa: 0,
+      costo_posa: posaN,
       aliquota_iva: aliquota,
       ordine: 0,
     }
@@ -334,6 +365,48 @@ export default function FormScorrevole({ listino, aliquote, initialValues, isEdi
         </div>
       </div>
 
+      {/* Posa + Ricarico */}
+      <div className="grid grid-cols-2 gap-3 border-t pt-3">
+        <div>
+          <label className={lbl}>Posa / Mano d&apos;opera (€)</label>
+          <Input
+            type="number"
+            min={0}
+            step={0.01}
+            value={posa}
+            onChange={(e) => setPosa(e.target.value)}
+            placeholder="0,00"
+            className="h-8 text-sm text-right"
+          />
+        </div>
+        <div>
+          <label className={lbl}>Ricarico</label>
+          <div className="flex gap-1.5">
+            <div className="flex rounded-md border overflow-hidden text-xs w-fit shrink-0">
+              {(['percentuale', 'fisso'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setModoRicarico(m)}
+                  className={`px-2 py-1 transition-colors ${modoRicarico === m ? 'bg-teal-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 border-l'}`}
+                >
+                  {m === 'percentuale' ? '%' : '€'}
+                </button>
+              ))}
+            </div>
+            <Input
+              type="number"
+              min={0}
+              step={modoRicarico === 'percentuale' ? 0.1 : 0.01}
+              value={ricaricoval}
+              onChange={(e) => setRicaricoVal(e.target.value)}
+              placeholder={modoRicarico === 'percentuale' ? '0,0' : '0,00'}
+              className="h-8 text-sm text-right flex-1"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Preview prezzo */}
       {dettaglio.mq_fatturati > 0 && (
         <div className="rounded-lg border bg-teal-50 p-3 text-xs space-y-0.5">
@@ -365,9 +438,21 @@ export default function FormScorrevole({ listino, aliquote, initialValues, isEdi
               <span>+€ {formatEuroScorrevoli(dettaglio.totale_optional_netto)}</span>
             </div>
           )}
+          {posaN > 0 && (
+            <div className="flex justify-between text-gray-600">
+              <span>Posa</span>
+              <span>+€ {formatEuro(posaN)}</span>
+            </div>
+          )}
+          {ricarico_calcolato > 0 && (
+            <div className="flex justify-between text-gray-600">
+              <span>Ricarico {modoRicarico === 'percentuale' ? `(${ricaricoValN}%)` : ''}</span>
+              <span>+€ {formatEuro(ricarico_calcolato)}</span>
+            </div>
+          )}
           <div className="flex justify-between font-semibold text-teal-800 border-t pt-0.5 mt-0.5">
             <span>Totale × {riga.quantita}</span>
-            <span>€ {formatEuroScorrevoli(totaleRiga)}</span>
+            <span>€ {formatEuro(totaleRiga)}</span>
           </div>
         </div>
       )}
