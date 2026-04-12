@@ -210,8 +210,9 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
       setAccessoriSel(effectiveAccSel)
     }
 
-    // Raccogli accessori selezionati
+    // Raccogli accessori selezionati + costo acquisto accessori
     const accSel: AccessorioSuMisuraSelezionato[] = []
+    let costo_acquisto_accessori = 0
     if (listino) {
       for (const gruppo of listino.gruppi_accessori) {
         for (const acc of gruppo.accessori) {
@@ -232,6 +233,7 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
               prezzo_unitario: acc.prezzo,
               totale: acc.prezzo * qtyEffettiva,
             })
+            costo_acquisto_accessori += acc.prezzo_acquisto * qtyEffettiva
           }
         }
       }
@@ -260,19 +262,7 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
       utile_calcolato,
     }
 
-    const noteBreakdown = [
-      `${(larghezzaN / 1000).toFixed(3)} × ${(altezzaN / 1000).toFixed(3)} m = ${mq.toFixed(3)} mq`,
-      finitura ? `Finitura: ${getFinituraLabel(finitura)}` : null,
-      accSel.length > 0 ? `Accessori: ${accSel.map((a) => a.nome).join(', ')}` : null,
-      manoDoperaN > 0 ? `Posa: ${formatEuro(manoDoperaN)} €` : null,
-      spese_calcolate > 0
-        ? `Spese varie: ${modoSpese === 'percentuale' ? `${speseValN}% = ${formatEuro(spese_calcolate)} €` : `${formatEuro(spese_calcolate)} €`}`
-        : null,
-      utile_calcolato > 0
-        ? `Utile: ${modoUtile === 'percentuale' ? `${utileValN}% = ${formatEuro(utile_calcolato)} €` : `${formatEuro(utile_calcolato)} €`}`
-        : null,
-      note || null,
-    ].filter(Boolean).join(' · ')
+    const notaFinale = note.trim() || null
 
     const articolo: ArticoloWizard = {
       tempId: initialValues?.tempId ?? crypto.randomUUID(),
@@ -292,14 +282,14 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
       finitura_nome: finitura?.nome ?? null,
       finitura_aumento: finitura?.tipo_maggiorazione === 'percentuale' ? finitura.valore : 0,
       finitura_aumento_euro: finitura?.tipo_maggiorazione === 'fisso' ? finitura.valore : 0,
-      note: noteBreakdown || null,
+      note: notaFinale,
       immagine_url: listino.immagine_url ?? null,
       quantita: quantitaN,
       prezzo_base: listino.prezzo_mq,
       prezzo_unitario,
       sconto_articolo: sconto,
       prezzo_totale_riga: totale_riga,
-      costo_acquisto_unitario: listino.prezzo_acquisto_mq * mq,
+      costo_acquisto_unitario: listino.prezzo_acquisto_mq * mq + costo_acquisto_accessori,
       costo_posa: manoDoperaN,
       aliquota_iva: aliquotaIva,
       ordine: 0,
