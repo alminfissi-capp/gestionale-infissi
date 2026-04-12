@@ -383,7 +383,7 @@ export default function DialogVoceVeloce({
                 </div>
               </div>
 
-              {/* Tipologia + N. ante + N. traverse + H Davanzale */}
+              {/* Tipologia + (N. ante + N. traverse solo se non tree mode) + H Davanzale */}
               <div className="grid grid-cols-4 gap-2">
                 <div className="col-span-1 space-y-1.5">
                   <Label>Tipologia</Label>
@@ -396,22 +396,24 @@ export default function DialogVoceVeloce({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>N. ante</Label>
-                  <Input type="number" min={1} max={8} placeholder="—"
-                    value={form.n_ante ?? ''}
-                    onChange={(e) => handleNAnteChange(e.target.value)}
-                    disabled={isTreeMode}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Traverse</Label>
-                  <Input type="number" min={0} max={4} placeholder="0"
-                    value={form.n_traverse ?? ''}
-                    onChange={(e) => handleNTraverseChange(e.target.value)}
-                    disabled={isTreeMode}
-                  />
-                </div>
+                {!isTreeMode && (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label>N. ante</Label>
+                      <Input type="number" min={1} max={8} placeholder="—"
+                        value={form.n_ante ?? ''}
+                        onChange={(e) => handleNAnteChange(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Traverse</Label>
+                      <Input type="number" min={0} max={4} placeholder="0"
+                        value={form.n_traverse ?? ''}
+                        onChange={(e) => handleNTraverseChange(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
                 {form.tipologia === 'Finestra' && (
                   <div className="space-y-1.5">
                     <Label>H Dav. (mm)</Label>
@@ -423,29 +425,31 @@ export default function DialogVoceVeloce({
                 )}
               </div>
 
-              {/* Tipo apertura */}
-              <div className="space-y-1.5">
-                <Label>Tipo apertura</Label>
-                <div className="flex gap-1.5 flex-wrap">
-                  {([
-                    { val: null,                  label: '—' },
-                    { val: 'battente',            label: 'Battente' },
-                    { val: 'scorrevole',          label: 'Scorrevole' },
-                    { val: 'alzante_scorrevole',  label: 'Alz. Scor.' },
-                  ] as const).map(({ val, label }) => (
-                    <button key={label} type="button"
-                      onClick={() => handleTipoAperturaChange(val)}
-                      className={cn(
-                        'px-2.5 py-1 rounded-md text-xs border transition-colors',
-                        form.tipo_apertura === val
-                          ? 'bg-blue-600 border-blue-600 text-white'
-                          : 'border-gray-300 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
-                      )}>
-                      {label}
-                    </button>
-                  ))}
+              {/* Tipo apertura (solo griglia legacy) */}
+              {!isTreeMode && (
+                <div className="space-y-1.5">
+                  <Label>Tipo apertura</Label>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {([
+                      { val: null,                  label: '—' },
+                      { val: 'battente',            label: 'Battente' },
+                      { val: 'scorrevole',          label: 'Scorrevole' },
+                      { val: 'alzante_scorrevole',  label: 'Alz. Scor.' },
+                    ] as const).map(({ val, label }) => (
+                      <button key={label} type="button"
+                        onClick={() => handleTipoAperturaChange(val)}
+                        className={cn(
+                          'px-2.5 py-1 rounded-md text-xs border transition-colors',
+                          form.tipo_apertura === val
+                            ? 'bg-blue-600 border-blue-600 text-white'
+                            : 'border-gray-300 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
+                        )}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Struttura */}
               <div className="space-y-1.5 pl-2 rounded-l-sm" style={{ borderLeft: `3px solid ${getColore('struttura')}` }}>
