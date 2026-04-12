@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, Save, Loader2, Truck, RotateCcw } from 'lucide-react'
 import { createPreventivo, updatePreventivo } from '@/actions/preventivi'
+import { createCliente } from '@/actions/clienti'
 import { db } from '@/lib/db'
 import type { PendingPreventivo } from '@/lib/db'
 import {
@@ -328,8 +329,43 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
   const handleSave = () => {
     startTransition(async () => {
       try {
+        // Se il cliente è stato inserito manualmente (no clienteId selezionato),
+        // lo salviamo in anagrafica prima di creare il preventivo
+        let resolvedClienteId = clienteId
+        if (!resolvedClienteId) {
+          const tipo = snapshot.tipo ?? 'privato'
+          const hasEnoughData = tipo === 'azienda'
+            ? !!snapshot.ragione_sociale?.trim()
+            : !!(snapshot.nome?.trim() || snapshot.cognome?.trim())
+          if (hasEnoughData) {
+            try {
+              const { id } = await createCliente({
+                tipo,
+                ragione_sociale: snapshot.ragione_sociale ?? null,
+                nome: snapshot.nome ?? null,
+                cognome: snapshot.cognome ?? null,
+                telefono: snapshot.telefono ?? null,
+                email: snapshot.email || null,
+                via: snapshot.via ?? null,
+                civico: snapshot.civico ?? null,
+                cap: snapshot.cap ?? null,
+                citta: snapshot.citta ?? null,
+                provincia: snapshot.provincia ?? null,
+                nazione: snapshot.nazione ?? null,
+                codice_sdi: snapshot.codice_sdi ?? null,
+                cantiere: snapshot.cantiere ?? null,
+                cf_piva: snapshot.cf_piva ?? null,
+                note: null,
+              })
+              resolvedClienteId = id
+            } catch {
+              // Dati insufficienti per l'anagrafica (es. email non valida): procedi senza
+            }
+          }
+        }
+
         const input = {
-          clienteId,
+          clienteId: resolvedClienteId,
           clienteSnapshot: snapshot,
           numero,
           articoli: articoli.map(({ tempId: _t, ...rest }) => rest),
