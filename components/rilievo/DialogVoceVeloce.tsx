@@ -301,7 +301,7 @@ export default function DialogVoceVeloce({
         </DialogHeader>
 
         {/* ── CORPO ── */}
-        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+        <div className="flex-1 overflow-y-auto flex flex-col">
 
           {/* SEZIONE ALTA: 2 colonne compatte */}
           <div className="grid grid-cols-2 gap-x-6 px-6 pt-3 pb-3 border-b shrink-0">
@@ -618,7 +618,7 @@ export default function DialogVoceVeloce({
           </div>
 
           {/* SEZIONE BASSA: preview + pannello configurazione */}
-          <div className="flex-1 flex gap-6 px-6 pt-3 pb-3 min-h-0 border-t border-dashed border-gray-100">
+          <div className="flex gap-6 px-6 pt-3 pb-4 border-t border-dashed border-gray-100">
 
             {/* ── BLOCCO PREVIEW + TELAI ── */}
             <div className="w-72 shrink-0 flex flex-col">
@@ -753,7 +753,7 @@ export default function DialogVoceVeloce({
             </div>
 
             {/* ── PANNELLO DESTRA ── */}
-            <div className="flex-1 flex flex-col gap-2 pt-1 min-w-0 min-h-0 overflow-hidden">
+            <div className="flex-1 flex flex-col gap-2 pt-1 min-w-0">
 
               {/* Toggle modalità vani */}
               <div className="flex items-center gap-2">
@@ -789,7 +789,7 @@ export default function DialogVoceVeloce({
 
               {/* ── Configurazione vano selezionato (tree mode) ── */}
               {isTreeMode && (
-                <div className="flex-1 flex flex-col gap-2 border rounded-lg p-2.5 bg-blue-50/30 overflow-y-auto min-h-0">
+                <div className="flex flex-col gap-2 border rounded-lg p-2.5 bg-blue-50/30 overflow-y-auto max-h-[460px]">
                   {!selectedLeaf ? (
                     <div className="flex items-center justify-center h-20">
                       <p className="text-xs text-gray-400 text-center">Tocca un vano nel preview<br />per configurarlo</p>
