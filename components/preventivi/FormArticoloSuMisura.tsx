@@ -307,7 +307,7 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
         <Select value={listinoId} onValueChange={setListinoId}>
           <SelectTrigger><SelectValue placeholder="Seleziona prodotto..." /></SelectTrigger>
           <SelectContent>
-            {listini.filter((l) => l.attivo).map((l) => (
+            {listini.map((l) => (
               <SelectItem key={l.id} value={l.id}>
                 {l.nome} — {formatEuro(l.prezzo_mq)} €/mq
               </SelectItem>
