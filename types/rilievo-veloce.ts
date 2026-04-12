@@ -12,19 +12,20 @@ export type TipoRiempimento = 'vetro' | 'pannello' | 'lamelle' | 'doghe'
 export interface VanoLeaf {
   type: 'leaf'
   id: string
-  tipo_apertura: 'battente' | 'scorrevole' | 'alzante_scorrevole' | 'fisso' | null
-  apertura: string | null   // es. 'battente_interno_sx', 'mobile_sx', 'fisso'…
+  n_ante: number                        // numero di ante in questo vano (default 1)
+  tipo_apertura: 'battente' | 'scorrevole' | 'alzante_scorrevole' | null
+  apertura_ante: string[]               // per-anta: 'battente_interno_sx', 'fisso'…
   riempimento: TipoRiempimento
-  pos_maniglia?: 'right' | 'left' | 'top' | 'bottom' | null
 }
 
 /** Nodo divisore: divide un vano in due figlie con un montante o traversa */
 export interface VanoSplit {
   type: 'split'
   id: string
-  direzione: 'montante' | 'traverso'   // montante = divisore verticale, traverso = orizzontale
-  frazione: number                      // 0..1, posizione del divisore relativa al vano padre
-  figli: [VanoNode, VanoNode]
+  direzione: 'montante' | 'traverso'   // montante = verticale, traverso = orizzontale
+  mm: number                            // montante: mm dal bordo sx del vano padre
+                                        // traversa: mm dal bordo inferiore del vano padre
+  figli: [VanoNode, VanoNode]           // [0]=sinistra o alto, [1]=destra o basso
 }
 
 export type VanoNode = VanoLeaf | VanoSplit

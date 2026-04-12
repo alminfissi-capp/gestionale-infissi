@@ -31,7 +31,7 @@ import PreviewSerramento, {
   LABEL_APERTURA,
   defaultAperturaAnte,
 } from '@/components/rilievo/PreviewSerramento'
-import { makeGridTree, splitLeaf, updateLeaf, findLeaf } from '@/lib/rilievo-vani'
+import { makeGridTree, addSplit, updateSplit, deleteSplit, updateLeaf, findLeaf, getPath } from '@/lib/rilievo-vani'
 import { useRilievoUiBlocchi } from '@/hooks/useRilievoUiBlocchi'
 import type { VoceInput, OpzioniRilievo, VanoLeaf, TipoRiempimento } from '@/types/rilievo-veloce'
 
@@ -94,7 +94,7 @@ export default function DialogVoceVeloce({
   const [telaioOpenLato, setTelaioOpenLato] = useState<'top' | 'left' | 'bottom' | 'right' | null>(null)
   const [selectedVanoId, setSelectedVanoId] = useState<string | null>(null)
   const [splitDir, setSplitDir] = useState<'montante' | 'traverso'>('montante')
-  const [splitPerc, setSplitPerc] = useState<string>('50')
+  const [splitMm, setSplitMm] = useState<string>('500')
   const { getColore } = useRilievoUiBlocchi()
 
   useEffect(() => {
@@ -207,7 +207,11 @@ export default function DialogVoceVeloce({
   const handleAttivaVani = () => {
     const nAnte = form.n_ante ?? 1
     const nTraverse = form.n_traverse ?? 0
-    const tree = makeGridTree(nAnte, nTraverse, form.tipo_apertura, form.apertura_ante)
+    const wMm = form.larghezza_mm ?? 1000
+    const effH = form.fuori_squadro
+      ? Math.round(((form.altezza_sx_mm ?? 1000) + (form.altezza_dx_mm ?? 1000)) / 2)
+      : (form.altezza_mm ?? 1000)
+    const tree = makeGridTree(nAnte, nTraverse, form.tipo_apertura, form.apertura_ante, wMm, effH)
     setForm((prev) => ({ ...prev, vani_tree: tree }))
     setSelectedVanoId(null)
   }
@@ -229,13 +233,31 @@ export default function DialogVoceVeloce({
     }))
   }
 
-  const handleSplitSelected = () => {
+  const handleAddSplit = () => {
     if (!selectedVanoId || !form.vani_tree) return
-    const f = Math.max(0.1, Math.min(0.9, parseFloat(splitPerc) / 100))
-    const newTree = splitLeaf(form.vani_tree, selectedVanoId, splitDir, f)
+    const mm = Math.max(10, parseInt(splitMm) || 500)
+    const newTree = addSplit(form.vani_tree, selectedVanoId, splitDir, mm)
     setForm((prev) => ({ ...prev, vani_tree: newTree }))
-    // Keep same vano selected (it becomes the left/top child)
   }
+
+  const handleUpdateSplit = (id: string, mm: number) => {
+    if (!form.vani_tree) return
+    setForm((prev) => ({ ...prev, vani_tree: updateSplit(prev.vani_tree!, id, mm) }))
+  }
+
+  const handleDeleteSplit = (id: string) => {
+    if (!form.vani_tree) return
+    setForm((prev) => ({ ...prev, vani_tree: deleteSplit(prev.vani_tree!, id) }))
+    setSelectedVanoId(null)
+  }
+
+  const vaniWMm = form.larghezza_mm ?? 1000
+  const vaniHMm = form.fuori_squadro
+    ? Math.round(((form.altezza_sx_mm ?? 1000) + (form.altezza_dx_mm ?? 1000)) / 2)
+    : (form.altezza_mm ?? 1000)
+  const selectedPath = isTreeMode && selectedVanoId && form.vani_tree
+    ? (getPath(form.vani_tree, selectedVanoId, vaniWMm, vaniHMm) ?? [])
+    : []
 
   const handleSave = () => {
     onSave({
@@ -278,14 +300,14 @@ export default function DialogVoceVeloce({
           <DialogTitle>{isEditing ? 'Modifica serramento' : 'Aggiungi serramento'}</DialogTitle>
         </DialogHeader>
 
-        {/* ── CORPO SCROLLABILE ── */}
-        <div className="flex-1 overflow-y-auto flex flex-col">
+        {/* ── CORPO ── */}
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
 
           {/* SEZIONE ALTA: 2 colonne compatte */}
-          <div className="grid grid-cols-2 gap-x-8 px-6 pt-4 pb-4 border-b shrink-0">
+          <div className="grid grid-cols-2 gap-x-6 px-6 pt-3 pb-3 border-b shrink-0">
 
             {/* ── COL SINISTRA ── */}
-            <div className="space-y-3">
+            <div className="space-y-2">
 
               {/* Voce + Qtà */}
               <div className="grid grid-cols-3 gap-2">
@@ -458,7 +480,7 @@ export default function DialogVoceVeloce({
             </div>
 
             {/* ── COL DESTRA ── */}
-            <div className="space-y-3">
+            <div className="space-y-2">
 
               {/* Accessori */}
               {opzioni.accessori.length > 0 && (
@@ -592,10 +614,10 @@ export default function DialogVoceVeloce({
           </div>
 
           {/* SEZIONE BASSA: preview + pannello configurazione */}
-          <div className="flex-1 flex gap-6 px-6 pt-5 pb-4 min-h-[260px] border-t border-dashed border-gray-100">
+          <div className="flex-1 flex gap-6 px-6 pt-3 pb-3 min-h-0 overflow-hidden border-t border-dashed border-gray-100">
 
             {/* ── BLOCCO PREVIEW + TELAI ── */}
-            <div className="w-80 shrink-0 flex flex-col">
+            <div className="w-72 shrink-0 flex flex-col">
 
               {/* Telaio superiore */}
               {telaiFiltrati.length > 0 && (
@@ -727,7 +749,7 @@ export default function DialogVoceVeloce({
             </div>
 
             {/* ── PANNELLO DESTRA ── */}
-            <div className="flex-1 flex flex-col gap-3 pt-1 min-w-0">
+            <div className="flex-1 flex flex-col gap-2 pt-1 min-w-0 min-h-0 overflow-hidden">
 
               {/* Toggle modalità vani */}
               <div className="flex items-center gap-2">
@@ -763,7 +785,7 @@ export default function DialogVoceVeloce({
 
               {/* ── Configurazione vano selezionato (tree mode) ── */}
               {isTreeMode && (
-                <div className="flex-1 flex flex-col gap-2.5 border rounded-lg p-3 bg-blue-50/30">
+                <div className="flex-1 flex flex-col gap-2 border rounded-lg p-2.5 bg-blue-50/30 overflow-y-auto min-h-0">
                   {!selectedLeaf ? (
                     <div className="flex items-center justify-center h-20">
                       <p className="text-xs text-gray-400 text-center">Tocca un vano nel preview<br />per configurarlo</p>
@@ -772,25 +794,35 @@ export default function DialogVoceVeloce({
                     <>
                       <p className="text-xs font-medium text-blue-700">Vano selezionato</p>
 
+                      {/* N ante */}
+                      <div className="flex items-center gap-2">
+                        <div className="text-[11px] text-gray-500 font-medium w-16 shrink-0">N. ante</div>
+                        <Input
+                          type="number" min={1} max={8}
+                          value={selectedLeaf.n_ante}
+                          onChange={(e) => {
+                            const n = Math.max(1, Math.min(8, parseInt(e.target.value) || 1))
+                            handleUpdateSelectedLeaf({ n_ante: n, apertura_ante: Array(n).fill('') })
+                          }}
+                          className="w-16 h-7 text-xs text-center"
+                        />
+                      </div>
+
                       {/* Tipo apertura del vano */}
                       <div className="space-y-1">
                         <div className="text-[11px] text-gray-500 font-medium">Tipo apertura</div>
                         <div className="flex gap-1 flex-wrap">
                           {([
-                            { val: 'fisso',               label: 'Fisso' },
+                            { val: null,                  label: 'Fisso' },
                             { val: 'battente',            label: 'Battente' },
                             { val: 'scorrevole',          label: 'Scorrevole' },
                             { val: 'alzante_scorrevole',  label: 'Alz. Scor.' },
                           ] as const).map(({ val, label }) => (
-                            <button key={val} type="button"
-                              onClick={() => handleUpdateSelectedLeaf({
-                                tipo_apertura: val === 'fisso' ? null : val,
-                                apertura: val === 'fisso' ? 'fisso' : null,
-                              })}
+                            <button key={label} type="button"
+                              onClick={() => handleUpdateSelectedLeaf({ tipo_apertura: val, apertura_ante: [] })}
                               className={cn(
                                 'px-2 py-0.5 rounded text-xs border transition-colors',
-                                (val === 'fisso' ? selectedLeaf.apertura === 'fisso' || selectedLeaf.tipo_apertura === null
-                                  : selectedLeaf.tipo_apertura === val)
+                                selectedLeaf.tipo_apertura === val
                                   ? 'bg-blue-600 border-blue-600 text-white'
                                   : 'border-gray-300 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
                               )}>
@@ -800,45 +832,59 @@ export default function DialogVoceVeloce({
                         </div>
                       </div>
 
-                      {/* Apertura specifica (battente) */}
+                      {/* Per-anta apertura (battente) */}
                       {selectedLeaf.tipo_apertura === 'battente' && (
                         <div className="space-y-1">
-                          <div className="text-[11px] text-gray-500 font-medium">Apertura</div>
-                          <div className="flex flex-wrap gap-1">
-                            {APERTURE_BATTENTE.map((tipo) => (
-                              <button key={tipo} type="button"
-                                onClick={() => handleUpdateSelectedLeaf({ apertura: tipo })}
-                                className={cn(
-                                  'px-1.5 py-0.5 rounded text-[10px] border transition-colors text-left',
-                                  selectedLeaf.apertura === tipo
-                                    ? 'bg-blue-600 border-blue-600 text-white'
-                                    : 'border-gray-300 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
-                                )}>
-                                {LABEL_APERTURA[tipo]}
-                              </button>
-                            ))}
-                          </div>
+                          <div className="text-[11px] text-gray-500 font-medium">Apertura ante</div>
+                          {Array.from({ length: selectedLeaf.n_ante }, (_, i) => (
+                            <div key={i} className="flex items-center gap-1 flex-wrap">
+                              <span className="text-[10px] text-gray-400 w-10 shrink-0">Anta {i + 1}</span>
+                              {APERTURE_BATTENTE.map((tipo) => (
+                                <button key={tipo} type="button"
+                                  onClick={() => {
+                                    const arr = [...selectedLeaf.apertura_ante]
+                                    arr[i] = tipo
+                                    handleUpdateSelectedLeaf({ apertura_ante: arr })
+                                  }}
+                                  className={cn(
+                                    'px-1.5 py-0.5 rounded text-[10px] border transition-colors',
+                                    selectedLeaf.apertura_ante[i] === tipo
+                                      ? 'bg-blue-600 border-blue-600 text-white'
+                                      : 'border-gray-300 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
+                                  )}>
+                                  {LABEL_APERTURA[tipo]}
+                                </button>
+                              ))}
+                            </div>
+                          ))}
                         </div>
                       )}
 
-                      {/* Apertura scorrevole */}
+                      {/* Per-anta apertura (scorrevole) */}
                       {(selectedLeaf.tipo_apertura === 'scorrevole' || selectedLeaf.tipo_apertura === 'alzante_scorrevole') && (
                         <div className="space-y-1">
-                          <div className="text-[11px] text-gray-500 font-medium">Apertura</div>
-                          <div className="flex gap-1">
-                            {(['mobile_sx', 'mobile_dx', 'fisso'] as const).map((tipo) => (
-                              <button key={tipo} type="button"
-                                onClick={() => handleUpdateSelectedLeaf({ apertura: tipo })}
-                                className={cn(
-                                  'px-2 py-0.5 rounded text-xs border transition-colors',
-                                  selectedLeaf.apertura === tipo
-                                    ? 'bg-blue-600 border-blue-600 text-white'
-                                    : 'border-gray-300 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
-                                )}>
-                                {LABEL_APERTURA[tipo] ?? tipo}
-                              </button>
-                            ))}
-                          </div>
+                          <div className="text-[11px] text-gray-500 font-medium">Apertura ante</div>
+                          {Array.from({ length: selectedLeaf.n_ante }, (_, i) => (
+                            <div key={i} className="flex items-center gap-1">
+                              <span className="text-[10px] text-gray-400 w-10 shrink-0">Anta {i + 1}</span>
+                              {(['mobile_sx', 'mobile_dx', 'fisso'] as const).map((tipo) => (
+                                <button key={tipo} type="button"
+                                  onClick={() => {
+                                    const arr = [...selectedLeaf.apertura_ante]
+                                    arr[i] = tipo
+                                    handleUpdateSelectedLeaf({ apertura_ante: arr })
+                                  }}
+                                  className={cn(
+                                    'px-2 py-0.5 rounded text-xs border transition-colors',
+                                    selectedLeaf.apertura_ante[i] === tipo
+                                      ? 'bg-blue-600 border-blue-600 text-white'
+                                      : 'border-gray-300 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
+                                  )}>
+                                  {LABEL_APERTURA[tipo] ?? tipo}
+                                </button>
+                              ))}
+                            </div>
+                          ))}
                         </div>
                       )}
 
@@ -862,10 +908,40 @@ export default function DialogVoceVeloce({
                         </div>
                       </div>
 
+                      {/* Gerarchia divisori */}
+                      {selectedPath.length > 0 && (
+                        <div className="space-y-1 pt-1 border-t border-blue-100">
+                          <div className="text-[11px] text-gray-500 font-medium">Divisori</div>
+                          {selectedPath.map(({ split, parentW, parentH }) => {
+                            const isMontan = split.direzione === 'montante'
+                            const maxMm = isMontan ? parentW : parentH
+                            return (
+                              <div key={split.id} className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-gray-500 w-14 shrink-0">
+                                  {isMontan ? '┃ Mont.' : '━ Trav.'}
+                                </span>
+                                <Input
+                                  type="number" min={1} max={maxMm - 1} step={1}
+                                  value={split.mm}
+                                  onChange={(e) => handleUpdateSplit(split.id, Math.max(1, Math.min(maxMm - 1, parseInt(e.target.value) || split.mm)))}
+                                  className="w-20 h-6 text-xs text-center"
+                                />
+                                <span className="text-[10px] text-gray-400">/ {maxMm} mm</span>
+                                <button type="button"
+                                  onClick={() => handleDeleteSplit(split.id)}
+                                  className="ml-auto px-1.5 py-0.5 rounded text-[10px] border border-red-200 text-red-500 hover:bg-red-50 transition-colors">
+                                  ✕
+                                </button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+
                       {/* Dividi vano */}
                       <div className="space-y-1.5 pt-1 border-t border-blue-100">
                         <div className="text-[11px] text-gray-500 font-medium">Dividi vano</div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <div className="flex gap-1">
                             <button type="button"
                               onClick={() => setSplitDir('montante')}
@@ -891,15 +967,15 @@ export default function DialogVoceVeloce({
                             </button>
                           </div>
                           <Input
-                            type="number" min={10} max={90} step={5}
-                            value={splitPerc}
-                            onChange={(e) => setSplitPerc(e.target.value)}
-                            className="w-16 h-7 text-xs text-center"
+                            type="number" min={1} step={10}
+                            value={splitMm}
+                            onChange={(e) => setSplitMm(e.target.value)}
+                            className="w-20 h-7 text-xs text-center"
                           />
-                          <span className="text-xs text-gray-400">%</span>
+                          <span className="text-xs text-gray-400">mm</span>
                           <Button type="button" size="sm" variant="outline"
                             className="h-7 text-xs px-2"
-                            onClick={handleSplitSelected}>
+                            onClick={handleAddSplit}>
                             Dividi
                           </Button>
                         </div>
