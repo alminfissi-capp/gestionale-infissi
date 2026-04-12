@@ -1025,3 +1025,83 @@ export async function deleteListinoSuMisura(id: string): Promise<void> {
   if (error) throw new Error(error.message)
   revalidatePath('/listini')
 }
+
+export async function duplicaListinoSuMisura(id: string): Promise<{ id: string }> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { data: src, error } = await supabase
+    .from('listini_su_misura')
+    .select('*, finiture_su_misura(*), gruppi_accessori_su_misura(*, accessori_su_misura(*))')
+    .eq('id', id)
+    .single()
+
+  if (error || !src) throw new Error('Listino non trovato')
+
+  const { data: newLsm, error: cErr } = await supabase
+    .from('listini_su_misura')
+    .insert({
+      organization_id: orgId,
+      categoria_id: src.categoria_id,
+      nome: `Copia di ${src.nome}`,
+      descrizione: src.descrizione,
+      prezzo_mq: src.prezzo_mq,
+      prezzo_acquisto_mq: src.prezzo_acquisto_mq,
+      larghezza_min: src.larghezza_min,
+      larghezza_max: src.larghezza_max,
+      altezza_min: src.altezza_min,
+      altezza_max: src.altezza_max,
+      mq_minimo: src.mq_minimo,
+      immagine_url: src.immagine_url,
+      attivo: src.attivo,
+      ordine: src.ordine + 1,
+    })
+    .select('id')
+    .single()
+
+  if (cErr || !newLsm) throw new Error(cErr?.message ?? 'Errore duplicazione')
+
+  if (src.finiture_su_misura?.length > 0) {
+    const { error: fErr } = await supabase.from('finiture_su_misura').insert(
+      src.finiture_su_misura.map((f: { nome: string; tipo_maggiorazione: string; valore: number; prezzo_acquisto: number; ordine: number }) => ({
+        organization_id: orgId,
+        listino_id: newLsm.id,
+        nome: f.nome,
+        tipo_maggiorazione: f.tipo_maggiorazione,
+        valore: f.valore,
+        prezzo_acquisto: f.prezzo_acquisto,
+        ordine: f.ordine,
+      }))
+    )
+    if (fErr) throw new Error(fErr.message)
+  }
+
+  for (const g of src.gruppi_accessori_su_misura ?? []) {
+    const { data: newG, error: gErr } = await supabase
+      .from('gruppi_accessori_su_misura')
+      .insert({ organization_id: orgId, listino_id: newLsm.id, nome: g.nome, tipo_scelta: g.tipo_scelta, ordine: g.ordine })
+      .select('id')
+      .single()
+    if (gErr || !newG) throw new Error(gErr?.message ?? 'Errore gruppo')
+
+    if (g.accessori_su_misura?.length > 0) {
+      const { error: aErr } = await supabase.from('accessori_su_misura').insert(
+        g.accessori_su_misura.map((a: { nome: string; unita: string; prezzo: number; prezzo_acquisto: number; qty_modificabile: boolean; qty_default: number; ordine: number }) => ({
+          organization_id: orgId,
+          gruppo_id: newG.id,
+          nome: a.nome,
+          unita: a.unita,
+          prezzo: a.prezzo,
+          prezzo_acquisto: a.prezzo_acquisto,
+          qty_modificabile: a.qty_modificabile,
+          qty_default: a.qty_default,
+          ordine: a.ordine,
+        }))
+      )
+      if (aErr) throw new Error(aErr.message)
+    }
+  }
+
+  revalidatePath('/listini')
+  return { id: newLsm.id }
+}

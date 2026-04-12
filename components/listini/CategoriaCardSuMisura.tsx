@@ -3,9 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ChevronDown, ChevronRight, Plus, Pencil, Trash2, Ruler } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Pencil, Trash2, Copy, Ruler } from 'lucide-react'
 import Image from 'next/image'
-import { deleteCategoria, deleteListinoSuMisura } from '@/actions/listini'
+import { deleteCategoria, deleteListinoSuMisura, duplicaListinoSuMisura } from '@/actions/listini'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -39,6 +39,7 @@ export default function CategoriaCardSuMisura({ categoria, dragHandle, onSuccess
   const [editingListino, setEditingListino] = useState<ListinoSuMisuraCompleto | null>(null)
   const [deletingListinoId, setDeletingListinoId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [copying, setCopying] = useState(false)
 
   const refresh = () => { router.refresh(); onSuccess?.() }
 
@@ -55,6 +56,19 @@ export default function CategoriaCardSuMisura({ categoria, dragHandle, onSuccess
     } finally {
       setDeleting(false)
       setDeleteCatId(null)
+    }
+  }
+
+  const handleDuplicaListino = async (id: string) => {
+    setCopying(true)
+    try {
+      await duplicaListinoSuMisura(id)
+      toast.success('Prodotto duplicato')
+      refresh()
+    } catch {
+      toast.error('Errore nella duplicazione')
+    } finally {
+      setCopying(false)
     }
   }
 
@@ -141,6 +155,9 @@ export default function CategoriaCardSuMisura({ categoria, dragHandle, onSuccess
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-600" onClick={() => handleDuplicaListino(lsm.id)} disabled={copying} title="Duplica">
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-600" onClick={() => setEditingListino(lsm)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
