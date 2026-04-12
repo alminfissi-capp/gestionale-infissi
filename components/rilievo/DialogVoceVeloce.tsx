@@ -618,7 +618,7 @@ export default function DialogVoceVeloce({
           </div>
 
           {/* SEZIONE BASSA: preview + pannello configurazione */}
-          <div className="flex-1 flex gap-6 px-6 pt-3 pb-3 min-h-0 overflow-hidden border-t border-dashed border-gray-100">
+          <div className="flex-1 flex gap-6 px-6 pt-3 pb-3 min-h-0 border-t border-dashed border-gray-100">
 
             {/* ── BLOCCO PREVIEW + TELAI ── */}
             <div className="w-72 shrink-0 flex flex-col">
@@ -634,7 +634,7 @@ export default function DialogVoceVeloce({
                       <span>↑</span><span className="truncate">{form.telaio_top ?? 'Telaio superiore'}</span>
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-52 p-1" side="top" align="center">
+                  <PopoverContent className="w-52 p-1 max-h-52 overflow-y-auto" side="top" align="center">
                     {[null, ...telaiFiltrati.map(t => t.valore)].map((v) => (
                       <button key={v ?? '__none__'} type="button"
                         onClick={() => { set('telaio_top', v); setTelaioOpenLato(null) }}
@@ -661,7 +661,7 @@ export default function DialogVoceVeloce({
                         </span>
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-52 p-1" side="left" align="center">
+                    <PopoverContent className="w-52 p-1 max-h-52 overflow-y-auto" side="left" align="center">
                       {[null, ...telaiFiltrati.map(t => t.valore)].map((v) => (
                         <button key={v ?? '__none__'} type="button"
                           onClick={() => { set('telaio_left', v); setTelaioOpenLato(null) }}
@@ -714,7 +714,7 @@ export default function DialogVoceVeloce({
                         </span>
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-52 p-1" side="right" align="center">
+                    <PopoverContent className="w-52 p-1 max-h-52 overflow-y-auto" side="right" align="center">
                       {[null, ...telaiFiltrati.map(t => t.valore)].map((v) => (
                         <button key={v ?? '__none__'} type="button"
                           onClick={() => { set('telaio_right', v); setTelaioOpenLato(null) }}
@@ -738,7 +738,7 @@ export default function DialogVoceVeloce({
                       <span>↓</span><span className="truncate">{form.telaio_bottom ?? 'Telaio inferiore'}</span>
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-52 p-1" side="bottom" align="center">
+                  <PopoverContent className="w-52 p-1 max-h-52 overflow-y-auto" side="bottom" align="center">
                     {[null, ...telaiFiltrati.map(t => t.valore)].map((v) => (
                       <button key={v ?? '__none__'} type="button"
                         onClick={() => { set('telaio_bottom', v); setTelaioOpenLato(null) }}
