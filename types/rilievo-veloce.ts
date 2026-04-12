@@ -4,6 +4,31 @@
 
 export type TipoOpzione = 'accessorio' | 'colore' | 'vetro' | 'serratura' | 'serie' | 'struttura' | 'telaio'
 
+// ─── Albero vani ────────────────────────────────────────────────────────────
+
+export type TipoRiempimento = 'vetro' | 'pannello' | 'lamelle' | 'doghe'
+
+/** Nodo foglia: un singolo vano configurato */
+export interface VanoLeaf {
+  type: 'leaf'
+  id: string
+  tipo_apertura: 'battente' | 'scorrevole' | 'alzante_scorrevole' | 'fisso' | null
+  apertura: string | null   // es. 'battente_interno_sx', 'mobile_sx', 'fisso'…
+  riempimento: TipoRiempimento
+  pos_maniglia?: 'right' | 'left' | 'top' | 'bottom' | null
+}
+
+/** Nodo divisore: divide un vano in due figlie con un montante o traversa */
+export interface VanoSplit {
+  type: 'split'
+  id: string
+  direzione: 'montante' | 'traverso'   // montante = divisore verticale, traverso = orizzontale
+  frazione: number                      // 0..1, posizione del divisore relativa al vano padre
+  figli: [VanoNode, VanoNode]
+}
+
+export type VanoNode = VanoLeaf | VanoSplit
+
 export interface RilievoOpzione {
   id: string
   organization_id: string
@@ -71,6 +96,12 @@ export interface VoceRilievoVeloce {
   note: string | null
   tipo_apertura: 'battente' | 'scorrevole' | 'alzante_scorrevole' | null
   apertura_ante: string[]   // per-anta: es. 'battente_interno_sx', 'mobile_dx', 'fisso'…
+  // Forma trapezoidale (fuori squadra)
+  fuori_squadro: boolean
+  altezza_sx_mm: number | null
+  altezza_dx_mm: number | null
+  // Albero vani avanzato (sostituisce n_ante × n_traverse quando presente)
+  vani_tree: VanoNode | null
   created_at: string
 }
 

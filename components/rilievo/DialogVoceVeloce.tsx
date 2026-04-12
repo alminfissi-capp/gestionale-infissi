@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Check, ChevronsUpDown } from 'lucide-react'
+import { X, Check, ChevronsUpDown, GitFork, Grid3X3 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -31,8 +31,9 @@ import PreviewSerramento, {
   LABEL_APERTURA,
   defaultAperturaAnte,
 } from '@/components/rilievo/PreviewSerramento'
+import { makeGridTree, splitLeaf, updateLeaf, findLeaf } from '@/lib/rilievo-vani'
 import { useRilievoUiBlocchi } from '@/hooks/useRilievoUiBlocchi'
-import type { VoceInput, OpzioniRilievo } from '@/types/rilievo-veloce'
+import type { VoceInput, OpzioniRilievo, VanoLeaf, TipoRiempimento } from '@/types/rilievo-veloce'
 
 interface Props {
   open: boolean
@@ -72,7 +73,18 @@ const VOCE_VUOTA: VoceInput = {
   note: '',
   tipo_apertura: null,
   apertura_ante: [],
+  fuori_squadro: false,
+  altezza_sx_mm: null,
+  altezza_dx_mm: null,
+  vani_tree: null,
 }
+
+const RIEMPIMENTI: { value: TipoRiempimento; label: string; color: string }[] = [
+  { value: 'vetro',    label: 'Vetro',    color: '#dbeafe' },
+  { value: 'pannello', label: 'Pannello', color: '#dcfce7' },
+  { value: 'lamelle',  label: 'Lamelle',  color: '#fef9c3' },
+  { value: 'doghe',    label: 'Doghe',    color: '#fce7f3' },
+]
 
 export default function DialogVoceVeloce({
   open, onClose, onSave, opzioni, initialValues, isEditing,
@@ -80,10 +92,16 @@ export default function DialogVoceVeloce({
   const [form, setForm] = useState<VoceInput>(initialValues ?? VOCE_VUOTA)
   const [accessoriOpen, setAccessoriOpen] = useState(false)
   const [telaioOpenLato, setTelaioOpenLato] = useState<'top' | 'left' | 'bottom' | 'right' | null>(null)
+  const [selectedVanoId, setSelectedVanoId] = useState<string | null>(null)
+  const [splitDir, setSplitDir] = useState<'montante' | 'traverso'>('montante')
+  const [splitPerc, setSplitPerc] = useState<string>('50')
   const { getColore } = useRilievoUiBlocchi()
 
   useEffect(() => {
-    if (open) setForm(initialValues ?? VOCE_VUOTA)
+    if (open) {
+      setForm(initialValues ?? VOCE_VUOTA)
+      setSelectedVanoId(null)
+    }
   }, [open, initialValues])
 
   const set = <K extends keyof VoceInput>(k: K, v: VoceInput[K]) =>
@@ -101,15 +119,15 @@ export default function DialogVoceVeloce({
       ...prev,
       tipo_apertura: tipo,
       apertura_ante: tipo && n > 0 ? defaultAperturaAnte(tipo, n, prev.n_traverse ?? 0) : [],
+      vani_tree: null,  // reset tree se cambia il tipo globale
     }))
+    setSelectedVanoId(null)
   }
 
   const handleAntaClick = (idx: number) => {
     if (form.tipo_apertura === 'battente') {
-      // Seleziona anta per configurazione nel pannello a destra
       set('anta_principale', idx)
     } else if (form.tipo_apertura === 'scorrevole' || form.tipo_apertura === 'alzante_scorrevole') {
-      // Cicla mobile_sx → mobile_dx → fisso
       const CICLO = ['mobile_sx', 'mobile_dx', 'fisso']
       const curr = form.apertura_ante[idx] ?? 'mobile_sx'
       const next = CICLO[(CICLO.indexOf(curr) + 1) % CICLO.length]
@@ -117,7 +135,6 @@ export default function DialogVoceVeloce({
       newAnte[idx] = next
       set('apertura_ante', newAnte)
     } else {
-      // Comportamento legacy: cicla pos_maniglia
       if (idx === form.anta_principale) {
         const curr = form.pos_maniglia ?? 'right'
         const next = CYCLE_MANIGLIA[(CYCLE_MANIGLIA.indexOf(curr) + 1) % CYCLE_MANIGLIA.length]
@@ -136,6 +153,7 @@ export default function DialogVoceVeloce({
       return {
         ...prev,
         n_ante: n,
+        vani_tree: null,
         anta_principale:
           n == null ? null
           : prev.anta_principale != null && prev.anta_principale < totalCells
@@ -146,6 +164,7 @@ export default function DialogVoceVeloce({
           : prev.apertura_ante,
       }
     })
+    setSelectedVanoId(null)
   }
 
   const handleNTraverseChange = (raw: string) => {
@@ -153,11 +172,13 @@ export default function DialogVoceVeloce({
     setForm((prev) => ({
       ...prev,
       n_traverse: n,
+      vani_tree: null,
       anta_principale: 0,
       apertura_ante: prev.tipo_apertura && prev.n_ante != null
         ? defaultAperturaAnte(prev.tipo_apertura, prev.n_ante, n ?? 0)
         : prev.apertura_ante,
     }))
+    setSelectedVanoId(null)
   }
 
   const toggleAccessorio = (val: string) => {
@@ -167,6 +188,53 @@ export default function DialogVoceVeloce({
         ? prev.accessori.filter((a) => a !== val)
         : [...prev.accessori, val],
     }))
+  }
+
+  // ── Fuori squadra ──────────────────────────────────────────
+  const handleFuoriSquadroToggle = (checked: boolean) => {
+    setForm((prev) => ({
+      ...prev,
+      fuori_squadro: checked,
+      altezza_sx_mm: checked ? (prev.altezza_mm ?? null) : null,
+      altezza_dx_mm: checked ? (prev.altezza_mm ?? null) : null,
+      altezza_mm: checked ? null : (prev.altezza_sx_mm ?? prev.altezza_dx_mm ?? null),
+    }))
+  }
+
+  // ── Albero vani ──────────────────────────────────────────
+  const isTreeMode = !!form.vani_tree
+
+  const handleAttivaVani = () => {
+    const nAnte = form.n_ante ?? 1
+    const nTraverse = form.n_traverse ?? 0
+    const tree = makeGridTree(nAnte, nTraverse, form.tipo_apertura, form.apertura_ante)
+    setForm((prev) => ({ ...prev, vani_tree: tree }))
+    setSelectedVanoId(null)
+  }
+
+  const handleResetVani = () => {
+    setForm((prev) => ({ ...prev, vani_tree: null }))
+    setSelectedVanoId(null)
+  }
+
+  const selectedLeaf: VanoLeaf | null = isTreeMode && selectedVanoId && form.vani_tree
+    ? findLeaf(form.vani_tree, selectedVanoId)
+    : null
+
+  const handleUpdateSelectedLeaf = (patch: Partial<VanoLeaf>) => {
+    if (!selectedVanoId || !form.vani_tree) return
+    setForm((prev) => ({
+      ...prev,
+      vani_tree: updateLeaf(prev.vani_tree!, selectedVanoId, patch),
+    }))
+  }
+
+  const handleSplitSelected = () => {
+    if (!selectedVanoId || !form.vani_tree) return
+    const f = Math.max(0.1, Math.min(0.9, parseFloat(splitPerc) / 100))
+    const newTree = splitLeaf(form.vani_tree, selectedVanoId, splitDir, f)
+    setForm((prev) => ({ ...prev, vani_tree: newTree }))
+    // Keep same vano selected (it becomes the left/top child)
   }
 
   const handleSave = () => {
@@ -216,7 +284,7 @@ export default function DialogVoceVeloce({
           {/* SEZIONE ALTA: 2 colonne compatte */}
           <div className="grid grid-cols-2 gap-x-8 px-6 pt-4 pb-4 border-b shrink-0">
 
-            {/* ── COL SINISTRA: identificazione + struttura ── */}
+            {/* ── COL SINISTRA ── */}
             <div className="space-y-3">
 
               {/* Voce + Qtà */}
@@ -239,21 +307,57 @@ export default function DialogVoceVeloce({
                 </div>
               </div>
 
-              {/* Larghezza + Altezza */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <Label>Larghezza (mm)</Label>
-                  <Input type="number" min={1} placeholder="es. 900"
-                    value={form.larghezza_mm ?? ''}
-                    onChange={(e) => set('larghezza_mm', e.target.value ? parseInt(e.target.value) : null)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Altezza (mm)</Label>
-                  <Input type="number" min={1} placeholder="es. 1200"
-                    value={form.altezza_mm ?? ''}
-                    onChange={(e) => set('altezza_mm', e.target.value ? parseInt(e.target.value) : null)}
-                  />
+              {/* Larghezza + Altezza (o sx/dx se fuori squadra) */}
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <Label>Larghezza (mm)</Label>
+                    <Input type="number" min={1} placeholder="es. 900"
+                      value={form.larghezza_mm ?? ''}
+                      onChange={(e) => set('larghezza_mm', e.target.value ? parseInt(e.target.value) : null)}
+                    />
+                  </div>
+                  {!form.fuori_squadro ? (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label>Altezza (mm)</Label>
+                        <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
+                          <input type="checkbox" checked={form.fuori_squadro}
+                            onChange={(e) => handleFuoriSquadroToggle(e.target.checked)}
+                            className="h-3.5 w-3.5 rounded border-input accent-orange-500" />
+                          Fuori squadra
+                        </label>
+                      </div>
+                      <Input type="number" min={1} placeholder="es. 1200"
+                        value={form.altezza_mm ?? ''}
+                        onChange={(e) => set('altezza_mm', e.target.value ? parseInt(e.target.value) : null)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-orange-600">Fuori squadra</Label>
+                        <button type="button" onClick={() => handleFuoriSquadroToggle(false)}
+                          className="text-xs text-gray-400 hover:text-gray-600">✕ Reset</button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1">
+                        <div>
+                          <div className="text-[10px] text-gray-400 mb-0.5">Sx (mm)</div>
+                          <Input type="number" min={1} placeholder="—"
+                            value={form.altezza_sx_mm ?? ''}
+                            onChange={(e) => set('altezza_sx_mm', e.target.value ? parseInt(e.target.value) : null)}
+                          />
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-gray-400 mb-0.5">Dx (mm)</div>
+                          <Input type="number" min={1} placeholder="—"
+                            value={form.altezza_dx_mm ?? ''}
+                            onChange={(e) => set('altezza_dx_mm', e.target.value ? parseInt(e.target.value) : null)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -275,6 +379,7 @@ export default function DialogVoceVeloce({
                   <Input type="number" min={1} max={8} placeholder="—"
                     value={form.n_ante ?? ''}
                     onChange={(e) => handleNAnteChange(e.target.value)}
+                    disabled={isTreeMode}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -282,6 +387,7 @@ export default function DialogVoceVeloce({
                   <Input type="number" min={0} max={4} placeholder="0"
                     value={form.n_traverse ?? ''}
                     onChange={(e) => handleNTraverseChange(e.target.value)}
+                    disabled={isTreeMode}
                   />
                 </div>
                 {form.tipologia === 'Finestra' && (
@@ -351,7 +457,7 @@ export default function DialogVoceVeloce({
 
             </div>
 
-            {/* ── COL DESTRA: finiture + note ── */}
+            {/* ── COL DESTRA ── */}
             <div className="space-y-3">
 
               {/* Accessori */}
@@ -485,13 +591,13 @@ export default function DialogVoceVeloce({
             </div>
           </div>
 
-          {/* SEZIONE BASSA: preview a sinistra (larghezza fissa) + allegati/funzioni a destra */}
+          {/* SEZIONE BASSA: preview + pannello configurazione */}
           <div className="flex-1 flex gap-6 px-6 pt-5 pb-4 min-h-[260px] border-t border-dashed border-gray-100">
 
-            {/* ── BLOCCO PREVIEW + TELAI (sinistra, larghezza fissa) ── */}
+            {/* ── BLOCCO PREVIEW + TELAI ── */}
             <div className="w-80 shrink-0 flex flex-col">
 
-              {/* Superiore */}
+              {/* Telaio superiore */}
               {telaiFiltrati.length > 0 && (
                 <Popover open={telaioOpenLato === 'top'} onOpenChange={(o) => setTelaioOpenLato(o ? 'top' : null)}>
                   <PopoverTrigger asChild>
@@ -514,10 +620,9 @@ export default function DialogVoceVeloce({
                 </Popover>
               )}
 
-              {/* Riga: sinistro | preview | destro */}
               <div className="flex-1 flex items-stretch gap-0.5">
 
-                {/* Sinistro */}
+                {/* Telaio sinistro */}
                 {telaiFiltrati.length > 0 && (
                   <Popover open={telaioOpenLato === 'left'} onOpenChange={(o) => setTelaioOpenLato(o ? 'left' : null)}>
                     <PopoverTrigger asChild>
@@ -543,19 +648,25 @@ export default function DialogVoceVeloce({
                 )}
 
                 {/* Preview */}
-                {(form.struttura || (form.n_ante ?? 0) >= 1) ? (
+                {(form.struttura || (form.n_ante ?? 0) >= 1 || isTreeMode) ? (
                   <div className="flex-1 border bg-gray-50 p-2">
                     <PreviewSerramento
                       struttura={form.struttura}
                       nAnte={form.n_ante}
                       nTraverse={form.n_traverse}
                       larghezza={form.larghezza_mm}
-                      altezza={form.altezza_mm}
+                      altezza={form.fuori_squadro ? null : form.altezza_mm}
+                      altezzaSx={form.altezza_sx_mm}
+                      altezzaDx={form.altezza_dx_mm}
+                      fuoriSquadro={form.fuori_squadro}
                       antaPrincipale={form.anta_principale}
                       posManiglia={form.pos_maniglia}
                       tipoApertura={form.tipo_apertura}
                       aperturaAnte={form.apertura_ante}
-                      onSelectAnta={(form.n_ante ?? 0) >= 1 ? handleAntaClick : undefined}
+                      onSelectAnta={!isTreeMode && (form.n_ante ?? 0) >= 1 ? handleAntaClick : undefined}
+                      vaniTree={form.vani_tree}
+                      selectedVanoId={selectedVanoId}
+                      onSelectVano={isTreeMode ? setSelectedVanoId : undefined}
                     />
                   </div>
                 ) : (
@@ -564,7 +675,7 @@ export default function DialogVoceVeloce({
                   </div>
                 )}
 
-                {/* Destro */}
+                {/* Telaio destro */}
                 {telaiFiltrati.length > 0 && (
                   <Popover open={telaioOpenLato === 'right'} onOpenChange={(o) => setTelaioOpenLato(o ? 'right' : null)}>
                     <PopoverTrigger asChild>
@@ -588,10 +699,9 @@ export default function DialogVoceVeloce({
                     </PopoverContent>
                   </Popover>
                 )}
-
               </div>
 
-              {/* Inferiore */}
+              {/* Telaio inferiore */}
               {telaiFiltrati.length > 0 && (
                 <Popover open={telaioOpenLato === 'bottom'} onOpenChange={(o) => setTelaioOpenLato(o ? 'bottom' : null)}>
                   <PopoverTrigger asChild>
@@ -616,9 +726,191 @@ export default function DialogVoceVeloce({
 
             </div>
 
-            {/* ── DESTRA: configurazione apertura per anta ── */}
-            <div className="flex-1 flex flex-col gap-2 pt-1 min-w-0">
-              {form.tipo_apertura === 'battente' && (
+            {/* ── PANNELLO DESTRA ── */}
+            <div className="flex-1 flex flex-col gap-3 pt-1 min-w-0">
+
+              {/* Toggle modalità vani */}
+              <div className="flex items-center gap-2">
+                {!isTreeMode ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs gap-1.5 text-blue-600 border-blue-200 hover:bg-blue-50"
+                    onClick={handleAttivaVani}
+                    disabled={(form.n_ante ?? 0) < 1}
+                    title={(form.n_ante ?? 0) < 1 ? 'Imposta N. ante prima' : ''}
+                  >
+                    <GitFork className="h-3.5 w-3.5" />
+                    Configura vani
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs gap-1.5 text-gray-500 border-gray-200 hover:bg-gray-50"
+                    onClick={handleResetVani}
+                  >
+                    <Grid3X3 className="h-3.5 w-3.5" />
+                    Modalità griglia
+                  </Button>
+                )}
+                {isTreeMode && (
+                  <span className="text-xs text-blue-600 font-medium">Vani avanzati attivi</span>
+                )}
+              </div>
+
+              {/* ── Configurazione vano selezionato (tree mode) ── */}
+              {isTreeMode && (
+                <div className="flex-1 flex flex-col gap-2.5 border rounded-lg p-3 bg-blue-50/30">
+                  {!selectedLeaf ? (
+                    <div className="flex items-center justify-center h-20">
+                      <p className="text-xs text-gray-400 text-center">Tocca un vano nel preview<br />per configurarlo</p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xs font-medium text-blue-700">Vano selezionato</p>
+
+                      {/* Tipo apertura del vano */}
+                      <div className="space-y-1">
+                        <div className="text-[11px] text-gray-500 font-medium">Tipo apertura</div>
+                        <div className="flex gap-1 flex-wrap">
+                          {([
+                            { val: 'fisso',               label: 'Fisso' },
+                            { val: 'battente',            label: 'Battente' },
+                            { val: 'scorrevole',          label: 'Scorrevole' },
+                            { val: 'alzante_scorrevole',  label: 'Alz. Scor.' },
+                          ] as const).map(({ val, label }) => (
+                            <button key={val} type="button"
+                              onClick={() => handleUpdateSelectedLeaf({
+                                tipo_apertura: val === 'fisso' ? null : val,
+                                apertura: val === 'fisso' ? 'fisso' : null,
+                              })}
+                              className={cn(
+                                'px-2 py-0.5 rounded text-xs border transition-colors',
+                                (val === 'fisso' ? selectedLeaf.apertura === 'fisso' || selectedLeaf.tipo_apertura === null
+                                  : selectedLeaf.tipo_apertura === val)
+                                  ? 'bg-blue-600 border-blue-600 text-white'
+                                  : 'border-gray-300 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
+                              )}>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Apertura specifica (battente) */}
+                      {selectedLeaf.tipo_apertura === 'battente' && (
+                        <div className="space-y-1">
+                          <div className="text-[11px] text-gray-500 font-medium">Apertura</div>
+                          <div className="flex flex-wrap gap-1">
+                            {APERTURE_BATTENTE.map((tipo) => (
+                              <button key={tipo} type="button"
+                                onClick={() => handleUpdateSelectedLeaf({ apertura: tipo })}
+                                className={cn(
+                                  'px-1.5 py-0.5 rounded text-[10px] border transition-colors text-left',
+                                  selectedLeaf.apertura === tipo
+                                    ? 'bg-blue-600 border-blue-600 text-white'
+                                    : 'border-gray-300 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
+                                )}>
+                                {LABEL_APERTURA[tipo]}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Apertura scorrevole */}
+                      {(selectedLeaf.tipo_apertura === 'scorrevole' || selectedLeaf.tipo_apertura === 'alzante_scorrevole') && (
+                        <div className="space-y-1">
+                          <div className="text-[11px] text-gray-500 font-medium">Apertura</div>
+                          <div className="flex gap-1">
+                            {(['mobile_sx', 'mobile_dx', 'fisso'] as const).map((tipo) => (
+                              <button key={tipo} type="button"
+                                onClick={() => handleUpdateSelectedLeaf({ apertura: tipo })}
+                                className={cn(
+                                  'px-2 py-0.5 rounded text-xs border transition-colors',
+                                  selectedLeaf.apertura === tipo
+                                    ? 'bg-blue-600 border-blue-600 text-white'
+                                    : 'border-gray-300 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
+                                )}>
+                                {LABEL_APERTURA[tipo] ?? tipo}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Riempimento */}
+                      <div className="space-y-1">
+                        <div className="text-[11px] text-gray-500 font-medium">Riempimento</div>
+                        <div className="flex gap-1.5">
+                          {RIEMPIMENTI.map(({ value, label, color }) => (
+                            <button key={value} type="button"
+                              onClick={() => handleUpdateSelectedLeaf({ riempimento: value })}
+                              className={cn(
+                                'px-2 py-0.5 rounded text-xs border transition-colors',
+                                selectedLeaf.riempimento === value
+                                  ? 'border-blue-600 ring-1 ring-blue-600 font-medium'
+                                  : 'border-gray-300 text-gray-600 hover:border-gray-400'
+                              )}
+                              style={{ backgroundColor: selectedLeaf.riempimento === value ? color : undefined }}>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Dividi vano */}
+                      <div className="space-y-1.5 pt-1 border-t border-blue-100">
+                        <div className="text-[11px] text-gray-500 font-medium">Dividi vano</div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-1">
+                            <button type="button"
+                              onClick={() => setSplitDir('montante')}
+                              title="Montante (divisore verticale)"
+                              className={cn(
+                                'px-2 py-0.5 rounded text-xs border transition-colors',
+                                splitDir === 'montante'
+                                  ? 'bg-gray-700 border-gray-700 text-white'
+                                  : 'border-gray-300 text-gray-600 hover:border-gray-400'
+                              )}>
+                              ┃ Montante
+                            </button>
+                            <button type="button"
+                              onClick={() => setSplitDir('traverso')}
+                              title="Traversa (divisore orizzontale)"
+                              className={cn(
+                                'px-2 py-0.5 rounded text-xs border transition-colors',
+                                splitDir === 'traverso'
+                                  ? 'bg-gray-700 border-gray-700 text-white'
+                                  : 'border-gray-300 text-gray-600 hover:border-gray-400'
+                              )}>
+                              ━ Traversa
+                            </button>
+                          </div>
+                          <Input
+                            type="number" min={10} max={90} step={5}
+                            value={splitPerc}
+                            onChange={(e) => setSplitPerc(e.target.value)}
+                            className="w-16 h-7 text-xs text-center"
+                          />
+                          <span className="text-xs text-gray-400">%</span>
+                          <Button type="button" size="sm" variant="outline"
+                            className="h-7 text-xs px-2"
+                            onClick={handleSplitSelected}>
+                            Dividi
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* ── Configurazione anta (modalità griglia legacy) ── */}
+              {!isTreeMode && form.tipo_apertura === 'battente' && (
                 <>
                   <p className="text-xs font-medium text-gray-500">
                     {form.anta_principale !== null
@@ -650,7 +942,7 @@ export default function DialogVoceVeloce({
                   })()}
                 </>
               )}
-              {(form.tipo_apertura === 'scorrevole' || form.tipo_apertura === 'alzante_scorrevole') && (
+              {!isTreeMode && (form.tipo_apertura === 'scorrevole' || form.tipo_apertura === 'alzante_scorrevole') && (
                 <p className="text-xs text-gray-400 leading-relaxed">
                   Tocca un&apos;anta nel preview per cambiarne il tipo:<br />
                   <span className="font-medium text-gray-600">← scorrevole sx → scorrevole dx · fisso</span>

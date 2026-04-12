@@ -1,6 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
+import type { VanoNode, VanoLeaf } from '@/types/rilievo-veloce'
 
 // ─── Costanti disegno ─────────────────────────────────────────
 
@@ -13,7 +14,7 @@ const C_FBORDER = '#1e293b'
 const C_BG      = '#e2e8f0'
 const C_GLASS   = '#dbeafe'
 const C_GLASS_S = '#93c5fd'
-const C_GLASS_F = '#cbd5e1'   // fisso (più scuro)
+const C_GLASS_F = '#cbd5e1'
 const C_ABORDER = '#475569'
 const C_ABORD_S = '#1d4ed8'
 const C_HANDLE  = '#1e3a5f'
@@ -61,7 +62,6 @@ export const LABEL_APERTURA: Record<string, string> = {
 
 // ─── Helpers ─────────────────────────────────────────────────
 
-/** Posizione maniglia ricavata dal tipo di apertura */
 export function aperturaToHandle(tipo: string): PosManiglia | null {
   if (!tipo || tipo === 'fisso') return null
   if (tipo === 'battente_interno_sx' || tipo === 'battente_esterno_sx') return 'right'
@@ -75,11 +75,6 @@ export function aperturaToHandle(tipo: string): PosManiglia | null {
   return null
 }
 
-/**
- * Defaults apertura_ante (flat array row-major: idx = col + row * nCols).
- * nTraverse = 0 → 1 riga (comportamento originale).
- * Righe superiori (0..nRows-2): fisso. Riga inferiore (nRows-1): apertura.
- */
 export function defaultAperturaAnte(
   tipo: TipoApertura,
   nAnte: number,
@@ -92,9 +87,7 @@ export function defaultAperturaAnte(
   return Array.from({ length: total }, (_, i) => {
     const col = i % nCols
     const row = Math.floor(i / nCols)
-    // Righe non-finali: fisso
     if (row < nRows - 1) return 'fisso'
-    // Riga finale (bottom)
     if (tipo === 'battente') {
       if (nCols === 1) return 'battente_interno_sx'
       if (col === 0) return 'battente_interno_sx'
@@ -112,6 +105,61 @@ export function defaultAperturaAnte(
   })
 }
 
+// ─── Geometria quad ──────────────────────────────────────────
+
+type P = { x: number; y: number }
+type Quad = { tl: P; tr: P; br: P; bl: P }
+
+function qPath({ tl, tr, br, bl }: Quad): string {
+  return `M ${tl.x},${tl.y} L ${tr.x},${tr.y} L ${br.x},${br.y} L ${bl.x},${bl.y} Z`
+}
+
+function insetQ(q: Quad, d: number): Quad {
+  return {
+    tl: { x: q.tl.x + d, y: q.tl.y + d },
+    tr: { x: q.tr.x - d, y: q.tr.y + d },
+    br: { x: q.br.x - d, y: q.br.y - d },
+    bl: { x: q.bl.x + d, y: q.bl.y - d },
+  }
+}
+
+function splitMontante(q: Quad, f: number): [Quad, Quad] {
+  const x  = q.tl.x + (q.tr.x - q.tl.x) * f
+  const yt = q.tl.y + (q.tr.y - q.tl.y) * f
+  const yb = q.bl.y + (q.br.y - q.bl.y) * f
+  return [
+    { tl: q.tl, tr: { x, y: yt }, br: { x, y: yb }, bl: q.bl },
+    { tl: { x, y: yt }, tr: q.tr, br: q.br, bl: { x, y: yb } },
+  ]
+}
+
+function splitTraverso(q: Quad, f: number): [Quad, Quad] {
+  const yl = q.tl.y + (q.bl.y - q.tl.y) * f
+  const yr = q.tr.y + (q.br.y - q.tr.y) * f
+  return [
+    { tl: q.tl, tr: q.tr, br: { x: q.tr.x, y: yr }, bl: { x: q.tl.x, y: yl } },
+    { tl: { x: q.tl.x, y: yl }, tr: { x: q.tr.x, y: yr }, br: q.br, bl: q.bl },
+  ]
+}
+
+function hitQuad(q: Quad, px: number, py: number): boolean {
+  const w = q.tr.x - q.tl.x
+  if (w <= 0 || px < q.tl.x || px > q.tr.x) return false
+  const f = (px - q.tl.x) / w
+  const topY = q.tl.y + (q.tr.y - q.tl.y) * f
+  const botY = q.bl.y + (q.br.y - q.bl.y) * f
+  return py >= topY && py <= botY
+}
+
+function hitTree(node: VanoNode, q: Quad, px: number, py: number): VanoLeaf | null {
+  if (!hitQuad(q, px, py)) return null
+  if (node.type === 'leaf') return node
+  const [q0, q1] = node.direzione === 'montante'
+    ? splitMontante(q, node.frazione)
+    : splitTraverso(q, node.frazione)
+  return hitTree(node.figli[0], q0, px, py) ?? hitTree(node.figli[1], q1, px, py)
+}
+
 // ─── Simbolo apertura SVG ─────────────────────────────────────
 
 function AperturaSymbol({
@@ -127,7 +175,6 @@ function AperturaSymbol({
       <line x1={gx + gw} y1={gy} x2={gx} y2={gy + gh} stroke={C_LINE} strokeWidth={lw} />
     </g>
   )
-
   if (tipo === 'battente_interno_sx') return (
     <line x1={gx} y1={gy} x2={gx + gw} y2={gy + gh} stroke={C_LINE} strokeWidth={lw} />
   )
@@ -140,7 +187,6 @@ function AperturaSymbol({
   if (tipo === 'battente_esterno_dx') return (
     <line x1={gx + gw} y1={gy} x2={gx} y2={gy + gh} stroke={C_LINE} strokeWidth={lw} strokeDasharray="3,2" />
   )
-
   if (tipo === 'vasistas') return (
     <g>
       <line x1={gx} y1={gy} x2={cx} y2={gy + gh} stroke={C_LINE} strokeWidth={lw} />
@@ -159,7 +205,6 @@ function AperturaSymbol({
       <line x1={gx + gw} y1={gy} x2={cx} y2={gy + gh} stroke={C_LINE} strokeWidth={lw} strokeDasharray="3,2" />
     </g>
   )
-
   if (tipo === 'bilico_v') return (
     <g>
       <line x1={cx} y1={gy} x2={cx} y2={gy + gh} stroke={C_LINE} strokeWidth={lw} strokeDasharray="2,1.5" />
@@ -174,182 +219,20 @@ function AperturaSymbol({
       <text x={cx} y={gy + gh - 3} fontSize={7} fill={C_LINE} textAnchor="middle">↓</text>
     </g>
   )
-
   if (tipo === 'mobile_sx') return (
     <text x={cx} y={cy + 5} fontSize={16} fill={C_LINE} textAnchor="middle" fontWeight="bold">←</text>
   )
   if (tipo === 'mobile_dx') return (
     <text x={cx} y={cy + 5} fontSize={16} fill={C_LINE} textAnchor="middle" fontWeight="bold">→</text>
   )
-
   return null
 }
 
-// ─── Componente ──────────────────────────────────────────────
-
-interface Props {
-  struttura: string | null
-  nAnte: number | null
-  nTraverse?: number | null
-  larghezza: number | null
-  altezza: number | null
-  antaPrincipale: number | null
-  posManiglia?: PosManiglia | null    // usato solo se tipo_apertura è null
-  tipoApertura?: TipoApertura
-  aperturaAnte?: string[]
-  onSelectAnta?: (idx: number) => void
-  className?: string
-}
-
-export default function PreviewSerramento({
-  struttura, nAnte, nTraverse, larghezza, altezza,
-  antaPrincipale, posManiglia,
-  tipoApertura, aperturaAnte,
-  onSelectAnta, className,
-}: Props) {
-  const ratio  = larghezza && altezza && larghezza > 0 ? altezza / larghezza : 4 / 3
-  const SVG_H  = Math.max(90, Math.min(320, Math.round(SVG_W * ratio)))
-  const ix = FW, iy = FW
-  const iw = SVG_W - FW * 2
-  const ih = SVG_H - FW * 2
-
-  const nCols   = Math.max(0, Math.min(nAnte ?? 0, 8))
-  const nRows   = Math.max(1, (nTraverse ?? 0) + 1)
-  const canClick = !!onSelectAnta && nCols >= 1
-
-  // Griglia 2D di celle: flat array row-major (idx = col + row*nCols)
-  const cells = Array.from({ length: nCols * nRows }, (_, i) => {
-    const col = i % nCols
-    const row = Math.floor(i / nCols)
-    return {
-      x: ix + Math.round((iw / nCols) * col),
-      y: iy + Math.round((ih / nRows) * row),
-      w: Math.round(iw / nCols),
-      h: Math.round(ih / nRows),
-      col, row,
-      idx: i,
-    }
-  })
-
-  function getAperturaAnta(idx: number): string {
-    return aperturaAnte?.[idx] ?? ''
-  }
-
-  function getHandleSide(idx: number): PosManiglia | null {
-    if (tipoApertura) {
-      return aperturaToHandle(getAperturaAnta(idx))
-    }
-    const isPrinc = antaPrincipale === idx
-    if (!isPrinc) return null
-    if (posManiglia) return posManiglia
-    return nCols === 1 ? 'right' : (idx < nCols / 2 ? 'right' : 'left')
-  }
-
-  const hintText = tipoApertura === 'battente'
-    ? "Tocca una cella per configurarla"
-    : tipoApertura === 'scorrevole' || tipoApertura === 'alzante_scorrevole'
-      ? "Tocca una cella per cambiare tipo (← / → / fisso)"
-      : nCols > 1
-        ? "Tocca un'anta per selezionarla · tocca quella selezionata per ruotare la maniglia"
-        : "Tocca l'anta per ruotare la maniglia"
-
-  return (
-    <div className={cn('flex flex-col items-center gap-1.5', className)}>
-      <svg
-        viewBox={`0 0 ${SVG_W} ${SVG_H}`}
-        style={{ width: '100%', maxWidth: SVG_W, display: 'block' }}
-        aria-label="Anteprima serramento"
-      >
-        {/* Telaio esterno */}
-        <rect x={0} y={0} width={SVG_W} height={SVG_H}
-          fill={C_FRAME} stroke={C_FBORDER} strokeWidth={1} rx={1.5} />
-
-        {/* Sfondo interno */}
-        <rect x={ix} y={iy} width={iw} height={ih} fill={C_BG} />
-
-        {/* Nessuna anta: vetro fisso */}
-        {nCols === 0 && (
-          <>
-            <rect x={ix + AW} y={iy + AW} width={iw - AW * 2} height={ih - AW * 2}
-              fill={C_GLASS} stroke={C_ABORDER} strokeWidth={AW} />
-            <line x1={ix + AW} y1={iy + AW} x2={ix + iw - AW} y2={iy + ih - AW}
-              stroke="#93c5fd" strokeWidth={1} />
-            <line x1={ix + iw - AW} y1={iy + AW} x2={ix + AW} y2={iy + ih - AW}
-              stroke="#93c5fd" strokeWidth={1} />
-            {struttura && (
-              <text x={SVG_W / 2} y={iy + ih / 2 + 4} textAnchor="middle"
-                fontSize={9} fill="#60a5fa" fontWeight="600">
-                {struttura.toUpperCase()}
-              </text>
-            )}
-          </>
-        )}
-
-        {/* Celle griglia (ante × traverse) */}
-        {cells.map((cell) => {
-          const isPrinc = antaPrincipale === cell.idx
-          const apertura = getAperturaAnta(cell.idx)
-          const handleSide = getHandleSide(cell.idx)
-          const gx = cell.x + AW, gy = cell.y + AW
-          const gw = cell.w - AW * 2, gh = cell.h - AW * 2
-
-          const isFisso = apertura === 'fisso'
-          const glassColor = tipoApertura
-            ? (isPrinc ? C_GLASS_S : isFisso ? C_GLASS_F : C_GLASS)
-            : (isPrinc ? C_GLASS_S : C_GLASS)
-          const borderColor = isPrinc ? C_ABORD_S : C_ABORDER
-          const borderWidth = isPrinc ? 1.5 : 0.5
-
-          return (
-            <g key={cell.idx}
-              onClick={() => canClick && onSelectAnta?.(cell.idx)}
-              style={{ cursor: canClick ? 'pointer' : 'default' }}>
-              {/* Frame cella */}
-              <rect x={cell.x} y={cell.y} width={cell.w} height={cell.h} fill={C_FRAME} />
-              {/* Vetro */}
-              <rect x={gx} y={gy} width={gw} height={gh}
-                fill={glassColor} stroke={borderColor} strokeWidth={borderWidth} />
-              {/* Simbolo apertura */}
-              {apertura && tipoApertura && (
-                <AperturaSymbol tipo={apertura} gx={gx} gy={gy} gw={gw} gh={gh} />
-              )}
-              {/* Maniglia */}
-              {handleSide && <Handle a={cell} side={handleSide} />}
-              {/* Indicatori legacy (solo senza tipo_apertura) */}
-              {!tipoApertura && canClick && !isPrinc && (
-                <text x={cell.x + cell.w / 2} y={cell.y + cell.h / 2 + 4}
-                  textAnchor="middle" fontSize={14} fill="#94a3b8" opacity={0.8}>○</text>
-              )}
-              {!tipoApertura && isPrinc && nCols > 1 && (
-                <text x={cell.x + cell.w / 2} y={cell.y + cell.h / 2 + 4}
-                  textAnchor="middle" fontSize={14} fill={C_ABORD_S}>●</text>
-              )}
-            </g>
-          )
-        })}
-
-        {/* Quote */}
-        {larghezza && (
-          <text x={SVG_W / 2} y={SVG_H - 1.5}
-            textAnchor="middle" fontSize={7.5} fill={C_DIM}>{larghezza} mm</text>
-        )}
-        {altezza && (
-          <text x={SVG_W - 2.5} y={SVG_H / 2} textAnchor="middle" fontSize={7.5} fill={C_DIM}
-            transform={`rotate(-90,${SVG_W - 2.5},${SVG_H / 2})`}>{altezza} mm</text>
-        )}
-      </svg>
-
-      {canClick && (
-        <p className="text-[10px] text-gray-400 text-center leading-tight">{hintText}</p>
-      )}
-    </div>
-  )
-}
+// ─── Handle ─────────────────────────────────────────────────
 
 function Handle({ a, side }: { a: { x: number; y: number; w: number; h: number }; side: PosManiglia }) {
   const midX = a.x + a.w / 2
   const midY = a.y + a.h / 2
-
   if (side === 'right') {
     const plateX = a.x + a.w - AW - 3.5
     return (
@@ -383,5 +266,302 @@ function Handle({ a, side }: { a: { x: number; y: number; w: number; h: number }
       <rect x={midX - 9} y={plateY} width={18} height={3.5} rx={1.75} />
       <rect x={midX - 2} y={plateY - 8} width={4} height={8} rx={2} />
     </g>
+  )
+}
+
+// ─── Rendering albero vani ────────────────────────────────────
+
+function renderLeaf(
+  node: VanoLeaf,
+  q: Quad,
+  selectedId: string | null,
+  canClick: boolean,
+  onSelectVano?: (id: string) => void,
+) {
+  const isSelected = node.id === selectedId
+  const apertura = node.apertura ?? ''
+  const isFisso = apertura === 'fisso'
+  const glassColor = isSelected ? C_GLASS_S : isFisso ? C_GLASS_F : C_GLASS
+  const borderColor = isSelected ? C_ABORD_S : C_ABORDER
+  const bw = isSelected ? 1.5 : 0.5
+  const inner = insetQ(q, AW)
+  // Bounding box of inner quad for symbol/handle positioning
+  const gx = inner.tl.x
+  const gy = Math.max(inner.tl.y, inner.tr.y)
+  const gw = inner.tr.x - inner.tl.x
+  const gh = inner.bl.y - gy
+  const handleSide = aperturaToHandle(apertura)
+
+  return (
+    <g
+      key={node.id}
+      onClick={() => canClick && onSelectVano?.(node.id)}
+      style={{ cursor: canClick ? 'pointer' : 'default' }}
+    >
+      <path d={qPath(q)} fill={C_FRAME} />
+      <path d={qPath(inner)} fill={glassColor} stroke={borderColor} strokeWidth={bw} />
+      {apertura && gw > 2 && gh > 2 && (
+        <AperturaSymbol tipo={apertura} gx={gx} gy={gy} gw={gw} gh={gh} />
+      )}
+      {handleSide && gw > 2 && gh > 2 && (
+        <Handle a={{ x: q.tl.x, y: gy, w: q.tr.x - q.tl.x, h: gh }} side={handleSide} />
+      )}
+    </g>
+  )
+}
+
+function renderNode(
+  node: VanoNode,
+  q: Quad,
+  selectedId: string | null,
+  canClick: boolean,
+  onSelectVano?: (id: string) => void,
+): React.ReactNode {
+  if (node.type === 'leaf') {
+    return renderLeaf(node, q, selectedId, canClick, onSelectVano)
+  }
+  const [q0, q1] = node.direzione === 'montante'
+    ? splitMontante(q, node.frazione)
+    : splitTraverso(q, node.frazione)
+  return (
+    <>
+      {renderNode(node.figli[0], q0, selectedId, canClick, onSelectVano)}
+      {renderNode(node.figli[1], q1, selectedId, canClick, onSelectVano)}
+    </>
+  )
+}
+
+// ─── Props ───────────────────────────────────────────────────
+
+interface Props {
+  struttura: string | null
+  nAnte: number | null
+  nTraverse?: number | null
+  larghezza: number | null
+  altezza: number | null
+  antaPrincipale: number | null
+  posManiglia?: PosManiglia | null
+  tipoApertura?: TipoApertura
+  aperturaAnte?: string[]
+  onSelectAnta?: (idx: number) => void
+  // Forma trapezoidale
+  fuoriSquadro?: boolean
+  altezzaSx?: number | null
+  altezzaDx?: number | null
+  // Albero vani avanzato
+  vaniTree?: VanoNode | null
+  selectedVanoId?: string | null
+  onSelectVano?: (id: string) => void
+  className?: string
+}
+
+// ─── Componente ──────────────────────────────────────────────
+
+export default function PreviewSerramento({
+  struttura, nAnte, nTraverse, larghezza, altezza,
+  antaPrincipale, posManiglia,
+  tipoApertura, aperturaAnte,
+  onSelectAnta,
+  fuoriSquadro = false,
+  altezzaSx, altezzaDx,
+  vaniTree, selectedVanoId, onSelectVano,
+  className,
+}: Props) {
+
+  // ── Dimensioni SVG ──────────────────────────────────────────
+  const altMax = fuoriSquadro && altezzaSx && altezzaDx
+    ? Math.max(altezzaSx, altezzaDx)
+    : (altezza ?? 0)
+  const ratio = larghezza && altMax && larghezza > 0 ? altMax / larghezza : 4 / 3
+  const SVG_H = Math.max(90, Math.min(320, Math.round(SVG_W * ratio)))
+  const ix = FW, iy = FW
+  const iw = SVG_W - FW * 2
+  const ih = SVG_H - FW * 2
+
+  // ── Root quad (area interna, dentro il telaio) ───────────────
+  let rootQuad: Quad
+  let outerTopLeft: P
+  let outerTopRight: P
+
+  if (fuoriSquadro && altezzaSx && altezzaDx && altMax > 0) {
+    const hSx = ih * altezzaSx / altMax
+    const hDx = ih * altezzaDx / altMax
+    rootQuad = {
+      tl: { x: ix,      y: iy + (ih - hSx) },
+      tr: { x: ix + iw, y: iy + (ih - hDx) },
+      br: { x: ix + iw, y: iy + ih },
+      bl: { x: ix,      y: iy + ih },
+    }
+    outerTopLeft  = { x: 0,     y: rootQuad.tl.y - FW }
+    outerTopRight = { x: SVG_W, y: rootQuad.tr.y - FW }
+  } else {
+    rootQuad = {
+      tl: { x: ix,      y: iy },
+      tr: { x: ix + iw, y: iy },
+      br: { x: ix + iw, y: iy + ih },
+      bl: { x: ix,      y: iy + ih },
+    }
+    outerTopLeft  = { x: 0,     y: 0 }
+    outerTopRight = { x: SVG_W, y: 0 }
+  }
+
+  const outerPath = `M ${outerTopLeft.x},${outerTopLeft.y} L ${outerTopRight.x},${outerTopRight.y} L ${SVG_W},${SVG_H} L 0,${SVG_H} Z`
+
+  // ── Modalità albero vani ──────────────────────────────────────
+  const isTreeMode = !!vaniTree
+  const canClickVano = isTreeMode && !!onSelectVano
+  const canClickAnta = !isTreeMode && !!onSelectAnta
+
+  // ── Griglia legacy (quando non è in tree mode) ────────────────
+  const nCols = Math.max(0, Math.min(nAnte ?? 0, 8))
+  const nRows = Math.max(1, (nTraverse ?? 0) + 1)
+
+  const legacyCells = !isTreeMode ? Array.from({ length: nCols * nRows }, (_, i) => {
+    const col = i % nCols
+    const row = Math.floor(i / nCols)
+    return {
+      x: ix + Math.round((iw / nCols) * col),
+      y: iy + Math.round((ih / nRows) * row),
+      w: Math.round(iw / nCols),
+      h: Math.round(ih / nRows),
+      col, row, idx: i,
+    }
+  }) : []
+
+  function getAperturaAnta(idx: number): string {
+    return aperturaAnte?.[idx] ?? ''
+  }
+
+  function getHandleSide(idx: number): PosManiglia | null {
+    if (tipoApertura) return aperturaToHandle(getAperturaAnta(idx))
+    const isPrinc = antaPrincipale === idx
+    if (!isPrinc) return null
+    if (posManiglia) return posManiglia
+    return nCols === 1 ? 'right' : (idx < nCols / 2 ? 'right' : 'left')
+  }
+
+  // ── Click handler on SVG for tree mode ────────────────────────
+  function handleSvgClick(e: React.MouseEvent<SVGSVGElement>) {
+    if (!canClickVano || !vaniTree) return
+    const svg = e.currentTarget
+    const rect = svg.getBoundingClientRect()
+    const scaleX = SVG_W / rect.width
+    const scaleY = SVG_H / rect.height
+    const px = (e.clientX - rect.left) * scaleX
+    const py = (e.clientY - rect.top) * scaleY
+    const hit = hitTree(vaniTree, rootQuad, px, py)
+    if (hit) onSelectVano?.(hit.id)
+  }
+
+  const hintText = isTreeMode
+    ? 'Tocca un vano per configurarlo'
+    : tipoApertura === 'battente'
+      ? 'Tocca una cella per configurarla'
+      : tipoApertura === 'scorrevole' || tipoApertura === 'alzante_scorrevole'
+        ? 'Tocca una cella per cambiare tipo (← / → / fisso)'
+        : nCols > 1
+          ? "Tocca un'anta per selezionarla"
+          : "Tocca l'anta per ruotare la maniglia"
+
+  return (
+    <div className={cn('flex flex-col items-center gap-1.5', className)}>
+      <svg
+        viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+        style={{ width: '100%', maxWidth: SVG_W, display: 'block' }}
+        aria-label="Anteprima serramento"
+        onClick={handleSvgClick}
+      >
+        {/* Telaio esterno */}
+        <path d={outerPath} fill={C_FRAME} stroke={C_FBORDER} strokeWidth={1} />
+
+        {/* Sfondo interno */}
+        <path d={qPath(rootQuad)} fill={C_BG} />
+
+        {/* ── Modalità albero vani ── */}
+        {isTreeMode && vaniTree && renderNode(vaniTree, rootQuad, selectedVanoId ?? null, canClickVano, onSelectVano)}
+
+        {/* ── Modalità griglia legacy ── */}
+        {!isTreeMode && nCols === 0 && (
+          <>
+            <rect x={ix + AW} y={iy + AW} width={iw - AW * 2} height={ih - AW * 2}
+              fill={C_GLASS} stroke={C_ABORDER} strokeWidth={AW} />
+            <line x1={ix + AW} y1={iy + AW} x2={ix + iw - AW} y2={iy + ih - AW}
+              stroke="#93c5fd" strokeWidth={1} />
+            <line x1={ix + iw - AW} y1={iy + AW} x2={ix + AW} y2={iy + ih - AW}
+              stroke="#93c5fd" strokeWidth={1} />
+            {struttura && (
+              <text x={SVG_W / 2} y={iy + ih / 2 + 4} textAnchor="middle"
+                fontSize={9} fill="#60a5fa" fontWeight="600">
+                {struttura.toUpperCase()}
+              </text>
+            )}
+          </>
+        )}
+
+        {!isTreeMode && legacyCells.map((cell) => {
+          const isPrinc = antaPrincipale === cell.idx
+          const apertura = getAperturaAnta(cell.idx)
+          const handleSide = getHandleSide(cell.idx)
+          const gx = cell.x + AW, gy = cell.y + AW
+          const gw = cell.w - AW * 2, gh = cell.h - AW * 2
+          const isFisso = apertura === 'fisso'
+          const glassColor = tipoApertura
+            ? (isPrinc ? C_GLASS_S : isFisso ? C_GLASS_F : C_GLASS)
+            : (isPrinc ? C_GLASS_S : C_GLASS)
+          const borderColor = isPrinc ? C_ABORD_S : C_ABORDER
+          const borderWidth = isPrinc ? 1.5 : 0.5
+
+          return (
+            <g key={cell.idx}
+              onClick={() => canClickAnta && onSelectAnta?.(cell.idx)}
+              style={{ cursor: canClickAnta ? 'pointer' : 'default' }}>
+              <rect x={cell.x} y={cell.y} width={cell.w} height={cell.h} fill={C_FRAME} />
+              <rect x={gx} y={gy} width={gw} height={gh}
+                fill={glassColor} stroke={borderColor} strokeWidth={borderWidth} />
+              {apertura && tipoApertura && (
+                <AperturaSymbol tipo={apertura} gx={gx} gy={gy} gw={gw} gh={gh} />
+              )}
+              {handleSide && <Handle a={cell} side={handleSide} />}
+              {!tipoApertura && canClickAnta && !isPrinc && (
+                <text x={cell.x + cell.w / 2} y={cell.y + cell.h / 2 + 4}
+                  textAnchor="middle" fontSize={14} fill="#94a3b8" opacity={0.8}>○</text>
+              )}
+              {!tipoApertura && isPrinc && nCols > 1 && (
+                <text x={cell.x + cell.w / 2} y={cell.y + cell.h / 2 + 4}
+                  textAnchor="middle" fontSize={14} fill={C_ABORD_S}>●</text>
+              )}
+            </g>
+          )
+        })}
+
+        {/* Quote */}
+        {larghezza && (
+          <text x={SVG_W / 2} y={SVG_H - 1.5}
+            textAnchor="middle" fontSize={7.5} fill={C_DIM}>{larghezza} mm</text>
+        )}
+        {!fuoriSquadro && altezza && (
+          <text x={SVG_W - 2.5} y={SVG_H / 2} textAnchor="middle" fontSize={7.5} fill={C_DIM}
+            transform={`rotate(-90,${SVG_W - 2.5},${SVG_H / 2})`}>{altezza} mm</text>
+        )}
+        {fuoriSquadro && altezzaSx && (
+          <text x={3} y={rootQuad.tl.y + (rootQuad.bl.y - rootQuad.tl.y) / 2}
+            textAnchor="middle" fontSize={6.5} fill={C_DIM}
+            transform={`rotate(-90,3,${rootQuad.tl.y + (rootQuad.bl.y - rootQuad.tl.y) / 2})`}>
+            {altezzaSx}
+          </text>
+        )}
+        {fuoriSquadro && altezzaDx && (
+          <text x={SVG_W - 3} y={rootQuad.tr.y + (rootQuad.br.y - rootQuad.tr.y) / 2}
+            textAnchor="middle" fontSize={6.5} fill={C_DIM}
+            transform={`rotate(-90,${SVG_W - 3},${rootQuad.tr.y + (rootQuad.br.y - rootQuad.tr.y) / 2})`}>
+            {altezzaDx}
+          </text>
+        )}
+      </svg>
+
+      {(canClickAnta || canClickVano) && (
+        <p className="text-[10px] text-gray-400 text-center leading-tight">{hintText}</p>
+      )}
+    </div>
   )
 }
