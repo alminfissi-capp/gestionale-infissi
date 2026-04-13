@@ -11,14 +11,14 @@ CREATE TABLE IF NOT EXISTS scorrevoli_listino (
 
 ALTER TABLE scorrevoli_listino ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "org members can read scorrevoli_listino"
+CREATE POLICY "scorrevoli_listino_select"
   ON scorrevoli_listino FOR SELECT
-  USING (organization_id IN (
-    SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-  ));
+  USING (organization_id = get_user_organization_id());
 
-CREATE POLICY "org members can upsert scorrevoli_listino"
-  ON scorrevoli_listino FOR ALL
-  USING (organization_id IN (
-    SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-  ));
+CREATE POLICY "scorrevoli_listino_insert"
+  ON scorrevoli_listino FOR INSERT
+  WITH CHECK (organization_id = get_user_organization_id());
+
+CREATE POLICY "scorrevoli_listino_update"
+  ON scorrevoli_listino FOR UPDATE
+  USING (organization_id = get_user_organization_id());
