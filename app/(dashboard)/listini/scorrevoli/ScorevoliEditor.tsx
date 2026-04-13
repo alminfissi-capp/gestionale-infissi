@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
-import { getCurrentOrgId } from '@/actions/listini'
 import { saveScorevoliListino, type ScorevoliListino } from '@/actions/scorrevoli'
 
 async function resizeImage(file: File, maxDim = 800): Promise<Blob> {
@@ -129,8 +128,12 @@ function TabModelli({
     setUploadingIdx(idx)
     try {
       const blob = await resizeImage(file, 800)
-      const orgId = await getCurrentOrgId()
       const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Non autenticato')
+      const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
+      if (!profile) throw new Error('Profilo non trovato')
+      const orgId = profile.organization_id
       const fileName = `${orgId}/scorrevoli-${data.modelli[idx].id}.webp`
       const { error } = await supabase.storage
         .from('listini-immagini')
@@ -141,8 +144,8 @@ function TabModelli({
         .getPublicUrl(fileName)
       updateModello(idx, 'immagine_url', publicUrl)
       toast.success('Immagine caricata')
-    } catch {
-      toast.error('Errore nel caricamento immagine')
+    } catch (e) {
+      toast.error(`Errore upload: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
       setUploadingIdx(null)
       const ref = fileRefs.current[idx]
