@@ -222,6 +222,9 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
                   </td>
                   <td className="py-2 text-right tabular-nums text-gray-700">
                     {a.costo_acquisto_unitario > 0 ? `€ ${formatEuro(a.costo_acquisto_unitario)}` : '—'}
+                    {a.tipo === 'su_misura' && a.config_su_misura && (
+                      <span className="block text-[9px] text-gray-400">prod.+acc.</span>
+                    )}
                   </td>
                   <td className="py-2 text-right tabular-nums text-gray-700">
                     {a.costo_posa > 0 ? `€ ${formatEuro(a.costo_posa)}` : '—'}

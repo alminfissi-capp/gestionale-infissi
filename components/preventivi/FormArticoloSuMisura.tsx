@@ -289,7 +289,9 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
       prezzo_unitario,
       sconto_articolo: sconto,
       prezzo_totale_riga: totale_riga,
-      costo_acquisto_unitario: listino.prezzo_acquisto_mq * mq + costo_acquisto_accessori,
+      // Per su_misura, il costo di riferimento per il report è prodotto + accessori
+      // (prezzo_acquisto_mq può essere 0 se non configurato → userebbe totale_prodotto come fallback)
+      costo_acquisto_unitario: totale_prodotto + totale_accessori,
       costo_posa: manoDoperaN,
       aliquota_iva: aliquotaIva,
       ordine: 0,
