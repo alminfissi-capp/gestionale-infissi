@@ -102,21 +102,19 @@ interface DocProps {
   logoUrl: string | null
 }
 
-/** Per su_misura: usa sempre config_su_misura come fonte attendibile (funziona anche su articoli già salvati) */
-function getCostiSuMisura(a: PreventivoCompleto['articoli'][number]) {
-  if (a.tipo === 'su_misura' && a.config_su_misura) {
-    return {
-      costoAcquisto: a.config_su_misura.totale_prodotto + a.config_su_misura.totale_accessori,
-      costoPosa: a.config_su_misura.mano_dopera,
-    }
-  }
+/** Per su_misura/scorrevole: usa config come fonte attendibile (funziona anche su articoli già salvati) */
+function getCostiArticolo(a: PreventivoCompleto['articoli'][number]) {
+  if (a.tipo === 'su_misura' && a.config_su_misura)
+    return { costoAcquisto: a.config_su_misura.totale_prodotto + a.config_su_misura.totale_accessori, costoPosa: a.config_su_misura.mano_dopera }
+  if (a.tipo === 'scorrevole' && a.config_scorrevole)
+    return { costoAcquisto: a.config_scorrevole.dettaglio.totale_riga, costoPosa: a.config_scorrevole.posa ?? a.costo_posa }
   return { costoAcquisto: a.costo_acquisto_unitario, costoPosa: a.costo_posa }
 }
 
 function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings, logoUrl }: DocProps) {
   const articoliOrdinati = [...p.articoli].sort((a, b) => a.ordine - b.ordine)
-  const totaleCostiAcquisto = articoliOrdinati.reduce((sum, a) => sum + getCostiSuMisura(a).costoAcquisto * a.quantita, 0)
-  const totalePosa = articoliOrdinati.reduce((sum, a) => sum + getCostiSuMisura(a).costoPosa * a.quantita, 0)
+  const totaleCostiAcquisto = articoliOrdinati.reduce((sum, a) => sum + getCostiArticolo(a).costoAcquisto * a.quantita, 0)
+  const totalePosa = articoliOrdinati.reduce((sum, a) => sum + getCostiArticolo(a).costoPosa * a.quantita, 0)
   const costoTotale = totaleCostiAcquisto + totalePosa + p.spese_trasporto
   const utile = p.totale_articoli - costoTotale
   const percUtile = costoTotale > 0 ? (utile / costoTotale) * 100 : null
@@ -210,7 +208,7 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
           </thead>
           <tbody>
             {articoliOrdinati.map((a, i) => {
-              const { costoAcquisto, costoPosa } = getCostiSuMisura(a)
+              const { costoAcquisto, costoPosa } = getCostiArticolo(a)
               const quotaTrasporto = a.quota_trasporto ?? 0
               const costoTotRiga = (costoAcquisto + costoPosa) * a.quantita + quotaTrasporto
               const margineRiga = a.prezzo_totale_riga - costoTotRiga

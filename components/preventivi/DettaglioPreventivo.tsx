@@ -604,10 +604,14 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
 
       {/* Report Interno — solo uso gestionale, non compare in stampa */}
       {(() => {
-        // Per su_misura: usa config_su_misura come fonte attendibile (funziona anche su articoli già salvati)
-        const getCosti = (a: typeof p.articoli[number]) => a.tipo === 'su_misura' && a.config_su_misura
-          ? { acq: a.config_su_misura.totale_prodotto + a.config_su_misura.totale_accessori, posa: a.config_su_misura.mano_dopera }
-          : { acq: a.costo_acquisto_unitario, posa: a.costo_posa }
+        // Per su_misura/scorrevole: usa config come fonte attendibile (funziona anche su articoli già salvati)
+        const getCosti = (a: typeof p.articoli[number]) => {
+          if (a.tipo === 'su_misura' && a.config_su_misura)
+            return { acq: a.config_su_misura.totale_prodotto + a.config_su_misura.totale_accessori, posa: a.config_su_misura.mano_dopera }
+          if (a.tipo === 'scorrevole' && a.config_scorrevole)
+            return { acq: a.config_scorrevole.dettaglio.totale_riga, posa: a.config_scorrevole.posa ?? a.costo_posa }
+          return { acq: a.costo_acquisto_unitario, posa: a.costo_posa }
+        }
         const totaleCostiAcquisto = p.articoli.reduce((sum, a) => sum + getCosti(a).acq * a.quantita, 0)
         const totalePosa = p.articoli.reduce((sum, a) => sum + getCosti(a).posa * a.quantita, 0)
         if (totaleCostiAcquisto === 0 && totalePosa === 0 && p.spese_trasporto === 0) return null

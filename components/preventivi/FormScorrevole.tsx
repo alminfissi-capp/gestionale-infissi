@@ -27,19 +27,10 @@ function buildTipologia(riga: RigaScorrevoli): string {
 }
 
 function buildNote(cfg: ConfigScorrevoleArticolo): string {
-  const d = cfg.dettaglio
-  const parts: string[] = [
-    `Mq fatturati: ${d.mq_fatturati} mq @ ${d.prezzo_mq} €/mq`,
-  ]
-  if (d.sconto_vetrata > 0) parts.push(`Sconto vetrata: −€${formatEuroScorrevoli(d.sconto_vetrata)}`)
-  if (d.maggiorazione_colore > 0) parts.push(`Magg. colore: +€${formatEuroScorrevoli(d.maggiorazione_colore)}`)
-  if (d.prezzo_vetro_extra > 0) parts.push(`Vetro speciale: +€${formatEuroScorrevoli(d.prezzo_vetro_extra)}`)
-  if (d.totale_optional > 0) parts.push(`Optional (netto): €${formatEuroScorrevoli(d.totale_optional_netto)}`)
-  if (cfg.posa > 0) parts.push(`Posa: ${formatEuro(cfg.posa)} €`)
-  if (cfg.ricarico_percentuale != null && cfg.ricarico_percentuale > 0)
-    parts.push(`Ricarico: ${cfg.ricarico_percentuale}%`)
-  else if (cfg.ricarico_fisso != null && cfg.ricarico_fisso > 0)
-    parts.push(`Ricarico: ${formatEuro(cfg.ricarico_fisso)} €`)
+  // Solo info descrittive senza prezzi — i costi rimangono interni
+  const parts: string[] = []
+  if (cfg.riga.optional.length > 0)
+    parts.push(cfg.riga.optional.map((o) => o.descrizione).join(', '))
   if (cfg.riga.note) parts.push(cfg.riga.note)
   return parts.join(' | ')
 }
@@ -184,7 +175,7 @@ export default function FormScorrevole({ listino, aliquote, initialValues, isEdi
       accessori_griglia: null,
       config_scorrevole: cfg,
       tipologia: buildTipologia(riga),
-      categoria_nome: 'Vetrate Scorrevoli COPRAL',
+      categoria_nome: `Vetrate Scorrevoli ${listino._meta.fornitore}`,
       larghezza_mm: riga.larghezza_mm,
       altezza_mm: riga.altezza_mm,
       larghezza_listino_mm: null,
@@ -200,7 +191,8 @@ export default function FormScorrevole({ listino, aliquote, initialValues, isEdi
       prezzo_unitario: totaleUnitario,
       sconto_articolo: 0,
       prezzo_totale_riga: totaleRiga,
-      costo_acquisto_unitario: 0,
+      // totale_riga = costo vetrata (senza posa/ricarico) → riferimento per il report interno
+      costo_acquisto_unitario: dettaglio.totale_riga,
       costo_posa: posaN,
       aliquota_iva: aliquota,
       ordine: 0,

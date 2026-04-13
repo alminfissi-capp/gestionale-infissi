@@ -633,17 +633,28 @@ export default function ScorevoliEditor({ initialData }: { initialData: Scorevol
             <Link href="/listini" className="text-gray-400 hover:text-gray-600">
               <ArrowLeft className="h-4 w-4" />
             </Link>
-            <h1 className="text-2xl font-bold text-gray-900">Listino Scorrevoli COPRAL</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Listino Scorrevoli {data._meta.fornitore}
+            </h1>
             {dirty && (
               <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">
                 Non salvato
               </Badge>
             )}
           </div>
-          <p className="text-sm text-gray-500 ml-6">
-            {data._meta.fornitore} · vers. {data._meta.fonte.match(/vers\.\s*[\d.]+/)?.[0] ?? ''} ·
-            Estratto il {data._meta.data_estrazione}
-          </p>
+          <div className="flex items-center gap-2 ml-6">
+            <span className="text-xs text-gray-400">Nome fornitore:</span>
+            <Input
+              value={data._meta.fornitore}
+              onChange={(e) => handleChange({ ...data, _meta: { ...data._meta, fornitore: e.target.value } })}
+              className="h-6 text-xs w-32 px-2"
+              placeholder="es. COPRAL"
+            />
+            <span className="text-xs text-gray-400">
+              · vers. {data._meta.fonte.match(/vers\.\s*[\d.]+/)?.[0] ?? ''} ·
+              Estratto il {data._meta.data_estrazione}
+            </span>
+          </div>
         </div>
         <Button onClick={handleSave} disabled={!dirty || isPending}>
           <Save className="h-4 w-4 mr-1.5" />
@@ -655,7 +666,7 @@ export default function ScorevoliEditor({ initialData }: { initialData: Scorevol
       <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2 text-sm text-amber-700">
         <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-500" />
         <div>
-          <span className="font-medium">4 punti da verificare con COPRAL: </span>
+          <span className="font-medium">4 punti da verificare con il fornitore: </span>
           Serratura centrale (323 vs 500 €) · Prezzo anonimo 320 €/pz · Prezzo anonimo 60 €/pz ·
           Profilo L 50×20 vs 50×30.{' '}
           <span className="underline cursor-pointer" onClick={() =>
