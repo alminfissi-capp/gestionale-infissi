@@ -618,8 +618,8 @@ export default function ScorevoliEditor({ initialData }: { initialData: Scorevol
         await saveScorevoliListino(data)
         setDirty(false)
         toast.success('Listino salvato')
-      } catch {
-        toast.error('Errore nel salvataggio')
+      } catch (e) {
+        toast.error(`Errore: ${e instanceof Error ? e.message : String(e)}`)
       }
     })
   }
