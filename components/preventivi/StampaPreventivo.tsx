@@ -309,11 +309,12 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
                   {a.finitura_nome && (
                     <p style={{ color: '#9ca3af', fontSize: '9px', margin: 0 }}>Finitura: {a.finitura_nome}</p>
                   )}
-                  {(a.accessori_griglia?.length || a.accessori_selezionati?.length) ? (
+                  {(a.accessori_griglia?.length || a.accessori_selezionati?.length || a.config_su_misura?.accessori?.length) ? (
                     <p style={{ color: '#6b7280', fontSize: '9px', margin: '2px 0 0' }}>
                       {[
                         ...(a.accessori_griglia ?? []).map((acc) => acc.nome),
                         ...(a.accessori_selezionati ?? []).map((acc) => acc.qty > 1 ? `${acc.nome} ×${acc.qty}` : acc.nome),
+                        ...(a.config_su_misura?.accessori ?? []).map((acc) => acc.qty > 1 ? `${acc.nome} ×${Math.round(acc.qty * 100) / 100}` : acc.nome),
                       ].join(' · ')}
                     </p>
                   ) : null}
