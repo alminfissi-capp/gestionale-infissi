@@ -599,8 +599,12 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
 
       {/* Report Interno — solo uso gestionale, non compare in stampa */}
       {(() => {
-        const totaleCostiAcquisto = p.articoli.reduce((sum, a) => sum + a.costo_acquisto_unitario * a.quantita, 0)
-        const totalePosa = p.articoli.reduce((sum, a) => sum + a.costo_posa * a.quantita, 0)
+        // Per su_misura: usa config_su_misura come fonte attendibile (funziona anche su articoli già salvati)
+        const getCosti = (a: typeof p.articoli[number]) => a.tipo === 'su_misura' && a.config_su_misura
+          ? { acq: a.config_su_misura.totale_prodotto + a.config_su_misura.totale_accessori, posa: a.config_su_misura.mano_dopera }
+          : { acq: a.costo_acquisto_unitario, posa: a.costo_posa }
+        const totaleCostiAcquisto = p.articoli.reduce((sum, a) => sum + getCosti(a).acq * a.quantita, 0)
+        const totalePosa = p.articoli.reduce((sum, a) => sum + getCosti(a).posa * a.quantita, 0)
         if (totaleCostiAcquisto === 0 && totalePosa === 0 && p.spese_trasporto === 0) return null
         const costoTotale = totaleCostiAcquisto + totalePosa + p.spese_trasporto
         const utile = p.totale_articoli - costoTotale
@@ -627,7 +631,8 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                 </thead>
                 <tbody>
                   {p.articoli.map((a) => {
-                    const costoTotRiga = (a.costo_acquisto_unitario + a.costo_posa) * a.quantita
+                    const { acq, posa } = getCosti(a)
+                    const costoTotRiga = (acq + posa) * a.quantita
                     const margineRiga = a.prezzo_totale_riga - costoTotRiga
                     return (
                       <tr key={a.id} className="border-b border-amber-100">
@@ -639,10 +644,10 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                         </td>
                         <td className="py-1.5 text-center text-gray-600">{a.quantita}</td>
                         <td className="py-1.5 text-right text-gray-600 tabular-nums">
-                          {a.costo_acquisto_unitario > 0 ? `€ ${formatEuro(a.costo_acquisto_unitario)}` : '—'}
+                          {acq > 0 ? `€ ${formatEuro(acq)}` : '—'}
                         </td>
                         <td className="py-1.5 text-right text-gray-600 tabular-nums">
-                          {a.costo_posa > 0 ? `€ ${formatEuro(a.costo_posa)}` : '—'}
+                          {posa > 0 ? `€ ${formatEuro(posa)}` : '—'}
                         </td>
                         <td className="py-1.5 text-right text-gray-700 font-medium tabular-nums">
                           {costoTotRiga > 0 ? `€ ${formatEuro(costoTotRiga)}` : '—'}

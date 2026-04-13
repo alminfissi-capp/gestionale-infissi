@@ -102,10 +102,21 @@ interface DocProps {
   logoUrl: string | null
 }
 
+/** Per su_misura: usa sempre config_su_misura come fonte attendibile (funziona anche su articoli già salvati) */
+function getCostiSuMisura(a: PreventivoCompleto['articoli'][number]) {
+  if (a.tipo === 'su_misura' && a.config_su_misura) {
+    return {
+      costoAcquisto: a.config_su_misura.totale_prodotto + a.config_su_misura.totale_accessori,
+      costoPosa: a.config_su_misura.mano_dopera,
+    }
+  }
+  return { costoAcquisto: a.costo_acquisto_unitario, costoPosa: a.costo_posa }
+}
+
 function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings, logoUrl }: DocProps) {
   const articoliOrdinati = [...p.articoli].sort((a, b) => a.ordine - b.ordine)
-  const totaleCostiAcquisto = articoliOrdinati.reduce((sum, a) => sum + a.costo_acquisto_unitario * a.quantita, 0)
-  const totalePosa = articoliOrdinati.reduce((sum, a) => sum + a.costo_posa * a.quantita, 0)
+  const totaleCostiAcquisto = articoliOrdinati.reduce((sum, a) => sum + getCostiSuMisura(a).costoAcquisto * a.quantita, 0)
+  const totalePosa = articoliOrdinati.reduce((sum, a) => sum + getCostiSuMisura(a).costoPosa * a.quantita, 0)
   const costoTotale = totaleCostiAcquisto + totalePosa + p.spese_trasporto
   const utile = p.totale_articoli - costoTotale
   const percUtile = costoTotale > 0 ? (utile / costoTotale) * 100 : null
@@ -199,8 +210,9 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
           </thead>
           <tbody>
             {articoliOrdinati.map((a, i) => {
+              const { costoAcquisto, costoPosa } = getCostiSuMisura(a)
               const quotaTrasporto = a.quota_trasporto ?? 0
-              const costoTotRiga = (a.costo_acquisto_unitario + a.costo_posa) * a.quantita + quotaTrasporto
+              const costoTotRiga = (costoAcquisto + costoPosa) * a.quantita + quotaTrasporto
               const margineRiga = a.prezzo_totale_riga - costoTotRiga
               return (
                 <tr key={a.id} className="border-b border-gray-200 align-top">
@@ -221,13 +233,13 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
                     € {formatEuro(a.prezzo_unitario)}
                   </td>
                   <td className="py-2 text-right tabular-nums text-gray-700">
-                    {a.costo_acquisto_unitario > 0 ? `€ ${formatEuro(a.costo_acquisto_unitario)}` : '—'}
+                    {costoAcquisto > 0 ? `€ ${formatEuro(costoAcquisto)}` : '—'}
                     {a.tipo === 'su_misura' && a.config_su_misura && (
                       <span className="block text-[9px] text-gray-400">prod.+acc.</span>
                     )}
                   </td>
                   <td className="py-2 text-right tabular-nums text-gray-700">
-                    {a.costo_posa > 0 ? `€ ${formatEuro(a.costo_posa)}` : '—'}
+                    {costoPosa > 0 ? `€ ${formatEuro(costoPosa)}` : '—'}
                   </td>
                   <td className="py-2 text-right tabular-nums text-gray-500">
                     {quotaTrasporto > 0 ? `€ ${formatEuro(quotaTrasporto)}` : '—'}
