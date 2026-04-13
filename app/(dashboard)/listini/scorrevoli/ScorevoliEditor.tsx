@@ -1,14 +1,36 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { ArrowLeft, Save, AlertTriangle, Info } from 'lucide-react'
+import { useRef, useState, useTransition } from 'react'
+import { ArrowLeft, Save, AlertTriangle, Info, Upload, X } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { createClient } from '@/lib/supabase/client'
+import { getCurrentOrgId } from '@/actions/listini'
 import { saveScorevoliListino, type ScorevoliListino } from '@/actions/scorrevoli'
+
+async function resizeImage(file: File, maxDim = 800): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new window.Image()
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
+      const w = Math.round(img.width * scale)
+      const h = Math.round(img.height * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Canvas error'))), 'image/webp', 0.85)
+    }
+    img.onerror = reject
+    img.src = url
+  })
+}
 
 const MODELLO_LABEL: Record<string, string> = {
   alpha: 'Alpha',
@@ -80,6 +102,9 @@ function TabModelli({
   data: ScorevoliListino
   onChange: (d: ScorevoliListino) => void
 }) {
+  const [uploadingIdx, setUploadingIdx] = useState<number | null>(null)
+  const fileRefs = useRef<(HTMLInputElement | null)[]>([])
+
   const updateModello = (idx: number, field: string, value: unknown) => {
     const modelli = data.modelli.map((m, i) =>
       i === idx ? { ...m, [field]: value } : m
@@ -96,6 +121,33 @@ function TabModelli({
       return { ...m, prezzo_mq_fasce: fasce }
     })
     onChange({ ...data, modelli })
+  }
+
+  const handleImageUpload = async (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingIdx(idx)
+    try {
+      const blob = await resizeImage(file, 800)
+      const orgId = await getCurrentOrgId()
+      const supabase = createClient()
+      const fileName = `${orgId}/scorrevoli-${data.modelli[idx].id}.webp`
+      const { error } = await supabase.storage
+        .from('listini-immagini')
+        .upload(fileName, blob, { contentType: 'image/webp', upsert: true })
+      if (error) throw error
+      const { data: { publicUrl } } = supabase.storage
+        .from('listini-immagini')
+        .getPublicUrl(fileName)
+      updateModello(idx, 'immagine_url', publicUrl)
+      toast.success('Immagine caricata')
+    } catch {
+      toast.error('Errore nel caricamento immagine')
+    } finally {
+      setUploadingIdx(null)
+      const ref = fileRefs.current[idx]
+      if (ref) ref.value = ''
+    }
   }
 
   return (
@@ -213,6 +265,62 @@ function TabModelli({
               {m.note}
             </p>
           )}
+
+          {/* Immagine modello */}
+          <div className="mt-4 border-t pt-4">
+            <p className="text-xs text-gray-500 mb-2">Immagine modello (visibile in preventivo)</p>
+            <div className="flex items-start gap-3">
+              {m.immagine_url ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={m.immagine_url}
+                    alt={m.nome}
+                    className="h-24 w-auto rounded border border-gray-200 object-contain bg-gray-50"
+                  />
+                  <div className="flex flex-col gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileRefs.current[idx]?.click()}
+                      disabled={uploadingIdx === idx}
+                      className="text-xs h-7"
+                    >
+                      <Upload className="h-3 w-3 mr-1" />
+                      Sostituisci
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => updateModello(idx, 'immagine_url', null)}
+                      className="text-xs h-7 text-red-600 hover:text-red-700"
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Rimuovi
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileRefs.current[idx]?.click()}
+                  disabled={uploadingIdx === idx}
+                  className="text-xs h-7"
+                >
+                  <Upload className="h-3 w-3 mr-1" />
+                  {uploadingIdx === idx ? 'Caricamento…' : 'Carica immagine'}
+                </Button>
+              )}
+              <input
+                ref={(el) => { fileRefs.current[idx] = el }}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => handleImageUpload(idx, e)}
+              />
+            </div>
+          </div>
         </div>
       ))}
     </div>

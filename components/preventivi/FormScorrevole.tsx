@@ -185,7 +185,7 @@ export default function FormScorrevole({ listino, aliquote, initialValues, isEdi
       finitura_aumento: riga.colore_struttura_maggiorazione,
       finitura_aumento_euro: dettaglio.maggiorazione_colore,
       note: buildNote(cfg),
-      immagine_url: null,
+      immagine_url: listino.modelli.find((m) => m.id === riga.modello)?.immagine_url ?? null,
       quantita: riga.quantita,
       prezzo_base: dettaglio.prezzo_vetrata,
       prezzo_unitario: totaleUnitario,

@@ -29,6 +29,7 @@ export type Modello = {
   altezza_max_mm: number
   note: string | null
   configurazione_ante_per_larghezza?: { larghezza_max_mm: number; nr_ante: number }[]
+  immagine_url?: string | null
 }
 
 export type FasciaPrezzo = {
