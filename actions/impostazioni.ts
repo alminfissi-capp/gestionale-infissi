@@ -1,35 +1,31 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
 import { settingsSchema, type SettingsInput } from '@/lib/validations/impostazioniSchema'
 import type { Settings, NoteTemplate } from '@/types/impostazioni'
+import { getOrgId } from '@/lib/auth'
+import { createServiceClient } from '@/lib/supabase/service'
 
-// Helper: restituisce organization_id dell'utente corrente
-async function getOrgId(): Promise<string> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Non autenticato')
-
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .eq('id', user.id)
-    .single()
-
-  if (error || !profile) throw new Error('Profilo non trovato')
-  return profile.organization_id
-}
+const getSettingsByOrg = (orgId: string) =>
+  unstable_cache(
+    async (): Promise<Settings | null> => {
+      const supabase = createServiceClient()
+      const { data, error } = await supabase
+        .from('settings')
+        .select('*')
+        .eq('organization_id', orgId)
+        .maybeSingle()
+      if (error) throw new Error(error.message)
+      return data
+    },
+    [`settings-${orgId}`],
+    { tags: [`settings-${orgId}`], revalidate: false }
+  )
 
 export async function getSettings(): Promise<Settings | null> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('settings')
-    .select('*')
-    .maybeSingle()
-
-  if (error) throw new Error(error.message)
-  return data
+  const orgId = await getOrgId()
+  return getSettingsByOrg(orgId)()
 }
 
 export async function saveSettings(input: SettingsInput): Promise<void> {
@@ -42,6 +38,7 @@ export async function saveSettings(input: SettingsInput): Promise<void> {
     .upsert({ organization_id: orgId, ...validated }, { onConflict: 'organization_id' })
 
   if (error) throw new Error(error.message)
+  revalidateTag(`settings-${orgId}`, {})
   revalidatePath('/impostazioni')
   revalidatePath('/', 'layout')
 }
@@ -55,6 +52,7 @@ export async function saveLogoUrl(logoUrl: string | null): Promise<void> {
     .upsert({ organization_id: orgId, logo_url: logoUrl }, { onConflict: 'organization_id' })
 
   if (error) throw new Error(error.message)
+  revalidateTag(`settings-${orgId}`, {})
   revalidatePath('/', 'layout')
   revalidatePath('/impostazioni')
 }
@@ -68,15 +66,25 @@ export async function getLogoSignedUrl(path: string): Promise<string | null> {
   return data?.signedUrl ?? null
 }
 
-export async function getNoteTemplates(): Promise<NoteTemplate[]> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('note_templates')
-    .select('*')
-    .order('ordine')
+const getNoteTemplatesByOrg = (orgId: string) =>
+  unstable_cache(
+    async (): Promise<NoteTemplate[]> => {
+      const supabase = createServiceClient()
+      const { data, error } = await supabase
+        .from('note_templates')
+        .select('*')
+        .eq('organization_id', orgId)
+        .order('ordine')
+      if (error) throw new Error(error.message)
+      return data ?? []
+    },
+    [`note-templates-${orgId}`],
+    { tags: [`note-templates-${orgId}`], revalidate: false }
+  )
 
-  if (error) throw new Error(error.message)
-  return data ?? []
+export async function getNoteTemplates(): Promise<NoteTemplate[]> {
+  const orgId = await getOrgId()
+  return getNoteTemplatesByOrg(orgId)()
 }
 
 export async function saveAliquoteIva(aliquote: number[]): Promise<void> {
@@ -86,6 +94,7 @@ export async function saveAliquoteIva(aliquote: number[]): Promise<void> {
     .from('settings')
     .upsert({ organization_id: orgId, aliquote_iva: aliquote }, { onConflict: 'organization_id' })
   if (error) throw new Error(error.message)
+  revalidateTag(`settings-${orgId}`, {})
   revalidatePath('/impostazioni')
 }
 
@@ -114,6 +123,7 @@ export async function saveNumerazione(input: NumerazioneInput): Promise<void> {
     )
 
   if (error) throw new Error(error.message)
+  revalidateTag(`settings-${orgId}`, {})
   revalidatePath('/impostazioni')
 }
 
@@ -127,6 +137,7 @@ export async function saveGiorniValidita(giorni: number): Promise<void> {
       { onConflict: 'organization_id' }
     )
   if (error) throw new Error(error.message)
+  revalidateTag(`settings-${orgId}`, {})
   revalidatePath('/impostazioni')
 }
 
@@ -152,6 +163,7 @@ export async function saveNoteTemplates(
     if (insertError) throw new Error(insertError.message)
   }
 
+  revalidateTag(`note-templates-${orgId}`, {})
   revalidatePath('/impostazioni')
   revalidatePath('/preventivi/nuovo')
 }

@@ -3,21 +3,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { Catalogo } from '@/types/catalogo'
+import { getOrgId } from '@/lib/auth'
 
 const BUCKET = 'cataloghi-brochure'
-
-async function getOrgId(): Promise<string> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Non autenticato')
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .eq('id', user.id)
-    .single()
-  if (!profile) throw new Error('Profilo non trovato')
-  return profile.organization_id
-}
 
 export async function getCataloghi(): Promise<Catalogo[]> {
   const supabase = await createClient()

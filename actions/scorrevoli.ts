@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { getOrgId } from '@/lib/auth'
 import fallbackData from '@/data/scorrevoli/scorrevoli_listino.json'
 
 export type ScorevoliListino = {
@@ -70,19 +71,6 @@ export type ParametriCommerciali = {
   trasporto: { valore: number; descrizione: string; editabile: boolean }
   iva: { valore: number; descrizione: string; editabile: boolean }
   margine_alm: { valore: number | null; descrizione: string; editabile: boolean }
-}
-
-async function getOrgId(): Promise<string> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Non autenticato')
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .eq('id', user.id)
-    .single()
-  if (!profile) throw new Error('Profilo non trovato')
-  return profile.organization_id
 }
 
 export async function getScorevoliListino(): Promise<ScorevoliListino> {

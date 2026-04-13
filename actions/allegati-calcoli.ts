@@ -2,19 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-
-async function getOrgId(): Promise<string> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Non autenticato')
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .eq('id', user.id)
-    .single()
-  if (!profile) throw new Error('Profilo non trovato')
-  return profile.organization_id
-}
+import { getOrgId } from '@/lib/auth'
 
 export async function addAllegatoCalcoli(
   preventivoId: string,

@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { getOrgId } from '@/lib/auth'
 
 export type ActivityItem = {
   tipo: 'preventivo' | 'cliente' | 'listino'
@@ -33,19 +34,6 @@ export type DashboardData = {
   inviati: StatoStats
   grafico: GiornoPoint[]
   graficoPeriodo: GiornoPoint[] // 12 mesi anno corrente
-}
-
-async function getOrgId(): Promise<string> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Non autenticato')
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .eq('id', user.id)
-    .single()
-  if (!profile) throw new Error('Profilo non trovato')
-  return profile.organization_id
 }
 
 export async function getDashboardData(): Promise<DashboardData> {

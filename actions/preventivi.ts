@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { getOrgId } from '@/lib/auth'
 import {
   calcolaSubtotale,
   calcolaSpeseTrasportoPezzi,
@@ -18,21 +19,6 @@ import type {
   PreventivoInput,
   ArticoloPreventivoRow,
 } from '@/types/preventivo'
-
-async function getOrgId(): Promise<string> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Non autenticato')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile) throw new Error('Profilo non trovato')
-  return profile.organization_id
-}
 
 type RegolaCategoria = {
   categoriaId: string
@@ -253,20 +239,21 @@ export async function getPreventivi(): Promise<Preventivo[]> {
     .select('giorni_validita_preventivo')
     .maybeSingle()
   const giorniValidita = settings?.giorni_validita_preventivo ?? 30
+  const cutoff = new Date(Date.now() - giorniValidita * 86400_000).toISOString()
 
-  // Marca come scaduti i preventivi "inviato" con condiviso_at oltre il limite,
-  // ma solo se non sono già accettati o rifiutati (RLS garantisce solo la propria org)
-  await supabase
-    .from('preventivi')
-    .update({ stato: 'scaduto' })
-    .eq('stato', 'inviato')
-    .not('condiviso_at', 'is', null)
-    .lt('condiviso_at', new Date(Date.now() - giorniValidita * 86400_000).toISOString())
-
-  const { data, error } = await supabase
-    .from('preventivi')
-    .select('*')
-    .order('created_at', { ascending: false })
+  // Parallelizza: marca scaduti + fetch lista (l'update si riflette al caricamento successivo)
+  const [, { data, error }] = await Promise.all([
+    supabase
+      .from('preventivi')
+      .update({ stato: 'scaduto' })
+      .eq('stato', 'inviato')
+      .not('condiviso_at', 'is', null)
+      .lt('condiviso_at', cutoff),
+    supabase
+      .from('preventivi')
+      .select('*')
+      .order('created_at', { ascending: false }),
+  ])
 
   if (error) throw new Error(error.message)
   return data ?? []

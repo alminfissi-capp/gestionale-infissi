@@ -1,8 +1,10 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
 import type { CategoriaConListini, FinituraCategoria, TipoCategoria } from '@/types/listino'
+import { getOrgId } from '@/lib/auth'
+import { createServiceClient } from '@/lib/supabase/service'
 
 export type AccessorioGrigliaInput = {
   gruppo: string
@@ -14,21 +16,6 @@ export type AccessorioGrigliaInput = {
   mq_minimo: number | null
 }
 
-async function getOrgId(): Promise<string> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Non autenticato')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile) throw new Error('Profilo non trovato')
-  return profile.organization_id
-}
-
 // Esposto per i Client Component che necessitano dell'orgId (es. upload Storage)
 export async function getCurrentOrgId(): Promise<string> {
   return getOrgId()
@@ -36,69 +23,80 @@ export async function getCurrentOrgId(): Promise<string> {
 
 // ---- Categorie ----
 
-export async function getCategorie(): Promise<CategoriaConListini[]> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('categorie_listini')
-    .select(`
-      *,
-      finiture_categoria(*),
-      listini(*, finiture(*), accessori_griglia(*)),
-      listini_liberi(*, prodotti_listino(*), accessori_listino(*)),
-      listini_su_misura(*, finiture_su_misura(*), gruppi_accessori_su_misura(*, accessori_su_misura(*)))
-    `)
-    .order('ordine')
+const getCategorieByOrg = (orgId: string) =>
+  unstable_cache(
+    async (): Promise<CategoriaConListini[]> => {
+      const supabase = createServiceClient()
+      const { data, error } = await supabase
+        .from('categorie_listini')
+        .select(`
+          *,
+          finiture_categoria(*),
+          listini(*, finiture(*), accessori_griglia(*)),
+          listini_liberi(*, prodotti_listino(*), accessori_listino(*)),
+          listini_su_misura(*, finiture_su_misura(*), gruppi_accessori_su_misura(*, accessori_su_misura(*)))
+        `)
+        .eq('organization_id', orgId)
+        .order('ordine')
 
-  if (error) throw new Error(error.message)
+      if (error) throw new Error(error.message)
 
-  return (data ?? []).map((cat) => ({
-    ...cat,
-    tipo: (cat.tipo ?? 'griglia') as TipoCategoria,
-    finiture_categoria: (cat.finiture_categoria ?? []).sort(
-      (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
-    ),
-    listini: (cat.listini ?? [])
-      .sort((a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine)
-      .map((l: { finiture: { ordine: number }[]; accessori_griglia: { ordine: number }[] }) => ({
-        ...l,
-        finiture: (l.finiture ?? []).sort(
+      return (data ?? []).map((cat) => ({
+        ...cat,
+        tipo: (cat.tipo ?? 'griglia') as TipoCategoria,
+        finiture_categoria: (cat.finiture_categoria ?? []).sort(
           (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
         ),
-        accessori_griglia: (l.accessori_griglia ?? []).sort(
-          (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
-        ),
-      })),
-    listini_liberi: (cat.listini_liberi ?? [])
-      .sort((a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine)
-      .map((ll: { prodotti_listino: { ordine: number }[]; accessori_listino: { ordine: number }[] }) => ({
-        ...ll,
-        prodotti: (ll.prodotti_listino ?? []).sort(
-          (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
-        ),
-        accessori: (ll.accessori_listino ?? []).sort(
-          (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
-        ),
-      })),
-    listini_su_misura: (cat.listini_su_misura ?? [])
-      .sort((a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine)
-      .map((lsm: {
-        finiture_su_misura: { ordine: number }[]
-        gruppi_accessori_su_misura: { ordine: number; accessori_su_misura: { ordine: number }[] }[]
-      }) => ({
-        ...lsm,
-        finiture: (lsm.finiture_su_misura ?? []).sort(
-          (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
-        ),
-        gruppi_accessori: (lsm.gruppi_accessori_su_misura ?? [])
+        listini: (cat.listini ?? [])
           .sort((a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine)
-          .map((g: { ordine: number; accessori_su_misura: { ordine: number }[] }) => ({
-            ...g,
-            accessori: (g.accessori_su_misura ?? []).sort(
+          .map((l: { finiture: { ordine: number }[]; accessori_griglia: { ordine: number }[] }) => ({
+            ...l,
+            finiture: (l.finiture ?? []).sort(
+              (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
+            ),
+            accessori_griglia: (l.accessori_griglia ?? []).sort(
               (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
             ),
           })),
-      })),
-  }))
+        listini_liberi: (cat.listini_liberi ?? [])
+          .sort((a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine)
+          .map((ll: { prodotti_listino: { ordine: number }[]; accessori_listino: { ordine: number }[] }) => ({
+            ...ll,
+            prodotti: (ll.prodotti_listino ?? []).sort(
+              (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
+            ),
+            accessori: (ll.accessori_listino ?? []).sort(
+              (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
+            ),
+          })),
+        listini_su_misura: (cat.listini_su_misura ?? [])
+          .sort((a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine)
+          .map((lsm: {
+            finiture_su_misura: { ordine: number }[]
+            gruppi_accessori_su_misura: { ordine: number; accessori_su_misura: { ordine: number }[] }[]
+          }) => ({
+            ...lsm,
+            finiture: (lsm.finiture_su_misura ?? []).sort(
+              (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
+            ),
+            gruppi_accessori: (lsm.gruppi_accessori_su_misura ?? [])
+              .sort((a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine)
+              .map((g: { ordine: number; accessori_su_misura: { ordine: number }[] }) => ({
+                ...g,
+                accessori: (g.accessori_su_misura ?? []).sort(
+                  (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
+                ),
+              })),
+          })),
+      }))
+    },
+    [`categorie-${orgId}`],
+    { tags: [`categorie-${orgId}`, 'listini-all'], revalidate: false }
+  )
+
+export async function getCategorie(): Promise<CategoriaConListini[]> {
+  const orgId = await getOrgId()
+  return getCategorieByOrg(orgId)()
 }
 
 export type CategoriaOpzioniInput = {
@@ -147,6 +145,7 @@ export async function createCategoria(
     if (fErr) throw new Error(fErr.message)
   }
 
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
   return { id: result.id }
 }
@@ -183,13 +182,17 @@ export async function updateCategoria(
     if (fErr) throw new Error(fErr.message)
   }
 
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
 }
 
 export async function deleteCategoria(id: string): Promise<void> {
   const supabase = await createClient()
+  const orgId = await getOrgId()
   const { error } = await supabase.from('categorie_listini').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  revalidateTag(`categorie-${orgId}`, {})
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
 }
 
@@ -236,6 +239,7 @@ export async function createListino(data: {
     if (aErr) throw new Error(aErr.message)
   }
 
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
   return { id: result.id }
 }
@@ -283,6 +287,7 @@ export async function updateListino(
     if (aErr) throw new Error(aErr.message)
   }
 
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
 }
 
@@ -291,6 +296,7 @@ export async function updateOrdiniCategorie(updates: { id: string; ordine: numbe
   await Promise.all(
     updates.map(({ id, ordine }) => supabase.from('categorie_listini').update({ ordine }).eq('id', id))
   )
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
 }
 
@@ -299,6 +305,7 @@ export async function updateOrdiniListini(updates: { id: string; ordine: number 
   await Promise.all(
     updates.map(({ id, ordine }) => supabase.from('listini').update({ ordine }).eq('id', id))
   )
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
 }
 
@@ -306,6 +313,7 @@ export async function deleteListino(id: string): Promise<void> {
   const supabase = await createClient()
   const { error } = await supabase.from('listini').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
 }
 
@@ -386,6 +394,7 @@ export async function duplicaListino(id: string): Promise<{ id: string }> {
     if (aErr) throw new Error(aErr.message)
   }
 
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
   return { id: newListino.id }
 }
@@ -491,6 +500,7 @@ export async function duplicaCategoria(id: string): Promise<{ id: string }> {
     }
   }
 
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
   return { id: newCat.id }
 }
@@ -570,6 +580,7 @@ export async function createListinoLibero(data: ListinoLiberoInput): Promise<{ i
     if (aErr) throw new Error(aErr.message)
   }
 
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
   return { id: result.id }
 }
@@ -626,6 +637,7 @@ export async function updateListinoLibero(
     if (aErr) throw new Error(aErr.message)
   }
 
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
 }
 
@@ -633,6 +645,7 @@ export async function deleteListinoLibero(id: string): Promise<void> {
   const supabase = await createClient()
   const { error } = await supabase.from('listini_liberi').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
 }
 
@@ -708,6 +721,7 @@ export async function duplicaListinoLibero(id: string): Promise<{ id: string }> 
     if (aErr) throw new Error(aErr.message)
   }
 
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
   return { id: newLl.id }
 }
@@ -793,6 +807,7 @@ export async function duplicaCategoriaLibera(id: string): Promise<{ id: string }
     }
   }
 
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
   return { id: newCat.id }
 }
@@ -852,6 +867,7 @@ export async function addAccessoriATuttiListini(
   const { error: iErr } = await supabase.from('accessori_griglia').insert(insertData)
   if (iErr) throw new Error(iErr.message)
 
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
   return { count: listini.length }
 }
@@ -958,6 +974,7 @@ export async function createListinoSuMisura(
     }
   }
 
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
   return { id: listino.id }
 }
@@ -1016,6 +1033,7 @@ export async function updateListinoSuMisura(
     }
   }
 
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
 }
 
@@ -1023,6 +1041,7 @@ export async function deleteListinoSuMisura(id: string): Promise<void> {
   const supabase = await createClient()
   const { error } = await supabase.from('listini_su_misura').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
 }
 
@@ -1102,6 +1121,7 @@ export async function duplicaListinoSuMisura(id: string): Promise<{ id: string }
     }
   }
 
+  revalidateTag('listini-all', {})
   revalidatePath('/listini')
   return { id: newLsm.id }
 }

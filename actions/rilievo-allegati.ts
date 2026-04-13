@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { getOrgId } from '@/lib/auth'
 
 export interface AllegatoVoce {
   id: string
@@ -11,19 +12,6 @@ export interface AllegatoVoce {
   mime_type: string | null
   dimensione: number | null
   created_at: string
-}
-
-async function getOrgId(): Promise<string> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Non autenticato')
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .eq('id', user.id)
-    .single()
-  if (!profile) throw new Error('Profilo non trovato')
-  return profile.organization_id
 }
 
 /** Restituisce orgId + storagePath precalcolato per l'upload client-side */

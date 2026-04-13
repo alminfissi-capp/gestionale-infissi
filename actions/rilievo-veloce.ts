@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { getOrgId } from '@/lib/auth'
 import type {
   RilievoOpzione,
   RilievoVeloce,
@@ -15,21 +16,6 @@ import type {
   SerieOpzione,
   TelaioOpzione,
 } from '@/types/rilievo-veloce'
-
-// ─── Helper ────────────────────────────────────────────────────────────────
-
-async function getOrgId(): Promise<string> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Non autenticato')
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .eq('id', user.id)
-    .single()
-  if (error || !profile) throw new Error('Profilo non trovato')
-  return profile.organization_id
-}
 
 // ─── Opzioni ───────────────────────────────────────────────────────────────
 
