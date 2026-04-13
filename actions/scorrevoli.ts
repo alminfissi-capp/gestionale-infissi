@@ -1,10 +1,7 @@
 'use server'
 
-import fs from 'fs'
-import path from 'path'
 import { createClient } from '@/lib/supabase/server'
-
-const FALLBACK_PATH = path.join(process.cwd(), 'data/scorrevoli/scorrevoli_listino.json')
+import fallbackData from '@/data/scorrevoli/scorrevoli_listino.json'
 
 export type ScorevoliListino = {
   _meta: { fonte: string; fornitore: string; data_estrazione: string; nota: string }
@@ -79,13 +76,13 @@ async function getOrgId(): Promise<string> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Non autenticato')
-  const { data } = await supabase
-    .from('organization_members')
+  const { data: profile } = await supabase
+    .from('profiles')
     .select('organization_id')
-    .eq('user_id', user.id)
+    .eq('id', user.id)
     .single()
-  if (!data) throw new Error('Organizzazione non trovata')
-  return data.organization_id
+  if (!profile) throw new Error('Profilo non trovato')
+  return profile.organization_id
 }
 
 export async function getScorevoliListino(): Promise<ScorevoliListino> {
@@ -99,11 +96,9 @@ export async function getScorevoliListino(): Promise<ScorevoliListino> {
       .maybeSingle()
     if (data?.data) return data.data as ScorevoliListino
   } catch {
-    // fallback al file locale (dev / primo avvio)
+    // fallback al bundle (primo avvio / nessun dato in DB)
   }
-  // Fallback: legge dal file JSON originale
-  const raw = fs.readFileSync(FALLBACK_PATH, 'utf-8')
-  return JSON.parse(raw)
+  return fallbackData as ScorevoliListino
 }
 
 export async function saveScorevoliListino(data: ScorevoliListino): Promise<{ error?: string }> {
