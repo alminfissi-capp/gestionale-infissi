@@ -614,12 +614,12 @@ export default function ScorevoliEditor({ initialData }: { initialData: Scorevol
 
   const handleSave = () => {
     startTransition(async () => {
-      try {
-        await saveScorevoliListino(data)
+      const result = await saveScorevoliListino(data)
+      if (result.error) {
+        toast.error(`Errore: ${result.error}`)
+      } else {
         setDirty(false)
         toast.success('Listino salvato')
-      } catch (e) {
-        toast.error(`Errore: ${e instanceof Error ? e.message : String(e)}`)
       }
     })
   }

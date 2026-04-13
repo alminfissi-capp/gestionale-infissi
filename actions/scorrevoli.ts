@@ -105,14 +105,19 @@ export async function getScorevoliListino(): Promise<ScorevoliListino> {
   return JSON.parse(raw)
 }
 
-export async function saveScorevoliListino(data: ScorevoliListino): Promise<void> {
-  const supabase = await createClient()
-  const orgId = await getOrgId()
-  const { error } = await supabase
-    .from('scorrevoli_listino')
-    .upsert(
-      { organization_id: orgId, data, updated_at: new Date().toISOString() },
-      { onConflict: 'organization_id' }
-    )
-  if (error) throw new Error(error.message)
+export async function saveScorevoliListino(data: ScorevoliListino): Promise<{ error?: string }> {
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+    const { error } = await supabase
+      .from('scorrevoli_listino')
+      .upsert(
+        { organization_id: orgId, data, updated_at: new Date().toISOString() },
+        { onConflict: 'organization_id' }
+      )
+    if (error) return { error: error.message }
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) }
+  }
 }
