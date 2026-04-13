@@ -2,8 +2,9 @@
 
 import fs from 'fs'
 import path from 'path'
+import { createClient } from '@/lib/supabase/server'
 
-const DATA_PATH = path.join(process.cwd(), 'data/scorrevoli/scorrevoli_listino.json')
+const FALLBACK_PATH = path.join(process.cwd(), 'data/scorrevoli/scorrevoli_listino.json')
 
 export type ScorevoliListino = {
   _meta: { fonte: string; fornitore: string; data_estrazione: string; nota: string }
@@ -73,11 +74,45 @@ export type ParametriCommerciali = {
   margine_alm: { valore: number | null; descrizione: string; editabile: boolean }
 }
 
+async function getOrgId(): Promise<string> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Non autenticato')
+  const { data } = await supabase
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .single()
+  if (!data) throw new Error('Organizzazione non trovata')
+  return data.organization_id
+}
+
 export async function getScorevoliListino(): Promise<ScorevoliListino> {
-  const raw = fs.readFileSync(DATA_PATH, 'utf-8')
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+    const { data } = await supabase
+      .from('scorrevoli_listino')
+      .select('data')
+      .eq('organization_id', orgId)
+      .maybeSingle()
+    if (data?.data) return data.data as ScorevoliListino
+  } catch {
+    // fallback al file locale (dev / primo avvio)
+  }
+  // Fallback: legge dal file JSON originale
+  const raw = fs.readFileSync(FALLBACK_PATH, 'utf-8')
   return JSON.parse(raw)
 }
 
 export async function saveScorevoliListino(data: ScorevoliListino): Promise<void> {
-  fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2), 'utf-8')
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('scorrevoli_listino')
+    .upsert(
+      { organization_id: orgId, data, updated_at: new Date().toISOString() },
+      { onConflict: 'organization_id' }
+    )
+  if (error) throw new Error(error.message)
 }
