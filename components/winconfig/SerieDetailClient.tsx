@@ -42,7 +42,7 @@ function TabProfili({ serie }: { serie: WcSerieCompleta }) {
 
   const salva = () => startTransition(async () => {
     try {
-      await upsertProfili(serie.id, righe)
+      await upsertProfili(serie.id, righe.map(({ _key: _, ...r }) => r))
       toast.success('Profili salvati')
       router.refresh()
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Errore') }
@@ -146,7 +146,7 @@ function TabAccessori({ serie }: { serie: WcSerieCompleta }) {
 
   const salva = () => startTransition(async () => {
     try {
-      await upsertAccessori(serie.id, righe)
+      await upsertAccessori(serie.id, righe.map(({ _key: _, ...r }) => r))
       toast.success('Accessori salvati')
       router.refresh()
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Errore') }
@@ -258,7 +258,7 @@ function TabColori({ serie }: { serie: WcSerieCompleta }) {
 
   const salva = () => startTransition(async () => {
     try {
-      await upsertColori(serie.id, righe)
+      await upsertColori(serie.id, righe.map(({ _key: _, ...r }) => r))
       toast.success('Colori salvati')
       router.refresh()
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Errore') }
@@ -346,7 +346,7 @@ function TabRiempimenti({ serie }: { serie: WcSerieCompleta }) {
 
   const salva = () => startTransition(async () => {
     try {
-      await upsertRiempimenti(serie.id, righe)
+      await upsertRiempimenti(serie.id, righe.map(({ _key: _, ...r }) => r))
       toast.success('Riempimenti salvati')
       router.refresh()
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Errore') }
