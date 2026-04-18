@@ -142,6 +142,11 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
                           catalogo
                         </Badge>
                       )}
+                      {a.tipo === 'winconfig' && (
+                        <Badge variant="outline" className="text-[10px] text-blue-700 border-blue-300">
+                          WinConfig
+                        </Badge>
+                      )}
                     </div>
                     {a.categoria_nome && (
                       <p className="text-xs text-gray-400">{a.categoria_nome}</p>
@@ -212,7 +217,7 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
                 )}
               </TableCell>
               <TableCell className="hidden lg:table-cell text-sm text-gray-600">
-                {a.tipo === 'libera' || a.tipo === 'listino_libero' ? '—' : (
+                {a.tipo === 'libera' || a.tipo === 'listino_libero' || a.tipo === 'winconfig' ? '—' : (
                   <>
                     {a.finitura_nome ?? '—'}
                     {a.finitura_nome && (

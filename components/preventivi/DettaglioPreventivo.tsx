@@ -425,6 +425,11 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                               voce libera
                             </Badge>
                           )}
+                          {a.tipo === 'winconfig' && (
+                            <Badge variant="outline" className="text-[10px] text-blue-700 border-blue-300">
+                              WinConfig
+                            </Badge>
+                          )}
                         </div>
                         {a.categoria_nome && (
                           <p className="text-xs text-gray-400">{a.categoria_nome}</p>
@@ -478,7 +483,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                     )}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-sm text-gray-600">
-                    {a.tipo === 'libera' ? '—' : (
+                    {a.tipo === 'libera' || a.tipo === 'winconfig' ? '—' : (
                       <>
                         {a.finitura_nome ?? '—'}
                         {a.finitura_nome && (
@@ -610,6 +615,8 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
             return { acq: a.config_su_misura.totale_prodotto + a.config_su_misura.totale_accessori, posa: a.config_su_misura.mano_dopera }
           if (a.tipo === 'scorrevole' && a.config_scorrevole)
             return { acq: a.config_scorrevole.dettaglio.totale_riga, posa: a.config_scorrevole.posa ?? a.costo_posa }
+          if (a.tipo === 'winconfig' && a.config_winconfig)
+            return { acq: a.config_winconfig.costo_totale, posa: a.costo_posa }
           return { acq: a.costo_acquisto_unitario, posa: a.costo_posa }
         }
         const totaleCostiAcquisto = p.articoli.reduce((sum, a) => sum + getCosti(a).acq * a.quantita, 0)
