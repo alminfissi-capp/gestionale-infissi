@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -73,22 +73,28 @@ export default function ConfiguratoreSerramento({
   }, [forma, altezzaSx])
 
   // ---- Calcolo distinta ----
-  const calcolo = serieSelezionata
-    ? calcolaWinConfig({
+  const calcolo = useMemo(() => {
+    if (!serieSelezionata) return null
+    try {
+      return calcolaWinConfig({
         serie: serieSelezionata,
-        profili: serieSelezionata.profili,
-        accessori: serieSelezionata.accessori,
+        profili: serieSelezionata.profili ?? [],
+        accessori: serieSelezionata.accessori ?? [],
         riempimento: riempimentoSelezionato,
         colore: coloreSelezionato,
         forma,
         latoInclinazione: forma === 'fuori_squadro' ? latoInclinazione : null,
-        larghezza_mm: larghezza,
-        altezza_sx_mm: altezzaSx,
-        altezza_dx_mm: forma === 'fuori_squadro' ? altezzaDx : altezzaSx,
+        larghezza_mm: larghezza || 100,
+        altezza_sx_mm: altezzaSx || 100,
+        altezza_dx_mm: (forma === 'fuori_squadro' ? altezzaDx : altezzaSx) || 100,
         tipoApertura,
-        nAnte,
+        nAnte: nAnte || 1,
       })
-    : null
+    } catch (e) {
+      console.error('[WinConfig] calcolaWinConfig error:', e)
+      return null
+    }
+  }, [serieSelezionata, riempimentoSelezionato, coloreSelezionato, forma, latoInclinazione, larghezza, altezzaSx, altezzaDx, tipoApertura, nAnte])
 
   // ---- Salvataggio ----
   const handleSalva = useCallback(async () => {

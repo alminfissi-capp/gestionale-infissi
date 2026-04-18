@@ -111,8 +111,8 @@ function calcolaDistintaProfili(
   const isInclinatoTesta = isFuoriSquadro && latoInclinazione === 'testa'
   const isInclinatoBase  = isFuoriSquadro && latoInclinazione === 'base'
 
-  const sfrido_nodo   = serie.sfrido_nodo_mm
-  const sfrido_angolo = serie.sfrido_angolo_mm
+  const sfrido_nodo   = serie.sfrido_nodo_mm ?? 0
+  const sfrido_angolo = serie.sfrido_angolo_mm ?? 0
 
   const aggiungi = (
     profilo: WcProfilo,
@@ -244,7 +244,7 @@ function calcolaDistintaRiempimenti(
 
   // Area totale = area trapezio
   const area_mq = areaSerramento(L, Hsx, Hdx)
-  const area_applicata_mq = Math.max(area_mq, riempimento.mq_minimo)
+  const area_applicata_mq = Math.max(area_mq, riempimento.mq_minimo ?? 0)
 
   return [{
     riempimento_id: riempimento.id,
