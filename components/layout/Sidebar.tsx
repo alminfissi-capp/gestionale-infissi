@@ -17,6 +17,7 @@ import {
   X,
   FolderOpen,
   Ruler,
+  Wrench,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { href: '/listini', label: 'Gestione Listini', icon: BookOpen },
   { href: '/cataloghi', label: 'Cataloghi e Brochure', icon: FolderOpen },
   { href: '/rilievo', label: 'Rilievo Misure', icon: Ruler },
+  { href: '/winconfig', label: 'WinConfig', icon: Wrench },
   { href: '/import-export', label: 'Import / Export', icon: Database },
   { href: '/impostazioni', label: 'Impostazioni', icon: Settings },
 ]
