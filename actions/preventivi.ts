@@ -483,8 +483,8 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
   if (articoliConCosto.length > 0) {
     const { error: artErr } = await supabase.from('articoli_preventivo').insert(
       articoliConCosto.map((a, i) => {
-        const { quota_trasporto: _qt, config_scorrevole, config_su_misura, ...articoloDb } = a
-        return { ...articoloDb, config_scorrevole: config_scorrevole ?? null, config_su_misura: config_su_misura ?? null, preventivo_id: prev.id, organization_id: orgId, ordine: i }
+        const { quota_trasporto: _qt, config_scorrevole, config_su_misura, config_winconfig, ...articoloDb } = a
+        return { ...articoloDb, config_scorrevole: config_scorrevole ?? null, config_su_misura: config_su_misura ?? null, config_winconfig: config_winconfig ?? null, preventivo_id: prev.id, organization_id: orgId, ordine: i }
       })
     )
     if (artErr) {

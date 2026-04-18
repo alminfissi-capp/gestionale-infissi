@@ -74,7 +74,7 @@ export type ArticoloPreventivoRow = {
   id: string
   preventivo_id: string
   organization_id: string
-  tipo: 'listino' | 'libera' | 'listino_libero' | 'scorrevole' | 'su_misura'
+  tipo: 'listino' | 'libera' | 'listino_libero' | 'scorrevole' | 'su_misura' | 'winconfig'
   listino_id: string | null
   listino_libero_id: string | null
   prodotto_id: string | null
@@ -108,6 +108,8 @@ export type ArticoloPreventivoRow = {
   config_scorrevole?: import('@/types/scorrevoli').ConfigScorrevoleArticolo | null
   /** Configurazione completa per articoli tipo 'su_misura' */
   config_su_misura?: ConfigSuMisuraArticolo | null
+  /** Configurazione completa per articoli tipo 'winconfig' */
+  config_winconfig?: import('@/types/winconfig').ConfigWinConfig | null
 }
 
 // Articolo durante la compilazione del wizard (non ancora salvato)

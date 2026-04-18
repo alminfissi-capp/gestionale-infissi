@@ -23,6 +23,7 @@ type Props = {
   riempimentiGlobali: WcRiempimento[]
   onSalva: (config: ConfigWinConfig, quantita: number, note: string) => Promise<void>
   onAnnulla?: () => void
+  initialMisure?: { larghezza: number; altezza_sx: number; altezza_dx: number; quantita: number }
 }
 
 const TIPO_APERTURA_LABELS: Record<TipoApertura, string> = {
@@ -34,21 +35,21 @@ const TIPO_APERTURA_LABELS: Record<TipoApertura, string> = {
 }
 
 export default function ConfiguratoreSerramento({
-  serie, riempimentiGlobali, onSalva, onAnnulla,
+  serie, riempimentiGlobali, onSalva, onAnnulla, initialMisure,
 }: Props) {
   // ---- State configurazione ----
   const [serieId, setSerieId] = useState<string>(serie[0]?.id ?? '')
   const [forma, setForma] = useState<FormaSerramento>('rettangolare')
   const [latoInclinazione, setLatoInclinazione] = useState<LatoInclinazione>('testa')
-  const [larghezza, setLarghezza] = useState(1200)
-  const [altezzaSx, setAltezzaSx] = useState(1400)
-  const [altezzaDx, setAltezzaDx] = useState(1400)
+  const [larghezza, setLarghezza] = useState(initialMisure?.larghezza ?? 1200)
+  const [altezzaSx, setAltezzaSx] = useState(initialMisure?.altezza_sx ?? 1400)
+  const [altezzaDx, setAltezzaDx] = useState(initialMisure?.altezza_dx ?? 1400)
   const [tipoApertura, setTipoApertura] = useState<TipoApertura>('battente')
   const [versoApertura, setVersoApertura] = useState<VersoApertura>('dx')
   const [nAnte, setNAnte] = useState(1)
   const [coloreId, setColoreId] = useState<string>('')
   const [riempimentoId, setRiempimentoId] = useState<string>('')
-  const [quantita, setQuantita] = useState(1)
+  const [quantita, setQuantita] = useState(initialMisure?.quantita ?? 1)
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
 

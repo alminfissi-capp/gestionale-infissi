@@ -217,6 +217,25 @@ export async function salvaArticoloWinConfig(
   return data
 }
 
+export async function getSerieComplete(): Promise<WcSerieCompleta[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data, error } = await supabase
+    .from('wc_serie')
+    .select(`*, wc_profili(*), wc_accessori(*), wc_riempimenti(*), wc_colori(*)`)
+    .eq('organization_id', orgId)
+    .eq('attiva', true)
+    .order('ordine')
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((s) => ({
+    ...s,
+    profili: (s.wc_profili ?? []).sort((a: WcProfilo, b: WcProfilo) => a.ordine - b.ordine),
+    accessori: (s.wc_accessori ?? []).sort((a: WcAccessorio, b: WcAccessorio) => a.ordine - b.ordine),
+    riempimenti: (s.wc_riempimenti ?? []).sort((a: WcRiempimento, b: WcRiempimento) => a.ordine - b.ordine),
+    colori: (s.wc_colori ?? []).sort((a: WcColore, b: WcColore) => a.ordine - b.ordine),
+  }))
+}
+
 export async function getRiempimentiOrg(): Promise<WcRiempimento[]> {
   const supabase = await createClient()
   const orgId = await getOrgId()
