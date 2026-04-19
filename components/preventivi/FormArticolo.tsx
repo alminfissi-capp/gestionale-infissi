@@ -181,6 +181,12 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
     const L = parseInt(larghezza)
     const H = parseInt(altezza)
 
+    const costoAcqUnit = calcolaCostoAcquistoUnitario(calcolo.prezzoBase, categoriaSelezionata?.sconto_fornitore ?? 0)
+    const costoAccessoriUnit = accessoriGrigliaSelezionati.reduce(
+      (sum, a) => sum + calcolaAccessorioGriglia({ ...a, prezzo: a.prezzo_acquisto }, L, H, calcolo.prezzoBase),
+      0
+    )
+
     const articolo: ArticoloWizard = {
       tempId: crypto.randomUUID(),
       tipo: 'listino',
@@ -206,7 +212,7 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
       prezzo_unitario: calcolo.prezzoUnitario,
       sconto_articolo: scontoArticolo,
       prezzo_totale_riga: calcolo.totalRiga,
-      costo_acquisto_unitario: 0,
+      costo_acquisto_unitario: costoAcqUnit + costoAccessoriUnit,
       costo_posa: parseFloat(costoPosa) || 0,
       aliquota_iva: aliquotaIva,
       ordine: 0,

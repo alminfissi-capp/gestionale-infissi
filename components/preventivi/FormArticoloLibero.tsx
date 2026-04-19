@@ -151,6 +151,7 @@ export default function FormArticoloLibero({ listini, aliquote, onAdd }: Props) 
     if (!canAdd || !prodottoSelezionato || !listinoSelezionato || !calcolo) return
 
     const qty = Math.max(1, parseInt(quantita) || 1)
+    const costoAccessoriUnit = accessoriSelezionati.reduce((sum, a) => sum + a.prezzo_acquisto * a.qty, 0)
 
     const articolo: ArticoloWizard = {
       tempId: crypto.randomUUID(),
@@ -177,7 +178,7 @@ export default function FormArticoloLibero({ listini, aliquote, onAdd }: Props) 
       prezzo_unitario: calcolo.prezzoUnitario,
       sconto_articolo: scontoArticolo,
       prezzo_totale_riga: calcolo.totalRiga,
-      costo_acquisto_unitario: 0,
+      costo_acquisto_unitario: prodottoSelezionato.prezzo_acquisto + costoAccessoriUnit,
       costo_posa: parseFloat(costoPosa) || 0,
       aliquota_iva: aliquotaIva,
       ordine: 0,

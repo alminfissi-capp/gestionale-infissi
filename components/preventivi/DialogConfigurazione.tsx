@@ -199,6 +199,11 @@ function FormGriglia({
     const qty = Math.max(1, parseInt(quantita) || 1)
     const L = parseInt(larghezza)
     const H = parseInt(altezza)
+    const costoAcqUnit = calcolaCostoAcquistoUnitario(calcolo.prezzoBase, categoria.sconto_fornitore ?? 0)
+    const costoAccessoriUnit = accessoriSelezionati.reduce(
+      (sum, a) => sum + calcolaAccessorioGriglia({ ...a, prezzo: a.prezzo_acquisto }, L, H, calcolo.prezzoBase),
+      0
+    )
     onAdd({
       tempId: isEditing && initialValues ? initialValues.tempId : crypto.randomUUID(),
       tipo: 'listino',
@@ -224,7 +229,7 @@ function FormGriglia({
       prezzo_unitario: calcolo.prezzoUnitario,
       sconto_articolo: scontoArticolo,
       prezzo_totale_riga: calcolo.totalRiga,
-      costo_acquisto_unitario: 0,
+      costo_acquisto_unitario: costoAcqUnit + costoAccessoriUnit,
       costo_posa: parseFloat(costoPosa) || 0,
       aliquota_iva: aliquotaIva,
       ordine: 0,
@@ -638,6 +643,7 @@ function FormLibero({
   const handleAdd = () => {
     if (!canAdd) return
     const qty = Math.max(1, parseInt(quantita) || 1)
+    const costoAccessoriUnit = accessoriSelezionati.reduce((sum, a) => sum + a.prezzo_acquisto * a.qty, 0)
     onAdd({
       tempId: isEditing && initialValues ? initialValues.tempId : crypto.randomUUID(),
       tipo: 'listino_libero',
@@ -663,7 +669,7 @@ function FormLibero({
       prezzo_unitario: calcolo.prezzoUnitario,
       sconto_articolo: scontoArticolo,
       prezzo_totale_riga: calcolo.totalRiga,
-      costo_acquisto_unitario: 0,
+      costo_acquisto_unitario: prodotto.prezzo_acquisto + costoAccessoriUnit,
       costo_posa: parseFloat(costoPosa) || 0,
       aliquota_iva: aliquotaIva,
       ordine: 0,
