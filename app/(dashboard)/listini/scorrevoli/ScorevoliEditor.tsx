@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
-import { getCurrentOrgId } from '@/actions/listini'
 import { saveScorevoliListino, type ScorevoliListino } from '@/actions/scorrevoli'
 
 async function resizeImage(file: File, maxDim = 800): Promise<Blob> {

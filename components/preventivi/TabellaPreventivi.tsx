@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
+import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -79,8 +79,12 @@ export default function TabellaPreventivi({ preventivi }: Props) {
       .finally(() => setUpdatingStatoId(null))
   }
 
-  const pendingPreventivi = useLiveQuery(() => db.pendingPreventivi.toArray(), []) ?? []
-  const bozzeWizard = useLiveQuery(() => db.bozzeWizard.toArray(), []) ?? []
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  const pendingPreventiviRaw = useLiveQuery(() => db.pendingPreventivi.toArray(), []) ?? []
+  const bozzeWizardRaw = useLiveQuery(() => db.bozzeWizard.toArray(), []) ?? []
+  const pendingPreventivi = mounted ? pendingPreventiviRaw : []
+  const bozzeWizard = mounted ? bozzeWizardRaw : []
 
   const handleScartaBozza = async (id: string) => {
     await db.bozzeWizard.delete(id)

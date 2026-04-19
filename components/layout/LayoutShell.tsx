@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { Menu } from 'lucide-react'
+import dynamic from 'next/dynamic'
 import Sidebar from './Sidebar'
-import DataSync from '@/components/pwa/DataSync'
-import OfflineIndicator from '@/components/pwa/OfflineIndicator'
+
+const DataSync = dynamic(() => import('@/components/pwa/DataSync'), { ssr: false })
+const OfflineIndicator = dynamic(() => import('@/components/pwa/OfflineIndicator'), { ssr: false })
 
 interface Props {
   children: React.ReactNode
