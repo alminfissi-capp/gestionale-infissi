@@ -3,5 +3,9 @@
     "allow": [
       "Bash(cat:*)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "supabase"
+  ],
+  "enableAllProjectMcpServers": true
 }
