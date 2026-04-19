@@ -10,6 +10,7 @@ import {
   calcolaTotalePezzi,
   calcolaRiepilogoIva,
   calcolaCostoAcquistoUnitario,
+  calcolaAccessorioGriglia,
 } from '@/lib/pricing'
 import { generaNumeroPreventivo } from '@/lib/numerazione'
 import { clienteSchema } from '@/lib/validations/clienteSchema'
@@ -213,7 +214,16 @@ async function calcolaCostiAcquistoInput(
     let costoUnitario = 0
     if (a.tipo === 'listino' && a.listino_id && a.prezzo_base != null) {
       const regola = regole.get(a.listino_id)
-      costoUnitario = calcolaCostoAcquistoUnitario(a.prezzo_base, regola?.scontoFornitore ?? 0)
+      const costoBase = calcolaCostoAcquistoUnitario(a.prezzo_base, regola?.scontoFornitore ?? 0)
+      const costoAccessori = (a.accessori_griglia ?? []).reduce(
+        (sum, acc) => sum + calcolaAccessorioGriglia(
+          { ...acc, prezzo: acc.prezzo_acquisto },
+          a.larghezza_mm ?? 0,
+          a.altezza_mm ?? 0,
+          a.prezzo_base!
+        ), 0
+      )
+      costoUnitario = costoBase + costoAccessori
     } else if (a.tipo === 'listino_libero' && a.prodotto_id) {
       const costoProdotto = prezziAcquistoProdotti.get(a.prodotto_id) ?? 0
       const costoAccessori = (a.accessori_selezionati ?? []).reduce(
