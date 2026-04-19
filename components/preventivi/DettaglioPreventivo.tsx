@@ -124,7 +124,9 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
 
   const whatsappUrl = s.telefono ? (() => {
     const digits = s.telefono.replace(/\D/g, '')
-    const number = digits.startsWith('39') ? digits : `39${digits}`
+    // Se il numero salvato ha già il prefisso internazionale (es. "+39 ..."), usalo com'è
+    // Retrocompatibilità: se non inizia con "+", aggiunge il prefisso italiano
+    const number = s.telefono.startsWith('+') ? digits : `39${digits}`
     const link = shareToken && origin ? `${origin}/p/${shareToken}` : null
     const testo = link
       ? (p.numero

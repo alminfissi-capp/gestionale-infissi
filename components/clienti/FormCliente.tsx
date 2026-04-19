@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -48,6 +48,19 @@ export default function FormCliente({ cliente, onSuccess }: Props) {
   })
 
   const tipo = useWatch({ control, name: 'tipo' })
+
+  // Gestione prefisso + numero separati
+  const parseTelefono = (tel: string | null | undefined) => {
+    if (!tel) return { prefisso: '+39', numero: '' }
+    if (tel.startsWith('+')) {
+      const spaceIdx = tel.indexOf(' ')
+      if (spaceIdx > 0) return { prefisso: tel.slice(0, spaceIdx), numero: tel.slice(spaceIdx + 1) }
+    }
+    return { prefisso: '+39', numero: tel }
+  }
+  const parsed = parseTelefono(cliente?.telefono)
+  const [telPrefisso, setTelPrefisso] = useState(parsed.prefisso)
+  const [telNumero, setTelNumero] = useState(parsed.numero)
   const prevTipo = useRef(tipo)
 
   // Quando si cambia tipo, azzera i campi dell'altro tipo per evitare contaminazione
@@ -156,8 +169,26 @@ export default function FormCliente({ cliente, onSuccess }: Props) {
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Contatti</p>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="telefono">Telefono</Label>
-            <Input id="telefono" {...register('telefono')} />
+            <Label>Telefono</Label>
+            <div className="flex gap-1.5">
+              <Input
+                className="w-20 shrink-0"
+                value={telPrefisso}
+                onChange={(e) => {
+                  setTelPrefisso(e.target.value)
+                  setValue('telefono', telNumero ? `${e.target.value} ${telNumero}`.trim() : '')
+                }}
+                placeholder="+39"
+              />
+              <Input
+                value={telNumero}
+                onChange={(e) => {
+                  setTelNumero(e.target.value)
+                  setValue('telefono', e.target.value ? `${telPrefisso} ${e.target.value}`.trim() : '')
+                }}
+                placeholder="347 123 4567"
+              />
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>

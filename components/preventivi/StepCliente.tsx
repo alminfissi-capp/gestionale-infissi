@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Building2, User, ChevronsUpDown, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,6 +32,26 @@ export default function StepCliente({
   showNumero = true,
 }: Props) {
   const [open, setOpen] = useState(false)
+
+  const parseTelefono = (tel: string | null | undefined) => {
+    if (!tel) return { prefisso: '+39', numero: '' }
+    if (tel.startsWith('+')) {
+      const spaceIdx = tel.indexOf(' ')
+      if (spaceIdx > 0) return { prefisso: tel.slice(0, spaceIdx), numero: tel.slice(spaceIdx + 1) }
+    }
+    return { prefisso: '+39', numero: tel }
+  }
+  const parsedTel = parseTelefono(clienteSnapshot.telefono)
+  const [telPrefisso, setTelPrefisso] = useState(parsedTel.prefisso)
+  const [telNumero, setTelNumero] = useState(parsedTel.numero)
+
+  // Risincronizza quando viene selezionato un cliente diverso
+  useEffect(() => {
+    const p = parseTelefono(clienteSnapshot.telefono)
+    setTelPrefisso(p.prefisso)
+    setTelNumero(p.numero)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clienteSnapshot.telefono])
   const handleClienteSelect = (id: string) => {
     if (id === '__manual__') {
       onClienteIdChange(null)
@@ -244,10 +264,25 @@ export default function StepCliente({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Telefono</Label>
-            <Input
-              value={clienteSnapshot.telefono ?? ''}
-              onChange={(e) => setField('telefono', e.target.value)}
-            />
+            <div className="flex gap-1.5">
+              <Input
+                className="w-20 shrink-0"
+                value={telPrefisso}
+                onChange={(e) => {
+                  setTelPrefisso(e.target.value)
+                  setField('telefono', telNumero ? `${e.target.value} ${telNumero}`.trim() : '')
+                }}
+                placeholder="+39"
+              />
+              <Input
+                value={telNumero}
+                onChange={(e) => {
+                  setTelNumero(e.target.value)
+                  setField('telefono', e.target.value ? `${telPrefisso} ${e.target.value}`.trim() : '')
+                }}
+                placeholder="347 123 4567"
+              />
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label>Email</Label>
