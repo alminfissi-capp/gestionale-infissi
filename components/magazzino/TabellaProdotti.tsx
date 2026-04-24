@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, memo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Plus, Search, Pencil, Trash2, FileCode2, AlertTriangle, ImageIcon } from 'lucide-react'
@@ -34,29 +34,39 @@ interface Props {
   fornitori: Fornitore[]
 }
 
-function PreviewCell({ url, tipo }: { url: string | null; tipo: 'foto' | 'dxf' | null }) {
-  if (!url || !tipo) {
-    return <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center">
+const PreviewCell = memo(function PreviewCell({ url, tipo }: { url: string | null; tipo: 'foto' | 'dxf' | null }) {
+  const [imgError, setImgError] = useState(false)
+
+  const placeholder = (
+    <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center border border-gray-200">
       <ImageIcon className="h-5 w-5 text-gray-300" />
     </div>
-  }
-  if (tipo === 'foto') {
+  )
+
+  if (!url || !tipo) return placeholder
+
+  if (tipo === 'foto' && !imgError) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={url}
         alt=""
-        className="w-12 h-12 rounded-md object-cover border border-gray-200"
+        className="w-12 h-12 rounded-md object-cover border border-gray-200 bg-gray-50"
+        onError={() => setImgError(true)}
       />
     )
   }
-  // DXF: mostra icona con sfondo colorato
-  return (
-    <div className="w-12 h-12 rounded-md bg-gray-900 flex items-center justify-center border border-gray-700">
-      <FileCode2 className="h-5 w-5 text-green-400" />
-    </div>
-  )
-}
+
+  if (tipo === 'dxf') {
+    return (
+      <div className="w-12 h-12 rounded-md bg-gray-900 flex items-center justify-center border border-gray-700">
+        <FileCode2 className="h-5 w-5 text-green-400" />
+      </div>
+    )
+  }
+
+  return placeholder
+})
 
 export default function TabellaProdotti({ prodotti, categorie, fornitori }: Props) {
   const router = useRouter()

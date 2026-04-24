@@ -31,11 +31,19 @@ export async function getMagazzinoSignedUrl(path: string): Promise<string> {
 export async function getMagazzinoSignedUrlsBatch(paths: string[]): Promise<Record<string, string>> {
   if (paths.length === 0) return {}
   const supabase = await createClient()
-  const { data, error } = await supabase.storage
-    .from('magazzino')
-    .createSignedUrls(paths, 3600)
-  if (error) throw new Error(error.message)
-  return Object.fromEntries((data ?? []).map((d) => [d.path, d.signedUrl]))
+  const results = await Promise.allSettled(
+    paths.map(async (path) => {
+      const { data, error } = await supabase.storage.from('magazzino').createSignedUrl(path, 3600)
+      return { path, url: error ? null : data.signedUrl }
+    })
+  )
+  const map: Record<string, string> = {}
+  for (const r of results) {
+    if (r.status === 'fulfilled' && r.value.url) {
+      map[r.value.path] = r.value.url
+    }
+  }
+  return map
 }
 
 // ---- Fornitori ----
