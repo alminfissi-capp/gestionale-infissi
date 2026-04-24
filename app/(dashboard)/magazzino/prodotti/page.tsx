@@ -1,4 +1,4 @@
-import { getProdotti, getCategorieMagazzino, getFornitori } from '@/actions/magazzino'
+import { getProdotti, getCategorieMagazzino, getFornitori, getMagazzinoSignedUrlsBatch } from '@/actions/magazzino'
 import TabellaProdotti from '@/components/magazzino/TabellaProdotti'
 
 export default async function ProdottiPage() {
@@ -7,6 +7,16 @@ export default async function ProdottiPage() {
     getCategorieMagazzino(),
     getFornitori(),
   ])
+
+  const fotoPaths = prodotti.filter((p) => p.foto_url).map((p) => p.foto_url!)
+  const dxfPaths = prodotti.filter((p) => p.dxf_url && !p.foto_url).map((p) => p.dxf_url!)
+  const signedUrls = await getMagazzinoSignedUrlsBatch([...fotoPaths, ...dxfPaths])
+
+  const prodottiConUrl = prodotti.map((p) => ({
+    ...p,
+    preview_url: p.foto_url ? (signedUrls[p.foto_url] ?? null) : (p.dxf_url ? (signedUrls[p.dxf_url] ?? null) : null),
+    preview_tipo: p.foto_url ? 'foto' as const : p.dxf_url ? 'dxf' as const : null,
+  }))
 
   return (
     <div>
@@ -18,7 +28,11 @@ export default async function ProdottiPage() {
             : `${prodotti.length} prodott${prodotti.length === 1 ? 'o' : 'i'} in anagrafica`}
         </p>
       </div>
-      <TabellaProdotti prodotti={prodotti} categorie={categorie} fornitori={fornitori} />
+      <TabellaProdotti
+        prodotti={prodottiConUrl}
+        categorie={categorie}
+        fornitori={fornitori}
+      />
     </div>
   )
 }

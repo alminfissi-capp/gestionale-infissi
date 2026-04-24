@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Plus, Search, Pencil, Trash2, ImageIcon, FileCode2, AlertTriangle } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, FileCode2, AlertTriangle, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -23,10 +23,39 @@ import type { ProdottoConCategoria } from '@/actions/magazzino'
 import type { CategoriaMagazzino, Fornitore } from '@/types/magazzino'
 import { UNITA_MISURA_LABELS, TIPO_CATEGORIA_LABELS } from '@/types/magazzino'
 
+type ProdottoConPreview = ProdottoConCategoria & {
+  preview_url: string | null
+  preview_tipo: 'foto' | 'dxf' | null
+}
+
 interface Props {
-  prodotti: ProdottoConCategoria[]
+  prodotti: ProdottoConPreview[]
   categorie: CategoriaMagazzino[]
   fornitori: Fornitore[]
+}
+
+function PreviewCell({ url, tipo }: { url: string | null; tipo: 'foto' | 'dxf' | null }) {
+  if (!url || !tipo) {
+    return <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center">
+      <ImageIcon className="h-5 w-5 text-gray-300" />
+    </div>
+  }
+  if (tipo === 'foto') {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={url}
+        alt=""
+        className="w-12 h-12 rounded-md object-cover border border-gray-200"
+      />
+    )
+  }
+  // DXF: mostra icona con sfondo colorato
+  return (
+    <div className="w-12 h-12 rounded-md bg-gray-900 flex items-center justify-center border border-gray-700">
+      <FileCode2 className="h-5 w-5 text-green-400" />
+    </div>
+  )
 }
 
 export default function TabellaProdotti({ prodotti, categorie, fornitori }: Props) {
@@ -35,7 +64,7 @@ export default function TabellaProdotti({ prodotti, categorie, fornitori }: Prop
   const [filterCategoria, setFilterCategoria] = useState<string>('all')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<ProdottoConCategoria | null>(null)
-  const [deletingProdotto, setDeletingProdotto] = useState<ProdottoConCategoria | null>(null)
+  const [deletingProdotto, setDeletingProdotto] = useState<ProdottoConPreview | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   const filtered = useMemo(() => {
@@ -49,7 +78,7 @@ export default function TabellaProdotti({ prodotti, categorie, fornitori }: Prop
   }, [prodotti, search, filterCategoria])
 
   const openCreate = () => { setEditing(null); setDialogOpen(true) }
-  const openEdit = (p: ProdottoConCategoria) => { setEditing(p); setDialogOpen(true) }
+  const openEdit = (p: ProdottoConPreview) => { setEditing(p); setDialogOpen(true) }
 
   const handleDelete = async () => {
     if (!deletingProdotto) return
@@ -106,7 +135,7 @@ export default function TabellaProdotti({ prodotti, categorie, fornitori }: Prop
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-8" />
+                <TableHead className="w-16">Foto</TableHead>
                 <TableHead>Codice</TableHead>
                 <TableHead>Nome</TableHead>
                 <TableHead>Categoria</TableHead>
@@ -119,12 +148,11 @@ export default function TabellaProdotti({ prodotti, categorie, fornitori }: Prop
             <TableBody>
               {filtered.map((p) => (
                 <TableRow key={p.id}>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      {p.foto_url && <ImageIcon className="h-3.5 w-3.5 text-blue-400" />}
-                      {p.dxf_url && <FileCode2 className="h-3.5 w-3.5 text-green-500" />}
+                  <TableCell className="py-2">
+                    <div className="relative">
+                      <PreviewCell url={p.preview_url} tipo={p.preview_tipo} />
                       {p.soglia_abilitata && p.soglia_minima !== null && (
-                        <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+                        <AlertTriangle className="absolute -top-1 -right-1 h-3.5 w-3.5 text-amber-500" />
                       )}
                     </div>
                   </TableCell>

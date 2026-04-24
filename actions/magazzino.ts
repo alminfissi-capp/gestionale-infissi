@@ -28,6 +28,16 @@ export async function getMagazzinoSignedUrl(path: string): Promise<string> {
   return data.signedUrl
 }
 
+export async function getMagazzinoSignedUrlsBatch(paths: string[]): Promise<Record<string, string>> {
+  if (paths.length === 0) return {}
+  const supabase = await createClient()
+  const { data, error } = await supabase.storage
+    .from('magazzino')
+    .createSignedUrls(paths, 3600)
+  if (error) throw new Error(error.message)
+  return Object.fromEntries((data ?? []).map((d) => [d.path, d.signedUrl]))
+}
+
 // ---- Fornitori ----
 
 export async function getFornitori(): Promise<Fornitore[]> {
