@@ -1,7 +1,8 @@
 import Link from 'next/link'
-import { Users, Package, ArrowDownUp, BarChart3 } from 'lucide-react'
+import { Users, Package, ArrowDownUp, BarChart3, Tag } from 'lucide-react'
 
 const SEZIONI = [
+  { href: '/magazzino/categorie', icon: Tag, titolo: 'Categorie', desc: 'Tipi di materiale (alluminio, ferro…)' },
   { href: '/magazzino/fornitori', icon: Users, titolo: 'Fornitori', desc: 'Anagrafica fornitori e contatti' },
   { href: '/magazzino/prodotti', icon: Package, titolo: 'Prodotti', desc: 'Anagrafica prodotti e varianti colore' },
   { href: '/magazzino/movimenti', icon: ArrowDownUp, titolo: 'Movimenti', desc: 'Carichi, scarichi e storico' },
@@ -15,7 +16,7 @@ export default function MagazzinoPage() {
         <h1 className="text-2xl font-bold text-gray-900">Magazzino</h1>
         <p className="text-sm text-gray-500 mt-1">Gestione scorte, movimenti e anagrafica prodotti</p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {SEZIONI.map(({ href, icon: Icon, titolo, desc }) => (
           <Link
             key={href}

@@ -83,6 +83,42 @@ export async function getCategorieMagazzino(): Promise<CategoriaMagazzino[]> {
   return data ?? []
 }
 
+export type CategoriaMagazzinoInput = {
+  nome: string
+  tipo: import('@/types/magazzino').TipoCategoriaMagazzino
+  ordine?: number
+}
+
+export async function createCategoriaMagazzino(input: CategoriaMagazzinoInput): Promise<{ id: string }> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data, error } = await supabase
+    .from('categorie_magazzino')
+    .insert({ ...input, ordine: input.ordine ?? 0, organization_id: orgId })
+    .select('id')
+    .single()
+  if (error) throw new Error(error.message)
+  revalidatePath('/magazzino/categorie')
+  return { id: data.id }
+}
+
+export async function updateCategoriaMagazzino(id: string, input: CategoriaMagazzinoInput): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('categorie_magazzino')
+    .update(input)
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/magazzino/categorie')
+}
+
+export async function deleteCategoriaMagazzino(id: string): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase.from('categorie_magazzino').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/magazzino/categorie')
+}
+
 // ---- Prodotti ----
 
 export type ProdottoConCategoria = AnagraficaProdotto & {
