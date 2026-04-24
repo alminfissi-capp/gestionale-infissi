@@ -224,14 +224,14 @@ export default function DialogProdotto({ open, onOpenChange, prodotto, categorie
               <div className="space-y-1.5">
                 <Label>Fornitore principale</Label>
                 <Select
-                  value={form.fornitore_principale_id ?? ''}
-                  onValueChange={(v) => set('fornitore_principale_id')(v || null)}
+                  value={form.fornitore_principale_id ?? '__none__'}
+                  onValueChange={(v) => set('fornitore_principale_id')(v === '__none__' ? null : v)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Nessuno" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nessuno</SelectItem>
+                    <SelectItem value="__none__">Nessuno</SelectItem>
                     {fornitori.map((f) => (
                       <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
                     ))}

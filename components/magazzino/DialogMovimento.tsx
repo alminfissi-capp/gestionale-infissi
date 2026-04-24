@@ -181,12 +181,12 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
           {selectedProdotto && selectedProdotto.varianti.length > 0 && (
             <div className="space-y-1.5">
               <Label>Variante colore</Label>
-              <Select value={varianteId} onValueChange={setVarianteId}>
+              <Select value={varianteId || '__none__'} onValueChange={(v) => setVarianteId(v === '__none__' ? '' : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Nessuna variante specifica" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nessuna variante specifica</SelectItem>
+                  <SelectItem value="__none__">Nessuna variante specifica</SelectItem>
                   {selectedProdotto.varianti.map((v) => (
                     <SelectItem key={v.id} value={v.id}>
                       {v.nome}{v.codice_variante ? ` — ${v.codice_variante}` : ''}
@@ -242,12 +242,12 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
               </div>
               <div className="space-y-1.5">
                 <Label>Fornitore</Label>
-                <Select value={fornitoreId} onValueChange={setFornitoreId}>
+                <Select value={fornitoreId || '__none__'} onValueChange={(v) => setFornitoreId(v === '__none__' ? '' : v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleziona" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nessuno</SelectItem>
+                    <SelectItem value="__none__">Nessuno</SelectItem>
                     {fornitori.map((f) => (
                       <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
                     ))}
