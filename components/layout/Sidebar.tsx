@@ -18,6 +18,7 @@ import {
   FolderOpen,
   Ruler,
   Wrench,
+  Warehouse,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -32,6 +33,7 @@ const NAV_ITEMS = [
   { href: '/cataloghi', label: 'Cataloghi e Brochure', icon: FolderOpen },
   { href: '/rilievo', label: 'Rilievo Misure', icon: Ruler },
   { href: '/winconfig', label: 'WinConfig', icon: Wrench },
+  { href: '/magazzino', label: 'Magazzino', icon: Warehouse },
   { href: '/import-export', label: 'Import / Export', icon: Database },
   { href: '/impostazioni', label: 'Impostazioni', icon: Settings },
 ]
