@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react'
 import { Loader2, AlertTriangle, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-import DxfParser from 'dxf-parser'
-
 interface Props {
   signedUrl: string
   fileName?: string
@@ -125,6 +123,8 @@ export default function DxfViewer({ signedUrl, fileName }: Props) {
         const res = await fetch(signedUrl)
         if (!res.ok) throw new Error('Fetch failed')
         const text = await res.text()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { default: DxfParser } = await import('dxf-parser') as any
         const parser = new DxfParser()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const dxf = parser.parseSync(text) as any
