@@ -21,7 +21,7 @@ import DialogProdotto from './DialogProdotto'
 import DxfMiniatura from './DxfMiniatura'
 import { deleteProdotto } from '@/actions/magazzino'
 import type { ProdottoConCategoria } from '@/actions/magazzino'
-import type { CategoriaMagazzino, Fornitore } from '@/types/magazzino'
+import type { CategoriaMagazzino, Fornitore, PosizioneMagazzino } from '@/types/magazzino'
 import { UNITA_MISURA_LABELS, TIPO_CATEGORIA_LABELS } from '@/types/magazzino'
 
 type ProdottoConPreview = ProdottoConCategoria & {
@@ -33,6 +33,7 @@ interface Props {
   prodotti: ProdottoConPreview[]
   categorie: CategoriaMagazzino[]
   fornitori: Fornitore[]
+  posizioni: PosizioneMagazzino[]
 }
 
 const PreviewCell = memo(function PreviewCell({ url, tipo }: { url: string | null; tipo: 'foto' | 'dxf' | null }) {
@@ -65,7 +66,7 @@ const PreviewCell = memo(function PreviewCell({ url, tipo }: { url: string | nul
   return placeholder
 })
 
-export default function TabellaProdotti({ prodotti, categorie, fornitori }: Props) {
+export default function TabellaProdotti({ prodotti, categorie, fornitori, posizioni }: Props) {
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [filterCategoria, setFilterCategoria] = useState<string>('all')
@@ -221,6 +222,7 @@ export default function TabellaProdotti({ prodotti, categorie, fornitori }: Prop
         prodotto={editing}
         categorie={categorie}
         fornitori={fornitori}
+        posizioni={posizioni}
       />
 
       <AlertDialog open={!!deletingProdotto} onOpenChange={(v) => !v && setDeletingProdotto(null)}>

@@ -20,6 +20,8 @@ export const TIPO_CATEGORIA_LABELS: Record<TipoCategoriaMagazzino, string> = {
   chimici: 'Chimici / Vernicianti',
 }
 
+export const CATEGORIE_CON_FINITURE: TipoCategoriaMagazzino[] = ['alluminio', 'ferro']
+
 export type Fornitore = {
   id: string
   organization_id: string
@@ -51,6 +53,37 @@ export type CategoriaMagazzino = {
   created_at: string
 }
 
+export type FinituraCategoria = {
+  id: string
+  categoria_id: string
+  organization_id: string
+  nome: string
+  costo_per_kg: number | null
+  costo_per_metro: number | null
+  ordine: number
+  created_at: string
+}
+
+export type FinituraCategoriaInput = {
+  nome: string
+  costo_per_kg?: number | null
+  costo_per_metro?: number | null
+  ordine?: number
+}
+
+export type PosizioneInput = {
+  nome: string
+  descrizione?: string
+}
+
+export type PosizioneMagazzino = {
+  id: string
+  organization_id: string
+  nome: string
+  descrizione: string | null
+  created_at: string
+}
+
 export type AnagraficaProdotto = {
   id: string
   organization_id: string
@@ -60,6 +93,9 @@ export type AnagraficaProdotto = {
   categoria_id: string | null
   unita_misura: UnitaMisura
   prezzo_acquisto: number | null
+  peso_al_metro: number | null
+  lunghezza_default: number | null
+  posizione_id: string | null
   fornitore_principale_id: string | null
   soglia_minima: number | null
   soglia_abilitata: boolean
@@ -88,6 +124,8 @@ export type MovimentoMagazzino = {
   variante_id: string | null
   quantita: number
   prezzo_unitario: number | null
+  finitura_id: string | null
+  lunghezza: number | null
   fornitore_id: string | null
   commessa_ref: string | null
   data: string

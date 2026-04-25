@@ -6,6 +6,8 @@ import { getOrgId } from '@/lib/auth'
 import type {
   Fornitore, FornitoreInput,
   CategoriaMagazzino,
+  FinituraCategoria, FinituraCategoriaInput,
+  PosizioneMagazzino, PosizioneInput,
   AnagraficaProdotto, UnitaMisura,
   VarianteProdotto,
   MovimentoMagazzino,
@@ -34,7 +36,6 @@ export async function getMagazzinoPublicUrls(paths: string[], supabaseUrl: strin
   )
 }
 
-// Manteniamo per backward compat (usato in DialogProdotto per signed URL DXF download)
 export async function getMagazzinoSignedUrl(path: string): Promise<string> {
   return getMagazzinoPublicUrl(path)
 }
@@ -60,6 +61,7 @@ export async function createFornitore(input: FornitoreInput): Promise<{ id: stri
     .select('id')
     .single()
   if (error) throw new Error(error.message)
+  revalidatePath('/magazzino/impostazioni')
   revalidatePath('/magazzino/fornitori')
   return { id: data.id }
 }
@@ -71,6 +73,7 @@ export async function updateFornitore(id: string, input: FornitoreInput): Promis
     .update({ ...input, updated_at: new Date().toISOString() })
     .eq('id', id)
   if (error) throw new Error(error.message)
+  revalidatePath('/magazzino/impostazioni')
   revalidatePath('/magazzino/fornitori')
 }
 
@@ -78,6 +81,7 @@ export async function deleteFornitore(id: string): Promise<void> {
   const supabase = await createClient()
   const { error } = await supabase.from('fornitori').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  revalidatePath('/magazzino/impostazioni')
   revalidatePath('/magazzino/fornitori')
 }
 
@@ -130,11 +134,101 @@ export async function deleteCategoriaMagazzino(id: string): Promise<void> {
   revalidatePath('/magazzino/categorie')
 }
 
+// ---- Finiture Categoria ----
+
+export async function getFinitureByCategoriaId(categoriaId: string): Promise<FinituraCategoria[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('finiture_categoria')
+    .select('*')
+    .eq('categoria_id', categoriaId)
+    .order('ordine', { ascending: true })
+    .order('nome', { ascending: true })
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
+export async function saveFinitureCategoriaAll(
+  categoriaId: string,
+  finiture: FinituraCategoriaInput[],
+  toDelete: string[]
+): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  if (toDelete.length > 0) {
+    const { error } = await supabase.from('finiture_categoria').delete().in('id', toDelete)
+    if (error) throw new Error(error.message)
+  }
+
+  if (finiture.length > 0) {
+    const rows = finiture.map((f, i) => ({
+      categoria_id: categoriaId,
+      organization_id: orgId,
+      nome: f.nome,
+      costo_per_kg: f.costo_per_kg ?? null,
+      costo_per_metro: f.costo_per_metro ?? null,
+      ordine: f.ordine ?? i,
+    }))
+    const { error } = await supabase.from('finiture_categoria').insert(rows)
+    if (error) throw new Error(error.message)
+  }
+
+  revalidatePath('/magazzino/categorie')
+  revalidatePath('/magazzino/movimenti')
+}
+
+// ---- Posizioni Magazzino ----
+
+export async function getPosizioni(): Promise<PosizioneMagazzino[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('posizioni_magazzino')
+    .select('*')
+    .order('nome', { ascending: true })
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
+export async function createPosizione(input: PosizioneInput): Promise<{ id: string }> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data, error } = await supabase
+    .from('posizioni_magazzino')
+    .insert({ ...input, organization_id: orgId })
+    .select('id')
+    .single()
+  if (error) throw new Error(error.message)
+  revalidatePath('/magazzino/impostazioni')
+  revalidatePath('/magazzino/prodotti')
+  return { id: data.id }
+}
+
+export async function updatePosizione(id: string, input: PosizioneInput): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('posizioni_magazzino')
+    .update(input)
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/magazzino/impostazioni')
+  revalidatePath('/magazzino/prodotti')
+}
+
+export async function deletePosizione(id: string): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase.from('posizioni_magazzino').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/magazzino/impostazioni')
+  revalidatePath('/magazzino/prodotti')
+}
+
 // ---- Prodotti ----
 
 export type ProdottoConCategoria = AnagraficaProdotto & {
   categoria: CategoriaMagazzino | null
   fornitore_principale: { nome: string } | null
+  posizione: PosizioneMagazzino | null
   varianti: VarianteProdotto[]
 }
 
@@ -146,6 +240,7 @@ export async function getProdotti(): Promise<ProdottoConCategoria[]> {
       *,
       categoria:categorie_magazzino(*),
       fornitore_principale:fornitori(nome),
+      posizione:posizioni_magazzino(*),
       varianti:varianti_prodotto(*)
     `)
     .order('nome', { ascending: true })
@@ -160,6 +255,9 @@ export type ProdottoInput = {
   categoria_id?: string
   unita_misura: UnitaMisura
   prezzo_acquisto?: number | null
+  peso_al_metro?: number | null
+  lunghezza_default?: number | null
+  posizione_id?: string | null
   fornitore_principale_id?: string | null
   soglia_minima?: number | null
   soglia_abilitata: boolean
@@ -258,6 +356,7 @@ export type MovimentoConDettagli = MovimentoMagazzino & {
   prodotto: { codice: string; nome: string; unita_misura: UnitaMisura }
   variante: { nome: string } | null
   fornitore: { nome: string } | null
+  finitura: { nome: string } | null
 }
 
 export type MovimentoInput = {
@@ -266,6 +365,8 @@ export type MovimentoInput = {
   variante_id?: string | null
   quantita: number
   prezzo_unitario?: number | null
+  finitura_id?: string | null
+  lunghezza?: number | null
   fornitore_id?: string | null
   commessa_ref?: string | null
   data: string
@@ -280,7 +381,8 @@ export async function getMovimenti(): Promise<MovimentoConDettagli[]> {
       *,
       prodotto:anagrafica_prodotti(codice, nome, unita_misura),
       variante:varianti_prodotto(nome),
-      fornitore:fornitori(nome)
+      fornitore:fornitori(nome),
+      finitura:finiture_categoria(nome)
     `)
     .order('data', { ascending: false })
     .order('created_at', { ascending: false })
@@ -332,7 +434,6 @@ export async function getGiacenze(): Promise<GiacenzaConSoglia[]> {
     .order('prodotto_nome', { ascending: true })
   if (error) throw new Error(error.message)
 
-  // join soglia from anagrafica_prodotti
   const ids = [...new Set((data ?? []).map((r) => r.prodotto_id as string))]
   if (ids.length === 0) return []
 

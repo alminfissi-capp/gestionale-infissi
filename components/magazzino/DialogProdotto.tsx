@@ -18,8 +18,8 @@ import UploadFile from './UploadFile'
 import DxfViewer from './DxfViewer'
 import { createProdotto, updateProdotto } from '@/actions/magazzino'
 import type { ProdottoConCategoria, ProdottoInput, VarianteInput } from '@/actions/magazzino'
-import type { CategoriaMagazzino, Fornitore, UnitaMisura } from '@/types/magazzino'
-import { UNITA_MISURA_LABELS } from '@/types/magazzino'
+import type { CategoriaMagazzino, Fornitore, UnitaMisura, PosizioneMagazzino } from '@/types/magazzino'
+import { UNITA_MISURA_LABELS, CATEGORIE_CON_FINITURE } from '@/types/magazzino'
 
 interface Props {
   open: boolean
@@ -27,6 +27,7 @@ interface Props {
   prodotto?: ProdottoConCategoria | null
   categorie: CategoriaMagazzino[]
   fornitori: Fornitore[]
+  posizioni: PosizioneMagazzino[]
 }
 
 const emptyForm = (): ProdottoInput => ({
@@ -36,6 +37,9 @@ const emptyForm = (): ProdottoInput => ({
   categoria_id: undefined,
   unita_misura: 'pz',
   prezzo_acquisto: null,
+  peso_al_metro: null,
+  lunghezza_default: null,
+  posizione_id: null,
   fornitore_principale_id: null,
   soglia_minima: null,
   soglia_abilitata: false,
@@ -44,7 +48,7 @@ const emptyForm = (): ProdottoInput => ({
   note: '',
 })
 
-export default function DialogProdotto({ open, onOpenChange, prodotto, categorie, fornitori }: Props) {
+export default function DialogProdotto({ open, onOpenChange, prodotto, categorie, fornitori, posizioni }: Props) {
   const router = useRouter()
   const [form, setForm] = useState<ProdottoInput>(emptyForm())
   const [fotoSignedUrl, setFotoSignedUrl] = useState<string | null>(null)
@@ -56,6 +60,9 @@ export default function DialogProdotto({ open, onOpenChange, prodotto, categorie
   const [showDxfViewer, setShowDxfViewer] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  const selectedCategoria = categorie.find((c) => c.id === form.categoria_id)
+  const showCampiProfilo = selectedCategoria && CATEGORIE_CON_FINITURE.includes(selectedCategoria.tipo)
+
   useEffect(() => {
     if (!open) return
     if (prodotto) {
@@ -66,6 +73,9 @@ export default function DialogProdotto({ open, onOpenChange, prodotto, categorie
         categoria_id: prodotto.categoria_id ?? undefined,
         unita_misura: prodotto.unita_misura,
         prezzo_acquisto: prodotto.prezzo_acquisto,
+        peso_al_metro: prodotto.peso_al_metro,
+        lunghezza_default: prodotto.lunghezza_default,
+        posizione_id: prodotto.posizione_id,
         fornitore_principale_id: prodotto.fornitore_principale_id,
         soglia_minima: prodotto.soglia_minima,
         soglia_abilitata: prodotto.soglia_abilitata,
@@ -76,7 +86,6 @@ export default function DialogProdotto({ open, onOpenChange, prodotto, categorie
       setVarianti(prodotto.varianti.map((v) => ({ id: v.id, nome: v.nome, codice_variante: v.codice_variante ?? '' })))
       setVariantiToDelete([])
 
-      // bucket pubblico → URL stabile, nessuna async
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL
       const toUrl = (path: string | null) =>
         path ? `${base}/storage/v1/object/public/magazzino/${path}` : null
@@ -194,23 +203,80 @@ export default function DialogProdotto({ open, onOpenChange, prodotto, categorie
                 </Select>
               </div>
             </div>
+
+            {/* Posizione */}
+            <div className="space-y-1.5">
+              <Label>Posizione in magazzino</Label>
+              <Select
+                value={form.posizione_id ?? '__none__'}
+                onValueChange={(v) => set('posizione_id')(v === '__none__' ? null : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Non assegnata" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Non assegnata</SelectItem>
+                  {posizioni.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {/* Prezzi e fornitore */}
+          {/* Parametri profilo (alluminio/ferro) */}
+          {showCampiProfilo && (
+            <div className="space-y-3 rounded-lg border p-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Parametri profilo</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="peso_al_metro">Peso al metro (kg/m)</Label>
+                  <Input
+                    id="peso_al_metro"
+                    type="number"
+                    step="0.0001"
+                    min="0"
+                    value={form.peso_al_metro ?? ''}
+                    onChange={(e) => set('peso_al_metro')(e.target.value ? parseFloat(e.target.value) : null)}
+                    placeholder="es. 1.250"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="lunghezza_default">Lunghezza barra (m)</Label>
+                  <Input
+                    id="lunghezza_default"
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    value={form.lunghezza_default ?? ''}
+                    onChange={(e) => set('lunghezza_default')(e.target.value ? parseFloat(e.target.value) : null)}
+                    placeholder="es. 6.000"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-400">
+                Il prezzo sarà calcolato automaticamente al momento del carico in base alla finitura selezionata.
+              </p>
+            </div>
+          )}
+
+          {/* Commerciale */}
           <div className="space-y-3">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Commerciale</p>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="prezzo">Prezzo acquisto (€)</Label>
-                <Input
-                  id="prezzo"
-                  type="number"
-                  step="0.0001"
-                  min="0"
-                  value={form.prezzo_acquisto ?? ''}
-                  onChange={(e) => set('prezzo_acquisto')(e.target.value ? parseFloat(e.target.value) : null)}
-                />
-              </div>
+              {!showCampiProfilo && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="prezzo">Prezzo acquisto (€)</Label>
+                  <Input
+                    id="prezzo"
+                    type="number"
+                    step="0.0001"
+                    min="0"
+                    value={form.prezzo_acquisto ?? ''}
+                    onChange={(e) => set('prezzo_acquisto')(e.target.value ? parseFloat(e.target.value) : null)}
+                  />
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label>Fornitore principale</Label>
                 <Select

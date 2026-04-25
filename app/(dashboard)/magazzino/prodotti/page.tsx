@@ -1,4 +1,4 @@
-import { getProdotti, getCategorieMagazzino, getFornitori } from '@/actions/magazzino'
+import { getProdotti, getCategorieMagazzino, getFornitori, getPosizioni } from '@/actions/magazzino'
 import TabellaProdotti from '@/components/magazzino/TabellaProdotti'
 
 function toPublicUrl(path: string | null): string | null {
@@ -8,10 +8,11 @@ function toPublicUrl(path: string | null): string | null {
 }
 
 export default async function ProdottiPage() {
-  const [prodotti, categorie, fornitori] = await Promise.all([
+  const [prodotti, categorie, fornitori, posizioni] = await Promise.all([
     getProdotti(),
     getCategorieMagazzino(),
     getFornitori(),
+    getPosizioni(),
   ])
 
   const prodottiConUrl = prodotti.map((p) => ({
@@ -34,6 +35,7 @@ export default async function ProdottiPage() {
         prodotti={prodottiConUrl}
         categorie={categorie}
         fornitori={fornitori}
+        posizioni={posizioni}
       />
     </div>
   )

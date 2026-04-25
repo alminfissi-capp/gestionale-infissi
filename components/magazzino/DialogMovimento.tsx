@@ -20,10 +20,10 @@ import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from '@/components/ui/command'
 import { cn } from '@/lib/utils'
-import { createMovimento } from '@/actions/magazzino'
+import { createMovimento, getFinitureByCategoriaId } from '@/actions/magazzino'
 import type { ProdottoConCategoria } from '@/actions/magazzino'
-import type { Fornitore } from '@/types/magazzino'
-import { UNITA_MISURA_LABELS } from '@/types/magazzino'
+import type { Fornitore, FinituraCategoria } from '@/types/magazzino'
+import { UNITA_MISURA_LABELS, CATEGORIE_CON_FINITURE } from '@/types/magazzino'
 
 interface Props {
   open: boolean
@@ -35,6 +35,17 @@ interface Props {
 
 const today = () => new Date().toISOString().slice(0, 10)
 
+function calcolaPrezzo(finitura: FinituraCategoria, pesoAlMetro: number | null, lunghezza: number): number {
+  let prezzo = 0
+  if (finitura.costo_per_kg != null && pesoAlMetro != null) {
+    prezzo += finitura.costo_per_kg * pesoAlMetro * lunghezza
+  }
+  if (finitura.costo_per_metro != null) {
+    prezzo += finitura.costo_per_metro * lunghezza
+  }
+  return prezzo
+}
+
 export default function DialogMovimento({ open, onOpenChange, prodotti, fornitori, defaultTipo = 'entrata' }: Props) {
   const router = useRouter()
   const [tipo, setTipo] = useState<'entrata' | 'uscita'>(defaultTipo)
@@ -42,6 +53,7 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
   const [varianteId, setVarianteId] = useState<string>('')
   const [quantita, setQuantita] = useState('')
   const [prezzoUnitario, setPrezzoUnitario] = useState('')
+  const [prezzoAutoCalc, setPrezzoAutoCalc] = useState(false)
   const [fornitoreId, setFornitoreId] = useState('')
   const [commessaRef, setCommessaRef] = useState('')
   const [data, setData] = useState(today())
@@ -49,7 +61,36 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
   const [prodottoOpen, setProdottoOpen] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  // Finitura (alluminio/ferro)
+  const [finiture, setFiniture] = useState<FinituraCategoria[]>([])
+  const [finituraId, setFinituraId] = useState('')
+  const [lunghezza, setLunghezza] = useState('')
+
   const selectedProdotto = useMemo(() => prodotti.find((p) => p.id === prodottoId), [prodotti, prodottoId])
+  const isProfilo = !!(selectedProdotto?.categoria && CATEGORIE_CON_FINITURE.includes(selectedProdotto.categoria.tipo))
+  const selectedFinitura = finiture.find((f) => f.id === finituraId) ?? null
+
+  // Load finiture when profilo product is selected
+  useEffect(() => {
+    setFiniture([])
+    setFinituraId('')
+    if (isProfilo && selectedProdotto?.categoria_id) {
+      getFinitureByCategoriaId(selectedProdotto.categoria_id).then(setFiniture)
+    }
+  }, [isProfilo, selectedProdotto?.categoria_id])
+
+  // Auto-calc prezzo when finitura + lunghezza change
+  useEffect(() => {
+    if (!isProfilo || !selectedFinitura || !lunghezza) {
+      if (prezzoAutoCalc) { setPrezzoUnitario(''); setPrezzoAutoCalc(false) }
+      return
+    }
+    const l = parseFloat(lunghezza)
+    if (isNaN(l) || l <= 0) return
+    const prezzo = calcolaPrezzo(selectedFinitura, selectedProdotto?.peso_al_metro ?? null, l)
+    setPrezzoUnitario(prezzo.toFixed(4))
+    setPrezzoAutoCalc(true)
+  }, [selectedFinitura, lunghezza, isProfilo, selectedProdotto?.peso_al_metro, prezzoAutoCalc])
 
   useEffect(() => {
     if (!open) return
@@ -58,15 +99,28 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
     setVarianteId('')
     setQuantita('')
     setPrezzoUnitario('')
+    setPrezzoAutoCalc(false)
     setFornitoreId('')
     setCommessaRef('')
     setData(today())
     setNote('')
+    setFiniture([])
+    setFinituraId('')
+    setLunghezza('')
   }, [open, defaultTipo])
 
   useEffect(() => {
     setVarianteId('')
   }, [prodottoId])
+
+  // Pre-fill lunghezza with product default when product changes
+  useEffect(() => {
+    if (selectedProdotto?.lunghezza_default) {
+      setLunghezza(String(selectedProdotto.lunghezza_default))
+    } else {
+      setLunghezza('')
+    }
+  }, [selectedProdotto?.id, selectedProdotto?.lunghezza_default])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -74,6 +128,7 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
     const qty = parseFloat(quantita)
     if (!qty || qty <= 0) { toast.error('Inserisci una quantità valida'); return }
     if (tipo === 'uscita' && !commessaRef.trim()) { toast.error('Inserisci il nome commessa'); return }
+    if (isProfilo && tipo === 'entrata' && !finituraId) { toast.error('Seleziona la finitura'); return }
 
     setLoading(true)
     try {
@@ -83,6 +138,8 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
         variante_id: varianteId || null,
         quantita: qty,
         prezzo_unitario: prezzoUnitario ? parseFloat(prezzoUnitario) : null,
+        finitura_id: finituraId || null,
+        lunghezza: lunghezza ? parseFloat(lunghezza) : null,
         fornitore_id: tipo === 'entrata' && fornitoreId ? fornitoreId : null,
         commessa_ref: tipo === 'uscita' ? commessaRef.trim() : null,
         data,
@@ -197,6 +254,58 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
             </div>
           )}
 
+          {/* Finitura + Lunghezza (solo profili alluminio/ferro in entrata) */}
+          {isProfilo && tipo === 'entrata' && (
+            <div className="space-y-3 rounded-lg border p-3 bg-gray-50">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Profilo</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Finitura *</Label>
+                  <Select value={finituraId || '__none__'} onValueChange={(v) => setFinituraId(v === '__none__' ? '' : v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleziona finitura" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— Seleziona —</SelectItem>
+                      {finiture.map((f) => (
+                        <SelectItem key={f.id} value={f.id}>
+                          {f.nome}
+                          {f.costo_per_kg != null && ` (€${f.costo_per_kg}/kg)`}
+                          {f.costo_per_metro != null && ` (€${f.costo_per_metro}/m)`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="lunghezza">Lunghezza (m) *</Label>
+                  <Input
+                    id="lunghezza"
+                    type="number"
+                    step="0.001"
+                    min="0.001"
+                    value={lunghezza}
+                    onChange={(e) => setLunghezza(e.target.value)}
+                    placeholder="es. 6.000"
+                  />
+                </div>
+              </div>
+              {selectedFinitura && lunghezza && (
+                <p className="text-xs text-blue-600">
+                  Prezzo calcolato:{' '}
+                  <strong>
+                    €{calcolaPrezzo(selectedFinitura, selectedProdotto?.peso_al_metro ?? null, parseFloat(lunghezza) || 0).toFixed(4)}
+                  </strong>
+                  {selectedProdotto?.peso_al_metro != null && (
+                    <span className="text-gray-400 ml-1">
+                      ({parseFloat(lunghezza) || 0} m × {selectedProdotto.peso_al_metro} kg/m)
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Quantità + data */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -229,14 +338,17 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
           {tipo === 'entrata' && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="prezzo">Prezzo unitario (€)</Label>
+                <Label htmlFor="prezzo">
+                  Prezzo unitario (€)
+                  {prezzoAutoCalc && <span className="text-blue-500 ml-1 text-xs">calcolato</span>}
+                </Label>
                 <Input
                   id="prezzo"
                   type="number"
                   step="0.0001"
                   min="0"
                   value={prezzoUnitario}
-                  onChange={(e) => setPrezzoUnitario(e.target.value)}
+                  onChange={(e) => { setPrezzoUnitario(e.target.value); setPrezzoAutoCalc(false) }}
                   placeholder="0.0000"
                 />
               </div>

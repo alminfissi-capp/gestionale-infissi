@@ -1,12 +1,12 @@
 import Link from 'next/link'
-import { Users, Package, ArrowDownUp, BarChart3, Tag } from 'lucide-react'
+import { Users, Package, ArrowDownUp, BarChart3, Tag, Settings2 } from 'lucide-react'
 
 const SEZIONI = [
-  { href: '/magazzino/categorie', icon: Tag, titolo: 'Categorie', desc: 'Tipi di materiale (alluminio, ferro…)' },
-  { href: '/magazzino/fornitori', icon: Users, titolo: 'Fornitori', desc: 'Anagrafica fornitori e contatti' },
+  { href: '/magazzino/categorie', icon: Tag, titolo: 'Categorie', desc: 'Tipi di materiale con finiture e costi' },
   { href: '/magazzino/prodotti', icon: Package, titolo: 'Prodotti', desc: 'Anagrafica prodotti e varianti colore' },
   { href: '/magazzino/movimenti', icon: ArrowDownUp, titolo: 'Movimenti', desc: 'Carichi, scarichi e storico' },
   { href: '/magazzino/giacenze', icon: BarChart3, titolo: 'Giacenze', desc: 'Disponibilità e alert scorte' },
+  { href: '/magazzino/impostazioni', icon: Settings2, titolo: 'Impostazioni', desc: 'Posizioni, fornitori e configurazioni' },
 ]
 
 export default function MagazzinoPage() {
