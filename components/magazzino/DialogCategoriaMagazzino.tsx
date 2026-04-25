@@ -11,15 +11,12 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
-import {
   createCategoriaMagazzino, updateCategoriaMagazzino,
   getFinitureByCategoriaId, saveFinitureCategoriaAll,
 } from '@/actions/magazzino'
 import type { CategoriaMagazzinoInput } from '@/actions/magazzino'
 import type { CategoriaMagazzino, TipoCategoriaMagazzino, FinituraCategoriaInput } from '@/types/magazzino'
-import { TIPO_CATEGORIA_LABELS, CATEGORIE_CON_FINITURE } from '@/types/magazzino'
+import { CATEGORIE_CON_FINITURE } from '@/types/magazzino'
 
 interface FInituraRow extends FinituraCategoriaInput {
   _key: string
@@ -30,14 +27,14 @@ interface Props {
   open: boolean
   onOpenChange: (v: boolean) => void
   categoria?: CategoriaMagazzino | null
+  defaultTipo: TipoCategoriaMagazzino
 }
 
-const empty = (): CategoriaMagazzinoInput => ({ nome: '', tipo: 'alluminio', ordine: 0 })
 const newKey = () => Math.random().toString(36).slice(2)
 
-export default function DialogCategoriaMagazzino({ open, onOpenChange, categoria }: Props) {
+export default function DialogCategoriaMagazzino({ open, onOpenChange, categoria, defaultTipo }: Props) {
   const router = useRouter()
-  const [form, setForm] = useState<CategoriaMagazzinoInput>(empty())
+  const [form, setForm] = useState<CategoriaMagazzinoInput>({ nome: '', tipo: defaultTipo, ordine: 0 })
   const [finiture, setFiniture] = useState<FInituraRow[]>([])
   const [toDelete, setToDelete] = useState<string[]>([])
   const [newNome, setNewNome] = useState('')
@@ -51,12 +48,12 @@ export default function DialogCategoriaMagazzino({ open, onOpenChange, categoria
     if (!open) return
     const base = categoria
       ? { nome: categoria.nome, tipo: categoria.tipo, ordine: categoria.ordine }
-      : empty()
+      : { nome: '', tipo: defaultTipo, ordine: 0 }
     setForm(base)
     setToDelete([])
     setNewNome(''); setNewKg(''); setNewMetro('')
 
-    if (categoria && CATEGORIE_CON_FINITURE.includes(categoria.tipo)) {
+    if (categoria && CATEGORIE_CON_FINITURE.includes(categoria.tipo as TipoCategoriaMagazzino)) {
       getFinitureByCategoriaId(categoria.id).then((rows) => {
         setFiniture(rows.map((r) => ({
           _key: r.id,
@@ -69,7 +66,7 @@ export default function DialogCategoriaMagazzino({ open, onOpenChange, categoria
     } else {
       setFiniture([])
     }
-  }, [open, categoria])
+  }, [open, categoria, defaultTipo])
 
   const addFinitura = () => {
     const nome = newNome.trim()
@@ -122,7 +119,7 @@ export default function DialogCategoriaMagazzino({ open, onOpenChange, categoria
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{categoria ? 'Modifica categoria' : 'Nuova categoria'}</DialogTitle>
+          <DialogTitle>{categoria ? 'Modifica sottocategoria' : 'Nuova sottocategoria'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
@@ -134,33 +131,15 @@ export default function DialogCategoriaMagazzino({ open, onOpenChange, categoria
               placeholder="Es. Profili alluminio"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Tipo *</Label>
-              <Select
-                value={form.tipo}
-                onValueChange={(v) => setForm((f) => ({ ...f, tipo: v as TipoCategoriaMagazzino }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.entries(TIPO_CATEGORIA_LABELS) as [TipoCategoriaMagazzino, string][]).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="ordine">Ordine</Label>
-              <Input
-                id="ordine"
-                type="number"
-                min="0"
-                value={form.ordine ?? 0}
-                onChange={(e) => setForm((f) => ({ ...f, ordine: parseInt(e.target.value) || 0 }))}
-              />
-            </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ordine">Ordine</Label>
+            <Input
+              id="ordine"
+              type="number"
+              min="0"
+              value={form.ordine ?? 0}
+              onChange={(e) => setForm((f) => ({ ...f, ordine: parseInt(e.target.value) || 0 }))}
+            />
           </div>
 
           {hasFinitureTipo && (

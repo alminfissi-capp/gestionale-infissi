@@ -1,5 +1,5 @@
 export type UnitaMisura = 'pz' | 'ml' | 'cop' | 'kg' | 'pacco' | 'lt' | 'm2' | 'barre'
-export type TipoCategoriaMagazzino = 'alluminio' | 'ferro' | 'accessori' | 'pannelli' | 'chimici'
+export type TipoCategoriaMagazzino = 'alluminio' | 'ferro' | 'accessori' | 'pannelli' | 'chimici' | 'viteria'
 export type TipoMovimento = 'entrata' | 'uscita'
 
 export const UNITA_MISURA_LABELS: Record<UnitaMisura, string> = {
@@ -19,6 +19,7 @@ export const TIPO_CATEGORIA_LABELS: Record<TipoCategoriaMagazzino, string> = {
   accessori: 'Accessori',
   pannelli: 'Pannelli',
   chimici: 'Chimici / Vernicianti',
+  viteria: 'Viteria',
 }
 
 export const CATEGORIE_CON_FINITURE: TipoCategoriaMagazzino[] = ['alluminio', 'ferro']

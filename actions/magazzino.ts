@@ -98,6 +98,18 @@ export async function getCategorieMagazzino(): Promise<CategoriaMagazzino[]> {
   return data ?? []
 }
 
+export async function getCategorieMagazzinoByTipo(tipo: import('@/types/magazzino').TipoCategoriaMagazzino): Promise<CategoriaMagazzino[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('categorie_magazzino')
+    .select('*')
+    .eq('tipo', tipo)
+    .order('ordine', { ascending: true })
+    .order('nome', { ascending: true })
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
 export type CategoriaMagazzinoInput = {
   nome: string
   tipo: import('@/types/magazzino').TipoCategoriaMagazzino
@@ -114,6 +126,7 @@ export async function createCategoriaMagazzino(input: CategoriaMagazzinoInput): 
     .single()
   if (error) throw new Error(error.message)
   revalidatePath('/magazzino/categorie')
+  revalidatePath(`/magazzino/categorie/${input.tipo}`)
   return { id: data.id }
 }
 
@@ -125,13 +138,14 @@ export async function updateCategoriaMagazzino(id: string, input: CategoriaMagaz
     .eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/magazzino/categorie')
+  revalidatePath(`/magazzino/categorie/${input.tipo}`)
 }
 
 export async function deleteCategoriaMagazzino(id: string): Promise<void> {
   const supabase = await createClient()
   const { error } = await supabase.from('categorie_magazzino').delete().eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath('/magazzino/categorie')
+  revalidatePath('/magazzino/categorie', 'layout')
 }
 
 // ---- Finiture Categoria ----
