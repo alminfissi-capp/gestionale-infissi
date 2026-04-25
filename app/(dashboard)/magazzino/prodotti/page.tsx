@@ -1,5 +1,11 @@
-import { getProdotti, getCategorieMagazzino, getFornitori, getMagazzinoSignedUrlsBatch } from '@/actions/magazzino'
+import { getProdotti, getCategorieMagazzino, getFornitori } from '@/actions/magazzino'
 import TabellaProdotti from '@/components/magazzino/TabellaProdotti'
+
+function toPublicUrl(path: string | null): string | null {
+  if (!path) return null
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL
+  return `${base}/storage/v1/object/public/magazzino/${path}`
+}
 
 export default async function ProdottiPage() {
   const [prodotti, categorie, fornitori] = await Promise.all([
@@ -8,13 +14,9 @@ export default async function ProdottiPage() {
     getFornitori(),
   ])
 
-  const fotoPaths = prodotti.filter((p) => p.foto_url).map((p) => p.foto_url!)
-  const dxfPaths = prodotti.filter((p) => p.dxf_url && !p.foto_url).map((p) => p.dxf_url!)
-  const signedUrls = await getMagazzinoSignedUrlsBatch([...fotoPaths, ...dxfPaths])
-
   const prodottiConUrl = prodotti.map((p) => ({
     ...p,
-    preview_url: p.foto_url ? (signedUrls[p.foto_url] ?? null) : (p.dxf_url ? (signedUrls[p.dxf_url] ?? null) : null),
+    preview_url: p.foto_url ? toPublicUrl(p.foto_url) : toPublicUrl(p.dxf_url),
     preview_tipo: p.foto_url ? 'foto' as const : p.dxf_url ? 'dxf' as const : null,
   }))
 

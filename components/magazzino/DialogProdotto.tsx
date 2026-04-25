@@ -16,7 +16,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import UploadFile from './UploadFile'
 import DxfViewer from './DxfViewer'
-import { createProdotto, updateProdotto, getMagazzinoSignedUrl } from '@/actions/magazzino'
+import { createProdotto, updateProdotto } from '@/actions/magazzino'
 import type { ProdottoConCategoria, ProdottoInput, VarianteInput } from '@/actions/magazzino'
 import type { CategoriaMagazzino, Fornitore, UnitaMisura } from '@/types/magazzino'
 import { UNITA_MISURA_LABELS } from '@/types/magazzino'
@@ -76,22 +76,12 @@ export default function DialogProdotto({ open, onOpenChange, prodotto, categorie
       setVarianti(prodotto.varianti.map((v) => ({ id: v.id, nome: v.nome, codice_variante: v.codice_variante ?? '' })))
       setVariantiToDelete([])
 
-      // load signed URLs for existing files
-      const loadUrls = async () => {
-        if (prodotto.foto_url) {
-          const url = await getMagazzinoSignedUrl(prodotto.foto_url).catch(() => null)
-          setFotoSignedUrl(url)
-        } else {
-          setFotoSignedUrl(null)
-        }
-        if (prodotto.dxf_url) {
-          const url = await getMagazzinoSignedUrl(prodotto.dxf_url).catch(() => null)
-          setDxfSignedUrl(url)
-        } else {
-          setDxfSignedUrl(null)
-        }
-      }
-      loadUrls()
+      // bucket pubblico → URL stabile, nessuna async
+      const base = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const toUrl = (path: string | null) =>
+        path ? `${base}/storage/v1/object/public/magazzino/${path}` : null
+      setFotoSignedUrl(toUrl(prodotto.foto_url))
+      setDxfSignedUrl(toUrl(prodotto.dxf_url))
     } else {
       setForm(emptyForm())
       setFotoSignedUrl(null)

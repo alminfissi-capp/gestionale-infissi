@@ -17,33 +17,26 @@ export async function getCurrentOrgId(): Promise<string> {
   return getOrgId()
 }
 
-// ---- Signed URL (private bucket) ----
+// ---- Public URL (bucket pubblico) ----
 
-export async function getMagazzinoSignedUrl(path: string): Promise<string> {
+export async function getMagazzinoPublicUrl(path: string): Promise<string> {
   const supabase = await createClient()
-  const { data, error } = await supabase.storage
-    .from('magazzino')
-    .createSignedUrl(path, 3600)
-  if (error) throw new Error(error.message)
-  return data.signedUrl
+  const { data } = supabase.storage.from('magazzino').getPublicUrl(path)
+  return data.publicUrl
 }
 
-export async function getMagazzinoSignedUrlsBatch(paths: string[]): Promise<Record<string, string>> {
-  if (paths.length === 0) return {}
-  const supabase = await createClient()
-  const results = await Promise.allSettled(
-    paths.map(async (path) => {
-      const { data, error } = await supabase.storage.from('magazzino').createSignedUrl(path, 3600)
-      return { path, url: error ? null : data.signedUrl }
-    })
+export async function getMagazzinoPublicUrls(paths: string[], supabaseUrl: string): Promise<Record<string, string>> {
+  return Object.fromEntries(
+    paths.map((path) => [
+      path,
+      `${supabaseUrl}/storage/v1/object/public/magazzino/${path}`,
+    ])
   )
-  const map: Record<string, string> = {}
-  for (const r of results) {
-    if (r.status === 'fulfilled' && r.value.url) {
-      map[r.value.path] = r.value.url
-    }
-  }
-  return map
+}
+
+// Manteniamo per backward compat (usato in DialogProdotto per signed URL DXF download)
+export async function getMagazzinoSignedUrl(path: string): Promise<string> {
+  return getMagazzinoPublicUrl(path)
 }
 
 // ---- Fornitori ----

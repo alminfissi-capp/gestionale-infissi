@@ -39,17 +39,15 @@ export default function UploadFile({ tipo, storagePath, signedUrl, onUploaded, o
         .upload(uniqueName, file, { upsert: false })
       if (upErr) throw upErr
 
-      const { data: signData, error: signErr } = await supabase.storage
-        .from('magazzino')
-        .createSignedUrl(uniqueName, 3600)
-      if (signErr) throw signErr
+      // bucket pubblico → getPublicUrl è sincrono, nessuna scadenza
+      const { data: pubData } = supabase.storage.from('magazzino').getPublicUrl(uniqueName)
 
       // if replacing, remove old file
       if (storagePath) {
         await supabase.storage.from('magazzino').remove([storagePath])
       }
 
-      onUploaded(uniqueName, signData.signedUrl)
+      onUploaded(uniqueName, pubData.publicUrl)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Errore upload')
     } finally {
