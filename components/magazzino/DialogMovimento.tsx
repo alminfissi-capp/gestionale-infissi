@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { ChevronsUpDown, Check, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react'
@@ -55,6 +55,7 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
   const [quantita, setQuantita] = useState('')
   const [prezzoUnitario, setPrezzoUnitario] = useState('')
   const [prezzoAutoCalc, setPrezzoAutoCalc] = useState(false)
+  const prezzoManuale = useRef(false)
   const [fornitoreId, setFornitoreId] = useState('')
   const [commessaRef, setCommessaRef] = useState('')
   const [data, setData] = useState(today())
@@ -80,18 +81,26 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
     }
   }, [isProfilo, selectedProdotto?.categoria_id])
 
-  // Auto-calc prezzo when finitura + lunghezza change
+  // Reset flag manuale quando cambiano finitura o lunghezza → ricalcola
+  useEffect(() => {
+    prezzoManuale.current = false
+  }, [finituraId, lunghezza])
+
+  // Auto-calc prezzo quando finitura + lunghezza sono impostati
   useEffect(() => {
     if (!isProfilo || !selectedFinitura || !lunghezza) {
-      if (prezzoAutoCalc) { setPrezzoUnitario(''); setPrezzoAutoCalc(false) }
+      setPrezzoUnitario('')
+      setPrezzoAutoCalc(false)
       return
     }
+    if (prezzoManuale.current) return
     const l = parseFloat(lunghezza)
     if (isNaN(l) || l <= 0) return
     const prezzo = calcolaPrezzo(selectedFinitura, selectedProdotto?.peso_al_metro ?? null, l)
     setPrezzoUnitario(prezzo.toFixed(4))
     setPrezzoAutoCalc(true)
-  }, [selectedFinitura, lunghezza, isProfilo, selectedProdotto?.peso_al_metro, prezzoAutoCalc])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFinitura, lunghezza, isProfilo, selectedProdotto?.peso_al_metro])
 
   useEffect(() => {
     if (!open) return
@@ -101,6 +110,7 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
     setQuantita('')
     setPrezzoUnitario('')
     setPrezzoAutoCalc(false)
+    prezzoManuale.current = false
     setFornitoreId('')
     setCommessaRef('')
     setData(today())
@@ -349,7 +359,7 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
                   step="0.0001"
                   min="0"
                   value={prezzoUnitario}
-                  onChange={(e) => { setPrezzoUnitario(e.target.value); setPrezzoAutoCalc(false) }}
+                  onChange={(e) => { setPrezzoUnitario(e.target.value); setPrezzoAutoCalc(false); prezzoManuale.current = true }}
                   placeholder="0.0000"
                 />
               </div>
