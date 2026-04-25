@@ -35,13 +35,14 @@ interface Props {
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-function calcolaPrezzo(finitura: FinituraCategoria, pesoAlMetro: number | null, lunghezza: number): number {
+function calcolaPrezzo(finitura: FinituraCategoria, pesoAlMetro: number | null, lunghezza_mm: number): number {
+  const l = lunghezza_mm / 1000
   let prezzo = 0
   if (finitura.costo_per_kg != null && pesoAlMetro != null) {
-    prezzo += finitura.costo_per_kg * pesoAlMetro * lunghezza
+    prezzo += finitura.costo_per_kg * pesoAlMetro * l
   }
   if (finitura.costo_per_metro != null) {
-    prezzo += finitura.costo_per_metro * lunghezza
+    prezzo += finitura.costo_per_metro * l
   }
   return prezzo
 }
@@ -278,15 +279,15 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="lunghezza">Lunghezza (m) *</Label>
+                  <Label htmlFor="lunghezza">Lunghezza (mm) *</Label>
                   <Input
                     id="lunghezza"
                     type="number"
-                    step="0.001"
-                    min="0.001"
+                    step="1"
+                    min="1"
                     value={lunghezza}
                     onChange={(e) => setLunghezza(e.target.value)}
-                    placeholder="es. 6.000"
+                    placeholder="es. 6000"
                   />
                 </div>
               </div>
@@ -298,7 +299,7 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
                   </strong>
                   {selectedProdotto?.peso_al_metro != null && (
                     <span className="text-gray-400 ml-1">
-                      ({parseFloat(lunghezza) || 0} m × {selectedProdotto.peso_al_metro} kg/m)
+                      ({(parseFloat(lunghezza) || 0) / 1000} m × {selectedProdotto.peso_al_metro} kg/m)
                     </span>
                   )}
                 </p>

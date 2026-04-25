@@ -242,15 +242,15 @@ export default function DialogProdotto({ open, onOpenChange, prodotto, categorie
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="lunghezza_default">Lunghezza barra (m)</Label>
+                  <Label htmlFor="lunghezza_default">Lunghezza barra (mm)</Label>
                   <Input
                     id="lunghezza_default"
                     type="number"
-                    step="0.001"
+                    step="1"
                     min="0"
                     value={form.lunghezza_default ?? ''}
                     onChange={(e) => set('lunghezza_default')(e.target.value ? parseFloat(e.target.value) : null)}
-                    placeholder="es. 6.000"
+                    placeholder="es. 6000"
                   />
                 </div>
               </div>
