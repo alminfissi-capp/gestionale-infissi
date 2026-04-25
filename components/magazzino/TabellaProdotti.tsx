@@ -3,7 +3,7 @@
 import { useState, useMemo, memo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Plus, Search, Pencil, Trash2, FileCode2, AlertTriangle, ImageIcon } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, AlertTriangle, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +18,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import DialogProdotto from './DialogProdotto'
+import DxfMiniatura from './DxfMiniatura'
 import { deleteProdotto } from '@/actions/magazzino'
 import type { ProdottoConCategoria } from '@/actions/magazzino'
 import type { CategoriaMagazzino, Fornitore } from '@/types/magazzino'
@@ -58,11 +59,7 @@ const PreviewCell = memo(function PreviewCell({ url, tipo }: { url: string | nul
   }
 
   if (tipo === 'dxf') {
-    return (
-      <div className="w-12 h-12 rounded-md bg-gray-900 flex items-center justify-center border border-gray-700">
-        <FileCode2 className="h-5 w-5 text-green-400" />
-      </div>
-    )
+    return <DxfMiniatura url={url} size={48} />
   }
 
   return placeholder
