@@ -11,14 +11,12 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
-import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
 import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from '@/components/ui/command'
+import { ComboboxField } from '@/components/ui/combobox-field'
 import { cn } from '@/lib/utils'
 import { createMovimento, getFinitureByCategoriaId } from '@/actions/magazzino'
 import type { ProdottoConCategoria } from '@/actions/magazzino'
@@ -249,19 +247,19 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
           {selectedProdotto && selectedProdotto.varianti.length > 0 && (
             <div className="space-y-1.5">
               <Label>Variante colore</Label>
-              <Select value={varianteId || '__none__'} onValueChange={(v) => setVarianteId(v === '__none__' ? '' : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Nessuna variante specifica" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Nessuna variante specifica</SelectItem>
-                  {selectedProdotto.varianti.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.nome}{v.codice_variante ? ` — ${v.codice_variante}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ComboboxField
+                options={[
+                  { value: '__none__', label: 'Nessuna variante specifica' },
+                  ...selectedProdotto.varianti.map((v) => ({
+                    value: v.id,
+                    label: v.nome,
+                    sublabel: v.codice_variante ?? undefined,
+                  })),
+                ]}
+                value={varianteId || '__none__'}
+                onChange={(v) => setVarianteId(v === '__none__' ? '' : v)}
+                searchPlaceholder="Cerca variante..."
+              />
             </div>
           )}
 
@@ -272,21 +270,21 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Finitura *</Label>
-                  <Select value={finituraId || '__none__'} onValueChange={(v) => setFinituraId(v === '__none__' ? '' : v)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleziona finitura" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— Seleziona —</SelectItem>
-                      {finiture.map((f) => (
-                        <SelectItem key={f.id} value={f.id}>
-                          {f.nome}
-                          {f.costo_per_kg != null && ` (€${f.costo_per_kg}/kg)`}
-                          {f.costo_per_metro != null && ` (€${f.costo_per_metro}/m)`}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <ComboboxField
+                    options={finiture.map((f) => ({
+                      value: f.id,
+                      label: f.nome,
+                      sublabel: [
+                        f.costo_per_kg != null ? `€${f.costo_per_kg}/kg` : null,
+                        f.costo_per_metro != null ? `€${f.costo_per_metro}/m` : null,
+                      ].filter(Boolean).join(' · ') || undefined,
+                    }))}
+                    value={finituraId}
+                    onChange={setFinituraId}
+                    placeholder="Seleziona finitura"
+                    searchPlaceholder="Cerca finitura..."
+                    emptyText="Nessuna finitura trovata"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="lunghezza">Lunghezza (mm) *</Label>
@@ -365,17 +363,15 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
               </div>
               <div className="space-y-1.5">
                 <Label>Fornitore</Label>
-                <Select value={fornitoreId || '__none__'} onValueChange={(v) => setFornitoreId(v === '__none__' ? '' : v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleziona" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Nessuno</SelectItem>
-                    {fornitori.map((f) => (
-                      <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <ComboboxField
+                  options={[
+                    { value: '__none__', label: 'Nessuno' },
+                    ...fornitori.map((f) => ({ value: f.id, label: f.nome })),
+                  ]}
+                  value={fornitoreId || '__none__'}
+                  onChange={(v) => setFornitoreId(v === '__none__' ? '' : v)}
+                  searchPlaceholder="Cerca fornitore..."
+                />
               </div>
             </div>
           )}

@@ -14,6 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { ComboboxField } from '@/components/ui/combobox-field'
 import UploadFile from './UploadFile'
 import DxfViewer from './DxfViewer'
 import { createProdotto, updateProdotto } from '@/actions/magazzino'
@@ -172,19 +173,13 @@ export default function DialogProdotto({ open, onOpenChange, prodotto, categorie
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Categoria</Label>
-                <Select
+                <ComboboxField
+                  options={categorie.map((c) => ({ value: c.id, label: c.nome }))}
                   value={form.categoria_id ?? ''}
-                  onValueChange={(v) => set('categoria_id')(v || undefined)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleziona categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categorie.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(v) => set('categoria_id')(v || undefined)}
+                  placeholder="Seleziona categoria"
+                  searchPlaceholder="Cerca categoria..."
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Unità di misura *</Label>
@@ -207,20 +202,16 @@ export default function DialogProdotto({ open, onOpenChange, prodotto, categorie
             {/* Posizione */}
             <div className="space-y-1.5">
               <Label>Posizione in magazzino</Label>
-              <Select
+              <ComboboxField
+                options={[
+                  { value: '__none__', label: 'Non assegnata' },
+                  ...posizioni.map((p) => ({ value: p.id, label: p.nome, sublabel: p.descrizione ?? undefined })),
+                ]}
                 value={form.posizione_id ?? '__none__'}
-                onValueChange={(v) => set('posizione_id')(v === '__none__' ? null : v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Non assegnata" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Non assegnata</SelectItem>
-                  {posizioni.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(v) => set('posizione_id')(v === '__none__' ? null : v)}
+                placeholder="Non assegnata"
+                searchPlaceholder="Cerca posizione..."
+              />
             </div>
           </div>
 
@@ -279,20 +270,15 @@ export default function DialogProdotto({ open, onOpenChange, prodotto, categorie
               )}
               <div className="space-y-1.5">
                 <Label>Fornitore principale</Label>
-                <Select
+                <ComboboxField
+                  options={[
+                    { value: '__none__', label: 'Nessuno' },
+                    ...fornitori.map((f) => ({ value: f.id, label: f.nome })),
+                  ]}
                   value={form.fornitore_principale_id ?? '__none__'}
-                  onValueChange={(v) => set('fornitore_principale_id')(v === '__none__' ? null : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Nessuno" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Nessuno</SelectItem>
-                    {fornitori.map((f) => (
-                      <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(v) => set('fornitore_principale_id')(v === '__none__' ? null : v)}
+                  searchPlaceholder="Cerca fornitore..."
+                />
               </div>
             </div>
             <div className="flex items-center gap-3">

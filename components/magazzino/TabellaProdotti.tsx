@@ -150,7 +150,7 @@ export default function TabellaProdotti({ prodotti, categorie, fornitori, posizi
                 <TableHead>UdM</TableHead>
                 <TableHead>Prezzo acq.</TableHead>
                 <TableHead>Varianti</TableHead>
-                <TableHead className="w-24" />
+                <TableHead className="w-36" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -196,13 +196,14 @@ export default function TabellaProdotti({ prodotti, categorie, fornitori, posizi
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1 justify-end">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(p)}>
-                        <Pencil className="h-4 w-4" />
+                      <Button variant="outline" size="sm" className="gap-1.5 h-8" onClick={() => openEdit(p)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                        Modifica
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="text-red-500 hover:text-red-700"
+                        className="h-8 w-8 text-red-500 hover:text-red-700"
                         onClick={() => setDeletingProdotto(p)}
                       >
                         <Trash2 className="h-4 w-4" />
