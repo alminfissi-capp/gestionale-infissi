@@ -543,3 +543,85 @@ export async function getGiacenzaDettaglioProdotto(prodottoId: string): Promise<
       return an.localeCompare(bn, 'it')
     })
 }
+
+// ---- Giacenze flat (una riga per prodotto+finitura+lunghezza) ----
+
+export type GiacenzaFlatRow = {
+  prodotto_id: string
+  variante_id: string | null
+  variante_nome: string | null
+  finitura_id: string | null
+  finitura_nome: string | null
+  lunghezza: number | null
+  giacenza: number
+  fornitori: string[]
+  commesse: string[]
+}
+
+export async function getGiacenzeFlatAll(): Promise<GiacenzaFlatRow[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { data, error } = await supabase
+    .from('movimenti_magazzino')
+    .select(`
+      prodotto_id,
+      variante_id,
+      variante:varianti_prodotto(nome),
+      finitura_id,
+      finitura:finiture_categoria(nome),
+      lunghezza,
+      commessa_ref,
+      fornitore:fornitori(nome),
+      tipo,
+      quantita
+    `)
+    .eq('organization_id', orgId)
+
+  if (error) throw new Error(error.message)
+
+  type MapVal = Omit<GiacenzaFlatRow, 'fornitori' | 'commesse'> & {
+    fornitoriSet: Set<string>
+    commesseSet: Set<string>
+  }
+
+  const map = new Map<string, MapVal>()
+
+  for (const row of data ?? []) {
+    const key = `${row.prodotto_id}|${row.variante_id ?? ''}|${row.finitura_id ?? ''}|${row.lunghezza ?? ''}`
+    const delta = row.tipo === 'entrata' ? Number(row.quantita) : -Number(row.quantita)
+    const existing = map.get(key)
+    if (existing) {
+      existing.giacenza += delta
+      if (row.commessa_ref) existing.commesseSet.add(row.commessa_ref)
+      const fn = (row.fornitore as unknown as { nome: string } | null)?.nome
+      if (fn) existing.fornitoriSet.add(fn)
+    } else {
+      const fornitoreNome = (row.fornitore as unknown as { nome: string } | null)?.nome
+      map.set(key, {
+        prodotto_id: row.prodotto_id,
+        variante_id: row.variante_id ?? null,
+        variante_nome: (row.variante as unknown as { nome: string } | null)?.nome ?? null,
+        finitura_id: row.finitura_id ?? null,
+        finitura_nome: (row.finitura as unknown as { nome: string } | null)?.nome ?? null,
+        lunghezza: row.lunghezza ?? null,
+        giacenza: delta,
+        fornitoriSet: new Set(fornitoreNome ? [fornitoreNome] : []),
+        commesseSet: new Set(row.commessa_ref ? [row.commessa_ref] : []),
+      })
+    }
+  }
+
+  return Array.from(map.values())
+    .map(({ fornitoriSet, commesseSet, ...rest }) => ({
+      ...rest,
+      fornitori: Array.from(fornitoriSet),
+      commesse: Array.from(commesseSet),
+    }))
+    .sort((a, b) => {
+      if (a.prodotto_id !== b.prodotto_id) return 0
+      const an = a.finitura_nome ?? a.variante_nome ?? ''
+      const bn = b.finitura_nome ?? b.variante_nome ?? ''
+      return an.localeCompare(bn, 'it')
+    })
+}

@@ -1,4 +1,4 @@
-import { getProdotti, getGiacenze, getCategorieMagazzino, getFornitori, getPosizioni } from '@/actions/magazzino'
+import { getProdotti, getGiacenzeFlatAll, getCategorieMagazzino, getFornitori, getPosizioni } from '@/actions/magazzino'
 import TabellaScorte from '@/components/magazzino/TabellaScorte'
 
 function toPublicUrl(path: string | null): string | null {
@@ -7,9 +7,9 @@ function toPublicUrl(path: string | null): string | null {
 }
 
 export default async function ScortePage() {
-  const [prodotti, giacenze, categorie, fornitori, posizioni] = await Promise.all([
+  const [prodotti, giacenzaFlat, categorie, fornitori, posizioni] = await Promise.all([
     getProdotti(),
-    getGiacenze(),
+    getGiacenzeFlatAll(),
     getCategorieMagazzino(),
     getFornitori(),
     getPosizioni(),
@@ -29,7 +29,7 @@ export default async function ScortePage() {
       </div>
       <TabellaScorte
         prodotti={prodottiConUrl}
-        giacenze={giacenze}
+        giacenzaFlat={giacenzaFlat}
         categorie={categorie}
         fornitori={fornitori}
         posizioni={posizioni}
