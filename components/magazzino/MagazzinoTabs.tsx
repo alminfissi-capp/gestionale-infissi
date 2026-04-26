@@ -2,14 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Tag, Package, ArrowDownUp, BarChart3, Settings2 } from 'lucide-react'
+import { Tag, Package, Warehouse, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const TABS = [
   { href: '/magazzino/categorie', label: 'Categorie', icon: Tag },
   { href: '/magazzino/prodotti', label: 'Prodotti', icon: Package },
-  { href: '/magazzino/movimenti', label: 'Movimenti', icon: ArrowDownUp },
-  { href: '/magazzino/giacenze', label: 'Giacenze', icon: BarChart3 },
+  { href: '/magazzino/scorte', label: 'Magazzino', icon: Warehouse },
   { href: '/magazzino/impostazioni', label: 'Impostazioni', icon: Settings2 },
 ]
 

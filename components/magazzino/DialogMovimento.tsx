@@ -29,6 +29,7 @@ interface Props {
   prodotti: ProdottoConCategoria[]
   fornitori: Fornitore[]
   defaultTipo?: 'entrata' | 'uscita'
+  defaultProdottoId?: string
 }
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -45,7 +46,7 @@ function calcolaPrezzo(finitura: FinituraCategoria, pesoAlMetro: number | null, 
   return prezzo
 }
 
-export default function DialogMovimento({ open, onOpenChange, prodotti, fornitori, defaultTipo = 'entrata' }: Props) {
+export default function DialogMovimento({ open, onOpenChange, prodotti, fornitori, defaultTipo = 'entrata', defaultProdottoId }: Props) {
   const router = useRouter()
   const [tipo, setTipo] = useState<'entrata' | 'uscita'>(defaultTipo)
   const [prodottoId, setProdottoId] = useState<string>('')
@@ -103,7 +104,7 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
   useEffect(() => {
     if (!open) return
     setTipo(defaultTipo)
-    setProdottoId('')
+    setProdottoId(defaultProdottoId ?? '')
     setVarianteId('')
     setQuantita('')
     setPrezzoUnitario('')
@@ -116,7 +117,7 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
     setFiniture([])
     setFinituraId('')
     setLunghezza('')
-  }, [open, defaultTipo])
+  }, [open, defaultTipo, defaultProdottoId])
 
   useEffect(() => {
     setVarianteId('')
