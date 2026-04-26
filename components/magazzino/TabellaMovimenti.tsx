@@ -21,6 +21,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import DialogMovimento from './DialogMovimento'
+import PreviewMiniatura, { prodottoPreviewProps } from './PreviewMiniatura'
 import { deleteMovimento } from '@/actions/magazzino'
 import type { MovimentoConDettagli, ProdottoConCategoria } from '@/actions/magazzino'
 import type { Fornitore } from '@/types/magazzino'
@@ -179,7 +180,7 @@ export default function TabellaMovimenti({ movimenti, prodotti, fornitori }: Pro
               <TableRow>
                 <TableHead className="w-24">Data</TableHead>
                 <TableHead className="w-24">Tipo</TableHead>
-                <TableHead>Prodotto</TableHead>
+                <TableHead className="min-w-56">Prodotto</TableHead>
                 <TableHead>Variante / Finitura</TableHead>
                 <TableHead className="text-right">Quantità</TableHead>
                 <TableHead className="text-right">Prezzo unit.</TableHead>
@@ -208,10 +209,19 @@ export default function TabellaMovimenti({ movimenti, prodotti, fornitori }: Pro
                     )}
                   </TableCell>
                   <TableCell>
-                    <div>
-                      <span className="font-mono text-xs text-gray-400 mr-1">{m.prodotto?.codice}</span>
-                      <span className="font-medium text-sm">{m.prodotto?.nome}</span>
-                    </div>
+                    {(() => {
+                      const p = prodotti.find((pr) => pr.id === m.prodotto_id)
+                      const preview = prodottoPreviewProps(p?.foto_url ?? null, p?.dxf_url ?? null)
+                      return (
+                        <div className="flex items-center gap-2.5">
+                          <PreviewMiniatura url={preview.url} tipo={preview.tipo} size={36} />
+                          <div>
+                            <span className="font-bold text-sm text-gray-900 mr-1.5">{m.prodotto?.codice}</span>
+                            <span className="text-sm text-gray-700">{m.prodotto?.nome}</span>
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </TableCell>
                   <TableCell className="text-sm text-gray-600">
                     {m.variante?.nome && <div>{m.variante.nome}</div>}

@@ -8,9 +8,12 @@ export default async function GiacenzePage() {
     getProdotti(),
   ])
 
-  // mappa prodotto_id → categoria_id per il filtro categoria nella tabella
   const categoriaPerProdotto = Object.fromEntries(
     prodotti.map((p) => [p.id, p.categoria_id ?? ''])
+  )
+
+  const previewPerProdotto = Object.fromEntries(
+    prodotti.map((p) => [p.id, { foto_url: p.foto_url, dxf_url: p.dxf_url }])
   )
 
   return (
@@ -25,6 +28,7 @@ export default async function GiacenzePage() {
         giacenze={giacenze}
         categorie={categorie}
         categoriaPerProdotto={categoriaPerProdotto}
+        previewPerProdotto={previewPerProdotto}
       />
     </div>
   )

@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useMemo, memo } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Plus, Search, Pencil, Trash2, AlertTriangle, ImageIcon } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -18,7 +18,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import DialogProdotto from './DialogProdotto'
-import DxfMiniatura from './DxfMiniatura'
+import PreviewMiniatura from './PreviewMiniatura'
 import { deleteProdotto } from '@/actions/magazzino'
 import type { ProdottoConCategoria } from '@/actions/magazzino'
 import type { CategoriaMagazzino, Fornitore, PosizioneMagazzino } from '@/types/magazzino'
@@ -35,36 +35,6 @@ interface Props {
   fornitori: Fornitore[]
   posizioni: PosizioneMagazzino[]
 }
-
-const PreviewCell = memo(function PreviewCell({ url, tipo }: { url: string | null; tipo: 'foto' | 'dxf' | null }) {
-  const [imgError, setImgError] = useState(false)
-
-  const placeholder = (
-    <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center border border-gray-200">
-      <ImageIcon className="h-5 w-5 text-gray-300" />
-    </div>
-  )
-
-  if (!url || !tipo) return placeholder
-
-  if (tipo === 'foto' && !imgError) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={url}
-        alt=""
-        className="w-12 h-12 rounded-md object-cover border border-gray-200 bg-gray-50"
-        onError={() => setImgError(true)}
-      />
-    )
-  }
-
-  if (tipo === 'dxf') {
-    return <DxfMiniatura url={url} size={48} />
-  }
-
-  return placeholder
-})
 
 export default function TabellaProdotti({ prodotti, categorie, fornitori, posizioni }: Props) {
   const router = useRouter()
@@ -143,9 +113,7 @@ export default function TabellaProdotti({ prodotti, categorie, fornitori, posizi
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-16">Foto</TableHead>
-                <TableHead>Codice</TableHead>
-                <TableHead>Nome</TableHead>
+                <TableHead className="min-w-64">Prodotto</TableHead>
                 <TableHead>Categoria</TableHead>
                 <TableHead>UdM</TableHead>
                 <TableHead>Prezzo acq.</TableHead>
@@ -157,18 +125,18 @@ export default function TabellaProdotti({ prodotti, categorie, fornitori, posizi
               {filtered.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="py-2">
-                    <div className="relative">
-                      <PreviewCell url={p.preview_url} tipo={p.preview_tipo} />
-                      {p.soglia_abilitata && p.soglia_minima !== null && (
-                        <AlertTriangle className="absolute -top-1 -right-1 h-3.5 w-3.5 text-amber-500" />
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-mono text-sm font-medium">{p.codice}</TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{p.nome}</p>
-                      {p.descrizione && <p className="text-xs text-gray-400 truncate max-w-48">{p.descrizione}</p>}
+                    <div className="flex items-center gap-2.5">
+                      <div className="relative shrink-0">
+                        <PreviewMiniatura url={p.preview_url} tipo={p.preview_tipo} size={44} />
+                        {p.soglia_abilitata && p.soglia_minima !== null && (
+                          <AlertTriangle className="absolute -top-1 -right-1 h-3.5 w-3.5 text-amber-500" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm text-gray-900">{p.codice}</p>
+                        <p className="text-sm text-gray-700">{p.nome}</p>
+                        {p.descrizione && <p className="text-xs text-gray-400 truncate max-w-56">{p.descrizione}</p>}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-gray-600">{p.categoria?.nome ?? '—'}</TableCell>

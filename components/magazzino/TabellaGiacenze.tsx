@@ -14,11 +14,15 @@ import { cn } from '@/lib/utils'
 import type { GiacenzaConSoglia } from '@/actions/magazzino'
 import type { CategoriaMagazzino } from '@/types/magazzino'
 import { UNITA_MISURA_LABELS } from '@/types/magazzino'
+import PreviewMiniatura, { prodottoPreviewProps } from './PreviewMiniatura'
+
+type ProdottoFoto = { foto_url: string | null; dxf_url: string | null }
 
 interface Props {
   giacenze: GiacenzaConSoglia[]
   categorie: CategoriaMagazzino[]
   categoriaPerProdotto: Record<string, string>
+  previewPerProdotto: Record<string, ProdottoFoto>
 }
 
 type Stato = 'ok' | 'alert' | 'negativa'
@@ -29,7 +33,7 @@ function getStato(g: GiacenzaConSoglia): Stato {
   return 'ok'
 }
 
-export default function TabellaGiacenze({ giacenze, categorie, categoriaPerProdotto }: Props) {
+export default function TabellaGiacenze({ giacenze, categorie, categoriaPerProdotto, previewPerProdotto }: Props) {
   const [search, setSearch] = useState('')
   const [filterStato, setFilterStato] = useState<'all' | 'alert' | 'negativa' | 'ok'>('all')
   const [filterCategoria, setFilterCategoria] = useState('all')
@@ -143,7 +147,7 @@ export default function TabellaGiacenze({ giacenze, categorie, categoriaPerProdo
             <TableHeader>
               <TableRow>
                 <TableHead className="w-8" />
-                <TableHead>Prodotto</TableHead>
+                <TableHead className="min-w-56">Prodotto</TableHead>
                 <TableHead>Variante</TableHead>
                 <TableHead>Categoria</TableHead>
                 <TableHead className="text-right">Giacenza attuale</TableHead>
@@ -170,10 +174,19 @@ export default function TabellaGiacenze({ giacenze, categorie, categoriaPerProdo
                       {stato === 'ok' && g.soglia_abilitata && <CheckCircle2 className="h-4 w-4 text-green-500" />}
                     </TableCell>
                     <TableCell>
-                      <div>
-                        <span className="font-mono text-xs text-gray-400 mr-1">{g.codice}</span>
-                        <span className="font-medium">{g.prodotto_nome}</span>
-                      </div>
+                      {(() => {
+                        const foto = previewPerProdotto[g.prodotto_id]
+                        const preview = prodottoPreviewProps(foto?.foto_url ?? null, foto?.dxf_url ?? null)
+                        return (
+                          <div className="flex items-center gap-2.5">
+                            <PreviewMiniatura url={preview.url} tipo={preview.tipo} size={36} />
+                            <div>
+                              <span className="font-bold text-sm text-gray-900 mr-1.5">{g.codice}</span>
+                              <span className="text-sm text-gray-700">{g.prodotto_nome}</span>
+                            </div>
+                          </div>
+                        )
+                      })()}
                     </TableCell>
                     <TableCell className="text-sm text-gray-600">
                       {g.variante_nome ?? <span className="text-gray-300">—</span>}
