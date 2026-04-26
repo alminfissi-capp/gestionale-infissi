@@ -465,3 +465,60 @@ export async function getGiacenze(): Promise<GiacenzaConSoglia[]> {
     soglia_abilitata: soglieMap[r.prodotto_id]?.soglia_abilitata ?? false,
   })) as GiacenzaConSoglia[]
 }
+
+export type GiacenzaBreakdownRow = {
+  variante_id: string | null
+  variante_nome: string | null
+  finitura_id: string | null
+  finitura_nome: string | null
+  commessa_ref: string | null
+  giacenza: number
+}
+
+export async function getGiacenzaDettaglioProdotto(prodottoId: string): Promise<GiacenzaBreakdownRow[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { data, error } = await supabase
+    .from('movimenti_magazzino')
+    .select(`
+      variante_id,
+      variante:varianti_prodotto(nome),
+      finitura_id,
+      finitura:finiture_categoria(nome),
+      commessa_ref,
+      tipo,
+      quantita
+    `)
+    .eq('organization_id', orgId)
+    .eq('prodotto_id', prodottoId)
+
+  if (error) throw new Error(error.message)
+
+  const map = new Map<string, GiacenzaBreakdownRow>()
+  for (const row of data ?? []) {
+    const key = `${row.variante_id ?? ''}|${row.finitura_id ?? ''}|${row.commessa_ref ?? ''}`
+    const delta = row.tipo === 'entrata' ? Number(row.quantita) : -Number(row.quantita)
+    const existing = map.get(key)
+    if (existing) {
+      existing.giacenza += delta
+    } else {
+      map.set(key, {
+        variante_id: row.variante_id ?? null,
+        variante_nome: (row.variante as unknown as { nome: string } | null)?.nome ?? null,
+        finitura_id: row.finitura_id ?? null,
+        finitura_nome: (row.finitura as unknown as { nome: string } | null)?.nome ?? null,
+        commessa_ref: row.commessa_ref ?? null,
+        giacenza: delta,
+      })
+    }
+  }
+
+  return Array.from(map.values())
+    .filter((r) => r.giacenza !== 0)
+    .sort((a, b) => {
+      const an = a.finitura_nome ?? a.variante_nome ?? a.commessa_ref ?? ''
+      const bn = b.finitura_nome ?? b.variante_nome ?? b.commessa_ref ?? ''
+      return an.localeCompare(bn, 'it')
+    })
+}
