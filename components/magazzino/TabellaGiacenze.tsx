@@ -36,6 +36,7 @@ type GruppoGiacenza = {
   giacenza_totale: number
   soglia_minima: number | null
   soglia_abilitata: boolean
+  finiture_nomi: string[]
 }
 
 function getStato(g: { giacenza_totale: number; soglia_minima: number | null; soglia_abilitata: boolean }): Stato {
@@ -72,6 +73,7 @@ export default function TabellaGiacenze({ giacenze, categorie, categoriaPerProdo
           giacenza_totale: g.giacenza_attuale,
           soglia_minima: g.soglia_minima,
           soglia_abilitata: g.soglia_abilitata,
+          finiture_nomi: g.finiture_nomi,
         })
       }
     }
@@ -93,7 +95,7 @@ export default function TabellaGiacenze({ giacenze, categorie, categoriaPerProdo
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter((g) =>
-        [g.codice, g.prodotto_nome].some((f) => f?.toLowerCase().includes(q))
+        [g.codice, g.prodotto_nome, ...g.finiture_nomi].some((f) => f?.toLowerCase().includes(q))
       )
     }
     return list
@@ -318,6 +320,11 @@ export default function TabellaGiacenze({ giacenze, categorie, categoriaPerProdo
                           )}>
                             {fmtQty(sub.giacenza, g.unita_misura)}
                           </span>
+                          {sub.lunghezza != null && (
+                            <span className="text-xs text-gray-400 ml-1">
+                              a {Number(sub.lunghezza).toLocaleString('it-IT')} mm
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell />
                         <TableCell />

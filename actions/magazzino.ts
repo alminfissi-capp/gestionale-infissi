@@ -435,6 +435,7 @@ export type GiacenzaConSoglia = {
   giacenza_attuale: number
   soglia_minima: number | null
   soglia_abilitata: boolean
+  finiture_nomi: string[]
 }
 
 export async function getGiacenze(): Promise<GiacenzaConSoglia[]> {
@@ -451,18 +452,35 @@ export async function getGiacenze(): Promise<GiacenzaConSoglia[]> {
   const ids = [...new Set((data ?? []).map((r) => r.prodotto_id as string))]
   if (ids.length === 0) return []
 
-  const { data: soglie } = await supabase
-    .from('anagrafica_prodotti')
-    .select('id, soglia_minima, soglia_abilitata')
-    .in('id', ids)
+  const [{ data: soglie }, { data: movFinitura }] = await Promise.all([
+    supabase
+      .from('anagrafica_prodotti')
+      .select('id, soglia_minima, soglia_abilitata')
+      .in('id', ids),
+    supabase
+      .from('movimenti_magazzino')
+      .select('prodotto_id, finitura:finiture_categoria(nome)')
+      .in('prodotto_id', ids)
+      .not('finitura_id', 'is', null),
+  ])
 
   const soglieMap = Object.fromEntries((soglie ?? []).map((s) => [s.id, s]))
+
+  const finitureMap: Record<string, Set<string>> = {}
+  for (const m of movFinitura ?? []) {
+    const nome = (m.finitura as unknown as { nome: string } | null)?.nome
+    if (nome) {
+      if (!finitureMap[m.prodotto_id]) finitureMap[m.prodotto_id] = new Set()
+      finitureMap[m.prodotto_id].add(nome)
+    }
+  }
 
   return (data ?? []).map((r) => ({
     ...r,
     giacenza_attuale: Number(r.giacenza_attuale),
     soglia_minima: soglieMap[r.prodotto_id]?.soglia_minima ?? null,
     soglia_abilitata: soglieMap[r.prodotto_id]?.soglia_abilitata ?? false,
+    finiture_nomi: Array.from(finitureMap[r.prodotto_id] ?? []),
   })) as GiacenzaConSoglia[]
 }
 
@@ -472,6 +490,7 @@ export type GiacenzaBreakdownRow = {
   finitura_id: string | null
   finitura_nome: string | null
   commessa_ref: string | null
+  lunghezza: number | null
   giacenza: number
 }
 
@@ -487,6 +506,7 @@ export async function getGiacenzaDettaglioProdotto(prodottoId: string): Promise<
       finitura_id,
       finitura:finiture_categoria(nome),
       commessa_ref,
+      lunghezza,
       tipo,
       quantita
     `)
@@ -497,7 +517,7 @@ export async function getGiacenzaDettaglioProdotto(prodottoId: string): Promise<
 
   const map = new Map<string, GiacenzaBreakdownRow>()
   for (const row of data ?? []) {
-    const key = `${row.variante_id ?? ''}|${row.finitura_id ?? ''}|${row.commessa_ref ?? ''}`
+    const key = `${row.variante_id ?? ''}|${row.finitura_id ?? ''}|${row.commessa_ref ?? ''}|${row.lunghezza ?? ''}`
     const delta = row.tipo === 'entrata' ? Number(row.quantita) : -Number(row.quantita)
     const existing = map.get(key)
     if (existing) {
@@ -509,6 +529,7 @@ export async function getGiacenzaDettaglioProdotto(prodottoId: string): Promise<
         finitura_id: row.finitura_id ?? null,
         finitura_nome: (row.finitura as unknown as { nome: string } | null)?.nome ?? null,
         commessa_ref: row.commessa_ref ?? null,
+        lunghezza: row.lunghezza ?? null,
         giacenza: delta,
       })
     }
