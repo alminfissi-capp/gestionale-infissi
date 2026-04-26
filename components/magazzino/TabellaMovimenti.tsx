@@ -57,7 +57,7 @@ export default function TabellaMovimenti({ movimenti, prodotti, fornitori }: Pro
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter((m) =>
-        [m.prodotto?.codice, m.prodotto?.nome, m.commessa_ref, m.fornitore?.nome]
+        [m.prodotto?.codice, m.prodotto?.nome, m.commessa_ref, m.fornitore?.nome, m.finitura?.nome]
           .some((f) => f?.toLowerCase().includes(q))
       )
     }
@@ -180,7 +180,7 @@ export default function TabellaMovimenti({ movimenti, prodotti, fornitori }: Pro
                 <TableHead className="w-24">Data</TableHead>
                 <TableHead className="w-24">Tipo</TableHead>
                 <TableHead>Prodotto</TableHead>
-                <TableHead>Variante</TableHead>
+                <TableHead>Variante / Finitura</TableHead>
                 <TableHead className="text-right">Quantità</TableHead>
                 <TableHead className="text-right">Prezzo unit.</TableHead>
                 <TableHead>Fornitore / Commessa</TableHead>
@@ -214,7 +214,11 @@ export default function TabellaMovimenti({ movimenti, prodotti, fornitori }: Pro
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-gray-600">
-                    {m.variante?.nome ?? '—'}
+                    {m.variante?.nome && <div>{m.variante.nome}</div>}
+                    {m.finitura?.nome && (
+                      <div className="text-xs text-indigo-600 mt-0.5">{m.finitura.nome}</div>
+                    )}
+                    {!m.variante?.nome && !m.finitura?.nome && '—'}
                   </TableCell>
                   <TableCell className="text-right font-medium">
                     {Number(m.quantita).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 3 })}
@@ -226,11 +230,13 @@ export default function TabellaMovimenti({ movimenti, prodotti, fornitori }: Pro
                     {m.prezzo_unitario != null ? `€ ${Number(m.prezzo_unitario).toFixed(4)}` : '—'}
                   </TableCell>
                   <TableCell className="text-sm">
-                    {m.tipo === 'entrata' && m.fornitore && (
-                      <span className="text-blue-600">{m.fornitore.nome}</span>
+                    {m.fornitore && (
+                      <div className="text-blue-600">{m.fornitore.nome}</div>
                     )}
-                    {m.tipo === 'uscita' && m.commessa_ref && (
-                      <span className="text-orange-600">{m.commessa_ref}</span>
+                    {m.commessa_ref && (
+                      <div className={m.tipo === 'uscita' ? 'text-orange-600' : 'text-violet-600'}>
+                        {m.commessa_ref}
+                      </div>
                     )}
                     {!m.fornitore && !m.commessa_ref && '—'}
                   </TableCell>

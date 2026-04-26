@@ -136,7 +136,7 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
     if (!prodottoId) { toast.error('Seleziona un prodotto'); return }
     const qty = parseFloat(quantita)
     if (!qty || qty <= 0) { toast.error('Inserisci una quantità valida'); return }
-    if (tipo === 'uscita' && !commessaRef.trim()) { toast.error('Inserisci il nome commessa'); return }
+    if (tipo === 'uscita' && !commessaRef.trim()) { toast.error('Inserisci il riferimento commessa'); return }
     if (isProfilo && tipo === 'entrata' && !finituraId) { toast.error('Seleziona la finitura'); return }
 
     setLoading(true)
@@ -150,7 +150,7 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
         finitura_id: finituraId || null,
         lunghezza: lunghezza ? parseFloat(lunghezza) : null,
         fornitore_id: tipo === 'entrata' && fornitoreId ? fornitoreId : null,
-        commessa_ref: tipo === 'uscita' ? commessaRef.trim() : null,
+        commessa_ref: commessaRef.trim() || null,
         data,
         note: note.trim() || null,
       })
@@ -373,6 +373,19 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
                   searchPlaceholder="Cerca fornitore..."
                 />
               </div>
+            </div>
+          )}
+
+          {/* Entrata: commessa/cliente opzionale */}
+          {tipo === 'entrata' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="commessa-entrata">Commessa / Cliente</Label>
+              <Input
+                id="commessa-entrata"
+                value={commessaRef}
+                onChange={(e) => setCommessaRef(e.target.value)}
+                placeholder="Per quale commessa o cliente (opzionale)"
+              />
             </div>
           )}
 
