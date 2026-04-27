@@ -153,7 +153,7 @@ export async function deleteCategoriaMagazzino(id: string): Promise<void> {
 export async function getFinitureByCategoriaId(categoriaId: string): Promise<FinituraCategoria[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
-    .from('finiture_categoria')
+    .from('finiture_magazzino')
     .select('*')
     .eq('categoria_id', categoriaId)
     .order('ordine', { ascending: true })
@@ -171,7 +171,7 @@ export async function saveFinitureCategoriaAll(
   const orgId = await getOrgId()
 
   if (toDelete.length > 0) {
-    const { error } = await supabase.from('finiture_categoria').delete().in('id', toDelete)
+    const { error } = await supabase.from('finiture_magazzino').delete().in('id', toDelete)
     if (error) throw new Error(error.message)
   }
 
@@ -184,7 +184,7 @@ export async function saveFinitureCategoriaAll(
       costo_per_metro: f.costo_per_metro ?? null,
       ordine: f.ordine ?? i,
     }))
-    const { error } = await supabase.from('finiture_categoria').insert(rows)
+    const { error } = await supabase.from('finiture_magazzino').insert(rows)
     if (error) throw new Error(error.message)
   }
 
@@ -396,7 +396,7 @@ export async function getMovimenti(): Promise<MovimentoConDettagli[]> {
       prodotto:anagrafica_prodotti(codice, nome, unita_misura),
       variante:varianti_prodotto(nome),
       fornitore:fornitori(nome),
-      finitura:finiture_categoria(nome)
+      finitura:finiture_magazzino(nome)
     `)
     .order('data', { ascending: false })
     .order('created_at', { ascending: false })
@@ -459,7 +459,7 @@ export async function getGiacenze(): Promise<GiacenzaConSoglia[]> {
       .in('id', ids),
     supabase
       .from('movimenti_magazzino')
-      .select('prodotto_id, finitura:finiture_categoria(nome)')
+      .select('prodotto_id, finitura:finiture_magazzino(nome)')
       .in('prodotto_id', ids)
       .not('finitura_id', 'is', null),
   ])
@@ -504,7 +504,7 @@ export async function getGiacenzaDettaglioProdotto(prodottoId: string): Promise<
       variante_id,
       variante:varianti_prodotto(nome),
       finitura_id,
-      finitura:finiture_categoria(nome),
+      finitura:finiture_magazzino(nome),
       commessa_ref,
       lunghezza,
       tipo,
@@ -569,7 +569,7 @@ export async function getGiacenzeFlatAll(): Promise<GiacenzaFlatRow[]> {
       variante_id,
       variante:varianti_prodotto(nome),
       finitura_id,
-      finitura:finiture_categoria(nome),
+      finitura:finiture_magazzino(nome),
       lunghezza,
       commessa_ref,
       fornitore:fornitori(nome),
