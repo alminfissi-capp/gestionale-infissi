@@ -1,7 +1,9 @@
 import { getPreventivi } from '@/actions/preventivi'
+import { requireAccesso } from '@/lib/permessi'
 import TabellaPreventivi from '@/components/preventivi/TabellaPreventivi'
 
 export default async function PreventiviPage() {
+  await requireAccesso('preventivi')
   const preventivi = await getPreventivi()
 
   return (

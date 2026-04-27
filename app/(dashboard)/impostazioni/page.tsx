@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSettings, getNoteTemplates, getLogoSignedUrl } from '@/actions/impostazioni'
+import { requireAccesso } from '@/lib/permessi'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import FormAzienda from '@/components/impostazioni/FormAzienda'
@@ -10,6 +11,7 @@ import FormNumerazione from '@/components/impostazioni/FormNumerazione'
 import FormValiditaPreventivo from '@/components/impostazioni/FormValiditaPreventivo'
 
 export default async function ImpostazioniPage() {
+  await requireAccesso('impostazioni')
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 

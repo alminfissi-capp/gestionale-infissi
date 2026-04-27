@@ -32,6 +32,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import FormCliente from './FormCliente'
+import { usePermissions } from '@/contexts/PermissionsContext'
 import type { Cliente } from '@/types/cliente'
 
 interface Props {
@@ -40,6 +41,8 @@ interface Props {
 
 export default function TabellaClienti({ clienti }: Props) {
   const router = useRouter()
+  const { canEdit } = usePermissions()
+  const editEnabled = canEdit('clienti')
   const [search, setSearch] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null)
@@ -104,10 +107,12 @@ export default function TabellaClienti({ clienti }: Props) {
             className="pl-9"
           />
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-1" />
-          Nuovo cliente
-        </Button>
+        {editEnabled && (
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-1" />
+            Nuovo cliente
+          </Button>
+        )}
       </div>
 
       {/* Tabella */}
@@ -120,7 +125,7 @@ export default function TabellaClienti({ clienti }: Props) {
               <TableHead>Email</TableHead>
               <TableHead>Cantiere</TableHead>
               <TableHead>CF / P.IVA</TableHead>
-              <TableHead className="w-24 text-right">Azioni</TableHead>
+              {editEnabled && <TableHead className="w-24 text-right">Azioni</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -140,25 +145,23 @@ export default function TabellaClienti({ clienti }: Props) {
                   <TableCell className="text-gray-600">{cliente.email || '—'}</TableCell>
                   <TableCell className="text-gray-600">{cliente.cantiere || '—'}</TableCell>
                   <TableCell className="text-gray-600">{cliente.cf_piva || '—'}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEdit(cliente)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-400 hover:text-red-600 hover:bg-red-50"
-                        onClick={() => setDeletingId(cliente.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  {editEnabled && (
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(cliente)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => setDeletingId(cliente.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}

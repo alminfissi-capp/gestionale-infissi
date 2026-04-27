@@ -19,28 +19,42 @@ import {
   Ruler,
   Wrench,
   Warehouse,
+  UserCog,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import type { ModuloApp, PermessiUtente } from '@/types/permessi'
 
-const NAV_ITEMS = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/preventivi/nuovo', label: 'Nuovo Preventivo', icon: PlusCircle },
-  { href: '/preventivi', label: 'Preventivi Salvati', icon: ClipboardList },
-  { href: '/clienti', label: 'Gestione Clienti', icon: Users },
-  { href: '/listini', label: 'Gestione Listini', icon: BookOpen },
-  { href: '/cataloghi', label: 'Cataloghi e Brochure', icon: FolderOpen },
-  { href: '/rilievo', label: 'Rilievo Misure', icon: Ruler },
-  { href: '/winconfig', label: 'WinConfig', icon: Wrench },
-  { href: '/magazzino', label: 'Magazzino', icon: Warehouse },
-  { href: '/import-export', label: 'Import / Export', icon: Database },
-  { href: '/impostazioni', label: 'Impostazioni', icon: Settings },
+type NavItem = {
+  href: string
+  label: string
+  icon: React.ElementType
+  modulo: ModuloApp | null
+  requiresWrite?: boolean
+  adminOnly?: boolean
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { href: '/',                    label: 'Dashboard',           icon: LayoutDashboard, modulo: null },
+  { href: '/preventivi/nuovo',    label: 'Nuovo Preventivo',    icon: PlusCircle,      modulo: 'preventivi', requiresWrite: true },
+  { href: '/preventivi',          label: 'Preventivi Salvati',  icon: ClipboardList,   modulo: 'preventivi' },
+  { href: '/clienti',             label: 'Gestione Clienti',    icon: Users,           modulo: 'clienti' },
+  { href: '/listini',             label: 'Gestione Listini',    icon: BookOpen,        modulo: 'listini' },
+  { href: '/cataloghi',           label: 'Cataloghi e Brochure',icon: FolderOpen,      modulo: 'cataloghi' },
+  { href: '/rilievo',             label: 'Rilievo Misure',      icon: Ruler,           modulo: 'rilievo' },
+  { href: '/winconfig',           label: 'WinConfig',           icon: Wrench,          modulo: 'winconfig' },
+  { href: '/magazzino',           label: 'Magazzino',           icon: Warehouse,       modulo: 'magazzino' },
+  { href: '/import-export',       label: 'Import / Export',     icon: Database,        modulo: 'impostazioni' },
+  { href: '/impostazioni',        label: 'Impostazioni',        icon: Settings,        modulo: 'impostazioni' },
+  { href: '/impostazioni/utenti', label: 'Gestione Utenti',     icon: UserCog,         modulo: 'impostazioni', adminOnly: true },
 ]
 
 interface Props {
   logoUrl: string | null
   denominazione: string | null
+  permessi: PermessiUtente
+  isAdmin: boolean
   collapsed: boolean
   onToggleCollapse: () => void
   mobileOpen: boolean
@@ -50,6 +64,8 @@ interface Props {
 export default function Sidebar({
   logoUrl,
   denominazione,
+  permessi,
+  isAdmin,
   collapsed,
   onToggleCollapse,
   mobileOpen,
@@ -66,17 +82,22 @@ export default function Sidebar({
 
   const initial = (denominazione || 'A').charAt(0).toUpperCase()
 
+  const visibleItems = NAV_ITEMS.filter((item) => {
+    if (item.adminOnly) return isAdmin
+    if (item.modulo === null) return true
+    const accesso = permessi[item.modulo]
+    if (accesso === 'nessuno') return false
+    if (item.requiresWrite) return accesso === 'scrittura'
+    return true
+  })
+
   return (
     <aside
       className={cn(
-        // Mobile: fixed drawer che scorre da sinistra
         'fixed inset-y-0 left-0 z-30 flex flex-col bg-white border-r border-gray-200',
         'transition-all duration-300 ease-in-out',
-        // Stato mobile: aperto / chiuso
         mobileOpen ? 'translate-x-0' : '-translate-x-full',
-        // Desktop: posizione relativa nel flusso, translate azzerato
         'lg:relative lg:translate-x-0 lg:z-auto lg:shrink-0',
-        // Larghezza: 64 su desktop collassato, 256 altrimenti
         'w-64',
         collapsed && 'lg:w-16',
       )}
@@ -88,7 +109,6 @@ export default function Sidebar({
           collapsed && 'lg:justify-center lg:p-3',
         )}
       >
-        {/* Pulsante chiudi — solo mobile */}
         <button
           className="lg:hidden absolute top-3 right-3 p-1.5 rounded-md text-gray-400 hover:bg-gray-100 active:bg-gray-200"
           onClick={onMobileClose}
@@ -97,7 +117,6 @@ export default function Sidebar({
           <X className="h-4 w-4" />
         </button>
 
-        {/* Avatar iniziale — solo desktop collassato */}
         <div
           className={cn(
             'hidden h-8 w-8 rounded-md bg-blue-600 items-center justify-center shrink-0',
@@ -107,7 +126,6 @@ export default function Sidebar({
           <span className="text-white text-xs font-bold">{initial}</span>
         </div>
 
-        {/* Logo + nome — desktop espanso e mobile */}
         <div className={cn('flex flex-col flex-1 min-w-0', collapsed && 'lg:hidden')}>
           {logoUrl ? (
             <div className="relative h-10 w-full mb-2">
@@ -123,7 +141,7 @@ export default function Sidebar({
 
       {/* Navigazione */}
       <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        {visibleItems.map(({ href, label, icon: Icon }) => {
           const isActive =
             href === '/' || href === '/preventivi'
               ? pathname === href
@@ -149,7 +167,7 @@ export default function Sidebar({
         })}
       </nav>
 
-      {/* Footer: logout + toggle collapse */}
+      {/* Footer */}
       <div className="p-2 border-t border-gray-200 space-y-0.5 shrink-0">
         <Button
           variant="ghost"
@@ -165,7 +183,6 @@ export default function Sidebar({
           <span className={cn(collapsed && 'lg:hidden')}>Esci</span>
         </Button>
 
-        {/* Toggle collapse — solo desktop */}
         <Button
           variant="ghost"
           size="sm"

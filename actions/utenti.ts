@@ -1,0 +1,136 @@
+'use server'
+
+import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
+import { getOrgId } from '@/lib/auth'
+import { revalidatePath } from 'next/cache'
+import type { ModuloApp, TipoAccesso, PermessiUtente, UtenteConPermessi } from '@/types/permessi'
+import { MODULI_APP, PERMESSI_VUOTI } from '@/types/permessi'
+
+async function assertAdmin(): Promise<string> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Non autenticato')
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+  if (profile?.role !== 'admin') throw new Error('Accesso negato')
+  return user.id
+}
+
+export async function getUtenti(): Promise<UtenteConPermessi[]> {
+  await assertAdmin()
+  const orgId = await getOrgId()
+  const service = createServiceClient()
+
+  const { data: profiles, error } = await service
+    .from('profiles')
+    .select('id, full_name, role, email')
+    .eq('organization_id', orgId)
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  if (!profiles || profiles.length === 0) return []
+
+  const { data: allPermessi } = await service
+    .from('user_permissions')
+    .select('user_id, modulo, accesso')
+    .eq('organization_id', orgId)
+
+  // Recupera email dagli utenti auth se non è in profiles
+  const needsEmail = profiles.filter((p) => !p.email)
+  const emailMap = new Map<string, string>()
+  await Promise.all(
+    needsEmail.map(async (p) => {
+      const { data: { user } } = await service.auth.admin.getUserById(p.id)
+      if (user?.email) emailMap.set(p.id, user.email)
+    })
+  )
+
+  return profiles.map((p) => {
+    const permMap: PermessiUtente = { ...PERMESSI_VUOTI }
+    for (const perm of allPermessi ?? []) {
+      if (perm.user_id === p.id && MODULI_APP.includes(perm.modulo as ModuloApp)) {
+        permMap[perm.modulo as ModuloApp] = perm.accesso as TipoAccesso
+      }
+    }
+    return {
+      id: p.id,
+      email: p.email ?? emailMap.get(p.id) ?? '',
+      full_name: p.full_name,
+      role: p.role as 'admin' | 'operator',
+      permessi: permMap,
+    }
+  })
+}
+
+export async function createUtente(
+  email: string,
+  password: string,
+  fullName: string
+): Promise<{ error?: string }> {
+  await assertAdmin()
+  const orgId = await getOrgId()
+  const service = createServiceClient()
+
+  const { data: { user }, error: authErr } = await service.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  })
+
+  if (authErr || !user) return { error: authErr?.message ?? 'Errore creazione utente' }
+
+  const { error: profErr } = await service.from('profiles').insert({
+    id: user.id,
+    organization_id: orgId,
+    full_name: fullName.trim() || null,
+    email,
+    role: 'operator',
+  })
+
+  if (profErr) {
+    await service.auth.admin.deleteUser(user.id)
+    return { error: profErr.message }
+  }
+
+  revalidatePath('/impostazioni/utenti')
+  return {}
+}
+
+export async function deleteUtente(userId: string): Promise<{ error?: string }> {
+  const adminId = await assertAdmin()
+  if (userId === adminId) return { error: 'Non puoi eliminare il tuo account' }
+
+  const service = createServiceClient()
+  const { error } = await service.auth.admin.deleteUser(userId)
+  if (error) return { error: error.message }
+
+  revalidatePath('/impostazioni/utenti')
+  return {}
+}
+
+export async function updatePermessiUtente(
+  userId: string,
+  permessi: Partial<Record<ModuloApp, TipoAccesso>>
+): Promise<{ error?: string }> {
+  await assertAdmin()
+  const orgId = await getOrgId()
+  const service = createServiceClient()
+
+  const rows = Object.entries(permessi).map(([modulo, accesso]) => ({
+    organization_id: orgId,
+    user_id: userId,
+    modulo,
+    accesso,
+  }))
+
+  const { error } = await service
+    .from('user_permissions')
+    .upsert(rows, { onConflict: 'organization_id,user_id,modulo' })
+
+  if (error) return { error: error.message }
+  return {}
+}

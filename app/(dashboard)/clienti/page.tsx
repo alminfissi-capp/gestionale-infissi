@@ -1,7 +1,9 @@
 import { getClienti } from '@/actions/clienti'
+import { requireAccesso } from '@/lib/permessi'
 import TabellaClienti from '@/components/clienti/TabellaClienti'
 
 export default async function ClientiPage() {
+  await requireAccesso('clienti')
   const clienti = await getClienti()
 
   return (

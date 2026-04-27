@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown, RotateCcw, MailCheck, SlidersHorizontal } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
+import { usePermissions } from '@/contexts/PermissionsContext'
 import { formatEuro } from '@/lib/pricing'
 import { db } from '@/lib/db'
 import { Button } from '@/components/ui/button'
@@ -64,6 +65,8 @@ interface Props {
 
 export default function TabellaPreventivi({ preventivi }: Props) {
   const router = useRouter()
+  const { canEdit } = usePermissions()
+  const editEnabled = canEdit('preventivi')
   const [search, setSearch] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -151,12 +154,14 @@ export default function TabellaPreventivi({ preventivi }: Props) {
             Scorrevoli
           </Link>
         </Button>
-        <Button asChild>
-          <Link href="/preventivi/nuovo">
-            <Plus className="h-4 w-4 mr-1" />
-            Nuovo preventivo
-          </Link>
-        </Button>
+        {editEnabled && (
+          <Button asChild>
+            <Link href="/preventivi/nuovo">
+              <Plus className="h-4 w-4 mr-1" />
+              Nuovo preventivo
+            </Link>
+          </Button>
+        )}
       </div>
 
       {/* Empty state */}
@@ -165,13 +170,17 @@ export default function TabellaPreventivi({ preventivi }: Props) {
           {preventivi.length === 0 ? (
             <>
               <p className="text-lg font-medium mb-2">Nessun preventivo</p>
-              <p className="text-sm mb-4">Crea il primo preventivo per iniziare.</p>
-              <Button asChild>
-                <Link href="/preventivi/nuovo">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Nuovo preventivo
-                </Link>
-              </Button>
+              {editEnabled && (
+                <>
+                  <p className="text-sm mb-4">Crea il primo preventivo per iniziare.</p>
+                  <Button asChild>
+                    <Link href="/preventivi/nuovo">
+                      <Plus className="h-4 w-4 mr-1" />
+                      Nuovo preventivo
+                    </Link>
+                  </Button>
+                </>
+              )}
             </>
           ) : (
             <p className="text-sm">Nessun risultato per &quot;{search}&quot;</p>
@@ -379,15 +388,17 @@ export default function TabellaPreventivi({ preventivi }: Props) {
                         >
                           <Copy className="h-3.5 w-3.5" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-400 hover:text-red-600"
-                          onClick={() => setDeletingId(p.id)}
-                          title="Elimina"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {editEnabled && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-400 hover:text-red-600"
+                            onClick={() => setDeletingId(p.id)}
+                            title="Elimina"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

@@ -1,4 +1,5 @@
 import { getProdotti, getGiacenzeFlatAll, getCategorieMagazzino, getFornitori, getPosizioni } from '@/actions/magazzino'
+import { requireAccesso } from '@/lib/permessi'
 import TabellaScorte from '@/components/magazzino/TabellaScorte'
 
 function toPublicUrl(path: string | null): string | null {
@@ -7,6 +8,7 @@ function toPublicUrl(path: string | null): string | null {
 }
 
 export default async function ScortePage() {
+  await requireAccesso('magazzino')
   const [prodotti, giacenzaFlat, categorie, fornitori, posizioni] = await Promise.all([
     getProdotti(),
     getGiacenzeFlatAll(),
