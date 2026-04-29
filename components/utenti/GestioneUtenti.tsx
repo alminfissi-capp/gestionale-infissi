@@ -341,14 +341,19 @@ export default function GestioneUtenti({ initialUtenti }: Props) {
 
               <Separator />
 
-              <CardContent className="pt-4">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
-                  Permessi di accesso
-                </p>
-                <div className="space-y-2">
-                  {MODULI_APP.map((modulo) => (
-                    <div key={modulo} className="flex items-center justify-between gap-4">
-                      <span className="text-sm text-gray-700 min-w-0 truncate">
+              <CardContent className="pt-0 px-0 pb-0">
+                <div className="px-4 pt-4 pb-2">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    Permessi di accesso
+                  </p>
+                </div>
+                <div>
+                  {MODULI_APP.map((modulo, idx) => (
+                    <div
+                      key={modulo}
+                      className={`flex items-center justify-between gap-2 px-4 py-2.5 ${idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}
+                    >
+                      <span className="text-sm text-gray-700 min-w-0 flex-1">
                         {MODULO_LABELS[modulo]}
                       </span>
                       <Select
