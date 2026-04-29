@@ -11,10 +11,6 @@ import type { Settings } from '@/types/impostazioni'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
-
 /** Scarica un'immagine da URL e la restituisce come data URL base64 (JPEG/PNG).
  *  I formati non supportati da @react-pdf (es. WebP) vengono convertiti in JPEG via sharp. */
 const SUPPORTED_IMG = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
@@ -86,10 +82,9 @@ export async function POST(
     )
     const filename = prev.numero ? `preventivo-${prev.numero}.pdf` : 'preventivo.pdf'
 
-    // ── Email HTML + pixel tracking ──
-    const azienda     = settings?.denominazione || 'Azienda'
-    const fromEmail   = settings?.email || 'onboarding@resend.dev'
-    const trackingUrl = `${BASE_URL}/api/track/email/${id}`
+    // ── Email HTML ──
+    const azienda   = settings?.denominazione || 'Azienda'
+    const fromEmail = settings?.email || 'onboarding@resend.dev'
 
     const emailHtml = `<!DOCTYPE html>
 <html lang="it">
@@ -119,7 +114,6 @@ export async function POST(
       </td>
     </tr>
   </table>
-  <img src="${trackingUrl}" width="1" height="1" style="display:none;" alt="" />
 </body>
 </html>`
 
@@ -131,14 +125,13 @@ export async function POST(
       attachments: [{ filename, content: pdfBuffer.toString('base64') }],
     })
 
-    // Resetta tracking apertura email + aggiorna stato se bozza
-    await supabase
-      .from('preventivi')
-      .update({
-        email_aperta_at: null,
-        ...(prev.stato === 'bozza' ? { stato: 'inviato' } : {}),
-      })
-      .eq('id', id)
+    // Aggiorna stato a 'inviato' se era in bozza
+    if (prev.stato === 'bozza') {
+      await supabase
+        .from('preventivi')
+        .update({ stato: 'inviato' })
+        .eq('id', id)
+    }
 
     return NextResponse.json({ ok: true })
   } catch (err) {

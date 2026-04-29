@@ -63,7 +63,6 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const [shareToken, setShareToken] = useState(p.share_token)
   const [condivisoAt, setCondivisoAt] = useState(p.condiviso_at)
   const [visualizzatoAt, setVisualizzatoAt] = useState(p.visualizzato_at)
-  const [emailApertaAt, setEmailApertaAt] = useState(p.email_aperta_at)
   const [shareLoading, startShareTransition] = useTransition()
   const [allegaOpen, setAllegaOpen] = useState(false)
   const [allegatiCalcoliOpen, setAllegatiCalcoliOpen] = useState(false)
@@ -316,23 +315,6 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
       {/* Condivisione */}
       <div className="bg-white rounded-lg border p-4">
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Condivisione cliente</p>
-
-        {/* Tracking email — sempre visibile se s.email esiste */}
-        {s.email && (
-          <div className="flex items-center gap-2 text-xs mb-3">
-            {emailApertaAt ? (
-              <span className="flex items-center gap-1.5 text-blue-600 font-medium">
-                <Mail className="h-3.5 w-3.5" />
-                Email aperta il {new Date(emailApertaAt).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5 text-gray-400">
-                <Mail className="h-3.5 w-3.5" />
-                Email non ancora aperta
-              </span>
-            )}
-          </div>
-        )}
 
         {/* Share link */}
         {!shareToken ? (

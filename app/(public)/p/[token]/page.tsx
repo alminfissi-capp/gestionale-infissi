@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { headers } from 'next/headers'
 import type { Metadata } from 'next'
 import { createPublicClient } from '@/lib/supabase/public'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -8,6 +9,15 @@ import type { Settings } from '@/types/impostazioni'
 
 interface Props {
   params: Promise<{ token: string }>
+}
+
+// User-agent di bot noti che generano anteprime link (WhatsApp, Telegram, Slack, ecc.)
+const BOT_UA = /bot|crawler|spider|whatsapp|facebookexternalhit|twitterbot|telegrambot|linkedinbot|slackbot|preview|curl|wget|python-requests|java\/|go-http-client/i
+
+async function isLinkPreviewBot(): Promise<boolean> {
+  const hdrs = await headers()
+  const ua = hdrs.get('user-agent') || ''
+  return BOT_UA.test(ua)
 }
 
 async function getPreventivoByToken(token: string): Promise<PreventivoCompleto | null> {
@@ -25,12 +35,6 @@ async function getPreventivoByToken(token: string): Promise<PreventivoCompleto |
     .select('*')
     .eq('preventivo_id', prev.id)
     .order('ordine')
-
-  // Aggiorna ad ogni accesso (mostra sempre l'ultimo)
-  await supabase
-    .from('preventivi')
-    .update({ visualizzato_at: new Date().toISOString() })
-    .eq('share_token', token)
 
   // Recupera dati cataloghi allegati tramite service client:
   // la tabella cataloghi non ha policy pubblica, quindi il client anon non può leggerla.
@@ -90,6 +94,15 @@ export default async function PreventivoPublicoPage({ params }: Props) {
   const { token } = await params
   const preventivo = await getPreventivoByToken(token)
   if (!preventivo) notFound()
+
+  // Registra la visualizzazione solo se è un accesso umano reale (non bot/anteprima link)
+  if (!await isLinkPreviewBot()) {
+    const supabase = createPublicClient()
+    await supabase
+      .from('preventivi')
+      .update({ visualizzato_at: new Date().toISOString() })
+      .eq('share_token', token)
+  }
 
   const settings = await getSettingsPubblici(preventivo.organization_id)
 
