@@ -63,6 +63,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const [shareToken, setShareToken] = useState(p.share_token)
   const [condivisoAt, setCondivisoAt] = useState(p.condiviso_at)
   const [visualizzatoAt, setVisualizzatoAt] = useState(p.visualizzato_at)
+  const [visualizzatoVia, setVisualizzatoVia] = useState(p.visualizzato_via)
   const [shareLoading, startShareTransition] = useTransition()
   const [allegaOpen, setAllegaOpen] = useState(false)
   const [allegatiCalcoliOpen, setAllegatiCalcoliOpen] = useState(false)
@@ -94,6 +95,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
         setShareToken(token)
         setCondivisoAt(new Date().toISOString())
         setVisualizzatoAt(null)
+        setVisualizzatoVia(null)
         toast.success('Link generato')
       } catch {
         toast.error('Errore nella generazione del link')
@@ -108,6 +110,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
         setShareToken(null)
         setCondivisoAt(null)
         setVisualizzatoAt(null)
+        setVisualizzatoVia(null)
         toast.success('Link revocato')
       } catch {
         toast.error('Errore nella revoca del link')
@@ -126,7 +129,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
     // Se il numero salvato ha già il prefisso internazionale (es. "+39 ..."), usalo com'è
     // Retrocompatibilità: se non inizia con "+", aggiunge il prefisso italiano
     const number = s.telefono.startsWith('+') ? digits : `39${digits}`
-    const link = shareToken && origin ? `${origin}/p/${shareToken}` : null
+    const link = shareToken && origin ? `${origin}/p/${shareToken}?ref=whatsapp` : null
     const testo = link
       ? (p.numero
           ? `Gentile ${nomeCliente}, le inviamo il preventivo n. ${p.numero}. Può visualizzarlo e scaricarlo al seguente link: ${link}`
@@ -352,9 +355,14 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                 <span>Condiviso il {new Date(condivisoAt).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
               )}
               {visualizzatoAt ? (
-                <span className="flex items-center gap-1 text-green-600 font-medium">
-                  <Eye className="h-3.5 w-3.5" />
-                  Visionato il {new Date(visualizzatoAt).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                <span className={`flex items-center gap-1 font-medium ${visualizzatoVia === 'email' ? 'text-blue-600' : visualizzatoVia === 'whatsapp' ? 'text-green-600' : 'text-green-600'}`}>
+                  {visualizzatoVia === 'email'
+                    ? <Mail className="h-3.5 w-3.5" />
+                    : visualizzatoVia === 'whatsapp'
+                    ? <MessageCircle className="h-3.5 w-3.5" />
+                    : <Eye className="h-3.5 w-3.5" />}
+                  {visualizzatoVia === 'email' ? 'Visionato via email il' : visualizzatoVia === 'whatsapp' ? 'Visionato via WhatsApp il' : 'Visionato il'}{' '}
+                  {new Date(visualizzatoAt).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </span>
               ) : (
                 <span className="text-gray-400">Non ancora visionato</span>

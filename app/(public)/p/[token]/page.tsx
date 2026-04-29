@@ -9,6 +9,7 @@ import type { Settings } from '@/types/impostazioni'
 
 interface Props {
   params: Promise<{ token: string }>
+  searchParams: Promise<{ ref?: string }>
 }
 
 // User-agent di bot noti che generano anteprime link (WhatsApp, Telegram, Slack, ecc.)
@@ -90,17 +91,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title }
 }
 
-export default async function PreventivoPublicoPage({ params }: Props) {
+export default async function PreventivoPublicoPage({ params, searchParams }: Props) {
   const { token } = await params
+  const { ref } = await searchParams
   const preventivo = await getPreventivoByToken(token)
   if (!preventivo) notFound()
 
   // Registra la visualizzazione solo se è un accesso umano reale (non bot/anteprima link)
   if (!await isLinkPreviewBot()) {
+    const via = ref === 'email' ? 'email' : ref === 'whatsapp' ? 'whatsapp' : 'link'
     const supabase = createPublicClient()
     await supabase
       .from('preventivi')
-      .update({ visualizzato_at: new Date().toISOString() })
+      .update({ visualizzato_at: new Date().toISOString(), visualizzato_via: via })
       .eq('share_token', token)
   }
 

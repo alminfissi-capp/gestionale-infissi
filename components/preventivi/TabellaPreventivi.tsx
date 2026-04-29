@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown, RotateCcw, SlidersHorizontal } from 'lucide-react'
+import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown, RotateCcw, SlidersHorizontal, MailCheck, MessageCircle } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
 import { usePermissions } from '@/contexts/PermissionsContext'
@@ -307,8 +307,12 @@ export default function TabellaPreventivi({ preventivi }: Props) {
                         <div className="flex items-center gap-1.5">
                           <p className="font-medium text-sm">{nomeCliente(p)}</p>
                           {p.visualizzato_at && (
-                            <span title={`Visionato il ${new Date(p.visualizzato_at).toLocaleDateString('it-IT')}`}>
-                              <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                            <span title={`${p.visualizzato_via === 'email' ? 'Visionato via email' : p.visualizzato_via === 'whatsapp' ? 'Visionato via WhatsApp' : 'Visionato'} il ${new Date(p.visualizzato_at).toLocaleDateString('it-IT')}`}>
+                              {p.visualizzato_via === 'email'
+                                ? <MailCheck className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                                : p.visualizzato_via === 'whatsapp'
+                                ? <MessageCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                                : <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />}
                             </span>
                           )}
                         </div>

@@ -14,6 +14,7 @@ export async function generaShareToken(preventivoId: string): Promise<string> {
       share_token: token,
       condiviso_at: new Date().toISOString(),
       visualizzato_at: null,
+      visualizzato_via: null,
     })
     .eq('id', preventivoId)
 
@@ -27,7 +28,7 @@ export async function revokaShareToken(preventivoId: string): Promise<void> {
   const supabase = await createClient()
   const { error } = await supabase
     .from('preventivi')
-    .update({ share_token: null, condiviso_at: null, visualizzato_at: null })
+    .update({ share_token: null, condiviso_at: null, visualizzato_at: null, visualizzato_via: null })
     .eq('id', preventivoId)
 
   if (error) throw new Error(error.message)

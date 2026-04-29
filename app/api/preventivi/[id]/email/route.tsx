@@ -11,6 +11,10 @@ import type { Settings } from '@/types/impostazioni'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
+const BASE_URL =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+
 /** Scarica un'immagine da URL e la restituisce come data URL base64 (JPEG/PNG).
  *  I formati non supportati da @react-pdf (es. WebP) vengono convertiti in JPEG via sharp. */
 const SUPPORTED_IMG = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
@@ -82,10 +86,21 @@ export async function POST(
     )
     const filename = prev.numero ? `preventivo-${prev.numero}.pdf` : 'preventivo.pdf'
 
-    // ── Email HTML ──
+    // ── Share token: usa quello esistente o ne genera uno nuovo ──
     const azienda   = settings?.denominazione || 'Azienda'
     const fromEmail = settings?.email || 'onboarding@resend.dev'
 
+    let shareToken = prev.share_token
+    if (!shareToken) {
+      shareToken = crypto.randomUUID()
+      await supabase
+        .from('preventivi')
+        .update({ share_token: shareToken, condiviso_at: new Date().toISOString(), visualizzato_at: null, visualizzato_via: null })
+        .eq('id', id)
+    }
+    const viewUrl = `${BASE_URL}/p/${shareToken}?ref=email`
+
+    // ── Email HTML con link "Visualizza online" ──
     const emailHtml = `<!DOCTYPE html>
 <html lang="it">
 <head>
@@ -105,6 +120,9 @@ export async function POST(
           <tr>
             <td style="padding:32px;color:#374151;font-size:15px;line-height:1.6;">
               ${messaggio.replace(/\n/g, '<br>')}
+              <p style="margin-top:24px;">
+                <a href="${viewUrl}" style="display:inline-block;background:#0E8F9C;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:bold;">Visualizza preventivo online</a>
+              </p>
               <p style="margin-top:24px;padding-top:24px;border-top:1px solid #e5e7eb;font-size:13px;color:#6b7280;">
                 ${azienda}${settings?.indirizzo ? `<br>${settings.indirizzo}` : ''}${settings?.telefono ? `<br>Tel: ${settings.telefono}` : ''}${settings?.email ? `<br>${settings.email}` : ''}
               </p>
