@@ -53,5 +53,6 @@ export type UtenteConPermessi = {
   email: string
   full_name: string | null
   role: 'admin' | 'operator'
+  disabled: boolean
   permessi: PermessiUtente
 }

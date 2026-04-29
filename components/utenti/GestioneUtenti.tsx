@@ -2,8 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { UserPlus, Trash2, Shield, ShieldCheck, ShieldOff, Eye, Pencil, Loader2 } from 'lucide-react'
-import { createUtente, deleteUtente, updatePermessiUtente } from '@/actions/utenti'
+import {
+  UserPlus, Trash2, Shield, ShieldCheck, ShieldOff, Eye, Pencil,
+  Loader2, KeyRound, UserX, UserCheck, Check, X,
+} from 'lucide-react'
+import { createUtente, deleteUtente, updatePermessiUtente, updatePasswordUtente, toggleDisableUtente } from '@/actions/utenti'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,9 +35,9 @@ import type { UtenteConPermessi, ModuloApp, TipoAccesso } from '@/types/permessi
 import { MODULI_APP, MODULO_LABELS } from '@/types/permessi'
 
 const ACCESSO_CONFIG: Record<TipoAccesso, { label: string; icon: React.ElementType; className: string }> = {
-  nessuno:  { label: 'Nessuno',         icon: ShieldOff,   className: 'text-gray-400' },
-  lettura:  { label: 'Solo lettura',    icon: Eye,         className: 'text-blue-600' },
-  scrittura:{ label: 'Lettura+Scrittura',icon: ShieldCheck, className: 'text-green-600' },
+  nessuno:   { label: 'Nessuno',            icon: ShieldOff,   className: 'text-gray-400' },
+  lettura:   { label: 'Solo lettura',       icon: Eye,         className: 'text-blue-600' },
+  scrittura: { label: 'Lettura+Scrittura',  icon: ShieldCheck, className: 'text-green-600' },
 }
 
 interface Props {
@@ -53,6 +56,14 @@ export default function GestioneUtenti({ initialUtenti }: Props) {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [creating, setCreating] = useState(false)
+
+  // Cambio password inline
+  const [editingPasswordId, setEditingPasswordId] = useState<string | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [savingPassword, setSavingPassword] = useState(false)
+
+  // Abilita/Disabilita
+  const [togglingDisableId, setTogglingDisableId] = useState<string | null>(null)
 
   const handleCreate = async () => {
     if (!email.trim() || !password) {
@@ -84,7 +95,6 @@ export default function GestioneUtenti({ initialUtenti }: Props) {
     setPassword('')
     setConfirmPassword('')
 
-    // Ricarica lista
     startTransition(() => {
       window.location.reload()
     })
@@ -102,22 +112,55 @@ export default function GestioneUtenti({ initialUtenti }: Props) {
     setUtenti((prev) => prev.filter((u) => u.id !== deletingId))
   }
 
-  const handlePermessoChange = async (
-    userId: string,
-    modulo: ModuloApp,
-    accesso: TipoAccesso
-  ) => {
+  const handlePermessoChange = async (userId: string, modulo: ModuloApp, accesso: TipoAccesso) => {
     const result = await updatePermessiUtente(userId, { [modulo]: accesso })
     if (result.error) {
       toast.error(result.error)
       return
     }
     setUtenti((prev) =>
-      prev.map((u) =>
-        u.id === userId
-          ? { ...u, permessi: { ...u.permessi, [modulo]: accesso } }
-          : u
-      )
+      prev.map((u) => u.id === userId ? { ...u, permessi: { ...u.permessi, [modulo]: accesso } } : u)
+    )
+  }
+
+  const handleEditPassword = (userId: string) => {
+    setEditingPasswordId(userId)
+    setNewPassword('')
+  }
+
+  const handleCancelPassword = () => {
+    setEditingPasswordId(null)
+    setNewPassword('')
+  }
+
+  const handleSavePassword = async (userId: string) => {
+    if (newPassword.length < 6) {
+      toast.error('La password deve essere almeno 6 caratteri')
+      return
+    }
+    setSavingPassword(true)
+    const result = await updatePasswordUtente(userId, newPassword)
+    setSavingPassword(false)
+    if (result.error) {
+      toast.error(result.error)
+      return
+    }
+    toast.success('Password aggiornata')
+    setEditingPasswordId(null)
+    setNewPassword('')
+  }
+
+  const handleToggleDisable = async (userId: string, currentlyDisabled: boolean) => {
+    setTogglingDisableId(userId)
+    const result = await toggleDisableUtente(userId, !currentlyDisabled)
+    setTogglingDisableId(null)
+    if (result.error) {
+      toast.error(result.error)
+      return
+    }
+    toast.success(currentlyDisabled ? 'Utente abilitato' : 'Utente disabilitato')
+    setUtenti((prev) =>
+      prev.map((u) => u.id === userId ? { ...u, disabled: !currentlyDisabled } : u)
     )
   }
 
@@ -184,22 +227,48 @@ export default function GestioneUtenti({ initialUtenti }: Props) {
       ) : (
         <div className="space-y-4">
           {operators.map((utente) => (
-            <Card key={utente.id}>
+            <Card key={utente.id} className={utente.disabled ? 'opacity-60' : ''}>
               <CardHeader className="pb-3">
+                {/* Riga principale: avatar + nome + pulsanti */}
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+                  <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${utente.disabled ? 'bg-gray-100' : 'bg-gray-200'}`}>
                     <span className="text-gray-600 text-sm font-bold">
                       {(utente.full_name || utente.email).charAt(0).toUpperCase()}
                     </span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-gray-900 truncate">
-                      {utente.full_name || utente.email}
-                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold text-gray-900 truncate">
+                        {utente.full_name || utente.email}
+                      </p>
+                      {utente.disabled && (
+                        <Badge variant="secondary" className="bg-gray-100 text-gray-500 text-xs shrink-0">
+                          Disabilitato
+                        </Badge>
+                      )}
+                    </div>
                     {utente.full_name && (
                       <p className="text-xs text-gray-500 truncate">{utente.email}</p>
                     )}
                   </div>
+                  {/* Pulsante abilita/disabilita */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={utente.disabled
+                      ? 'text-green-600 hover:text-green-700 hover:bg-green-50 shrink-0'
+                      : 'text-amber-600 hover:text-amber-700 hover:bg-amber-50 shrink-0'}
+                    onClick={() => handleToggleDisable(utente.id, utente.disabled)}
+                    disabled={togglingDisableId === utente.id}
+                    title={utente.disabled ? 'Abilita utente' : 'Disabilita utente'}
+                  >
+                    {togglingDisableId === utente.id
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : utente.disabled
+                      ? <UserCheck className="h-4 w-4" />
+                      : <UserX className="h-4 w-4" />}
+                  </Button>
+                  {/* Pulsante elimina */}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -209,8 +278,69 @@ export default function GestioneUtenti({ initialUtenti }: Props) {
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
+
+                {/* Riga password */}
+                <div className="mt-3 flex items-center gap-2">
+                  <KeyRound className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                  {editingPasswordId === utente.id ? (
+                    <>
+                      <Input
+                        type="password"
+                        placeholder="Nuova password (min. 6 caratteri)"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="h-8 text-sm flex-1"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSavePassword(utente.id)
+                          if (e.key === 'Escape') handleCancelPassword()
+                        }}
+                      />
+                      <Button
+                        size="sm"
+                        className="h-8 px-3 shrink-0"
+                        onClick={() => handleSavePassword(utente.id)}
+                        disabled={savingPassword}
+                      >
+                        {savingPassword
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <Check className="h-3.5 w-3.5" />}
+                        <span className="ml-1">Salva</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 px-2 shrink-0"
+                        onClick={handleCancelPassword}
+                        disabled={savingPassword}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Input
+                        type="text"
+                        value="••••••••"
+                        disabled
+                        className="h-8 text-sm flex-1 bg-gray-50 text-gray-400 cursor-not-allowed select-none"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-3 shrink-0"
+                        onClick={() => handleEditPassword(utente.id)}
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-1" />
+                        Modifica password
+                      </Button>
+                    </>
+                  )}
+                </div>
               </CardHeader>
+
               <Separator />
+
               <CardContent className="pt-4">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
                   Permessi di accesso
@@ -226,6 +356,7 @@ export default function GestioneUtenti({ initialUtenti }: Props) {
                         onValueChange={(val) =>
                           handlePermessoChange(utente.id, modulo, val as TipoAccesso)
                         }
+                        disabled={utente.disabled}
                       >
                         <SelectTrigger className="w-44 h-8 text-xs shrink-0">
                           <SelectValue />

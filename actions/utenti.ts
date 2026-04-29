@@ -27,7 +27,7 @@ export async function getUtenti(): Promise<UtenteConPermessi[]> {
 
   const { data: profiles, error } = await service
     .from('profiles')
-    .select('id, full_name, role, email')
+    .select('id, full_name, role, email, disabled')
     .eq('organization_id', orgId)
     .order('created_at', { ascending: true })
 
@@ -61,6 +61,7 @@ export async function getUtenti(): Promise<UtenteConPermessi[]> {
       email: p.email ?? emailMap.get(p.id) ?? '',
       full_name: p.full_name,
       role: p.role as 'admin' | 'operator',
+      disabled: p.disabled ?? false,
       permessi: permMap,
     }
   })
@@ -89,6 +90,7 @@ export async function createUtente(
     full_name: fullName.trim() || null,
     email,
     role: 'operator',
+    disabled: false,
   })
 
   if (profErr) {
@@ -107,6 +109,45 @@ export async function deleteUtente(userId: string): Promise<{ error?: string }> 
   const service = createServiceClient()
   const { error } = await service.auth.admin.deleteUser(userId)
   if (error) return { error: error.message }
+
+  revalidatePath('/impostazioni/utenti')
+  return {}
+}
+
+export async function updatePasswordUtente(
+  userId: string,
+  newPassword: string
+): Promise<{ error?: string }> {
+  await assertAdmin()
+  if (newPassword.length < 6) return { error: 'La password deve essere almeno 6 caratteri' }
+
+  const service = createServiceClient()
+  const { error } = await service.auth.admin.updateUserById(userId, { password: newPassword })
+  if (error) return { error: error.message }
+  return {}
+}
+
+export async function toggleDisableUtente(
+  userId: string,
+  disable: boolean
+): Promise<{ error?: string }> {
+  const adminId = await assertAdmin()
+  if (userId === adminId) return { error: 'Non puoi disabilitare il tuo account' }
+
+  const service = createServiceClient()
+
+  // Ban/unban in Supabase Auth (impedisce il login)
+  const { error: authErr } = await service.auth.admin.updateUserById(userId, {
+    ban_duration: disable ? '87600h' : 'none',
+  })
+  if (authErr) return { error: authErr.message }
+
+  // Salva lo stato nella tabella profiles per mostrarlo nella UI
+  const { error: profErr } = await service
+    .from('profiles')
+    .update({ disabled: disable })
+    .eq('id', userId)
+  if (profErr) return { error: profErr.message }
 
   revalidatePath('/impostazioni/utenti')
   return {}
