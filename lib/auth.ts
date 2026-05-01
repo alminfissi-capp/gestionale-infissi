@@ -17,6 +17,6 @@ export const getOrgId = cache(async (): Promise<string> => {
     .eq('id', user.id)
     .single()
 
-  if (!profile) throw new Error('Profilo non trovato')
+  if (!profile?.organization_id) throw new Error('Organizzazione non trovata')
   return profile.organization_id
 })

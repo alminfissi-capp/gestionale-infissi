@@ -88,7 +88,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const title = preventivo.numero
     ? `${preventivo.numero} ${nomeCliente}`.trim()
     : nomeCliente || 'Preventivo'
-  return { title }
+  return {
+    title,
+    openGraph: {
+      title,
+      description: 'Visualizza il tuo preventivo',
+      images: [{ url: '/icon-512.png', width: 512, height: 512, alt: 'WinStudio' }],
+    },
+  }
 }
 
 export default async function PreventivoPublicoPage({ params, searchParams }: Props) {
