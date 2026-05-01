@@ -619,7 +619,7 @@ export async function getGiacenzeFlatAll(): Promise<GiacenzaFlatRow[]> {
       commesse: Array.from(commesseSet),
     }))
     .sort((a, b) => {
-      if (a.prodotto_id !== b.prodotto_id) return 0
+      if (a.prodotto_id !== b.prodotto_id) return a.prodotto_id.localeCompare(b.prodotto_id)
       const an = a.finitura_nome ?? a.variante_nome ?? ''
       const bn = b.finitura_nome ?? b.variante_nome ?? ''
       return an.localeCompare(bn, 'it')

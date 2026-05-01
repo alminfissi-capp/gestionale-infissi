@@ -20,6 +20,11 @@ async function assertAdmin(): Promise<string> {
   return user.id
 }
 
+async function assertTargetInSameOrg(service: ReturnType<typeof createServiceClient>, orgId: string, userId: string): Promise<void> {
+  const { data } = await service.from('profiles').select('id').eq('id', userId).eq('organization_id', orgId).maybeSingle()
+  if (!data) throw new Error('Utente non trovato')
+}
+
 export async function getUtenti(): Promise<UtenteConPermessi[]> {
   await assertAdmin()
   const orgId = await getOrgId()
@@ -120,9 +125,12 @@ export async function updatePasswordUtente(
   newPassword: string
 ): Promise<{ error?: string }> {
   await assertAdmin()
+  const orgId = await getOrgId()
   if (newPassword.length < 6) return { error: 'La password deve essere almeno 6 caratteri' }
 
   const service = createServiceClient()
+  try { await assertTargetInSameOrg(service, orgId, userId) } catch { return { error: 'Utente non trovato' } }
+
   const { error } = await service.auth.admin.updateUserById(userId, { password: newPassword })
   if (error) return { error: error.message }
   return {}
@@ -135,7 +143,9 @@ export async function toggleDisableUtente(
   const adminId = await assertAdmin()
   if (userId === adminId) return { error: 'Non puoi disabilitare il tuo account' }
 
+  const orgId = await getOrgId()
   const service = createServiceClient()
+  try { await assertTargetInSameOrg(service, orgId, userId) } catch { return { error: 'Utente non trovato' } }
 
   // Ban/unban in Supabase Auth (impedisce il login)
   const { error: authErr } = await service.auth.admin.updateUserById(userId, {
@@ -159,7 +169,9 @@ export async function updateOperatoreUtente(
   operatore: string | null
 ): Promise<{ error?: string }> {
   await assertAdmin()
+  const orgId = await getOrgId()
   const service = createServiceClient()
+  try { await assertTargetInSameOrg(service, orgId, userId) } catch { return { error: 'Utente non trovato' } }
 
   const valore = operatore ? operatore.trim().toUpperCase().charAt(0) : null
   const { error } = await service

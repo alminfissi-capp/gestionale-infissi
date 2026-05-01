@@ -372,12 +372,12 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
   // ── Auto-numerazione ────────────────────────────────────────────────────────
   let numeroFinale = input.numero || null
 
-  // Legge settings per la numerazione
+  // Legge settings e profilo utente in parallelo
   const { data: { user } } = await supabase.auth.getUser()
   const [{ data: settingsRow }, { data: userProfile }] = await Promise.all([
     supabase
       .from('settings')
-      .select('num_prefisso, num_operatore, num_contatore, num_anno, num_padding')
+      .select('num_prefisso, num_operatore, num_padding')
       .eq('organization_id', orgId)
       .maybeSingle(),
     user
@@ -389,24 +389,18 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
   const operatoreFinale = userProfile?.operatore ?? settingsRow?.num_operatore ?? null
 
   if (settingsRow?.num_prefisso) {
-    const currentYear = new Date().getFullYear()
-    const annoSettings = settingsRow.num_anno ?? 0
-    const nuovoContatore = annoSettings !== currentYear ? 1 : (settingsRow.num_contatore ?? 0) + 1
-    const nuovoAnno = currentYear
-
-    // Aggiorna il contatore (incremento atomico)
-    await supabase
-      .from('settings')
-      .update({ num_contatore: nuovoContatore, num_anno: nuovoAnno })
-      .eq('organization_id', orgId)
-
-    numeroFinale = generaNumeroPreventivo(
-      settingsRow.num_prefisso,
-      nuovoContatore,
-      nuovoAnno,
-      operatoreFinale,
-      settingsRow.num_padding ?? 2
-    )
+    // Incremento atomico: evita numeri duplicati in caso di richieste concorrenti
+    const { data: counter } = await supabase.rpc('increment_num_contatore', { p_org_id: orgId })
+    const row = counter?.[0]
+    if (row) {
+      numeroFinale = generaNumeroPreventivo(
+        settingsRow.num_prefisso,
+        row.num_contatore,
+        row.num_anno,
+        operatoreFinale,
+        settingsRow.num_padding ?? 2
+      )
+    }
   }
   // ────────────────────────────────────────────────────────────────────────────
 
@@ -577,8 +571,8 @@ export async function updatePreventivo(
   if (articoliConCosto.length > 0) {
     const { error: artErr } = await supabase.from('articoli_preventivo').insert(
       articoliConCosto.map((a, i) => {
-        const { quota_trasporto: _qt, config_scorrevole, config_su_misura, ...articoloDb } = a
-        return { ...articoloDb, config_scorrevole: config_scorrevole ?? null, config_su_misura: config_su_misura ?? null, preventivo_id: id, organization_id: orgId, ordine: i }
+        const { quota_trasporto: _qt, config_scorrevole, config_su_misura, config_winconfig, ...articoloDb } = a
+        return { ...articoloDb, config_scorrevole: config_scorrevole ?? null, config_su_misura: config_su_misura ?? null, config_winconfig: config_winconfig ?? null, preventivo_id: id, organization_id: orgId, ordine: i }
       })
     )
     if (artErr) throw new Error(artErr.message)
@@ -605,7 +599,7 @@ export async function duplicaPreventivo(id: string): Promise<{ id: string }> {
   const [{ data: settingsRow }, { data: userProfile }] = await Promise.all([
     supabase
       .from('settings')
-      .select('num_prefisso, num_operatore, num_contatore, num_anno, num_padding')
+      .select('num_prefisso, num_operatore, num_padding')
       .eq('organization_id', orgId)
       .maybeSingle(),
     user
@@ -617,20 +611,17 @@ export async function duplicaPreventivo(id: string): Promise<{ id: string }> {
 
   let numeroFinale: string | null = null
   if (settingsRow?.num_prefisso) {
-    const currentYear = new Date().getFullYear()
-    const annoSettings = settingsRow.num_anno ?? 0
-    const nuovoContatore = annoSettings !== currentYear ? 1 : (settingsRow.num_contatore ?? 0) + 1
-    await supabase
-      .from('settings')
-      .update({ num_contatore: nuovoContatore, num_anno: currentYear })
-      .eq('organization_id', orgId)
-    numeroFinale = generaNumeroPreventivo(
-      settingsRow.num_prefisso,
-      nuovoContatore,
-      currentYear,
-      operatoreFinale,
-      settingsRow.num_padding ?? 2
-    )
+    const { data: counter } = await supabase.rpc('increment_num_contatore', { p_org_id: orgId })
+    const row = counter?.[0]
+    if (row) {
+      numeroFinale = generaNumeroPreventivo(
+        settingsRow.num_prefisso,
+        row.num_contatore,
+        row.num_anno,
+        operatoreFinale,
+        settingsRow.num_padding ?? 2
+      )
+    }
   }
   // ─────────────────────────────────────────────────────────────────────────
 
