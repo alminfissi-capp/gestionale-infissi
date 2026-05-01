@@ -54,5 +54,6 @@ export type UtenteConPermessi = {
   full_name: string | null
   role: 'admin' | 'operator'
   disabled: boolean
+  operatore: string | null
   permessi: PermessiUtente
 }

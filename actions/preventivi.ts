@@ -373,11 +373,20 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
   let numeroFinale = input.numero || null
 
   // Legge settings per la numerazione
-  const { data: settingsRow } = await supabase
-    .from('settings')
-    .select('num_prefisso, num_operatore, num_contatore, num_anno, num_padding')
-    .eq('organization_id', orgId)
-    .maybeSingle()
+  const { data: { user } } = await supabase.auth.getUser()
+  const [{ data: settingsRow }, { data: userProfile }] = await Promise.all([
+    supabase
+      .from('settings')
+      .select('num_prefisso, num_operatore, num_contatore, num_anno, num_padding')
+      .eq('organization_id', orgId)
+      .maybeSingle(),
+    user
+      ? supabase.from('profiles').select('operatore').eq('id', user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+
+  // Operatore: prima dal profilo utente, poi da settings come fallback
+  const operatoreFinale = userProfile?.operatore ?? settingsRow?.num_operatore ?? null
 
   if (settingsRow?.num_prefisso) {
     const currentYear = new Date().getFullYear()
@@ -395,7 +404,7 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
       settingsRow.num_prefisso,
       nuovoContatore,
       nuovoAnno,
-      settingsRow.num_operatore ?? null,
+      operatoreFinale,
       settingsRow.num_padding ?? 2
     )
   }
@@ -592,11 +601,19 @@ export async function duplicaPreventivo(id: string): Promise<{ id: string }> {
   if (artErr) throw new Error(artErr.message)
 
   // ── Genera nuovo numero ───────────────────────────────────────────────────
-  const { data: settingsRow } = await supabase
-    .from('settings')
-    .select('num_prefisso, num_operatore, num_contatore, num_anno, num_padding')
-    .eq('organization_id', orgId)
-    .maybeSingle()
+  const { data: { user } } = await supabase.auth.getUser()
+  const [{ data: settingsRow }, { data: userProfile }] = await Promise.all([
+    supabase
+      .from('settings')
+      .select('num_prefisso, num_operatore, num_contatore, num_anno, num_padding')
+      .eq('organization_id', orgId)
+      .maybeSingle(),
+    user
+      ? supabase.from('profiles').select('operatore').eq('id', user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+
+  const operatoreFinale = userProfile?.operatore ?? settingsRow?.num_operatore ?? null
 
   let numeroFinale: string | null = null
   if (settingsRow?.num_prefisso) {
@@ -611,7 +628,7 @@ export async function duplicaPreventivo(id: string): Promise<{ id: string }> {
       settingsRow.num_prefisso,
       nuovoContatore,
       currentYear,
-      settingsRow.num_operatore ?? null,
+      operatoreFinale,
       settingsRow.num_padding ?? 2
     )
   }

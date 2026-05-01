@@ -4,9 +4,9 @@ import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import {
   UserPlus, Trash2, Shield, ShieldCheck, ShieldOff, Eye, Pencil,
-  Loader2, KeyRound, UserX, UserCheck, Check, X,
+  Loader2, KeyRound, UserX, UserCheck, Check, X, Hash,
 } from 'lucide-react'
-import { createUtente, deleteUtente, updatePermessiUtente, updatePasswordUtente, toggleDisableUtente } from '@/actions/utenti'
+import { createUtente, deleteUtente, updatePermessiUtente, updatePasswordUtente, toggleDisableUtente, updateOperatoreUtente } from '@/actions/utenti'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -64,6 +64,11 @@ export default function GestioneUtenti({ initialUtenti }: Props) {
 
   // Abilita/Disabilita
   const [togglingDisableId, setTogglingDisableId] = useState<string | null>(null)
+
+  // Operatore inline
+  const [editingOperatoreId, setEditingOperatoreId] = useState<string | null>(null)
+  const [newOperatore, setNewOperatore] = useState('')
+  const [savingOperatore, setSavingOperatore] = useState(false)
 
   const handleCreate = async () => {
     if (!email.trim() || !password) {
@@ -164,6 +169,33 @@ export default function GestioneUtenti({ initialUtenti }: Props) {
     )
   }
 
+  const handleEditOperatore = (userId: string, current: string | null) => {
+    setEditingOperatoreId(userId)
+    setNewOperatore(current ?? '')
+  }
+
+  const handleCancelOperatore = () => {
+    setEditingOperatoreId(null)
+    setNewOperatore('')
+  }
+
+  const handleSaveOperatore = async (userId: string) => {
+    setSavingOperatore(true)
+    const result = await updateOperatoreUtente(userId, newOperatore || null)
+    setSavingOperatore(false)
+    if (result.error) {
+      toast.error(result.error)
+      return
+    }
+    const valore = newOperatore ? newOperatore.toUpperCase().charAt(0) : null
+    toast.success('Operatore aggiornato')
+    setUtenti((prev) =>
+      prev.map((u) => u.id === userId ? { ...u, operatore: valore } : u)
+    )
+    setEditingOperatoreId(null)
+    setNewOperatore('')
+  }
+
   const operators = utenti.filter((u) => u.role === 'operator')
   const admins = utenti.filter((u) => u.role === 'admin')
 
@@ -181,23 +213,67 @@ export default function GestioneUtenti({ initialUtenti }: Props) {
           <CardContent>
             <div className="space-y-2">
               {admins.map((u) => (
-                <div key={u.id} className="flex items-center gap-3 py-2 px-3 bg-blue-50 rounded-lg">
-                  <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
-                    <span className="text-white text-xs font-bold">
-                      {(u.full_name || u.email).charAt(0).toUpperCase()}
-                    </span>
+                <div key={u.id} className="rounded-lg bg-blue-50 px-3 py-2 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
+                      <span className="text-white text-xs font-bold">
+                        {(u.full_name || u.email).charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {u.full_name || u.email}
+                      </p>
+                      {u.full_name && (
+                        <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                      )}
+                    </div>
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 shrink-0">
+                      Admin
+                    </Badge>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {u.full_name || u.email}
-                    </p>
-                    {u.full_name && (
-                      <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                  {/* Riga operatore */}
+                  <div className="flex items-center gap-2">
+                    <Hash className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                    {editingOperatoreId === u.id ? (
+                      <>
+                        <Input
+                          placeholder="es. G"
+                          value={newOperatore}
+                          onChange={(e) =>
+                            setNewOperatore(e.target.value.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 3))
+                          }
+                          className="h-8 text-sm w-24 uppercase"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveOperatore(u.id)
+                            if (e.key === 'Escape') handleCancelOperatore()
+                          }}
+                        />
+                        <Button size="sm" className="h-8 px-3 shrink-0" onClick={() => handleSaveOperatore(u.id)} disabled={savingOperatore}>
+                          {savingOperatore ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                          <span className="ml-1">Salva</span>
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-8 px-2 shrink-0" onClick={handleCancelOperatore} disabled={savingOperatore}>
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-sm text-gray-600 flex-1">
+                          Operatore:{' '}
+                          {u.operatore
+                            ? <span className="font-semibold text-gray-900">{u.operatore}</span>
+                            : <span className="text-gray-400 italic">non impostato</span>
+                          }
+                        </span>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 shrink-0 text-gray-500 hover:text-gray-700" onClick={() => handleEditOperatore(u.id, u.operatore)}>
+                          <Pencil className="h-3 w-3 mr-1" />
+                          Modifica
+                        </Button>
+                      </>
                     )}
                   </div>
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 shrink-0">
-                    Admin
-                  </Badge>
                 </div>
               ))}
             </div>
@@ -333,6 +409,54 @@ export default function GestioneUtenti({ initialUtenti }: Props) {
                       >
                         <Pencil className="h-3.5 w-3.5 mr-1" />
                         Modifica password
+                      </Button>
+                    </>
+                  )}
+                </div>
+                {/* Riga operatore */}
+                <div className="mt-2 flex items-center gap-2">
+                  <Hash className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                  {editingOperatoreId === utente.id ? (
+                    <>
+                      <Input
+                        placeholder="es. A"
+                        value={newOperatore}
+                        onChange={(e) =>
+                          setNewOperatore(e.target.value.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 3))
+                        }
+                        className="h-8 text-sm w-24 uppercase"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveOperatore(utente.id)
+                          if (e.key === 'Escape') handleCancelOperatore()
+                        }}
+                      />
+                      <Button size="sm" className="h-8 px-3 shrink-0" onClick={() => handleSaveOperatore(utente.id)} disabled={savingOperatore}>
+                        {savingOperatore ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                        <span className="ml-1">Salva</span>
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-8 px-2 shrink-0" onClick={handleCancelOperatore} disabled={savingOperatore}>
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-sm text-gray-600 flex-1">
+                        Operatore:{' '}
+                        {utente.operatore
+                          ? <span className="font-semibold text-gray-900">{utente.operatore}</span>
+                          : <span className="text-gray-400 italic">non impostato</span>
+                        }
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-3 shrink-0"
+                        onClick={() => handleEditOperatore(utente.id, utente.operatore)}
+                        disabled={utente.disabled}
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-1" />
+                        Modifica operatore
                       </Button>
                     </>
                   )}

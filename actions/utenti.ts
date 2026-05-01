@@ -27,7 +27,7 @@ export async function getUtenti(): Promise<UtenteConPermessi[]> {
 
   const { data: profiles, error } = await service
     .from('profiles')
-    .select('id, full_name, role, email, disabled')
+    .select('id, full_name, role, email, disabled, operatore')
     .eq('organization_id', orgId)
     .order('created_at', { ascending: true })
 
@@ -62,6 +62,7 @@ export async function getUtenti(): Promise<UtenteConPermessi[]> {
       full_name: p.full_name,
       role: p.role as 'admin' | 'operator',
       disabled: p.disabled ?? false,
+      operatore: p.operatore ?? null,
       permessi: permMap,
     }
   })
@@ -149,6 +150,24 @@ export async function toggleDisableUtente(
     .eq('id', userId)
   if (profErr) return { error: profErr.message }
 
+  revalidatePath('/impostazioni/utenti')
+  return {}
+}
+
+export async function updateOperatoreUtente(
+  userId: string,
+  operatore: string | null
+): Promise<{ error?: string }> {
+  await assertAdmin()
+  const service = createServiceClient()
+
+  const valore = operatore ? operatore.trim().toUpperCase().charAt(0) : null
+  const { error } = await service
+    .from('profiles')
+    .update({ operatore: valore })
+    .eq('id', userId)
+
+  if (error) return { error: error.message }
   revalidatePath('/impostazioni/utenti')
   return {}
 }
