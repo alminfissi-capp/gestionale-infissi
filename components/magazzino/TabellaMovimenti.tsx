@@ -86,7 +86,7 @@ export default function TabellaMovimenti({ movimenti, prodotti, fornitori }: Pro
   }
 
   const fornitoriFiltro = useMemo(
-    () => [...new Map(movimenti.filter((m) => m.fornitore).map((m) => [m.fornitore_id, m.fornitore!])).values()],
+    () => [...new Map(movimenti.filter((m) => m.fornitore).map((m) => [m.fornitore_id, { id: m.fornitore_id!, nome: m.fornitore!.nome }])).values()],
     [movimenti]
   )
 
@@ -138,7 +138,7 @@ export default function TabellaMovimenti({ movimenti, prodotti, fornitori }: Pro
             <SelectContent>
               <SelectItem value="all">Tutti i fornitori</SelectItem>
               {fornitoriFiltro.map((f) => (
-                <SelectItem key={f.nome} value={f.nome}>{f.nome}</SelectItem>
+                <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
               ))}
             </SelectContent>
           </Select>

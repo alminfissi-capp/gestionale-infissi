@@ -105,6 +105,7 @@ export default async function PreventivoPublicoPage({ params, searchParams }: Pr
       .from('preventivi')
       .update({ visualizzato_at: new Date().toISOString(), visualizzato_via: via })
       .eq('share_token', token)
+      .is('visualizzato_at', null)
   }
 
   const settings = await getSettingsPubblici(preventivo.organization_id)

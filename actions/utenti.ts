@@ -112,7 +112,10 @@ export async function deleteUtente(userId: string): Promise<{ error?: string }> 
   const adminId = await assertAdmin()
   if (userId === adminId) return { error: 'Non puoi eliminare il tuo account' }
 
+  const orgId = await getOrgId()
   const service = createServiceClient()
+  try { await assertTargetInSameOrg(service, orgId, userId) } catch { return { error: 'Utente non trovato' } }
+
   const { error } = await service.auth.admin.deleteUser(userId)
   if (error) return { error: error.message }
 
