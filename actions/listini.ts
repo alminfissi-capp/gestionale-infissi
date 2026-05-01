@@ -732,7 +732,7 @@ export async function duplicaCategoriaLibera(id: string): Promise<{ id: string }
 
   const { data: categoria, error } = await supabase
     .from('categorie_listini')
-    .select('*, listini_liberi(*, prodotti_listino(*), accessori_listino(*))')
+    .select('*, finiture_categoria(*), listini_liberi(*, prodotti_listino(*), accessori_listino(*))')
     .eq('id', id)
     .single()
 
@@ -756,6 +756,20 @@ export async function duplicaCategoriaLibera(id: string): Promise<{ id: string }
     .single()
 
   if (catErr || !newCat) throw new Error(catErr?.message ?? 'Errore duplicazione categoria')
+
+  if (categoria.finiture_categoria?.length > 0) {
+    const { error: fErr } = await supabase.from('finiture_categoria').insert(
+      categoria.finiture_categoria.map((f: { nome: string; aumento_percentuale: number; aumento_euro: number; ordine: number }) => ({
+        organization_id: orgId,
+        categoria_id: newCat.id,
+        nome: f.nome,
+        aumento_percentuale: f.aumento_percentuale,
+        aumento_euro: f.aumento_euro,
+        ordine: f.ordine,
+      }))
+    )
+    if (fErr) throw new Error(fErr.message)
+  }
 
   for (const ll of (categoria.listini_liberi ?? [])) {
     // Inserisce il listino libero

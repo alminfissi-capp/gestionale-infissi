@@ -51,6 +51,7 @@ export default function DataSync() {
       }
     }
 
+    if (navigator.onLine) flushPending()
     window.addEventListener('online', flushPending)
     return () => window.removeEventListener('online', flushPending)
   }, [])
