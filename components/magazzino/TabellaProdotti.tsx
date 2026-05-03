@@ -66,7 +66,7 @@ export default function TabellaProdotti({ prodotti, categorie, fornitori, posizi
       toast.success('Prodotto eliminato')
       router.refresh()
     } catch {
-      toast.error('Impossibile eliminare: il prodotto ha movimenti associati')
+      toast.error('Errore durante l\'eliminazione del prodotto')
     } finally {
       setDeleting(false)
       setDeletingProdotto(null)
@@ -199,8 +199,7 @@ export default function TabellaProdotti({ prodotti, categorie, fornitori, posizi
           <AlertDialogHeader>
             <AlertDialogTitle>Elimina prodotto</AlertDialogTitle>
             <AlertDialogDescription>
-              Elimini <strong>{deletingProdotto?.nome}</strong>? Verranno rimossi anche i file allegati.
-              L&apos;operazione non è reversibile.
+              Elimini <strong>{deletingProdotto?.nome}</strong>? Verranno eliminati anche tutti i movimenti di magazzino e i file allegati. L&apos;operazione non è reversibile.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

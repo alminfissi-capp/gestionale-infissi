@@ -211,7 +211,7 @@ export default function TabellaScorte({ prodotti, giacenzaFlat, categorie, forni
       toast.success('Prodotto eliminato')
       router.refresh()
     } catch {
-      toast.error('Impossibile eliminare: il prodotto ha movimenti associati')
+      toast.error('Errore durante l\'eliminazione del prodotto')
     } finally {
       setDeleting(false)
       setDeletingProdotto(null)
@@ -475,7 +475,7 @@ export default function TabellaScorte({ prodotti, giacenzaFlat, categorie, forni
           <AlertDialogHeader>
             <AlertDialogTitle>Elimina prodotto</AlertDialogTitle>
             <AlertDialogDescription>
-              Elimini <strong>{deletingProdotto?.nome}</strong>? L&apos;operazione non è reversibile.
+              Elimini <strong>{deletingProdotto?.nome}</strong>? Verranno eliminati anche tutti i movimenti di magazzino associati. L&apos;operazione non è reversibile.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

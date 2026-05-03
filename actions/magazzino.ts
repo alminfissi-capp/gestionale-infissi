@@ -353,6 +353,9 @@ export async function updateProdotto(
 export async function deleteProdotto(id: string, fotoUrl?: string | null, dxfUrl?: string | null): Promise<void> {
   const supabase = await createClient()
 
+  // Elimina prima i movimenti (FK RESTRICT), poi le varianti (CASCADE), poi il prodotto
+  await supabase.from('movimenti_magazzino').delete().eq('prodotto_id', id)
+
   const { error } = await supabase.from('anagrafica_prodotti').delete().eq('id', id)
   if (error) throw new Error(error.message)
 
