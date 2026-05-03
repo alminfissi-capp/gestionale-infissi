@@ -1,4 +1,4 @@
-export type UnitaMisura = 'pz' | 'ml' | 'cop' | 'kg' | 'pacco' | 'lt' | 'm2' | 'barre'
+export type UnitaMisura = 'pz' | 'ml' | 'cop' | 'kg' | 'pacco' | 'lt' | 'm2' | 'barre' | 'kit'
 export type TipoCategoriaMagazzino = 'alluminio' | 'ferro' | 'accessori' | 'pannelli' | 'chimici' | 'viteria'
 export type TipoMovimento = 'entrata' | 'uscita'
 
@@ -11,6 +11,7 @@ export const UNITA_MISURA_LABELS: Record<UnitaMisura, string> = {
   lt: 'Litro',
   m2: 'M²',
   barre: 'Barre',
+  kit: 'Kit',
 }
 
 export const TIPO_CATEGORIA_LABELS: Record<TipoCategoriaMagazzino, string> = {
