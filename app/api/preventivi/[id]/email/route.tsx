@@ -11,6 +11,10 @@ import type { Settings } from '@/types/impostazioni'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
+function esc(s: string | null | undefined): string {
+  return (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
 const BASE_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
@@ -114,17 +118,17 @@ export async function POST(
         <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
           <tr>
             <td style="background:#0E8F9C;padding:24px 32px;">
-              <p style="margin:0;color:#ffffff;font-size:20px;font-weight:bold;">${azienda}</p>
+              <p style="margin:0;color:#ffffff;font-size:20px;font-weight:bold;">${esc(azienda)}</p>
             </td>
           </tr>
           <tr>
             <td style="padding:32px;color:#374151;font-size:15px;line-height:1.6;">
-              ${messaggio.replace(/\n/g, '<br>')}
+              ${esc(messaggio).replace(/\n/g, '<br>')}
               <p style="margin-top:24px;">
                 <a href="${viewUrl}" style="display:inline-block;background:#0E8F9C;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:bold;">Visualizza preventivo online</a>
               </p>
               <p style="margin-top:24px;padding-top:24px;border-top:1px solid #e5e7eb;font-size:13px;color:#6b7280;">
-                ${azienda}${settings?.indirizzo ? `<br>${settings.indirizzo}` : ''}${settings?.telefono ? `<br>Tel: ${settings.telefono}` : ''}${settings?.email ? `<br>${settings.email}` : ''}
+                ${esc(azienda)}${settings?.indirizzo ? `<br>${esc(settings.indirizzo)}` : ''}${settings?.telefono ? `<br>Tel: ${esc(settings.telefono)}` : ''}${settings?.email ? `<br>${esc(settings.email)}` : ''}
               </p>
             </td>
           </tr>
