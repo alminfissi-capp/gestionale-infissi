@@ -30,6 +30,7 @@ interface Props {
   fornitori: Fornitore[]
   defaultTipo?: 'entrata' | 'uscita'
   defaultProdottoId?: string
+  defaultVarianteId?: string | null
 }
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -46,7 +47,7 @@ function calcolaPrezzo(finitura: FinituraCategoria, pesoAlMetro: number | null, 
   return prezzo
 }
 
-export default function DialogMovimento({ open, onOpenChange, prodotti, fornitori, defaultTipo = 'entrata', defaultProdottoId }: Props) {
+export default function DialogMovimento({ open, onOpenChange, prodotti, fornitori, defaultTipo = 'entrata', defaultProdottoId, defaultVarianteId }: Props) {
   const router = useRouter()
   const [tipo, setTipo] = useState<'entrata' | 'uscita'>(defaultTipo)
   const [prodottoId, setProdottoId] = useState<string>('')
@@ -105,7 +106,7 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
     if (!open) return
     setTipo(defaultTipo)
     setProdottoId(defaultProdottoId ?? '')
-    setVarianteId('')
+    setVarianteId(defaultVarianteId ?? '')
     setQuantita('')
     setPrezzoUnitario('')
     setPrezzoAutoCalc(false)
@@ -117,11 +118,12 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
     setFiniture([])
     setFinituraId('')
     setLunghezza('')
-  }, [open, defaultTipo, defaultProdottoId])
+  }, [open, defaultTipo, defaultProdottoId, defaultVarianteId])
 
   useEffect(() => {
-    setVarianteId('')
-  }, [prodottoId])
+    // Reset variante solo se non è pre-impostata dal chiamante
+    if (!defaultVarianteId) setVarianteId('')
+  }, [prodottoId, defaultVarianteId])
 
   // Pre-fill lunghezza with product default when product changes
   useEffect(() => {
@@ -135,6 +137,9 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!prodottoId) { toast.error('Seleziona un prodotto'); return }
+    if (selectedProdotto && selectedProdotto.varianti.length > 0 && !varianteId) {
+      toast.error('Seleziona la variante per questo prodotto'); return
+    }
     const qty = parseFloat(quantita)
     if (!qty || qty <= 0) { toast.error('Inserisci una quantità valida'); return }
     if (tipo === 'uscita' && !commessaRef.trim()) { toast.error('Inserisci il riferimento commessa'); return }
@@ -247,18 +252,16 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
           {/* Variante */}
           {selectedProdotto && selectedProdotto.varianti.length > 0 && (
             <div className="space-y-1.5">
-              <Label>Variante colore</Label>
+              <Label>Variante *</Label>
               <ComboboxField
-                options={[
-                  { value: '__none__', label: 'Nessuna variante specifica' },
-                  ...selectedProdotto.varianti.map((v) => ({
-                    value: v.id,
-                    label: v.nome,
-                    sublabel: v.codice_variante ?? undefined,
-                  })),
-                ]}
-                value={varianteId || '__none__'}
-                onChange={(v) => setVarianteId(v === '__none__' ? '' : v)}
+                options={selectedProdotto.varianti.map((v) => ({
+                  value: v.id,
+                  label: v.nome,
+                  sublabel: v.codice_variante ?? undefined,
+                }))}
+                value={varianteId}
+                onChange={setVarianteId}
+                placeholder="Seleziona variante..."
                 searchPlaceholder="Cerca variante..."
               />
             </div>

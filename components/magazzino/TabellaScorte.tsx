@@ -53,6 +53,7 @@ function getStato(giacenza: number, soglia_minima: number | null, soglia_abilita
 type DisplayRow = {
   key: string
   prodotto: ProdottoConPreview
+  variante_id: string | null
   variante_nome: string | null
   finitura_nome: string | null
   lunghezza: number | null
@@ -71,6 +72,7 @@ export default function TabellaScorte({ prodotti, giacenzaFlat, categorie, forni
 
   const [movimentoOpen, setMovimentoOpen] = useState(false)
   const [movimentoProdottoId, setMovimentoProdottoId] = useState<string | undefined>()
+  const [movimentoVarianteId, setMovimentoVarianteId] = useState<string | null>(null)
   const [movimentoTipo, setMovimentoTipo] = useState<'entrata' | 'uscita'>('entrata')
 
   const [prodottoDialogOpen, setProdottoDialogOpen] = useState(false)
@@ -114,6 +116,7 @@ export default function TabellaScorte({ prodotti, giacenzaFlat, categorie, forni
         rows.push({
           key: `${prodId}-${i}`,
           prodotto,
+          variante_id: fr.variante_id,
           variante_nome: fr.variante_nome,
           finitura_nome: fr.finitura_nome,
           lunghezza: fr.lunghezza,
@@ -132,6 +135,7 @@ export default function TabellaScorte({ prodotti, giacenzaFlat, categorie, forni
         rows.push({
           key: `${prodotto.id}-zero`,
           prodotto,
+          variante_id: null,
           variante_nome: null,
           finitura_nome: null,
           lunghezza: null,
@@ -185,9 +189,10 @@ export default function TabellaScorte({ prodotti, giacenzaFlat, categorie, forni
     return list
   }, [allRows, filterStato, filterCategoria, search])
 
-  const openMovimento = (prodottoId: string, tipo: 'entrata' | 'uscita', e: React.MouseEvent) => {
+  const openMovimento = (prodottoId: string, tipo: 'entrata' | 'uscita', e: React.MouseEvent, varianteId: string | null = null) => {
     e.stopPropagation()
     setMovimentoProdottoId(prodottoId)
+    setMovimentoVarianteId(varianteId)
     setMovimentoTipo(tipo)
     setMovimentoOpen(true)
   }
@@ -418,11 +423,11 @@ export default function TabellaScorte({ prodotti, giacenzaFlat, categorie, forni
                     {/* Azioni */}
                     <TableCell className="py-2">
                       <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1 h-7 text-xs px-2" onClick={(e) => openMovimento(p.id, 'entrata', e)}>
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1 h-7 text-xs px-2" onClick={(e) => openMovimento(p.id, 'entrata', e, r.variante_id)}>
                           <ArrowDownToLine className="h-3 w-3" />
                           Carico
                         </Button>
-                        <Button size="sm" variant="outline" className="text-orange-600 border-orange-300 hover:bg-orange-50 gap-1 h-7 text-xs px-2" onClick={(e) => openMovimento(p.id, 'uscita', e)}>
+                        <Button size="sm" variant="outline" className="text-orange-600 border-orange-300 hover:bg-orange-50 gap-1 h-7 text-xs px-2" onClick={(e) => openMovimento(p.id, 'uscita', e, r.variante_id)}>
                           <ArrowUpFromLine className="h-3 w-3" />
                           Scarico
                         </Button>
@@ -453,6 +458,7 @@ export default function TabellaScorte({ prodotti, giacenzaFlat, categorie, forni
         fornitori={fornitori}
         defaultTipo={movimentoTipo}
         defaultProdottoId={movimentoProdottoId}
+        defaultVarianteId={movimentoVarianteId}
       />
 
       <DialogProdotto
