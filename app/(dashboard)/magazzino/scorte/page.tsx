@@ -1,37 +1,39 @@
-import { getProdotti, getGiacenzeFlatAll, getCategorieMagazzino, getFornitori, getPosizioni } from '@/actions/magazzino'
-import { requireAccesso } from '@/lib/permessi'
-import TabellaScorte from '@/components/magazzino/TabellaScorte'
+import { listArticoliMagazzino, getProdotti, getCategorieMagazzino, getFornitori, getPosizioni } from '@/actions/magazzino'
+import TabellaInventario from '@/components/magazzino/TabellaInventario'
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 
 function toPublicUrl(path: string | null): string | null {
   if (!path) return null
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/magazzino/${path}`
+  return `${SUPABASE_URL}/storage/v1/object/public/magazzino/${path}`
 }
 
-export default async function ScortePage() {
-  await requireAccesso('magazzino')
-  const [prodotti, giacenzaFlat, categorie, fornitori, posizioni] = await Promise.all([
+export default async function InventarioPage() {
+  const [articoli, prodotti, categorie, fornitori, posizioni] = await Promise.all([
+    listArticoliMagazzino(),
     getProdotti(),
-    getGiacenzeFlatAll(),
     getCategorieMagazzino(),
     getFornitori(),
     getPosizioni(),
   ])
 
-  const prodottiConUrl = prodotti.map((p) => ({
-    ...p,
-    preview_url: p.foto_url ? toPublicUrl(p.foto_url) : toPublicUrl(p.dxf_url),
-    preview_tipo: p.foto_url ? 'foto' as const : p.dxf_url ? 'dxf' as const : null,
+  const articoliConUrl = articoli.map((a) => ({
+    ...a,
+    preview_url: a.prodotto?.foto_url
+      ? toPublicUrl(a.prodotto.foto_url)
+      : toPublicUrl(a.prodotto?.dxf_url ?? null),
+    preview_tipo: a.prodotto?.foto_url ? 'foto' as const : a.prodotto?.dxf_url ? 'dxf' as const : null,
   }))
 
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Magazzino</h1>
-        <p className="text-sm text-gray-500 mt-1">Scorte, carichi e scarichi per prodotto</p>
+        <h1 className="text-2xl font-bold text-gray-900">Inventario Magazzino</h1>
+        <p className="text-sm text-gray-500 mt-1">Elenco materiali con quantità, finitura, posizione e commessa</p>
       </div>
-      <TabellaScorte
-        prodotti={prodottiConUrl}
-        giacenzaFlat={giacenzaFlat}
+      <TabellaInventario
+        articoli={articoliConUrl}
+        prodotti={prodotti}
         categorie={categorie}
         fornitori={fornitori}
         posizioni={posizioni}

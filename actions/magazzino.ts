@@ -11,6 +11,7 @@ import type {
   AnagraficaProdotto, UnitaMisura,
   VarianteProdotto,
   MovimentoMagazzino,
+  ArticoloMagazzinoConDettagli, ArticoloMagazzinoInput,
 } from '@/types/magazzino'
 
 // ---- Org helper (for client-side Storage uploads) ----
@@ -627,4 +628,116 @@ export async function getGiacenzeFlatAll(): Promise<GiacenzaFlatRow[]> {
       const bn = b.finitura_nome ?? b.variante_nome ?? ''
       return an.localeCompare(bn, 'it')
     })
+}
+
+// ---- Inventario semplice (articoli_magazzino) ----
+
+export async function listArticoliMagazzino(): Promise<ArticoloMagazzinoConDettagli[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data, error } = await supabase
+    .from('articoli_magazzino')
+    .select(`
+      *,
+      prodotto:anagrafica_prodotti(id, codice, nome, descrizione, unita_misura, categoria_id, foto_url, dxf_url),
+      posizione:posizioni_magazzino(id, nome),
+      fornitore:fornitori(id, nome)
+    `)
+    .eq('organization_id', orgId)
+    .order('ordine', { ascending: true })
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as ArticoloMagazzinoConDettagli[]
+}
+
+export async function createArticoloMagazzino(input: ArticoloMagazzinoInput): Promise<ArticoloMagazzinoConDettagli> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data, error } = await supabase
+    .from('articoli_magazzino')
+    .insert({
+      organization_id: orgId,
+      prodotto_id: input.prodotto_id,
+      finitura: input.finitura ?? null,
+      quantita: input.quantita,
+      quantita_2: input.quantita_2 ?? null,
+      unita_misura_2: input.unita_misura_2 ?? null,
+      posizione_id: input.posizione_id ?? null,
+      fornitore_id: input.fornitore_id ?? null,
+      commessa: input.commessa ?? null,
+      note: input.note ?? null,
+    })
+    .select(`
+      *,
+      prodotto:anagrafica_prodotti(id, codice, nome, descrizione, unita_misura, categoria_id, foto_url, dxf_url),
+      posizione:posizioni_magazzino(id, nome),
+      fornitore:fornitori(id, nome)
+    `)
+    .single()
+  if (error) throw new Error(error.message)
+  revalidatePath('/magazzino/scorte')
+  return data as ArticoloMagazzinoConDettagli
+}
+
+export async function updateArticoloMagazzino(id: string, input: Partial<ArticoloMagazzinoInput>): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('articoli_magazzino')
+    .update({ ...input, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/magazzino/scorte')
+}
+
+export async function updateQuantitaArticolo(id: string, quantita: number): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('articoli_magazzino')
+    .update({ quantita, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/magazzino/scorte')
+}
+
+export async function deleteArticoloMagazzino(id: string): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('articoli_magazzino')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/magazzino/scorte')
+}
+
+export async function duplicaArticoloMagazzino(id: string): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data: orig, error: fetchErr } = await supabase
+    .from('articoli_magazzino')
+    .select('*')
+    .eq('id', id)
+    .eq('organization_id', orgId)
+    .single()
+  if (fetchErr || !orig) throw new Error('Articolo non trovato')
+  const { error } = await supabase.from('articoli_magazzino').insert({
+    organization_id: orgId,
+    prodotto_id: orig.prodotto_id,
+    finitura: orig.finitura,
+    quantita: orig.quantita,
+    quantita_2: orig.quantita_2,
+    unita_misura_2: orig.unita_misura_2,
+    posizione_id: orig.posizione_id,
+    fornitore_id: orig.fornitore_id,
+    commessa: orig.commessa,
+    note: orig.note,
+    ordine: orig.ordine,
+  })
+  if (error) throw new Error(error.message)
+  revalidatePath('/magazzino/scorte')
 }
