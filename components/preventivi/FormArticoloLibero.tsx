@@ -286,7 +286,24 @@ export default function FormArticoloLibero({ listini, aliquote, onAdd }: Props) 
 
   return (
     <div className="rounded-lg border bg-white p-4 space-y-4">
-      <p className="text-sm font-semibold text-gray-700">Aggiungi da catalogo</p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-gray-700">Aggiungi da catalogo</p>
+        {prodottoSelezionato && (
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <span className="text-xs font-medium text-orange-600 flex items-center gap-1">
+              <Wrench className="h-3 w-3" />Calcolo manuale
+            </span>
+            <Switch
+              size="sm"
+              checked={bypassCalcolo}
+              onCheckedChange={(v) => {
+                setBypassCalcolo(v)
+                if (!v) { setCostoProdottoBypass(''); setPrezzoManuale(''); setPercentualeUtile('') }
+              }}
+            />
+          </label>
+        )}
+      </div>
 
       {/* Selezione categoria */}
       <div className="flex flex-wrap gap-2">
@@ -484,22 +501,6 @@ export default function FormArticoloLibero({ listini, aliquote, onAdd }: Props) 
                 />
               </div>
 
-              {/* Switch bypass calcolo */}
-              <div className="col-span-2 sm:col-span-4 flex items-center gap-3 pt-1">
-                <Switch
-                  id="bypass-calcolo-libero"
-                  checked={bypassCalcolo}
-                  onCheckedChange={(v) => {
-                    setBypassCalcolo(v)
-                    if (!v) { setCostoProdottoBypass(''); setPrezzoManuale(''); setPercentualeUtile('') }
-                  }}
-                />
-                <label htmlFor="bypass-calcolo-libero" className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
-                  <Wrench className="h-3.5 w-3.5 text-orange-500" />
-                  <span className="font-medium text-orange-700">Calcolo manuale</span>
-                  <span className="text-gray-400 font-normal text-xs">(bypassa listino)</span>
-                </label>
-              </div>
             </>
           )}
         </div>
