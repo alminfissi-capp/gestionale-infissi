@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Image from 'next/image'
-import { Plus, AlertTriangle, Tag, TrendingUp } from 'lucide-react'
+import { Plus, AlertTriangle, Tag, TrendingUp, Wrench } from 'lucide-react'
 import {
   calcolaPrezzoBase,
   applicaFinitura,
@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -52,6 +53,11 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
   const [note, setNote] = useState<string>('')
   const [costoPosa, setCostoPosa] = useState<string>('')
   const [accessoriGrigliaSelezionati, setAccessoriGrigliaSelezionati] = useState<AccessorioGrigliaSelezionato[]>([])
+  const [bypassCalcolo, setBypassCalcolo] = useState(false)
+  const [costoProdottoBypass, setCostoProdottoBypass] = useState<string>('')
+  const [modalitaPrezzo, setModalitaPrezzo] = useState<'manuale' | 'percentuale'>('manuale')
+  const [prezzoManuale, setPrezzoManuale] = useState<string>('')
+  const [percentualeUtile, setPercentualeUtile] = useState<string>('')
 
   const categoriaSelezionata = useMemo(
     () => listini.find((c) => c.id === categoriaId),
@@ -126,6 +132,10 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
     setListinoId(id)
     setFinituraIndex('-1')
     setAccessoriGrigliaSelezionati([])
+    setBypassCalcolo(false)
+    setCostoProdottoBypass('')
+    setPrezzoManuale('')
+    setPercentualeUtile('')
   }
 
   // Calcolo prezzo in real-time
@@ -171,51 +181,113 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
     }
   }, [listinoSelezionato, larghezza, altezza, finitura, quantita, scontoArticolo, accessoriGrigliaSelezionati])
 
-  const canAdd =
-    listinoSelezionato && calcolo && !calcolo.error && parseInt(quantita) > 0
+  const calcoloBypass = useMemo(() => {
+    if (!bypassCalcolo) return null
+    const costoProd = parseFloat(costoProdottoBypass) || 0
+    const posa = parseFloat(costoPosa) || 0
+    const qty = Math.max(1, parseInt(quantita) || 1)
+    let prezzoUnitario = 0
+    if (modalitaPrezzo === 'manuale') {
+      prezzoUnitario = parseFloat(prezzoManuale) || 0
+    } else {
+      const perc = parseFloat(percentualeUtile) || 0
+      prezzoUnitario = (costoProd + posa) * (1 + perc / 100)
+    }
+    const totalRiga = calcolaTotaleRiga(prezzoUnitario, qty, scontoArticolo)
+    return { costoProd, posa, prezzoUnitario, totalRiga }
+  }, [bypassCalcolo, costoProdottoBypass, costoPosa, quantita, modalitaPrezzo, prezzoManuale, percentualeUtile, scontoArticolo])
+
+  const canAdd = listinoSelezionato && parseInt(quantita) > 0 && (
+    bypassCalcolo
+      ? (calcoloBypass?.prezzoUnitario ?? 0) > 0
+      : calcolo !== null && !calcolo.error
+  )
 
   const handleAdd = () => {
-    if (!listinoSelezionato || !calcolo || calcolo.error || !canAdd) return
+    if (!listinoSelezionato || !canAdd) return
 
     const qty = Math.max(1, parseInt(quantita) || 1)
-    const L = parseInt(larghezza)
-    const H = parseInt(altezza)
+    const L = parseInt(larghezza) || 0
+    const H = parseInt(altezza) || 0
 
-    const costoAcqUnit = calcolaCostoAcquistoUnitario(calcolo.prezzoBase, categoriaSelezionata?.sconto_fornitore ?? 0)
-    const costoAccessoriUnit = accessoriGrigliaSelezionati.reduce(
-      (sum, a) => sum + calcolaAccessorioGriglia({ ...a, prezzo: a.prezzo_acquisto }, L, H, calcolo.prezzoBase),
-      0
-    )
+    let articolo: ArticoloWizard
 
-    const articolo: ArticoloWizard = {
-      tempId: crypto.randomUUID(),
-      tipo: 'listino',
-      listino_id: listinoSelezionato.id,
-      listino_libero_id: null,
-      prodotto_id: null,
-      accessori_selezionati: null,
-      accessori_griglia: accessoriGrigliaSelezionati.length > 0 ? accessoriGrigliaSelezionati : null,
-      tipologia: listinoSelezionato.tipologia,
-      categoria_nome: categoriaSelezionata?.nome ?? null,
-      larghezza_mm: L,
-      altezza_mm: H,
-      larghezza_listino_mm: calcolo.larghezzaEffettiva,
-      altezza_listino_mm: calcolo.altezzaEffettiva,
-      misura_arrotondata: calcolo.arrotondata,
-      finitura_nome: finitura?.nome ?? null,
-      finitura_aumento: finitura?.aumento ?? 0,
-      finitura_aumento_euro: finitura?.aumento_euro ?? 0,
-      immagine_url: listinoSelezionato.immagine_url ?? null,
-      note: note || null,
-      quantita: qty,
-      prezzo_base: calcolo.prezzoBase,
-      prezzo_unitario: calcolo.prezzoUnitario,
-      sconto_articolo: scontoArticolo,
-      prezzo_totale_riga: calcolo.totalRiga,
-      costo_acquisto_unitario: costoAcqUnit + costoAccessoriUnit,
-      costo_posa: parseFloat(costoPosa) || 0,
-      aliquota_iva: aliquotaIva,
-      ordine: 0,
+    if (bypassCalcolo && calcoloBypass) {
+      articolo = {
+        tempId: crypto.randomUUID(),
+        tipo: 'listino',
+        listino_id: listinoSelezionato.id,
+        listino_libero_id: null,
+        prodotto_id: null,
+        accessori_selezionati: null,
+        accessori_griglia: accessoriGrigliaSelezionati.length > 0 ? accessoriGrigliaSelezionati : null,
+        tipologia: listinoSelezionato.tipologia,
+        categoria_nome: categoriaSelezionata?.nome ?? null,
+        larghezza_mm: L || null,
+        altezza_mm: H || null,
+        larghezza_listino_mm: null,
+        altezza_listino_mm: null,
+        misura_arrotondata: false,
+        finitura_nome: finitura?.nome ?? null,
+        finitura_aumento: finitura?.aumento ?? 0,
+        finitura_aumento_euro: finitura?.aumento_euro ?? 0,
+        immagine_url: listinoSelezionato.immagine_url ?? null,
+        note: note || null,
+        quantita: qty,
+        prezzo_base: null,
+        prezzo_unitario: calcoloBypass.prezzoUnitario,
+        sconto_articolo: scontoArticolo,
+        prezzo_totale_riga: calcoloBypass.totalRiga,
+        costo_acquisto_unitario: calcoloBypass.costoProd,
+        costo_posa: calcoloBypass.posa,
+        aliquota_iva: aliquotaIva,
+        ordine: 0,
+        bypass_calcolo: true,
+        costo_prodotto_bypass: calcoloBypass.costoProd,
+        modalita_prezzo_bypass: modalitaPrezzo,
+        percentuale_utile_bypass: modalitaPrezzo === 'percentuale' ? (parseFloat(percentualeUtile) || null) : null,
+      }
+    } else {
+      if (!calcolo || calcolo.error) return
+      const costoAcqUnit = calcolaCostoAcquistoUnitario(calcolo.prezzoBase, categoriaSelezionata?.sconto_fornitore ?? 0)
+      const costoAccessoriUnit = accessoriGrigliaSelezionati.reduce(
+        (sum, a) => sum + calcolaAccessorioGriglia({ ...a, prezzo: a.prezzo_acquisto }, L, H, calcolo.prezzoBase),
+        0
+      )
+      articolo = {
+        tempId: crypto.randomUUID(),
+        tipo: 'listino',
+        listino_id: listinoSelezionato.id,
+        listino_libero_id: null,
+        prodotto_id: null,
+        accessori_selezionati: null,
+        accessori_griglia: accessoriGrigliaSelezionati.length > 0 ? accessoriGrigliaSelezionati : null,
+        tipologia: listinoSelezionato.tipologia,
+        categoria_nome: categoriaSelezionata?.nome ?? null,
+        larghezza_mm: L,
+        altezza_mm: H,
+        larghezza_listino_mm: calcolo.larghezzaEffettiva,
+        altezza_listino_mm: calcolo.altezzaEffettiva,
+        misura_arrotondata: calcolo.arrotondata,
+        finitura_nome: finitura?.nome ?? null,
+        finitura_aumento: finitura?.aumento ?? 0,
+        finitura_aumento_euro: finitura?.aumento_euro ?? 0,
+        immagine_url: listinoSelezionato.immagine_url ?? null,
+        note: note || null,
+        quantita: qty,
+        prezzo_base: calcolo.prezzoBase,
+        prezzo_unitario: calcolo.prezzoUnitario,
+        sconto_articolo: scontoArticolo,
+        prezzo_totale_riga: calcolo.totalRiga,
+        costo_acquisto_unitario: costoAcqUnit + costoAccessoriUnit,
+        costo_posa: parseFloat(costoPosa) || 0,
+        aliquota_iva: aliquotaIva,
+        ordine: 0,
+        bypass_calcolo: false,
+        costo_prodotto_bypass: null,
+        modalita_prezzo_bypass: null,
+        percentuale_utile_bypass: null,
+      }
     }
 
     onAdd(articolo)
@@ -230,6 +302,10 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
     setNote('')
     setCostoPosa('')
     setAccessoriGrigliaSelezionati([])
+    setBypassCalcolo(false)
+    setCostoProdottoBypass('')
+    setPrezzoManuale('')
+    setPercentualeUtile('')
   }
 
   return (
@@ -255,6 +331,7 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
       </div>
 
       {categoriaSelezionata && (
+        <>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {/* Listino */}
           <div className="col-span-2 space-y-1.5">
@@ -495,11 +572,149 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
               className="border-amber-200 focus-visible:ring-amber-400"
             />
           </div>
+
+          {/* Switch bypass calcolo */}
+          {listinoSelezionato && (
+            <div className="col-span-2 sm:col-span-4 flex items-center gap-3 pt-1">
+              <Switch
+                id="bypass-calcolo"
+                checked={bypassCalcolo}
+                onCheckedChange={(v) => {
+                  setBypassCalcolo(v)
+                  if (!v) { setCostoProdottoBypass(''); setPrezzoManuale(''); setPercentualeUtile('') }
+                }}
+              />
+              <label htmlFor="bypass-calcolo" className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+                <Wrench className="h-3.5 w-3.5 text-orange-500" />
+                <span className="font-medium text-orange-700">Calcolo manuale</span>
+                <span className="text-gray-400 font-normal text-xs">(bypassa listino)</span>
+              </label>
+            </div>
+          )}
         </div>
+
+        {/* Campi bypass */}
+        {bypassCalcolo && listinoSelezionato && (
+          <div className="rounded-md border border-orange-200 bg-orange-50 p-4 space-y-3">
+            <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide">Calcolo manuale — il listino viene ignorato</p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="space-y-1.5">
+                <Label className="text-amber-700">Costo prodotto (€)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={costoProdottoBypass}
+                  onChange={(e) => setCostoProdottoBypass(e.target.value)}
+                  placeholder="0,00"
+                  className="border-amber-200 focus-visible:ring-amber-400"
+                />
+              </div>
+
+              {/* Modalità prezzo */}
+              <div className="col-span-2 sm:col-span-4 space-y-1.5">
+                <Label>Modalità prezzo al cliente</Label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalitaPrezzo('manuale')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+                      modalitaPrezzo === 'manuale'
+                        ? 'bg-orange-600 text-white border-orange-600'
+                        : 'bg-white text-gray-600 border-gray-300 hover:border-orange-400'
+                    }`}
+                  >
+                    Prezzo manuale
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalitaPrezzo('percentuale')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+                      modalitaPrezzo === 'percentuale'
+                        ? 'bg-orange-600 text-white border-orange-600'
+                        : 'bg-white text-gray-600 border-gray-300 hover:border-orange-400'
+                    }`}
+                  >
+                    % utile
+                  </button>
+                </div>
+              </div>
+
+              {modalitaPrezzo === 'manuale' ? (
+                <div className="col-span-2 space-y-1.5">
+                  <Label>Prezzo al cliente (€)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={prezzoManuale}
+                    onChange={(e) => setPrezzoManuale(e.target.value)}
+                    placeholder="0,00"
+                  />
+                </div>
+              ) : (
+                <div className="col-span-2 space-y-1.5">
+                  <Label>% utile da applicare</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.1}
+                      value={percentualeUtile}
+                      onChange={(e) => setPercentualeUtile(e.target.value)}
+                      placeholder="es. 30"
+                      className="max-w-[120px]"
+                    />
+                    <span className="text-sm text-gray-500">%</span>
+                    {calcoloBypass && calcoloBypass.prezzoUnitario > 0 && (
+                      <span className="text-sm font-medium text-orange-700">
+                        → € {formatEuro(calcoloBypass.prezzoUnitario)} /pz
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Preview bypass */}
+            {calcoloBypass && calcoloBypass.prezzoUnitario > 0 && (
+              <>
+                <div className="flex items-center gap-4 p-3 rounded-md bg-orange-100 text-sm flex-wrap">
+                  <span className="text-gray-700">
+                    Unitario: <strong>€ {formatEuro(calcoloBypass.prezzoUnitario)}</strong>
+                  </span>
+                  <span className="text-orange-800 font-semibold ml-auto">
+                    Totale riga: € {formatEuro(calcoloBypass.totalRiga)}
+                  </span>
+                </div>
+                {(calcoloBypass.costoProd > 0 || calcoloBypass.posa > 0) && (() => {
+                  const qty = Math.max(1, parseInt(quantita) || 1)
+                  const costoTot = (calcoloBypass.costoProd + calcoloBypass.posa) * qty
+                  const utile = calcoloBypass.totalRiga - costoTot
+                  const percUtile = costoTot > 0 ? (utile / costoTot) * 100 : null
+                  return (
+                    <div className="flex items-center gap-4 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs flex-wrap">
+                      <TrendingUp className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                      <span className="text-amber-800 font-medium">Interno:</span>
+                      {calcoloBypass.costoProd > 0 && <span className="text-gray-600">Prodotto: <strong>€ {formatEuro(calcoloBypass.costoProd)}</strong>/pz</span>}
+                      {calcoloBypass.posa > 0 && <span className="text-gray-600">Posa: <strong>€ {formatEuro(calcoloBypass.posa)}</strong>/pz</span>}
+                      <span className="text-gray-600">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
+                      <span className={`font-semibold ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                        Utile: € {formatEuro(utile)}
+                        {percUtile !== null && <span className="ml-1 font-normal opacity-80">({percUtile.toFixed(1).replace('.', ',')}%)</span>}
+                      </span>
+                    </div>
+                  )
+                })()}
+              </>
+            )}
+          </div>
+        )}
+        </>
       )}
 
-      {/* Preview prezzo */}
-      {calcolo && !calcolo.error && listinoSelezionato && (
+      {/* Preview prezzo (solo modalità automatica) */}
+      {!bypassCalcolo && calcolo && !calcolo.error && listinoSelezionato && (
         <div className="flex items-center gap-4 p-3 rounded-md bg-blue-50 text-sm">
           {calcolo.arrotondata && (
             <div className="flex items-center gap-1 text-amber-700 text-xs">
@@ -523,15 +738,15 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
         </div>
       )}
 
-      {calcolo?.error && (
+      {!bypassCalcolo && calcolo?.error && (
         <p className="text-sm text-red-600 flex items-center gap-1.5">
           <AlertTriangle className="h-4 w-4" />
           {calcolo.error}
         </p>
       )}
 
-      {/* Preview costi interni */}
-      {calcolo && !calcolo.error && categoriaSelezionata && (
+      {/* Preview costi interni (solo modalità automatica) */}
+      {!bypassCalcolo && calcolo && !calcolo.error && categoriaSelezionata && (
         (() => {
           const qty = Math.max(1, parseInt(quantita) || 1)
           const L = parseInt(larghezza) || 0

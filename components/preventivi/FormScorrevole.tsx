@@ -196,6 +196,10 @@ export default function FormScorrevole({ listino, aliquote, initialValues, isEdi
       costo_posa: posaN,
       aliquota_iva: aliquota,
       ordine: 0,
+      bypass_calcolo: false,
+      costo_prodotto_bypass: null,
+      modalita_prezzo_bypass: null,
+      percentuale_utile_bypass: null,
     }
     onAdd(articolo)
   }

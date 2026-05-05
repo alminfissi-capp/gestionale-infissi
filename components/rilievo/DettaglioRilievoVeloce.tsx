@@ -158,6 +158,10 @@ export default function DettaglioRilievoVeloce({ rilievo: rilievoInit, opzioni, 
             aliquota_iva: null,
             ordine: i,
             config_winconfig: config,
+            bypass_calcolo: false,
+            costo_prodotto_bypass: null,
+            modalita_prezzo_bypass: null,
+            percentuale_utile_bypass: null,
           }
         })
         const { id } = await createPreventivo({

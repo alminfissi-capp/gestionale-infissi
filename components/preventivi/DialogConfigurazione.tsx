@@ -233,6 +233,10 @@ function FormGriglia({
       costo_posa: parseFloat(costoPosa) || 0,
       aliquota_iva: aliquotaIva,
       ordine: 0,
+      bypass_calcolo: initialValues?.bypass_calcolo ?? false,
+      costo_prodotto_bypass: initialValues?.costo_prodotto_bypass ?? null,
+      modalita_prezzo_bypass: initialValues?.modalita_prezzo_bypass ?? null,
+      percentuale_utile_bypass: initialValues?.percentuale_utile_bypass ?? null,
     })
   }
 
@@ -673,6 +677,10 @@ function FormLibero({
       costo_posa: parseFloat(costoPosa) || 0,
       aliquota_iva: aliquotaIva,
       ordine: 0,
+      bypass_calcolo: initialValues?.bypass_calcolo ?? false,
+      costo_prodotto_bypass: initialValues?.costo_prodotto_bypass ?? null,
+      modalita_prezzo_bypass: initialValues?.modalita_prezzo_bypass ?? null,
+      percentuale_utile_bypass: initialValues?.percentuale_utile_bypass ?? null,
     })
   }
 

@@ -102,6 +102,10 @@ export type ArticoloPreventivoRow = {
   aliquota_iva: number | null
   ordine: number
   created_at: string
+  bypass_calcolo: boolean
+  costo_prodotto_bypass: number | null
+  modalita_prezzo_bypass: 'manuale' | 'percentuale' | null
+  percentuale_utile_bypass: number | null
   /** Quota di spese trasporto attribuita a questo articolo (calcolata al volo, non in DB) */
   quota_trasporto?: number
   /** Configurazione completa per articoli tipo 'scorrevole' */

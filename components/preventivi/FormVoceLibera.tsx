@@ -138,6 +138,10 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
         costo_posa: parseFloat(costoManodopera) || 0,
         aliquota_iva: aliquotaIva,
         ordine: 0,
+        bypass_calcolo: false,
+        costo_prodotto_bypass: null,
+        modalita_prezzo_bypass: null,
+        percentuale_utile_bypass: null,
       }
 
       onAdd(articolo)

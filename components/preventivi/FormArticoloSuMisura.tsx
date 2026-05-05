@@ -296,6 +296,10 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
       aliquota_iva: aliquotaIva,
       ordine: 0,
       config_su_misura: config,
+      bypass_calcolo: false,
+      costo_prodotto_bypass: null,
+      modalita_prezzo_bypass: null,
+      percentuale_utile_bypass: null,
     }
 
     onAdd(articolo)
