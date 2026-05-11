@@ -78,6 +78,10 @@ async function getSettingsPubblici(orgId: string): Promise<Settings | null> {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { token } = await params
+  const hdrs = await headers()
+  const host = hdrs.get('host') || 'gestionale-infissi.vercel.app'
+  const baseUrl = host.startsWith('localhost') ? `http://${host}` : `https://${host}`
+
   const preventivo = await getPreventivoByToken(token)
   if (!preventivo) return { title: 'Preventivo' }
   const s = preventivo.cliente_snapshot
@@ -93,7 +97,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title,
       description: 'Visualizza il tuo preventivo',
-      images: [{ url: `${process.env.NEXT_PUBLIC_APP_URL}/icon-512.png`, width: 512, height: 512, alt: 'WinStudio' }],
+      images: [{ url: `${baseUrl}/icon-512.png`, width: 512, height: 512, alt: 'WinStudio' }],
     },
   }
 }
