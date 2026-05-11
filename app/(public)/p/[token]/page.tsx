@@ -93,7 +93,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title,
       description: 'Visualizza il tuo preventivo',
-      images: [{ url: '/icon-512.png', width: 512, height: 512, alt: 'WinStudio' }],
+      images: [{ url: `${process.env.NEXT_PUBLIC_APP_URL}/icon-512.png`, width: 512, height: 512, alt: 'WinStudio' }],
     },
   }
 }
