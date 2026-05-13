@@ -1,5 +1,14 @@
 export type MetodoPagamento = 'contanti' | 'bonifico' | 'riba' | 'altro'
-export type StatoCommessa = 'in_lavorazione' | 'completata' | 'annullata'
+export type StatoCommessa =
+  | 'in_attesa'
+  | 'da_iniziare'
+  | 'in_lavorazione'
+  | 'da_consegnare'
+  | 'consegnato'
+  | 'parzialmente_consegnato'
+  | 'concluso'
+  | 'bloccato'
+  | 'annullato'
 
 export type Commessa = {
   id: string

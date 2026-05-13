@@ -52,9 +52,37 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { deleteCommessa, duplicaCommessa, updateOrdineCommesse } from '@/actions/commesse'
+import { deleteCommessa, duplicaCommessa, updateOrdineCommesse, updateStatoCommessa } from '@/actions/commesse'
 import { formatEuro } from '@/lib/pricing'
-import type { CommessaCompleta, PreventivoPerCommessa, UtentePerCommessa } from '@/types/commessa'
+import type { CommessaCompleta, PreventivoPerCommessa, StatoCommessa, UtentePerCommessa } from '@/types/commessa'
+
+const STATI: { value: StatoCommessa; label: string }[] = [
+  { value: 'in_attesa',                label: 'In attesa' },
+  { value: 'da_iniziare',              label: 'Da iniziare' },
+  { value: 'in_lavorazione',           label: 'In lavorazione' },
+  { value: 'da_consegnare',            label: 'Da consegnare' },
+  { value: 'consegnato',               label: 'Consegnato' },
+  { value: 'parzialmente_consegnato',  label: 'Parz. consegnato' },
+  { value: 'concluso',                 label: 'Concluso' },
+  { value: 'bloccato',                 label: 'Bloccato' },
+  { value: 'annullato',                label: 'Annullato' },
+]
+
+function statoRowClass(stato: StatoCommessa): string {
+  if (stato === 'concluso')   return 'bg-sky-50'
+  if (stato === 'bloccato')   return 'bg-orange-50'
+  if (stato === 'annullato')  return 'bg-red-50'
+  if (stato === 'in_attesa')  return ''
+  return 'bg-yellow-50'
+}
+
+function statoBadgeClass(stato: StatoCommessa): string {
+  if (stato === 'concluso')   return 'bg-sky-100 text-sky-700 border-sky-200'
+  if (stato === 'bloccato')   return 'bg-orange-100 text-orange-700 border-orange-200'
+  if (stato === 'annullato')  return 'bg-red-100 text-red-700 border-red-200'
+  if (stato === 'in_attesa')  return 'bg-gray-100 text-gray-500 border-gray-200'
+  return 'bg-yellow-100 text-yellow-700 border-yellow-200'
+}
 import DialogCommessa from './DialogCommessa'
 import DialogAcconto from './DialogAcconto'
 import DialogDocumenti from './DialogDocumenti'
@@ -84,9 +112,10 @@ interface RowProps {
   onAcconto: () => void
   onDocumenti: () => void
   onPrevManuale: () => void
+  onStatoChange: (s: StatoCommessa) => void
 }
 
-function SortableRow({ c, onEdit, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale }: RowProps) {
+function SortableRow({ c, onEdit, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange }: RowProps) {
   const {
     attributes,
     listeners,
@@ -110,7 +139,7 @@ function SortableRow({ c, onEdit, onDelete, onDuplica, onAcconto, onDocumenti, o
     <TableRow
       ref={setNodeRef}
       style={style}
-      className={isDragging ? 'opacity-40 bg-blue-50' : ''}
+      className={isDragging ? 'opacity-40 bg-blue-50' : statoRowClass(c.stato)}
       {...attributes}
     >
       {/* Drag handle */}
@@ -202,6 +231,31 @@ function SortableRow({ c, onEdit, onDelete, onDuplica, onAcconto, onDocumenti, o
 
       <TableCell className="font-mono text-sm">
         {c.numero_commessa || <span className="text-gray-300">—</span>}
+      </TableCell>
+
+      {/* Stato */}
+      <TableCell>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap ${statoBadgeClass(c.stato)}`}
+              title="Cambia stato"
+            >
+              {STATI.find((s) => s.value === c.stato)?.label ?? c.stato}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {STATI.map((s) => (
+              <DropdownMenuItem
+                key={s.value}
+                onClick={() => onStatoChange(s.value)}
+                className={c.stato === s.value ? 'font-semibold' : ''}
+              >
+                {s.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </TableCell>
 
       <TableCell className="text-sm text-gray-600 whitespace-nowrap">
@@ -337,6 +391,16 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
     }
   }
 
+  const handleStatoChange = async (id: string, stato: StatoCommessa) => {
+    setItems((prev) => prev.map((c) => (c.id === id ? { ...c, stato } : c)))
+    try {
+      await updateStatoCommessa(id, stato)
+    } catch {
+      toast.error('Errore aggiornamento stato')
+      router.refresh()
+    }
+  }
+
   const openEdit = (c: CommessaCompleta) => {
     setEditingCommessa(c)
     setDialogCommessa(true)
@@ -394,6 +458,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
                   <TableHead className="text-right min-w-[130px]">Acconti</TableHead>
                   <TableHead className="text-right min-w-[100px]">Saldo</TableHead>
                   <TableHead className="min-w-[110px]">N. Commessa</TableHead>
+                  <TableHead className="min-w-[130px]">Stato</TableHead>
                   <TableHead className="min-w-[110px]">Mese</TableHead>
                   <TableHead className="min-w-[110px]">Operatore</TableHead>
                   <TableHead className="text-center min-w-[80px]">Docs</TableHead>
@@ -412,6 +477,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
                       onAcconto={() => setDialogAcconto(c)}
                       onDocumenti={() => setDialogDocumenti(c)}
                       onPrevManuale={() => setDialogPrevManuale(c)}
+                      onStatoChange={(s) => handleStatoChange(c.id, s)}
                     />
                   ))}
                 </SortableContext>

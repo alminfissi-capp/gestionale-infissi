@@ -220,6 +220,16 @@ export async function duplicaCommessa(id: string): Promise<{ id: string }> {
   return { id: nuova.id }
 }
 
+export async function updateStatoCommessa(id: string, stato: import('@/types/commessa').StatoCommessa): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('commesse')
+    .update({ stato, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/commesse')
+}
+
 export async function updateOrdineCommesse(updates: { id: string; ordine: number }[]): Promise<void> {
   const supabase = await createClient()
   await Promise.all(
