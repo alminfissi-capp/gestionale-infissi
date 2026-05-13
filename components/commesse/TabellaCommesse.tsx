@@ -263,16 +263,16 @@ function SortableRow({ c, onEdit, onDelete, onDuplica, onAcconto, onDocumenti, o
         {formatMese(c.data_conferma)}
       </TableCell>
 
-      <TableCell className="text-sm text-gray-600">
-        {c.operatore_nome || <span className="text-gray-300">—</span>}
+      <TableCell className="text-sm text-gray-600 max-w-[90px]">
+        <span className="truncate block">{c.operatore_nome || <span className="text-gray-300">—</span>}</span>
       </TableCell>
 
       {/* Reparti */}
-      <TableCell>
+      <TableCell className="max-w-[110px]">
         {c.reparti && c.reparti.length > 0 ? (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-0.5">
             {c.reparti.map((r) => (
-              <span key={r} className="rounded-full bg-teal-50 border border-teal-200 text-teal-700 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap">
+              <span key={r} className="rounded-sm bg-teal-50 border border-teal-200 text-teal-700 px-1 py-0 text-[10px] font-medium whitespace-nowrap leading-5">
                 {REPARTI.find((x) => x.value === r)?.label ?? r}
               </span>
             ))}
@@ -283,7 +283,7 @@ function SortableRow({ c, onEdit, onDelete, onDuplica, onAcconto, onDocumenti, o
       </TableCell>
 
       {/* Documenti */}
-      <TableCell className="text-center">
+      <TableCell className="w-10 px-1">
         <Button
           variant="ghost"
           size="icon"
@@ -491,9 +491,9 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
                   <TableHead className="min-w-[110px]">N. Commessa</TableHead>
                   <TableHead className="min-w-[130px]">Stato</TableHead>
                   <TableHead className="min-w-[110px]">Mese</TableHead>
-                  <TableHead className="min-w-[110px]">Operatore</TableHead>
-                  <TableHead className="min-w-[160px]">Reparto</TableHead>
-                  <TableHead className="text-center min-w-[80px]">Docs</TableHead>
+                  <TableHead className="min-w-[70px]">Operatore</TableHead>
+                  <TableHead className="min-w-[80px]">Reparto</TableHead>
+                  <TableHead className="w-10" />
                   <TableHead className="w-12" />
                 </TableRow>
               </TableHeader>
