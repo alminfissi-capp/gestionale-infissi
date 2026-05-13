@@ -355,6 +355,13 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
     )
   }, [items, search])
 
+  const totali = useMemo(() => ({
+    totale: filtered.reduce((s, c) => s + c.totale, 0),
+    iva:    filtered.reduce((s, c) => s + c.iva_totale, 0),
+    saldo:  filtered.reduce((s, c) => s + c.saldo, 0),
+    count:  filtered.length,
+  }), [filtered])
+
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return
     setItems((prev) => {
@@ -527,6 +534,25 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
           documenti={dialogPrevManuale.documenti}
         />
       )}
+
+      {/* Barra totali sticky */}
+      <div className="sticky bottom-0 z-10 flex items-center justify-between gap-4 border-t bg-white px-4 py-2.5 text-sm shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
+        <span className="text-gray-400 whitespace-nowrap">
+          {totali.count} {totali.count === 1 ? 'commessa' : 'commesse'}
+          {search ? ' trovate' : ''}
+        </span>
+        <div className="flex items-center gap-6 font-medium">
+          <span className="text-gray-600">
+            Totale: <span className="text-gray-900">{formatEuro(totali.totale)}</span>
+          </span>
+          <span className="text-gray-500">
+            IVA: <span className="text-gray-700">{formatEuro(totali.iva)}</span>
+          </span>
+          <span className={totali.saldo > 0.005 ? 'text-orange-600' : 'text-green-600'}>
+            Saldo: <span className="font-bold">{formatEuro(totali.saldo)}</span>
+          </span>
+        </div>
+      </div>
 
       <AlertDialog open={!!deletingId} onOpenChange={(open) => !open && setDeletingId(null)}>
         <AlertDialogContent>
