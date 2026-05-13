@@ -452,7 +452,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
 
       {/* Tabella */}
       {filtered.length > 0 && (
-        <div className="rounded-md border bg-white overflow-x-auto">
+        <div className="rounded-md border bg-white overflow-auto max-h-[calc(100vh-12rem)]">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <Table>
               <TableHeader>
@@ -489,6 +489,34 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
                   ))}
                 </SortableContext>
               </TableBody>
+              <tfoot>
+                <tr className="border-t-2 border-gray-100">
+                  {/* drag handle */}
+                  <td className="sticky bottom-0 bg-white py-2.5 w-8" />
+                  {/* Cliente — etichetta conteggio */}
+                  <td className="sticky bottom-0 bg-white py-2.5 pl-4 text-xs text-gray-400 whitespace-nowrap">
+                    {totali.count} {totali.count === 1 ? 'commessa' : 'commesse'}{search ? ' trovate' : ''}
+                  </td>
+                  {/* N. Prev */}
+                  <td className="sticky bottom-0 bg-white py-2.5 px-4" />
+                  {/* Totale */}
+                  <td className="sticky bottom-0 bg-white py-2.5 px-4 text-right text-sm font-bold text-gray-900 whitespace-nowrap">
+                    {formatEuro(totali.totale)}
+                  </td>
+                  {/* IVA */}
+                  <td className="sticky bottom-0 bg-white py-2.5 px-4 text-right text-sm text-gray-600 whitespace-nowrap">
+                    {formatEuro(totali.iva)}
+                  </td>
+                  {/* Acconti */}
+                  <td className="sticky bottom-0 bg-white py-2.5 px-4" />
+                  {/* Saldo */}
+                  <td className={`sticky bottom-0 bg-white py-2.5 px-4 text-right text-sm font-bold whitespace-nowrap ${totali.saldo > 0.005 ? 'text-orange-600' : 'text-green-600'}`}>
+                    {formatEuro(totali.saldo)}
+                  </td>
+                  {/* N. Commessa, Stato, Mese, Operatore, Docs, Menu */}
+                  <td className="sticky bottom-0 bg-white" colSpan={6} />
+                </tr>
+              </tfoot>
             </Table>
           </DndContext>
         </div>
@@ -534,25 +562,6 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
           documenti={dialogPrevManuale.documenti}
         />
       )}
-
-      {/* Barra totali sticky */}
-      <div className="sticky bottom-0 z-10 flex items-center justify-between gap-4 border-t bg-white px-4 py-2.5 text-sm shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
-        <span className="text-gray-400 whitespace-nowrap">
-          {totali.count} {totali.count === 1 ? 'commessa' : 'commesse'}
-          {search ? ' trovate' : ''}
-        </span>
-        <div className="flex items-center gap-6 font-medium">
-          <span className="text-gray-600">
-            Totale: <span className="text-gray-900">{formatEuro(totali.totale)}</span>
-          </span>
-          <span className="text-gray-500">
-            IVA: <span className="text-gray-700">{formatEuro(totali.iva)}</span>
-          </span>
-          <span className={totali.saldo > 0.005 ? 'text-orange-600' : 'text-green-600'}>
-            Saldo: <span className="font-bold">{formatEuro(totali.saldo)}</span>
-          </span>
-        </div>
-      </div>
 
       <AlertDialog open={!!deletingId} onOpenChange={(open) => !open && setDeletingId(null)}>
         <AlertDialogContent>
