@@ -21,7 +21,7 @@ export async function getCommesse(): Promise<CommessaCompleta[]> {
       .from('commesse')
       .select('*')
       .eq('organization_id', orgId)
-      .order('data_conferma', { ascending: false }),
+      .order('ordine', { ascending: true }),
     supabase
       .from('acconti_commessa')
       .select('*')
@@ -172,6 +172,62 @@ export async function getPreventiviPerCommessa(): Promise<PreventivoPerCommessa[
       totale: tot,
     }
   })
+}
+
+export async function duplicaCommessa(id: string): Promise<{ id: string }> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { data: orig, error } = await supabase
+    .from('commesse')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (error || !orig) throw new Error('Commessa non trovata')
+
+  const { data: maxRow } = await supabase
+    .from('commesse')
+    .select('ordine')
+    .eq('organization_id', orgId)
+    .order('ordine', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const nextOrdine = (maxRow?.ordine ?? 0) + 1
+
+  const { data: nuova, error: insertError } = await supabase
+    .from('commesse')
+    .insert({
+      organization_id: orgId,
+      numero_commessa: orig.numero_commessa ? `${orig.numero_commessa} (copia)` : '',
+      preventivo_id: orig.preventivo_id,
+      numero_preventivo: orig.numero_preventivo,
+      cliente_nome: orig.cliente_nome,
+      imponibile: orig.imponibile,
+      iva_totale: orig.iva_totale,
+      totale: orig.totale,
+      data_conferma: orig.data_conferma,
+      operatore_id: orig.operatore_id,
+      operatore_nome: orig.operatore_nome,
+      note: orig.note,
+      ordine: nextOrdine,
+    })
+    .select('id')
+    .single()
+
+  if (insertError) throw new Error(insertError.message)
+  revalidatePath('/commesse')
+  return { id: nuova.id }
+}
+
+export async function updateOrdineCommesse(updates: { id: string; ordine: number }[]): Promise<void> {
+  const supabase = await createClient()
+  await Promise.all(
+    updates.map(({ id, ordine }) =>
+      supabase.from('commesse').update({ ordine }).eq('id', id)
+    )
+  )
+  revalidatePath('/commesse')
 }
 
 export async function getUtentiPerCommessa(): Promise<UtentePerCommessa[]> {
