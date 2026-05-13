@@ -33,6 +33,8 @@ interface Props {
   preventivoDaConvertire?: PreventivoPerCommessa | null
 }
 
+const round2 = (n: number) => Math.round(n * 100) / 100
+
 const today = () => new Date().toISOString().split('T')[0]
 
 const emptyForm = (): CommessaInput => ({
@@ -78,14 +80,16 @@ export default function DialogCommessa({
         note: commessa.note,
       })
     } else if (preventivoDaConvertire) {
+      const imp = round2(preventivoDaConvertire.imponibile)
+      const iva = round2(preventivoDaConvertire.iva_totale)
       setForm({
         ...emptyForm(),
         preventivo_id: preventivoDaConvertire.id,
         numero_preventivo: preventivoDaConvertire.numero,
         cliente_nome: preventivoDaConvertire.cliente_nome,
-        imponibile: preventivoDaConvertire.imponibile,
-        iva_totale: preventivoDaConvertire.iva_totale,
-        totale: preventivoDaConvertire.totale,
+        imponibile: imp,
+        iva_totale: iva,
+        totale: round2(imp + iva),
       })
     } else {
       setForm(emptyForm())
@@ -103,14 +107,16 @@ export default function DialogCommessa({
     }
     const prev = preventivi.find((p) => p.id === pid)
     if (!prev) return
+    const imp = round2(prev.imponibile)
+    const iva = round2(prev.iva_totale)
     setForm((f) => ({
       ...f,
       preventivo_id: prev.id,
       numero_preventivo: prev.numero,
       cliente_nome: prev.cliente_nome,
-      imponibile: prev.imponibile,
-      iva_totale: prev.iva_totale,
-      totale: prev.totale,
+      imponibile: imp,
+      iva_totale: iva,
+      totale: round2(imp + iva),
     }))
   }
 

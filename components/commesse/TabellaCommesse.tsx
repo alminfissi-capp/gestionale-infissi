@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Plus, Search, Trash2, Pencil, Paperclip } from 'lucide-react'
@@ -56,10 +56,12 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
 
   const [dialogAcconto, setDialogAcconto] = useState<CommessaCompleta | null>(null)
   const [dialogDocumenti, setDialogDocumenti] = useState<CommessaCompleta | null>(null)
+  const autoOpenDone = useRef(false)
 
-  // Auto-apre il dialog se c'è un preventivo da convertire (query param ?from=)
+  // Auto-apre il dialog una sola volta se c'è un preventivo da convertire (?from=)
   useEffect(() => {
-    if (preventivoDaConvertire) {
+    if (preventivoDaConvertire && !autoOpenDone.current) {
+      autoOpenDone.current = true
       setEditingCommessa(null)
       setDialogCommessa(true)
     }
