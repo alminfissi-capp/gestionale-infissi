@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Upload, Trash2, FileText, Eye, Share2 } from 'lucide-react'
@@ -41,8 +41,28 @@ export default function DialogPreventivoManuale({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [urlMap, setUrlMap] = useState<Record<string, string>>({})
 
   const prevDocs = documenti.filter((d) => d.tipo_documento === 'preventivo')
+
+  // Pre-carica gli URL firmati all'apertura
+  useEffect(() => {
+    if (!open || prevDocs.length === 0) return
+    let cancelled = false
+    const load = async () => {
+      const map: Record<string, string> = {}
+      await Promise.all(
+        prevDocs.map(async (doc) => {
+          try {
+            map[doc.id] = await getDocumentoCommessaUrl(doc.storage_path)
+          } catch { /* ignora */ }
+        })
+      )
+      if (!cancelled) setUrlMap(map)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [open, documenti]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -89,30 +109,17 @@ export default function DialogPreventivoManuale({
     }
   }
 
-  const handleView = async (doc: DocumentoCommessa) => {
-    const tab = window.open('', '_blank')
-    if (!tab) { toast.error('Popup bloccato dal browser'); return }
-    try {
-      const url = await getDocumentoCommessaUrl(doc.storage_path)
-      tab.location.href = url
-    } catch {
-      tab.close()
-      toast.error('Impossibile aprire il file')
-    }
-  }
-
   const handleShare = async (doc: DocumentoCommessa) => {
+    const url = urlMap[doc.id]
+    if (!url) return
     try {
-      const url = await getDocumentoCommessaUrl(doc.storage_path)
       if (navigator.share) {
         await navigator.share({ title: doc.nome_file, url })
       } else {
         await navigator.clipboard.writeText(url)
         toast.success('Link copiato negli appunti (valido 1 ora)')
       }
-    } catch {
-      toast.error('Impossibile condividere il file')
-    }
+    } catch { /* annullato dall'utente */ }
   }
 
   const formatData = (d: string) => new Date(d).toLocaleDateString('it-IT')
@@ -130,46 +137,54 @@ export default function DialogPreventivoManuale({
         {/* Lista file */}
         {prevDocs.length > 0 ? (
           <div className="space-y-2">
-            {prevDocs.map((doc) => (
-              <div
-                key={doc.id}
-                className="flex items-center gap-2 rounded-md border p-2.5 bg-gray-50"
-              >
-                <FileText className="h-4 w-4 text-red-400 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{doc.nome_file}</p>
-                  <p className="text-xs text-gray-400">{formatData(doc.created_at)}</p>
+            {prevDocs.map((doc) => {
+              const url = urlMap[doc.id]
+              return (
+                <div key={doc.id} className="flex items-center gap-2 rounded-md border p-2.5 bg-gray-50">
+                  <FileText className="h-4 w-4 text-red-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{doc.nome_file}</p>
+                    <p className="text-xs text-gray-400">{formatData(doc.created_at)}</p>
+                  </div>
+                  {/* Visualizza — vero <a> tag, nessun popup blocker */}
+                  {url ? (
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center h-7 w-7 rounded-md text-gray-400 hover:text-blue-600 hover:bg-accent transition-colors"
+                      title="Visualizza"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </a>
+                  ) : (
+                    <span className="inline-flex items-center justify-center h-7 w-7 text-gray-200" title="Caricamento...">
+                      <Eye className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-gray-400 hover:text-teal-600"
+                    onClick={() => handleShare(doc)}
+                    disabled={!url}
+                    title="Condividi / copia link"
+                  >
+                    <Share2 className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-red-400 hover:text-red-600"
+                    disabled={deletingId === doc.id}
+                    onClick={() => handleDelete(doc)}
+                    title="Elimina"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-gray-400 hover:text-blue-600"
-                  onClick={() => handleView(doc)}
-                  title="Visualizza"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-gray-400 hover:text-teal-600"
-                  onClick={() => handleShare(doc)}
-                  title="Condividi / copia link"
-                >
-                  <Share2 className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-red-400 hover:text-red-600"
-                  disabled={deletingId === doc.id}
-                  onClick={() => handleDelete(doc)}
-                  title="Elimina"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <p className="text-sm text-gray-400 text-center py-3">
