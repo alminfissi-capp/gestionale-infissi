@@ -2,8 +2,9 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { toast } from 'sonner'
-import { Plus, Search, Trash2, Pencil, Paperclip } from 'lucide-react'
+import { Plus, Search, Trash2, Pencil, Paperclip, FileText, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -31,6 +32,7 @@ import type { CommessaCompleta, PreventivoPerCommessa, UtentePerCommessa } from 
 import DialogCommessa from './DialogCommessa'
 import DialogAcconto from './DialogAcconto'
 import DialogDocumenti from './DialogDocumenti'
+import DialogPreventivoManuale from './DialogPreventivoManuale'
 
 interface Props {
   commesse: CommessaCompleta[]
@@ -56,6 +58,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
 
   const [dialogAcconto, setDialogAcconto] = useState<CommessaCompleta | null>(null)
   const [dialogDocumenti, setDialogDocumenti] = useState<CommessaCompleta | null>(null)
+  const [dialogPrevManuale, setDialogPrevManuale] = useState<CommessaCompleta | null>(null)
   const autoOpenDone = useRef(false)
 
   // Auto-apre il dialog una sola volta se c'è un preventivo da convertire (?from=)
@@ -166,8 +169,37 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
                       )}
                     </TableCell>
 
-                    <TableCell className="font-mono text-xs text-gray-500">
-                      {c.numero_preventivo || '—'}
+                    <TableCell>
+                      {c.preventivo_id ? (
+                        <Link
+                          href={`/preventivi/${c.preventivo_id}`}
+                          className="font-mono text-xs text-teal-600 hover:underline"
+                          title="Apri preventivo"
+                        >
+                          {c.numero_preventivo || 'Vedi prev.'}
+                        </Link>
+                      ) : (() => {
+                        const nPrev = c.documenti.filter((d) => d.tipo_documento === 'preventivo').length
+                        return (
+                          <button
+                            onClick={() => setDialogPrevManuale(c)}
+                            className="group flex items-center gap-1 text-left"
+                            title={nPrev > 0 ? 'Vedi PDF preventivo' : 'Carica PDF preventivo'}
+                          >
+                            <span className="font-mono text-xs text-gray-500 group-hover:text-gray-800">
+                              {c.numero_preventivo || '—'}
+                            </span>
+                            {nPrev > 0 ? (
+                              <span className="flex items-center gap-0.5 text-[10px] bg-blue-100 text-blue-600 rounded px-1">
+                                <FileText className="h-2.5 w-2.5" />
+                                {nPrev}
+                              </span>
+                            ) : (
+                              <Upload className="h-3 w-3 text-gray-300 group-hover:text-teal-500" />
+                            )}
+                          </button>
+                        )
+                      })()}
                     </TableCell>
 
                     <TableCell className="text-right text-sm">
@@ -301,6 +333,18 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
           commessaId={dialogDocumenti.id}
           clienteNome={dialogDocumenti.cliente_nome}
           documenti={dialogDocumenti.documenti}
+        />
+      )}
+
+      {/* Dialog PDF preventivo manuale */}
+      {dialogPrevManuale && (
+        <DialogPreventivoManuale
+          open={!!dialogPrevManuale}
+          onOpenChange={(v) => { if (!v) setDialogPrevManuale(null) }}
+          commessaId={dialogPrevManuale.id}
+          clienteNome={dialogPrevManuale.cliente_nome}
+          numeroPrev={dialogPrevManuale.numero_preventivo}
+          documenti={dialogPrevManuale.documenti}
         />
       )}
 
