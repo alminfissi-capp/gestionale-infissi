@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown, RotateCcw, SlidersHorizontal, MailCheck, MessageCircle } from 'lucide-react'
+import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown, RotateCcw, SlidersHorizontal, MailCheck, MessageCircle, Briefcase } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
 import { usePermissions } from '@/contexts/PermissionsContext'
@@ -377,6 +377,19 @@ export default function TabellaPreventivi({ preventivi }: Props) {
                             <BarChart2 className="h-3.5 w-3.5" />
                           </Link>
                         </Button>
+                        {p.stato === 'accettato' && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-green-600 hover:text-green-800"
+                            asChild
+                            title="Converti in commessa"
+                          >
+                            <Link href={`/commesse?from=${p.id}`}>
+                              <Briefcase className="h-3.5 w-3.5" />
+                            </Link>
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"

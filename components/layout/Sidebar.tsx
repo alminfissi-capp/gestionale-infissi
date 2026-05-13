@@ -20,6 +20,7 @@ import {
   Wrench,
   Warehouse,
   UserCog,
+  Briefcase,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -45,6 +46,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/rilievo',             label: 'Rilievo Misure',      icon: Ruler,           modulo: 'rilievo' },
   { href: '/winconfig',           label: 'WinConfig',           icon: Wrench,          modulo: 'winconfig' },
   { href: '/magazzino',           label: 'Magazzino',           icon: Warehouse,       modulo: 'magazzino' },
+  { href: '/commesse',            label: 'Commesse',            icon: Briefcase,       modulo: 'commesse' },
   { href: '/import-export',       label: 'Import / Export',     icon: Database,        modulo: 'impostazioni' },
   { href: '/impostazioni',        label: 'Impostazioni',        icon: Settings,        modulo: 'impostazioni' },
   { href: '/impostazioni/utenti', label: 'Gestione Utenti',     icon: UserCog,         modulo: 'impostazioni', adminOnly: true },

@@ -8,6 +8,7 @@ export const MODULI_APP = [
   'rilievo',
   'winconfig',
   'magazzino',
+  'commesse',
   'impostazioni',
 ] as const
 
@@ -21,6 +22,7 @@ export const MODULO_LABELS: Record<ModuloApp, string> = {
   rilievo:      'Rilievo Misure',
   winconfig:    'WinConfig',
   magazzino:    'Magazzino',
+  commesse:     'Commesse',
   impostazioni: 'Impostazioni',
 }
 
@@ -34,6 +36,7 @@ export const PERMESSI_ADMIN: PermessiUtente = {
   rilievo:      'scrittura',
   winconfig:    'scrittura',
   magazzino:    'scrittura',
+  commesse:     'scrittura',
   impostazioni: 'scrittura',
 }
 
@@ -45,6 +48,7 @@ export const PERMESSI_VUOTI: PermessiUtente = {
   rilievo:      'nessuno',
   winconfig:    'nessuno',
   magazzino:    'nessuno',
+  commesse:     'nessuno',
   impostazioni: 'nessuno',
 }
 
