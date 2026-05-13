@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Upload, Trash2, FileText, Download } from 'lucide-react'
+import { Upload, Trash2, FileText, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -128,9 +128,9 @@ export default function DialogPreventivoManuale({
                   size="icon"
                   className="h-7 w-7 text-gray-400 hover:text-blue-600"
                   onClick={() => handleDownload(doc)}
-                  title="Apri / scarica"
+                  title="Visualizza"
                 >
-                  <Download className="h-3.5 w-3.5" />
+                  <Eye className="h-3.5 w-3.5" />
                 </Button>
                 <Button
                   variant="ghost"
