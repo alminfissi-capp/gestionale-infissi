@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Upload, Trash2, FileText, Eye } from 'lucide-react'
+import { Upload, Trash2, FileText, Eye, Share2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -89,12 +89,29 @@ export default function DialogPreventivoManuale({
     }
   }
 
-  const handleDownload = async (doc: DocumentoCommessa) => {
+  const handleView = async (doc: DocumentoCommessa) => {
+    const tab = window.open('', '_blank')
+    if (!tab) { toast.error('Popup bloccato dal browser'); return }
     try {
       const url = await getDocumentoCommessaUrl(doc.storage_path)
-      window.open(url, '_blank')
+      tab.location.href = url
     } catch {
+      tab.close()
       toast.error('Impossibile aprire il file')
+    }
+  }
+
+  const handleShare = async (doc: DocumentoCommessa) => {
+    try {
+      const url = await getDocumentoCommessaUrl(doc.storage_path)
+      if (navigator.share) {
+        await navigator.share({ title: doc.nome_file, url })
+      } else {
+        await navigator.clipboard.writeText(url)
+        toast.success('Link copiato negli appunti (valido 1 ora)')
+      }
+    } catch {
+      toast.error('Impossibile condividere il file')
     }
   }
 
@@ -127,10 +144,19 @@ export default function DialogPreventivoManuale({
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 text-gray-400 hover:text-blue-600"
-                  onClick={() => handleDownload(doc)}
+                  onClick={() => handleView(doc)}
                   title="Visualizza"
                 >
                   <Eye className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-gray-400 hover:text-teal-600"
+                  onClick={() => handleShare(doc)}
+                  title="Condividi / copia link"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
                 </Button>
                 <Button
                   variant="ghost"
