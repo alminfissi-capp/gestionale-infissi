@@ -349,9 +349,16 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
     const q = search.toLowerCase().trim()
     if (!q) return items
     return items.filter((c) =>
-      [c.cliente_nome, c.numero_commessa, c.numero_preventivo, c.operatore_nome].some(
-        (f) => f?.toLowerCase().includes(q)
-      )
+      [
+        c.cliente_nome,
+        c.numero_commessa,
+        c.numero_preventivo,
+        c.operatore_nome,
+        c.note,
+        formatMese(c.data_conferma),
+        c.stato,
+        STATI.find((s) => s.value === c.stato)?.label,
+      ].some((f) => f?.toLowerCase().includes(q))
     )
   }, [items, search])
 
