@@ -210,6 +210,7 @@ export async function duplicaCommessa(id: string): Promise<{ id: string }> {
       operatore_id: orig.operatore_id,
       operatore_nome: orig.operatore_nome,
       note: orig.note,
+      reparti: orig.reparti ?? [],
       ordine: nextOrdine,
     })
     .select('id')

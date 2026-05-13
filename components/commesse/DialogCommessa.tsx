@@ -22,7 +22,8 @@ import {
 } from '@/components/ui/select'
 import { createCommessa, updateCommessa } from '@/actions/commesse'
 import { formatEuro } from '@/lib/pricing'
-import type { CommessaCompleta, CommessaInput, PreventivoPerCommessa, UtentePerCommessa } from '@/types/commessa'
+import type { CommessaCompleta, CommessaInput, PreventivoPerCommessa, Reparto, UtentePerCommessa } from '@/types/commessa'
+import { REPARTI } from '@/types/commessa'
 
 interface Props {
   open: boolean
@@ -49,6 +50,7 @@ const emptyForm = (): CommessaInput => ({
   operatore_id: null,
   operatore_nome: null,
   note: null,
+  reparti: [],
 })
 
 export default function DialogCommessa({
@@ -78,6 +80,7 @@ export default function DialogCommessa({
         operatore_id: commessa.operatore_id,
         operatore_nome: commessa.operatore_nome,
         note: commessa.note,
+        reparti: commessa.reparti ?? [],
       })
     } else if (preventivoDaConvertire) {
       const imp = round2(preventivoDaConvertire.imponibile)
@@ -132,6 +135,13 @@ export default function DialogCommessa({
   const setField = (k: keyof CommessaInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const v = e.target.value
     setForm((f) => ({ ...f, [k]: v }))
+  }
+
+  const toggleReparto = (r: Reparto) => {
+    setForm((f) => ({
+      ...f,
+      reparti: f.reparti.includes(r) ? f.reparti.filter((x) => x !== r) : [...f.reparti, r],
+    }))
   }
 
   const setNumber = (k: 'imponibile' | 'iva_totale') => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -278,6 +288,30 @@ export default function DialogCommessa({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Reparti */}
+          <div className="space-y-2">
+            <Label>Reparto</Label>
+            <div className="flex flex-wrap gap-2">
+              {REPARTI.map((r) => {
+                const checked = form.reparti.includes(r.value)
+                return (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => toggleReparto(r.value)}
+                    className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+                      checked
+                        ? 'bg-teal-600 border-teal-600 text-white'
+                        : 'border-gray-300 text-gray-600 hover:border-teal-400 hover:text-teal-600'
+                    }`}
+                  >
+                    {r.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           {/* Note */}

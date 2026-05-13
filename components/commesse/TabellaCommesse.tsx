@@ -55,6 +55,7 @@ import {
 import { deleteCommessa, duplicaCommessa, updateOrdineCommesse, updateStatoCommessa } from '@/actions/commesse'
 import { formatEuro } from '@/lib/pricing'
 import type { CommessaCompleta, PreventivoPerCommessa, StatoCommessa, UtentePerCommessa } from '@/types/commessa'
+import { REPARTI } from '@/types/commessa'
 
 const STATI: { value: StatoCommessa; label: string }[] = [
   { value: 'in_attesa',                label: 'In attesa' },
@@ -266,6 +267,21 @@ function SortableRow({ c, onEdit, onDelete, onDuplica, onAcconto, onDocumenti, o
         {c.operatore_nome || <span className="text-gray-300">—</span>}
       </TableCell>
 
+      {/* Reparti */}
+      <TableCell>
+        {c.reparti && c.reparti.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {c.reparti.map((r) => (
+              <span key={r} className="rounded-full bg-teal-50 border border-teal-200 text-teal-700 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap">
+                {REPARTI.find((x) => x.value === r)?.label ?? r}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span className="text-gray-300">—</span>
+        )}
+      </TableCell>
+
       {/* Documenti */}
       <TableCell className="text-center">
         <Button
@@ -358,6 +374,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
         formatMese(c.data_conferma),
         c.stato,
         STATI.find((s) => s.value === c.stato)?.label,
+        (c.reparti ?? []).map((r) => REPARTI.find((x) => x.value === r)?.label ?? r).join(' '),
       ].some((f) => f?.toLowerCase().includes(q))
     )
   }, [items, search])
@@ -475,6 +492,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
                   <TableHead className="min-w-[130px]">Stato</TableHead>
                   <TableHead className="min-w-[110px]">Mese</TableHead>
                   <TableHead className="min-w-[110px]">Operatore</TableHead>
+                  <TableHead className="min-w-[160px]">Reparto</TableHead>
                   <TableHead className="text-center min-w-[80px]">Docs</TableHead>
                   <TableHead className="w-12" />
                 </TableRow>
@@ -520,8 +538,8 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
                   <td className={`sticky bottom-0 bg-white py-2.5 px-4 text-right text-sm font-bold whitespace-nowrap ${totali.saldo > 0.005 ? 'text-orange-600' : 'text-green-600'}`}>
                     {formatEuro(totali.saldo)}
                   </td>
-                  {/* N. Commessa, Stato, Mese, Operatore, Docs, Menu */}
-                  <td className="sticky bottom-0 bg-white" colSpan={6} />
+                  {/* N. Commessa, Stato, Mese, Operatore, Reparto, Docs, Menu */}
+                  <td className="sticky bottom-0 bg-white" colSpan={7} />
                 </tr>
               </tfoot>
             </Table>

@@ -1,4 +1,12 @@
 export type MetodoPagamento = 'contanti' | 'bonifico' | 'riba' | 'altro'
+export type Reparto = 'alluminio' | 'ferro' | 'servizi' | 'rivendita' | 'ebay'
+export const REPARTI: { value: Reparto; label: string }[] = [
+  { value: 'alluminio', label: 'Alluminio' },
+  { value: 'ferro',     label: 'Ferro' },
+  { value: 'servizi',   label: 'Servizi' },
+  { value: 'rivendita', label: 'Rivendita' },
+  { value: 'ebay',      label: 'Ebay' },
+]
 export type StatoCommessa =
   | 'in_attesa'
   | 'da_iniziare'
@@ -25,6 +33,7 @@ export type Commessa = {
   operatore_nome: string | null
   note: string | null
   stato: StatoCommessa
+  reparti: Reparto[]
   created_at: string
   updated_at: string
 }
@@ -69,6 +78,7 @@ export type CommessaInput = {
   operatore_id: string | null
   operatore_nome: string | null
   note: string | null
+  reparti: Reparto[]
 }
 
 export type AccontoInput = {
