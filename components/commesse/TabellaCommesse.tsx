@@ -145,7 +145,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
               <TableRow>
                 <TableHead className="min-w-[140px]">Cliente</TableHead>
                 <TableHead className="min-w-[90px]">N. Prev.</TableHead>
-                <TableHead className="text-right min-w-[100px]">Imponibile</TableHead>
+                <TableHead className="text-right min-w-[100px]">Totale</TableHead>
                 <TableHead className="text-right min-w-[80px]">IVA</TableHead>
                 <TableHead className="text-right min-w-[130px]">Acconti</TableHead>
                 <TableHead className="text-right min-w-[100px]">Saldo</TableHead>
@@ -203,7 +203,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
                     </TableCell>
 
                     <TableCell className="text-right text-sm">
-                      {formatEuro(c.imponibile)}
+                      {formatEuro(c.totale)}
                     </TableCell>
 
                     <TableCell className="text-right text-sm text-gray-500">
