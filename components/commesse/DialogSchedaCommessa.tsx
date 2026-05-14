@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import {
   Pencil, X, Plus, Trash2, Upload, FileText,
-  Eye, Share2, Check, ExternalLink,
+  Eye, Share2, Check, ExternalLink, Printer,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -232,6 +232,93 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
     setEditMode(false)
   }
 
+  const handleCondividi = async () => {
+    const righeAcconti = commessa.acconti.map(
+      (a) => `• ${formatData(a.data_pagamento)} — ${formatEuro(a.importo)} — ${METODI.find((m) => m.value === a.metodo_pagamento)?.label ?? a.metodo_pagamento}${a.note ? ` (${a.note})` : ''}`
+    )
+    const parti = [
+      `COMMESSA — ${commessa.cliente_nome}`,
+      [commessa.numero_commessa && `N. ${commessa.numero_commessa}`, statoInfo.label, formatMese(commessa.data_conferma)].filter(Boolean).join(' · '),
+      '',
+      commessa.note && `Descrizione: ${commessa.note}`,
+      commessa.numero_preventivo && `Preventivo: ${commessa.numero_preventivo}`,
+      '',
+      `Totale: ${formatEuro(commessa.totale)} (IVA ${formatEuro(commessa.iva_totale)})`,
+      ...(commessa.acconti.length > 0 ? ['', 'Pagamenti:', ...righeAcconti, `Totale acconti: ${formatEuro(commessa.totale_acconti)}`] : []),
+      '',
+      `Saldo: ${formatEuro(commessa.saldo)}`,
+    ].filter((r): r is string => typeof r === 'string')
+
+    const text = parti.join('\n')
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `Commessa — ${commessa.cliente_nome}`, text })
+      } else {
+        await navigator.clipboard.writeText(text)
+        toast.success('Scheda copiata negli appunti')
+      }
+    } catch { /* annullato */ }
+  }
+
+  const handleStampa = () => {
+    const righeAcconti = commessa.acconti
+      .map(
+        (a) => `<tr>
+          <td>${formatData(a.data_pagamento)}</td>
+          <td>${METODI.find((m) => m.value === a.metodo_pagamento)?.label ?? a.metodo_pagamento}</td>
+          <td style="text-align:right;font-weight:600">${formatEuro(a.importo)}</td>
+          <td style="color:#999">${a.note ?? ''}</td>
+        </tr>`
+      )
+      .join('')
+
+    const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<title>Commessa — ${commessa.cliente_nome}</title>
+<style>
+  body{font-family:sans-serif;max-width:680px;margin:36px auto;color:#111;font-size:14px}
+  h1{font-size:1.4rem;margin:0 0 4px}
+  .sub{color:#666;font-size:.8rem;margin-bottom:20px}
+  .sec-title{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px}
+  .big{font-size:1.4rem;font-weight:700}
+  .importi{display:flex;gap:28px;flex-wrap:wrap}
+  .imp-item .val{font-size:1.1rem;font-weight:700}
+  .imp-item .lbl{font-size:.7rem;color:#999}
+  table{width:100%;border-collapse:collapse;margin-top:4px}
+  th{text-align:left;font-size:.7rem;color:#999;padding:3px 6px;border-bottom:1px solid #eee}
+  td{padding:5px 6px;border-bottom:1px solid #f3f3f3}
+  .saldo-sec{border-top:2px solid #eee;margin-top:20px;padding-top:14px}
+  @media print{body{margin:16px}}
+</style></head><body>
+<h1>${commessa.cliente_nome}</h1>
+<p class="sub">${[commessa.numero_commessa && `N. ${commessa.numero_commessa}`, statoInfo.label, formatMese(commessa.data_conferma), commessa.operatore_nome].filter(Boolean).join(' · ')}</p>
+${commessa.note ? `<div class="sec-title">Descrizione lavori</div><p>${commessa.note}</p>` : ''}
+${commessa.numero_preventivo ? `<div class="sec-title">Preventivo</div><p style="font-family:monospace">${commessa.numero_preventivo}</p>` : ''}
+<div class="sec-title">Importi</div>
+<div class="importi">
+  <div class="imp-item"><div class="big">${formatEuro(commessa.totale)}</div><div class="lbl">Totale</div></div>
+  <div class="imp-item"><div class="val">${formatEuro(commessa.imponibile)}</div><div class="lbl">Imponibile</div></div>
+  <div class="imp-item"><div class="val">${formatEuro(commessa.iva_totale)}</div><div class="lbl">IVA</div></div>
+</div>
+${commessa.acconti.length > 0 ? `
+<div class="sec-title">Pagamenti ricevuti</div>
+<table><thead><tr><th>Data</th><th>Metodo</th><th style="text-align:right">Importo</th><th>Note</th></tr></thead>
+<tbody>${righeAcconti}</tbody></table>
+<p style="text-align:right;color:#666;margin-top:4px">Totale acconti: <strong>${formatEuro(commessa.totale_acconti)}</strong></p>` : ''}
+<div class="saldo-sec">
+  <div class="sec-title">Saldo rimanente</div>
+  <div class="big" style="color:${saldoZero ? '#16a34a' : '#ea580c'}">${formatEuro(commessa.saldo)}</div>
+  <p style="color:#666;font-size:.8rem">${saldoZero ? 'Pagato ✓' : 'Da pagare'}</p>
+</div>
+</body></html>`
+
+    const win = window.open('', '_blank')
+    if (!win) { toast.error('Abilita i popup per stampare'); return }
+    win.document.write(html)
+    win.document.close()
+    win.focus()
+    setTimeout(() => { win.print(); win.close() }, 400)
+  }
+
   // ── Acconti ───────────────────────────────────────────────
 
   const handleAddAcconto = async (e: React.FormEvent) => {
@@ -333,8 +420,9 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
       <DialogContent className="max-w-2xl max-h-[92vh] flex flex-col p-0 gap-0">
 
         {/* ── Header ── */}
-        <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b shrink-0">
-          <div className="flex-1 min-w-0 pr-3">
+        <div className="px-5 pt-5 pb-4 border-b shrink-0">
+          {/* Riga cliente — pr-14 per non sovrapporsi al tasto X del Dialog */}
+          <div className="pr-14">
             {editMode ? (
               <Input
                 value={form.cliente_nome}
@@ -361,7 +449,8 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Barra azioni — vicino alla linea separatrice */}
+          <div className="flex items-center gap-2 mt-3">
             {editMode ? (
               <>
                 <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
@@ -374,10 +463,20 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                 </Button>
               </>
             ) : (
-              <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
-                <Pencil className="h-3.5 w-3.5 mr-1.5" />
-                Modifica
-              </Button>
+              <>
+                <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                  Modifica
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleStampa}>
+                  <Printer className="h-3.5 w-3.5 mr-1.5" />
+                  Stampa
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleCondividi}>
+                  <Share2 className="h-3.5 w-3.5 mr-1.5" />
+                  Condividi
+                </Button>
+              </>
             )}
           </div>
         </div>
