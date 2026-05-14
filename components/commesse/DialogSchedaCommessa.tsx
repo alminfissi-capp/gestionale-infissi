@@ -386,16 +386,16 @@ ${allegati}
 </body></html>`
 
     const iframe = document.createElement('iframe')
-    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;'
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:800px;height:1100px;visibility:hidden;'
     document.body.appendChild(iframe)
     const doc = iframe.contentDocument ?? iframe.contentWindow?.document
     if (!doc) { toast.error('Errore nella preparazione della stampa'); document.body.removeChild(iframe); return }
     doc.open(); doc.write(html); doc.close()
-    iframe.contentWindow?.focus()
     setTimeout(() => {
+      iframe.contentWindow?.focus()
       iframe.contentWindow?.print()
-      document.body.removeChild(iframe)
-    }, 400)
+      setTimeout(() => document.body.removeChild(iframe), 1000)
+    }, 600)
   }
 
   // ── Acconti ───────────────────────────────────────────────
@@ -601,8 +601,9 @@ ${allegati}
               <Button
                 size="sm"
                 onClick={() => {
+                  const docIds = [...stampaDocSelezioni]
                   setStampaDialogOpen(false)
-                  handleStampa(stampaDocSelezioni)
+                  setTimeout(() => handleStampa(docIds), 350)
                 }}
               >
                 <Printer className="h-4 w-4 mr-1.5" />
