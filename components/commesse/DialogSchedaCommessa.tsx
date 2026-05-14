@@ -687,6 +687,24 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                       <Button
                         variant="ghost"
                         size="icon"
+                        className="h-7 w-7 text-gray-400 hover:text-teal-600 shrink-0"
+                        title="Ricevuta pagamento"
+                        onClick={() => {
+                          const url = `/commesse/${commessa.id}/ricevuta/${a.id}`
+                          const anchor = document.createElement('a')
+                          anchor.href = url
+                          anchor.target = '_blank'
+                          anchor.rel = 'noopener noreferrer'
+                          document.body.appendChild(anchor)
+                          anchor.click()
+                          document.body.removeChild(anchor)
+                        }}
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-7 w-7 text-red-400 hover:text-red-600 shrink-0"
                         disabled={deletingAccontoId === a.id}
                         onClick={() => handleDeleteAcconto(a.id)}

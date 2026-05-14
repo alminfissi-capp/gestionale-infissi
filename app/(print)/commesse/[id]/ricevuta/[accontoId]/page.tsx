@@ -1,0 +1,33 @@
+import { notFound } from 'next/navigation'
+import { getCommessaById } from '@/actions/commesse'
+import { getSettings, getLogoSignedUrl } from '@/actions/impostazioni'
+import RicevutaAcconto from '@/components/commesse/RicevutaAcconto'
+
+interface Props {
+  params: Promise<{ id: string; accontoId: string }>
+}
+
+export default async function RicevutaAccontoPage({ params }: Props) {
+  const { id, accontoId } = await params
+
+  const [commessa, settings] = await Promise.all([
+    getCommessaById(id),
+    getSettings(),
+  ])
+
+  if (!commessa) notFound()
+
+  const acconto = commessa.acconti.find((a) => a.id === accontoId)
+  if (!acconto) notFound()
+
+  const logoUrl = settings?.logo_url ? await getLogoSignedUrl(settings.logo_url) : null
+
+  return (
+    <RicevutaAcconto
+      commessa={commessa}
+      acconto={acconto}
+      settings={settings}
+      logoUrl={logoUrl}
+    />
+  )
+}
