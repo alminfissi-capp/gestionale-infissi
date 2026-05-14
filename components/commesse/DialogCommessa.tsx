@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { ChevronsUpDown, X, UserPlus, Building2, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,10 +21,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import { createCommessa, updateCommessa } from '@/actions/commesse'
+import { createCliente } from '@/actions/clienti'
 import { formatEuro } from '@/lib/pricing'
 import type { CommessaCompleta, CommessaInput, PreventivoPerCommessa, Reparto, UtentePerCommessa } from '@/types/commessa'
 import { REPARTI } from '@/types/commessa'
+import type { Cliente } from '@/types/cliente'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { db } from '@/lib/db'
 
@@ -33,6 +49,7 @@ interface Props {
   commessa?: CommessaCompleta | null
   preventivi: PreventivoPerCommessa[]
   utenti: UtentePerCommessa[]
+  clienti: Cliente[]
   preventivoDaConvertire?: PreventivoPerCommessa | null
 }
 
@@ -55,12 +72,18 @@ const emptyForm = (): CommessaInput => ({
   reparti: [],
 })
 
+function nomeCliente(c: Cliente): string {
+  if (c.tipo === 'azienda') return c.ragione_sociale || c.email || '—'
+  return [c.nome, c.cognome].filter(Boolean).join(' ') || c.email || '—'
+}
+
 export default function DialogCommessa({
   open,
   onOpenChange,
   commessa,
   preventivi,
   utenti,
+  clienti,
   preventivoDaConvertire,
 }: Props) {
   const router = useRouter()
@@ -68,8 +91,25 @@ export default function DialogCommessa({
   const [form, setForm] = useState<CommessaInput>(emptyForm())
   const [loading, setLoading] = useState(false)
 
+  // Stato selezione cliente
+  const [clienteId, setClienteId] = useState<string | null>(null)
+  const [comboOpen, setComboOpen] = useState(false)
+  // Stato nuovo cliente da salvare in anagrafica
+  const [salvaCliente, setSalvaCliente] = useState(false)
+  const [nuovoTipo, setNuovoTipo] = useState<'privato' | 'azienda'>('privato')
+  const [nuovoNome, setNuovoNome] = useState('')
+  const [nuovoCognome, setNuovoCognome] = useState('')
+  const [nuovoRS, setNuovoRS] = useState('')
+
+  // Reset completo all'apertura del dialog
   useEffect(() => {
     if (!open) return
+    setClienteId(null)
+    setSalvaCliente(false)
+    setNuovoTipo('privato')
+    setNuovoNome('')
+    setNuovoCognome('')
+    setNuovoRS('')
     if (commessa) {
       setForm({
         numero_commessa: commessa.numero_commessa,
@@ -102,13 +142,33 @@ export default function DialogCommessa({
     }
   }, [open, commessa, preventivoDaConvertire])
 
+  // Sincronizza cliente_nome quando cambia il form nuovo cliente
+  useEffect(() => {
+    if (!salvaCliente) return
+    const nome =
+      nuovoTipo === 'privato'
+        ? [nuovoNome, nuovoCognome].filter(Boolean).join(' ')
+        : nuovoRS
+    setForm((f) => ({ ...f, cliente_nome: nome }))
+  }, [salvaCliente, nuovoTipo, nuovoNome, nuovoCognome, nuovoRS])
+
+  const handleSelectCliente = (c: Cliente) => {
+    setClienteId(c.id)
+    setForm((f) => ({ ...f, cliente_nome: nomeCliente(c) }))
+    setSalvaCliente(false)
+    setNuovoNome('')
+    setNuovoCognome('')
+    setNuovoRS('')
+    setComboOpen(false)
+  }
+
+  const handleDeselectCliente = () => {
+    setClienteId(null)
+  }
+
   const setPreventivoSelezionato = (pid: string) => {
     if (pid === '__nessuno__') {
-      setForm((f) => ({
-        ...f,
-        preventivo_id: null,
-        numero_preventivo: null,
-      }))
+      setForm((f) => ({ ...f, preventivo_id: null, numero_preventivo: null }))
       return
     }
     const prev = preventivi.find((p) => p.id === pid)
@@ -124,6 +184,8 @@ export default function DialogCommessa({
       iva_totale: iva,
       totale: round2(imp + iva),
     }))
+    setClienteId(null)
+    setSalvaCliente(false)
   }
 
   const setOperatore = (uid: string) => {
@@ -136,8 +198,7 @@ export default function DialogCommessa({
   }
 
   const setField = (k: keyof CommessaInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const v = e.target.value
-    setForm((f) => ({ ...f, [k]: v }))
+    setForm((f) => ({ ...f, [k]: e.target.value }))
   }
 
   const toggleReparto = (r: Reparto) => {
@@ -158,29 +219,60 @@ export default function DialogCommessa({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.cliente_nome.trim()) {
+
+    // Validazione nome cliente
+    const nomeDaSalvare = salvaCliente
+      ? (nuovoTipo === 'privato'
+          ? [nuovoNome, nuovoCognome].filter(Boolean).join(' ')
+          : nuovoRS)
+      : form.cliente_nome
+
+    if (!nomeDaSalvare.trim()) {
       toast.error('Il nome cliente è obbligatorio')
       return
     }
+
+    // Validazione minima per nuovo cliente
+    if (salvaCliente && !clienteId) {
+      const hasName = nuovoTipo === 'privato'
+        ? nuovoNome.trim() || nuovoCognome.trim()
+        : nuovoRS.trim()
+      if (!hasName) {
+        toast.error(nuovoTipo === 'privato' ? 'Inserisci almeno nome o cognome' : 'Inserisci la ragione sociale')
+        return
+      }
+    }
+
     setLoading(true)
     try {
+      // Se richiesto, salva prima il nuovo cliente in anagrafica
+      if (salvaCliente && !clienteId && !commessa) {
+        await createCliente({
+          tipo: nuovoTipo,
+          nome: nuovoTipo === 'privato' ? nuovoNome.trim() || null : null,
+          cognome: nuovoTipo === 'privato' ? nuovoCognome.trim() || null : null,
+          ragione_sociale: nuovoTipo === 'azienda' ? nuovoRS.trim() || null : null,
+        })
+      }
+
+      // form.cliente_nome è già sincronizzato (via useEffect o handleSelectCliente)
+      const formFinale = { ...form, cliente_nome: nomeDaSalvare }
+
       if (commessa) {
-        // Modifica: richiede connessione
         if (!isOnline) {
           toast.error('Connessione assente. La modifica non è disponibile offline.')
           return
         }
-        await updateCommessa(commessa.id, form)
+        await updateCommessa(commessa.id, formFinale)
         toast.success('Commessa aggiornata')
         onOpenChange(false)
         router.refresh()
       } else if (!isOnline) {
-        // Creazione offline: salva in coda IDB
-        await db.pendingCommesse.add({ input: form, createdAt: new Date().toISOString() })
+        await db.pendingCommesse.add({ input: formFinale, createdAt: new Date().toISOString() })
         toast.success('Commessa salvata offline. Verrà sincronizzata al ritorno in rete.')
         onOpenChange(false)
       } else {
-        await createCommessa(form)
+        await createCommessa(formFinale)
         toast.success('Commessa creata')
         onOpenChange(false)
         router.refresh()
@@ -193,6 +285,7 @@ export default function DialogCommessa({
   }
 
   const totale = form.imponibile + form.iva_totale
+  const clienteSelezionato = clienteId ? clienti.find((c) => c.id === clienteId) : null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -201,6 +294,7 @@ export default function DialogCommessa({
           <DialogTitle>{commessa ? 'Modifica commessa' : 'Nuova commessa'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+
           {/* Collegamento preventivo */}
           <div className="space-y-2">
             <Label>Preventivo accettato (opzionale)</Label>
@@ -224,13 +318,158 @@ export default function DialogCommessa({
 
           {/* Cliente */}
           <div className="space-y-2">
-            <Label htmlFor="cliente_nome">Cliente *</Label>
-            <Input
-              id="cliente_nome"
-              value={form.cliente_nome}
-              onChange={setField('cliente_nome')}
-              placeholder="Nome cliente o azienda"
-            />
+            <Label>Cliente *</Label>
+
+            {/* Combobox ricerca anagrafica */}
+            <div className="flex gap-2">
+              <Popover open={comboOpen} onOpenChange={setComboOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={comboOpen}
+                    className="flex-1 justify-between font-normal text-left"
+                  >
+                    <span className="truncate">
+                      {clienteSelezionato
+                        ? nomeCliente(clienteSelezionato)
+                        : 'Cerca in anagrafica...'}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-gray-400" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
+                  <Command>
+                    <CommandInput placeholder="Cerca cliente..." />
+                    <CommandList>
+                      <CommandEmpty className="py-3 text-center text-sm text-gray-500">
+                        Nessun cliente trovato
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {clienti.map((c) => (
+                          <CommandItem
+                            key={c.id}
+                            value={nomeCliente(c)}
+                            onSelect={() => handleSelectCliente(c)}
+                          >
+                            {nomeCliente(c)}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {clienteId && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  title="Rimuovi selezione"
+                  onClick={handleDeselectCliente}
+                >
+                  <X className="h-4 w-4 text-gray-400" />
+                </Button>
+              )}
+            </div>
+
+            {/* Inserimento manuale (se non selezionato da anagrafica) */}
+            {!clienteId && (
+              <>
+                {!salvaCliente && (
+                  <Input
+                    value={form.cliente_nome}
+                    onChange={setField('cliente_nome')}
+                    placeholder="Oppure scrivi il nome del cliente"
+                  />
+                )}
+
+                {/* Toggle "Salva in anagrafica" — solo in creazione */}
+                {!commessa && (
+                  <button
+                    type="button"
+                    onClick={() => setSalvaCliente((v) => !v)}
+                    className={`flex items-center gap-2 text-sm font-medium rounded-md border px-3 py-1.5 transition-colors w-full justify-center ${
+                      salvaCliente
+                        ? 'bg-teal-50 border-teal-300 text-teal-700'
+                        : 'border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700'
+                    }`}
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    {salvaCliente ? 'Annulla — non salvare in anagrafica' : 'Salva come nuovo cliente in anagrafica'}
+                  </button>
+                )}
+
+                {/* Form nuovo cliente */}
+                {salvaCliente && (
+                  <div className="rounded-lg border p-3 space-y-3 bg-gray-50">
+                    {/* Tipo */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setNuovoTipo('privato')}
+                        className={`flex items-center justify-center gap-1.5 py-2 rounded-md border text-sm font-medium transition-colors ${
+                          nuovoTipo === 'privato'
+                            ? 'bg-teal-600 border-teal-600 text-white'
+                            : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                        }`}
+                      >
+                        <User className="h-4 w-4" />
+                        Privato
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNuovoTipo('azienda')}
+                        className={`flex items-center justify-center gap-1.5 py-2 rounded-md border text-sm font-medium transition-colors ${
+                          nuovoTipo === 'azienda'
+                            ? 'bg-teal-600 border-teal-600 text-white'
+                            : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                        }`}
+                      >
+                        <Building2 className="h-4 w-4" />
+                        Azienda
+                      </button>
+                    </div>
+
+                    {nuovoTipo === 'privato' ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input
+                          placeholder="Nome"
+                          value={nuovoNome}
+                          onChange={(e) => setNuovoNome(e.target.value)}
+                          autoFocus
+                        />
+                        <Input
+                          placeholder="Cognome"
+                          value={nuovoCognome}
+                          onChange={(e) => setNuovoCognome(e.target.value)}
+                        />
+                      </div>
+                    ) : (
+                      <Input
+                        placeholder="Ragione sociale"
+                        value={nuovoRS}
+                        onChange={(e) => setNuovoRS(e.target.value)}
+                        autoFocus
+                      />
+                    )}
+
+                    {form.cliente_nome && (
+                      <p className="text-xs text-teal-600">
+                        Verrà salvato come: <strong>{form.cliente_nome}</strong>
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+
+            {clienteId && (
+              <p className="text-xs text-blue-600">
+                Cliente selezionato dall&apos;anagrafica
+              </p>
+            )}
           </div>
 
           {/* Importi */}
@@ -347,7 +586,13 @@ export default function DialogCommessa({
               Annulla
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Salvataggio...' : commessa ? 'Salva' : 'Crea commessa'}
+              {loading
+                ? 'Salvataggio...'
+                : commessa
+                ? 'Salva'
+                : salvaCliente
+                ? 'Salva cliente e crea commessa'
+                : 'Crea commessa'}
             </Button>
           </DialogFooter>
         </form>

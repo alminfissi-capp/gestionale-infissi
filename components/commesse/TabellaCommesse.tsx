@@ -59,6 +59,7 @@ import { deleteCommessa, duplicaCommessa, updateOrdineCommesse, updateStatoComme
 import { formatEuro } from '@/lib/pricing'
 import type { CommessaCompleta, PreventivoPerCommessa, StatoCommessa, UtentePerCommessa } from '@/types/commessa'
 import { REPARTI } from '@/types/commessa'
+import type { Cliente } from '@/types/cliente'
 
 const STATI: { value: StatoCommessa; label: string }[] = [
   { value: 'in_attesa',                label: 'In attesa' },
@@ -122,6 +123,7 @@ interface Props {
   commesse: CommessaCompleta[]
   preventivi: PreventivoPerCommessa[]
   utenti: UtentePerCommessa[]
+  clienti: Cliente[]
   preventivoDaConvertire?: PreventivoPerCommessa | null
 }
 
@@ -408,7 +410,7 @@ function PendingCommessaRow({ c }: { c: CommessaCompleta }) {
 
 /* ── Componente principale ─────────────────────────────────── */
 
-export default function TabellaCommesse({ commesse, preventivi, utenti, preventivoDaConvertire }: Props) {
+export default function TabellaCommesse({ commesse, preventivi, utenti, clienti, preventivoDaConvertire }: Props) {
   const router = useRouter()
   const { isOnline } = useOnlineStatus()
   const [items, setItems] = useState<CommessaCompleta[]>(commesse)
@@ -660,6 +662,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
         commessa={editingCommessa}
         preventivi={preventivi}
         utenti={utenti}
+        clienti={clienti}
         preventivoDaConvertire={!editingCommessa ? preventivoDaConvertire : null}
       />
 

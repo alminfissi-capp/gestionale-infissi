@@ -1,4 +1,5 @@
 import { getCommesse, getPreventiviPerCommessa, getUtentiPerCommessa } from '@/actions/commesse'
+import { getClienti } from '@/actions/clienti'
 import TabellaCommesse from '@/components/commesse/TabellaCommesse'
 import type { PreventivoPerCommessa } from '@/types/commessa'
 
@@ -9,10 +10,11 @@ export default async function CommessePage({
 }) {
   const params = await searchParams
 
-  const [commesse, preventivi, utenti] = await Promise.all([
+  const [commesse, preventivi, utenti, clienti] = await Promise.all([
     getCommesse(),
     getPreventiviPerCommessa(),
     getUtentiPerCommessa(),
+    getClienti(),
   ])
 
   let preventivoDaConvertire: PreventivoPerCommessa | null = null
@@ -30,6 +32,7 @@ export default async function CommessePage({
         commesse={commesse}
         preventivi={preventivi}
         utenti={utenti}
+        clienti={clienti}
         preventivoDaConvertire={preventivoDaConvertire}
       />
     </div>
