@@ -3,6 +3,7 @@ import type { Cliente } from '@/types/cliente'
 import type { CategoriaConListini } from '@/types/listino'
 import type { PreventivoInput, ArticoloWizard, ClienteSnapshot } from '@/types/preventivo'
 import type { VanoMisurato } from '@/lib/rilievo'
+import type { CommessaCompleta, CommessaInput, AccontoInput } from '@/types/commessa'
 
 export interface PendingPreventivo {
   tempId?: number
@@ -36,6 +37,19 @@ export interface VanoCanvasState {
   updatedAt: string
 }
 
+export interface PendingCommessa {
+  tempId?: number
+  input: CommessaInput
+  createdAt: string
+}
+
+export interface PendingAcconto {
+  tempId?: number
+  commessaId: string
+  input: AccontoInput
+  createdAt: string
+}
+
 class GestionaleDB extends Dexie {
   clienti!: EntityTable<Cliente, 'id'>
   listiniData!: EntityTable<CategoriaConListini, 'id'>
@@ -43,6 +57,9 @@ class GestionaleDB extends Dexie {
   rilievoSessione!: EntityTable<RilievoSessione, 'id'>
   vanoCanvas!: EntityTable<VanoCanvasState, 'vanoId'>
   bozzeWizard!: EntityTable<BozzaWizard, 'id'>
+  commesse!: EntityTable<CommessaCompleta, 'id'>
+  pendingCommesse!: EntityTable<PendingCommessa, 'tempId'>
+  pendingAcconti!: EntityTable<PendingAcconto, 'tempId'>
 
   constructor() {
     super('gestionale-infissi')
@@ -65,6 +82,17 @@ class GestionaleDB extends Dexie {
       rilievoSessione: 'id',
       vanoCanvas: 'vanoId',
       bozzeWizard: 'id, updatedAt',
+    })
+    this.version(4).stores({
+      clienti: 'id, cognome, nome',
+      listiniData: 'id, nome',
+      pendingPreventivi: '++tempId, createdAt',
+      rilievoSessione: 'id',
+      vanoCanvas: 'vanoId',
+      bozzeWizard: 'id, updatedAt',
+      commesse: 'id, data_conferma, cliente_nome',
+      pendingCommesse: '++tempId, createdAt',
+      pendingAcconti: '++tempId, commessaId, createdAt',
     })
   }
 }

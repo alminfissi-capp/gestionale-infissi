@@ -24,6 +24,8 @@ import { createCommessa, updateCommessa } from '@/actions/commesse'
 import { formatEuro } from '@/lib/pricing'
 import type { CommessaCompleta, CommessaInput, PreventivoPerCommessa, Reparto, UtentePerCommessa } from '@/types/commessa'
 import { REPARTI } from '@/types/commessa'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import { db } from '@/lib/db'
 
 interface Props {
   open: boolean
@@ -62,6 +64,7 @@ export default function DialogCommessa({
   preventivoDaConvertire,
 }: Props) {
   const router = useRouter()
+  const { isOnline } = useOnlineStatus()
   const [form, setForm] = useState<CommessaInput>(emptyForm())
   const [loading, setLoading] = useState(false)
 
@@ -162,14 +165,26 @@ export default function DialogCommessa({
     setLoading(true)
     try {
       if (commessa) {
+        // Modifica: richiede connessione
+        if (!isOnline) {
+          toast.error('Connessione assente. La modifica non è disponibile offline.')
+          return
+        }
         await updateCommessa(commessa.id, form)
         toast.success('Commessa aggiornata')
+        onOpenChange(false)
+        router.refresh()
+      } else if (!isOnline) {
+        // Creazione offline: salva in coda IDB
+        await db.pendingCommesse.add({ input: form, createdAt: new Date().toISOString() })
+        toast.success('Commessa salvata offline. Verrà sincronizzata al ritorno in rete.')
+        onOpenChange(false)
       } else {
         await createCommessa(form)
         toast.success('Commessa creata')
+        onOpenChange(false)
+        router.refresh()
       }
-      onOpenChange(false)
-      router.refresh()
     } catch {
       toast.error('Errore nel salvataggio')
     } finally {

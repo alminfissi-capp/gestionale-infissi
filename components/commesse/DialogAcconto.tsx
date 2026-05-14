@@ -23,6 +23,8 @@ import {
 import { addAcconto, deleteAcconto } from '@/actions/commesse'
 import { formatEuro } from '@/lib/pricing'
 import type { AccontoCommessa, AccontoInput, MetodoPagamento } from '@/types/commessa'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import { db } from '@/lib/db'
 
 interface Props {
   open: boolean
@@ -50,6 +52,7 @@ const emptyForm = (): AccontoInput => ({
 
 export default function DialogAcconto({ open, onOpenChange, commessaId, clienteNome, acconti }: Props) {
   const router = useRouter()
+  const { isOnline } = useOnlineStatus()
   const [form, setForm] = useState<AccontoInput>(emptyForm())
   const [loading, setLoading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -62,10 +65,20 @@ export default function DialogAcconto({ open, onOpenChange, commessaId, clienteN
     }
     setLoading(true)
     try {
-      await addAcconto(commessaId, form)
-      toast.success('Acconto registrato')
-      setForm(emptyForm())
-      router.refresh()
+      if (!isOnline) {
+        await db.pendingAcconti.add({
+          commessaId,
+          input: form,
+          createdAt: new Date().toISOString(),
+        })
+        toast.success('Acconto salvato offline. Verrà sincronizzato al ritorno in rete.')
+        setForm(emptyForm())
+      } else {
+        await addAcconto(commessaId, form)
+        toast.success('Acconto registrato')
+        setForm(emptyForm())
+        router.refresh()
+      }
     } catch {
       toast.error('Errore nel salvataggio')
     } finally {

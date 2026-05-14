@@ -6,8 +6,11 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import {
   Plus, Search, Trash2, Pencil, Paperclip, FileText, Upload,
-  GripVertical, MoreVertical, Copy,
+  GripVertical, MoreVertical, Copy, WifiOff,
 } from 'lucide-react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db, type PendingCommessa } from '@/lib/db'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import {
   DndContext,
   DragEndEvent,
@@ -68,6 +71,32 @@ const STATI: { value: StatoCommessa; label: string }[] = [
   { value: 'bloccato',                 label: 'Bloccato' },
   { value: 'annullato',                label: 'Annullato' },
 ]
+
+function pendingToCommessa(p: PendingCommessa): CommessaCompleta {
+  return {
+    id: `pending-${p.tempId}`,
+    organization_id: '',
+    numero_commessa: p.input.numero_commessa,
+    preventivo_id: p.input.preventivo_id,
+    numero_preventivo: p.input.numero_preventivo,
+    cliente_nome: p.input.cliente_nome,
+    imponibile: p.input.imponibile,
+    iva_totale: p.input.iva_totale,
+    totale: p.input.totale,
+    data_conferma: p.input.data_conferma,
+    operatore_id: p.input.operatore_id,
+    operatore_nome: p.input.operatore_nome,
+    note: p.input.note,
+    stato: 'in_attesa',
+    reparti: p.input.reparti,
+    created_at: p.createdAt,
+    updated_at: p.createdAt,
+    acconti: [],
+    documenti: [],
+    totale_acconti: 0,
+    saldo: p.input.totale,
+  }
+}
 
 function statoRowClass(stato: StatoCommessa): string {
   if (stato === 'concluso')   return 'bg-sky-50'
@@ -329,10 +358,59 @@ function SortableRow({ c, onEdit, onDelete, onDuplica, onAcconto, onDocumenti, o
   )
 }
 
+/* ── Riga pending (offline) ────────────────────────────────── */
+
+function PendingCommessaRow({ c }: { c: CommessaCompleta }) {
+  return (
+    <TableRow className="bg-amber-50 opacity-80">
+      <TableCell className="w-8 pr-0 pl-2">
+        <WifiOff className="h-3.5 w-3.5 text-amber-400" />
+      </TableCell>
+      <TableCell>
+        <p className="font-medium text-sm">{c.cliente_nome}</p>
+        <span className="text-[10px] font-semibold text-amber-600 bg-amber-100 rounded px-1">
+          Da sincronizzare
+        </span>
+      </TableCell>
+      <TableCell>
+        <span className="font-mono text-xs text-gray-400">
+          {c.numero_preventivo || '—'}
+        </span>
+      </TableCell>
+      <TableCell className="text-right text-sm font-semibold">{formatEuro(c.totale)}</TableCell>
+      <TableCell className="text-right text-sm text-gray-500">{formatEuro(c.iva_totale)}</TableCell>
+      <TableCell />
+      <TableCell className="text-right">
+        <Badge className="bg-orange-100 text-orange-700 border-orange-200 hover:bg-orange-100">
+          {formatEuro(c.saldo)}
+        </Badge>
+      </TableCell>
+      <TableCell className="font-mono text-sm text-gray-400">
+        {c.numero_commessa || '—'}
+      </TableCell>
+      <TableCell>
+        <span className="inline-flex items-center rounded border px-1.5 py-0.5 text-[11px] font-medium bg-gray-100 text-gray-500 border-gray-200">
+          In attesa
+        </span>
+      </TableCell>
+      <TableCell className="text-sm text-gray-400 whitespace-nowrap">
+        {formatMese(c.data_conferma)}
+      </TableCell>
+      <TableCell className="text-sm text-gray-400">
+        {c.operatore_nome || '—'}
+      </TableCell>
+      <TableCell />
+      <TableCell />
+      <TableCell />
+    </TableRow>
+  )
+}
+
 /* ── Componente principale ─────────────────────────────────── */
 
 export default function TabellaCommesse({ commesse, preventivi, utenti, preventivoDaConvertire }: Props) {
   const router = useRouter()
+  const { isOnline } = useOnlineStatus()
   const [items, setItems] = useState<CommessaCompleta[]>(commesse)
   const [search, setSearch] = useState('')
   const [dialogCommessa, setDialogCommessa] = useState(false)
@@ -343,6 +421,13 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
   const [dialogDocumenti, setDialogDocumenti] = useState<CommessaCompleta | null>(null)
   const [dialogPrevManuale, setDialogPrevManuale] = useState<CommessaCompleta | null>(null)
   const autoOpenDone = useRef(false)
+
+  // Commesse pending da IDB (create offline)
+  const pendingIdb = useLiveQuery(() => db.pendingCommesse.toArray(), [])
+  const pendingItems = useMemo(
+    () => (pendingIdb ?? []).map(pendingToCommessa),
+    [pendingIdb]
+  )
 
   // Sincronizza items con i dati dal server (dopo router.refresh)
   useEffect(() => { setItems(commesse) }, [commesse])
@@ -361,30 +446,42 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   )
 
+  const matchSearch = (c: CommessaCompleta, q: string) =>
+    [
+      c.cliente_nome,
+      c.numero_commessa,
+      c.numero_preventivo,
+      c.operatore_nome,
+      c.note,
+      formatMese(c.data_conferma),
+      c.stato,
+      STATI.find((s) => s.value === c.stato)?.label,
+      (c.reparti ?? []).map((r) => REPARTI.find((x) => x.value === r)?.label ?? r).join(' '),
+    ].some((f) => f?.toLowerCase().includes(q))
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
     if (!q) return items
-    return items.filter((c) =>
-      [
-        c.cliente_nome,
-        c.numero_commessa,
-        c.numero_preventivo,
-        c.operatore_nome,
-        c.note,
-        formatMese(c.data_conferma),
-        c.stato,
-        STATI.find((s) => s.value === c.stato)?.label,
-        (c.reparti ?? []).map((r) => REPARTI.find((x) => x.value === r)?.label ?? r).join(' '),
-      ].some((f) => f?.toLowerCase().includes(q))
-    )
+    return items.filter((c) => matchSearch(c, q))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, search])
 
-  const totali = useMemo(() => ({
-    totale: filtered.reduce((s, c) => s + c.totale, 0),
-    iva:    filtered.reduce((s, c) => s + c.iva_totale, 0),
-    saldo:  filtered.reduce((s, c) => s + c.saldo, 0),
-    count:  filtered.length,
-  }), [filtered])
+  const filteredPending = useMemo(() => {
+    const q = search.toLowerCase().trim()
+    if (!q) return pendingItems
+    return pendingItems.filter((c) => matchSearch(c, q))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingItems, search])
+
+  const totali = useMemo(() => {
+    const all = [...filtered, ...filteredPending]
+    return {
+      totale: all.reduce((s, c) => s + c.totale, 0),
+      iva:    all.reduce((s, c) => s + c.iva_totale, 0),
+      saldo:  all.reduce((s, c) => s + c.saldo, 0),
+      count:  all.length,
+    }
+  }, [filtered, filteredPending])
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return
@@ -450,6 +547,12 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
             className="pl-8"
           />
         </div>
+        {!isOnline && (
+          <span className="flex items-center gap-1 text-xs text-amber-600 font-medium bg-amber-50 border border-amber-200 rounded px-2 py-1">
+            <WifiOff className="h-3.5 w-3.5" />
+            Offline
+          </span>
+        )}
         <Button onClick={() => { setEditingCommessa(null); setDialogCommessa(true) }}>
           <Plus className="h-4 w-4 mr-1" />
           Nuova commessa
@@ -457,7 +560,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
       </div>
 
       {/* Empty state */}
-      {filtered.length === 0 && (
+      {filtered.length === 0 && filteredPending.length === 0 && (
         <div className="text-center py-16 text-gray-400">
           {items.length === 0 ? (
             <>
@@ -475,7 +578,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
       )}
 
       {/* Tabella */}
-      {filtered.length > 0 && (
+      {(filtered.length > 0 || filteredPending.length > 0) && (
         <div className="rounded-md border bg-white overflow-auto max-h-[calc(100vh-12rem)]">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <Table>
@@ -513,6 +616,9 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, preventi
                     />
                   ))}
                 </SortableContext>
+                {filteredPending.map((c) => (
+                  <PendingCommessaRow key={c.id} c={c} />
+                ))}
               </TableBody>
               <tfoot>
                 <tr className="border-t-2 border-gray-100">
