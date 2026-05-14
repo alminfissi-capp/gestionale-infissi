@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ChevronsUpDown, X, UserPlus, Building2, User } from 'lucide-react'
+import { ChevronsUpDown, X, UserPlus, Building2, User, Upload, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -34,7 +34,8 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import { createCommessa, updateCommessa } from '@/actions/commesse'
+import { createClient } from '@/lib/supabase/client'
+import { createCommessa, updateCommessa, addDocumentoCommessa, getOrgIdPerUpload } from '@/actions/commesse'
 import { createCliente } from '@/actions/clienti'
 import { formatEuro } from '@/lib/pricing'
 import type { CommessaCompleta, CommessaInput, PreventivoPerCommessa, Reparto, UtentePerCommessa } from '@/types/commessa'
@@ -54,7 +55,6 @@ interface Props {
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100
-
 const today = () => new Date().toISOString().split('T')[0]
 
 const emptyForm = (): CommessaInput => ({
@@ -91,17 +91,21 @@ export default function DialogCommessa({
   const [form, setForm] = useState<CommessaInput>(emptyForm())
   const [loading, setLoading] = useState(false)
 
-  // Stato selezione cliente
+  // Selezione cliente da anagrafica
   const [clienteId, setClienteId] = useState<string | null>(null)
   const [comboOpen, setComboOpen] = useState(false)
-  // Stato nuovo cliente da salvare in anagrafica
+  // Nuovo cliente da salvare in anagrafica
   const [salvaCliente, setSalvaCliente] = useState(false)
   const [nuovoTipo, setNuovoTipo] = useState<'privato' | 'azienda'>('privato')
   const [nuovoNome, setNuovoNome] = useState('')
   const [nuovoCognome, setNuovoCognome] = useState('')
   const [nuovoRS, setNuovoRS] = useState('')
 
-  // Reset completo all'apertura del dialog
+  // File PDF preventivo (solo in creazione, senza preventivo collegato)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [filePDF, setFilePDF] = useState<File | null>(null)
+
+  // Reset all'apertura
   useEffect(() => {
     if (!open) return
     setClienteId(null)
@@ -110,6 +114,7 @@ export default function DialogCommessa({
     setNuovoNome('')
     setNuovoCognome('')
     setNuovoRS('')
+    setFilePDF(null)
     if (commessa) {
       setForm({
         numero_commessa: commessa.numero_commessa,
@@ -142,7 +147,7 @@ export default function DialogCommessa({
     }
   }, [open, commessa, preventivoDaConvertire])
 
-  // Sincronizza cliente_nome quando cambia il form nuovo cliente
+  // Sincronizza cliente_nome quando si compila il form nuovo cliente
   useEffect(() => {
     if (!salvaCliente) return
     const nome =
@@ -162,13 +167,12 @@ export default function DialogCommessa({
     setComboOpen(false)
   }
 
-  const handleDeselectCliente = () => {
-    setClienteId(null)
-  }
+  const handleDeselectCliente = () => setClienteId(null)
 
   const setPreventivoSelezionato = (pid: string) => {
     if (pid === '__nessuno__') {
       setForm((f) => ({ ...f, preventivo_id: null, numero_preventivo: null }))
+      setFilePDF(null)
       return
     }
     const prev = preventivi.find((p) => p.id === pid)
@@ -186,6 +190,7 @@ export default function DialogCommessa({
     }))
     setClienteId(null)
     setSalvaCliente(false)
+    setFilePDF(null)
   }
 
   const setOperatore = (uid: string) => {
@@ -198,7 +203,7 @@ export default function DialogCommessa({
   }
 
   const setField = (k: keyof CommessaInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setForm((f) => ({ ...f, [k]: e.target.value }))
+    setForm((f) => ({ ...f, [k]: e.target.value || null }))
   }
 
   const toggleReparto = (r: Reparto) => {
@@ -217,10 +222,18 @@ export default function DialogCommessa({
     })
   }
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null
+    if (f && f.size > 20 * 1024 * 1024) {
+      toast.error('File troppo grande (max 20 MB)')
+      return
+    }
+    setFilePDF(f)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Validazione nome cliente
     const nomeDaSalvare = salvaCliente
       ? (nuovoTipo === 'privato'
           ? [nuovoNome, nuovoCognome].filter(Boolean).join(' ')
@@ -231,8 +244,6 @@ export default function DialogCommessa({
       toast.error('Il nome cliente è obbligatorio')
       return
     }
-
-    // Validazione minima per nuovo cliente
     if (salvaCliente && !clienteId) {
       const hasName = nuovoTipo === 'privato'
         ? nuovoNome.trim() || nuovoCognome.trim()
@@ -245,7 +256,6 @@ export default function DialogCommessa({
 
     setLoading(true)
     try {
-      // Se richiesto, salva prima il nuovo cliente in anagrafica
       if (salvaCliente && !clienteId && !commessa) {
         await createCliente({
           tipo: nuovoTipo,
@@ -255,7 +265,6 @@ export default function DialogCommessa({
         })
       }
 
-      // form.cliente_nome è già sincronizzato (via useEffect o handleSelectCliente)
       const formFinale = { ...form, cliente_nome: nomeDaSalvare }
 
       if (commessa) {
@@ -272,7 +281,25 @@ export default function DialogCommessa({
         toast.success('Commessa salvata offline. Verrà sincronizzata al ritorno in rete.')
         onOpenChange(false)
       } else {
-        await createCommessa(formFinale)
+        const { id: newId } = await createCommessa(formFinale)
+
+        // Upload PDF preventivo se fornito
+        if (filePDF) {
+          try {
+            const orgId = await getOrgIdPerUpload()
+            const ext = filePDF.name.split('.').pop() ?? 'bin'
+            const storagePath = `${orgId}/${newId}/prev_${Date.now()}.${ext}`
+            const supabase = createClient()
+            const { error: uploadError } = await supabase.storage
+              .from('commesse-docs')
+              .upload(storagePath, filePDF)
+            if (uploadError) throw uploadError
+            await addDocumentoCommessa(newId, filePDF.name, storagePath, 'preventivo')
+          } catch {
+            toast.error('Commessa creata, ma errore nel caricamento del PDF')
+          }
+        }
+
         toast.success('Commessa creata')
         onOpenChange(false)
         router.refresh()
@@ -286,6 +313,7 @@ export default function DialogCommessa({
 
   const totale = form.imponibile + form.iva_totale
   const clienteSelezionato = clienteId ? clienti.find((c) => c.id === clienteId) : null
+  const isCreazione = !commessa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -295,9 +323,9 @@ export default function DialogCommessa({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
 
-          {/* Collegamento preventivo */}
+          {/* ── Preventivo ── */}
           <div className="space-y-2">
-            <Label>Preventivo accettato (opzionale)</Label>
+            <Label>Preventivo dal sistema (opzionale)</Label>
             <Select
               value={form.preventivo_id ?? '__nessuno__'}
               onValueChange={setPreventivoSelezionato}
@@ -314,13 +342,58 @@ export default function DialogCommessa({
                 ))}
               </SelectContent>
             </Select>
+
+            {/* N. preventivo manuale + upload PDF — visibili solo senza preventivo collegato */}
+            {!form.preventivo_id && (
+              <div className="space-y-2 pt-1">
+                <Input
+                  value={form.numero_preventivo ?? ''}
+                  onChange={(e) => setForm((f) => ({ ...f, numero_preventivo: e.target.value || null }))}
+                  placeholder="N. preventivo manuale (es. 2026/042)"
+                />
+
+                {/* Upload PDF — solo in creazione */}
+                {isCreazione && (
+                  <div className="space-y-1">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.webp"
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
+                    {filePDF ? (
+                      <div className="flex items-center gap-2 rounded-md border px-3 py-2 bg-gray-50 text-sm">
+                        <FileText className="h-4 w-4 text-red-400 shrink-0" />
+                        <span className="flex-1 truncate text-gray-700">{filePDF.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => { setFilePDF(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
+                          className="text-gray-400 hover:text-red-500"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center gap-2 text-sm text-gray-500 border border-dashed border-gray-300 rounded-md px-3 py-2 w-full hover:border-gray-400 hover:text-gray-700 transition-colors"
+                      >
+                        <Upload className="h-4 w-4 shrink-0" />
+                        Allega PDF preventivo (opzionale)
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Cliente */}
+          {/* ── Cliente ── */}
           <div className="space-y-2">
             <Label>Cliente *</Label>
 
-            {/* Combobox ricerca anagrafica */}
             <div className="flex gap-2">
               <Popover open={comboOpen} onOpenChange={setComboOpen}>
                 <PopoverTrigger asChild>
@@ -332,9 +405,7 @@ export default function DialogCommessa({
                     className="flex-1 justify-between font-normal text-left"
                   >
                     <span className="truncate">
-                      {clienteSelezionato
-                        ? nomeCliente(clienteSelezionato)
-                        : 'Cerca in anagrafica...'}
+                      {clienteSelezionato ? nomeCliente(clienteSelezionato) : 'Cerca in anagrafica...'}
                     </span>
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-gray-400" />
                   </Button>
@@ -362,30 +433,22 @@ export default function DialogCommessa({
                 </PopoverContent>
               </Popover>
               {clienteId && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  title="Rimuovi selezione"
-                  onClick={handleDeselectCliente}
-                >
+                <Button type="button" variant="ghost" size="icon" onClick={handleDeselectCliente}>
                   <X className="h-4 w-4 text-gray-400" />
                 </Button>
               )}
             </div>
 
-            {/* Inserimento manuale (se non selezionato da anagrafica) */}
             {!clienteId && (
               <>
                 {!salvaCliente && (
                   <Input
                     value={form.cliente_nome}
-                    onChange={setField('cliente_nome')}
+                    onChange={(e) => setForm((f) => ({ ...f, cliente_nome: e.target.value }))}
                     placeholder="Oppure scrivi il nome del cliente"
                   />
                 )}
 
-                {/* Toggle "Salva in anagrafica" — solo in creazione */}
                 {!commessa && (
                   <button
                     type="button"
@@ -401,60 +464,33 @@ export default function DialogCommessa({
                   </button>
                 )}
 
-                {/* Form nuovo cliente */}
                 {salvaCliente && (
                   <div className="rounded-lg border p-3 space-y-3 bg-gray-50">
-                    {/* Tipo */}
                     <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setNuovoTipo('privato')}
-                        className={`flex items-center justify-center gap-1.5 py-2 rounded-md border text-sm font-medium transition-colors ${
-                          nuovoTipo === 'privato'
-                            ? 'bg-teal-600 border-teal-600 text-white'
-                            : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                        }`}
-                      >
-                        <User className="h-4 w-4" />
-                        Privato
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setNuovoTipo('azienda')}
-                        className={`flex items-center justify-center gap-1.5 py-2 rounded-md border text-sm font-medium transition-colors ${
-                          nuovoTipo === 'azienda'
-                            ? 'bg-teal-600 border-teal-600 text-white'
-                            : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                        }`}
-                      >
-                        <Building2 className="h-4 w-4" />
-                        Azienda
-                      </button>
+                      {(['privato', 'azienda'] as const).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setNuovoTipo(t)}
+                          className={`flex items-center justify-center gap-1.5 py-2 rounded-md border text-sm font-medium transition-colors ${
+                            nuovoTipo === t
+                              ? 'bg-teal-600 border-teal-600 text-white'
+                              : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                          }`}
+                        >
+                          {t === 'privato' ? <User className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
+                          {t === 'privato' ? 'Privato' : 'Azienda'}
+                        </button>
+                      ))}
                     </div>
-
                     {nuovoTipo === 'privato' ? (
                       <div className="grid grid-cols-2 gap-2">
-                        <Input
-                          placeholder="Nome"
-                          value={nuovoNome}
-                          onChange={(e) => setNuovoNome(e.target.value)}
-                          autoFocus
-                        />
-                        <Input
-                          placeholder="Cognome"
-                          value={nuovoCognome}
-                          onChange={(e) => setNuovoCognome(e.target.value)}
-                        />
+                        <Input placeholder="Nome" value={nuovoNome} onChange={(e) => setNuovoNome(e.target.value)} autoFocus />
+                        <Input placeholder="Cognome" value={nuovoCognome} onChange={(e) => setNuovoCognome(e.target.value)} />
                       </div>
                     ) : (
-                      <Input
-                        placeholder="Ragione sociale"
-                        value={nuovoRS}
-                        onChange={(e) => setNuovoRS(e.target.value)}
-                        autoFocus
-                      />
+                      <Input placeholder="Ragione sociale" value={nuovoRS} onChange={(e) => setNuovoRS(e.target.value)} autoFocus />
                     )}
-
                     {form.cliente_nome && (
                       <p className="text-xs text-teal-600">
                         Verrà salvato come: <strong>{form.cliente_nome}</strong>
@@ -466,13 +502,11 @@ export default function DialogCommessa({
             )}
 
             {clienteId && (
-              <p className="text-xs text-blue-600">
-                Cliente selezionato dall&apos;anagrafica
-              </p>
+              <p className="text-xs text-blue-600">Cliente selezionato dall&apos;anagrafica</p>
             )}
           </div>
 
-          {/* Importi */}
+          {/* ── Importi ── */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="imponibile">Imponibile (€)</Label>
@@ -481,7 +515,8 @@ export default function DialogCommessa({
                 type="number"
                 step="0.01"
                 min="0"
-                value={form.imponibile}
+                placeholder="0,00"
+                value={form.imponibile || ''}
                 onChange={setNumber('imponibile')}
               />
             </div>
@@ -492,7 +527,8 @@ export default function DialogCommessa({
                 type="number"
                 step="0.01"
                 min="0"
-                value={form.iva_totale}
+                placeholder="0,00"
+                value={form.iva_totale || ''}
                 onChange={setNumber('iva_totale')}
               />
             </div>
@@ -501,14 +537,14 @@ export default function DialogCommessa({
             Totale: <span className="font-semibold text-gray-800">{formatEuro(totale)}</span>
           </p>
 
-          {/* N. commessa e data */}
+          {/* ── N. commessa e data ── */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="numero_commessa">N. Commessa</Label>
               <Input
                 id="numero_commessa"
                 value={form.numero_commessa}
-                onChange={setField('numero_commessa')}
+                onChange={(e) => setForm((f) => ({ ...f, numero_commessa: e.target.value }))}
                 placeholder="es. C-2026-001"
               />
             </div>
@@ -523,28 +559,23 @@ export default function DialogCommessa({
             </div>
           </div>
 
-          {/* Operatore */}
+          {/* ── Operatore ── */}
           <div className="space-y-2">
             <Label>Operatore</Label>
-            <Select
-              value={form.operatore_id ?? '__nessuno__'}
-              onValueChange={setOperatore}
-            >
+            <Select value={form.operatore_id ?? '__nessuno__'} onValueChange={setOperatore}>
               <SelectTrigger>
                 <SelectValue placeholder="Seleziona operatore..." />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__nessuno__">— Nessuno —</SelectItem>
                 {utenti.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.nome}
-                  </SelectItem>
+                  <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Reparti */}
+          {/* ── Reparti ── */}
           <div className="space-y-2">
             <Label>Reparto</Label>
             <div className="flex flex-wrap gap-2">
@@ -568,7 +599,7 @@ export default function DialogCommessa({
             </div>
           </div>
 
-          {/* Note */}
+          {/* ── Note ── */}
           <div className="space-y-2">
             <Label htmlFor="note">Note</Label>
             <textarea
