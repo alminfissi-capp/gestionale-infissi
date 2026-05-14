@@ -301,101 +301,101 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
       .join('')
 
     const intestazioneAzienda = settings?.denominazione
-      ? `<div class="azienda">
-          ${logoUrl ? `<img src="${logoUrl}" class="logo" alt="Logo">` : ''}
-          <div class="azienda-info">
-            <strong>${settings.denominazione}</strong>
+      ? `<div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+          ${logoUrl ? `<img src="${logoUrl}" style="height:48px;width:auto;object-fit:contain" alt="Logo">` : ''}
+          <div style="display:flex;flex-direction:column;font-size:.8rem;color:#555">
+            <strong style="font-size:1rem;color:#111">${settings.denominazione}</strong>
             <span>${[settings.indirizzo, settings.piva ? `P.IVA ${settings.piva}` : null, settings.telefono, settings.email].filter(Boolean).join(' · ')}</span>
           </div>
         </div>
-        <hr class="sep">`
+        <hr style="border:none;border-top:1px solid #ddd;margin:12px 0 18px">`
       : ''
 
     const docList = commessa.documenti.length > 0
-      ? `<div class="sec-title">Documenti allegati</div>
-         <ul class="doc-list">${commessa.documenti.map((d) => `<li>${d.nome_file}${selectedDocIds.includes(d.id) ? ' <span class="badge">allegato</span>' : ''}</li>`).join('')}</ul>`
+      ? `<p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Documenti allegati</p>
+         <ul style="margin:4px 0 0;padding-left:16px;font-size:.8rem;color:#444">${commessa.documenti.map((d) =>
+           `<li style="margin-bottom:2px">${d.nome_file}${selectedDocIds.includes(d.id) ? ' <span style="background:#e0f2fe;color:#0369a1;font-size:.65rem;padding:1px 5px;border-radius:4px;margin-left:4px">allegato</span>' : ''}</li>`
+         ).join('')}</ul>`
       : ''
 
-    const allegati = selectedDocIds
-      .map((id) => {
-        const doc = commessa.documenti.find((d) => d.id === id)
-        const url = urlMap[id]
-        if (!doc || !url) return ''
+    // Immagini: embed diretto. PDF: aperto in tab separato dopo la stampa.
+    const selectedDocs = selectedDocIds
+      .map((id) => ({ doc: commessa.documenti.find((d) => d.id === id), url: urlMap[id] }))
+      .filter((x): x is { doc: DocumentoCommessa; url: string } => !!x.doc && !!x.url)
+
+    const allegatiHtml = selectedDocs
+      .map(({ doc, url }) => {
         const ext = doc.nome_file.split('.').pop()?.toLowerCase() ?? ''
         const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext)
-        return `<div class="allegato">
-          <p class="allegato-label">Allegato: ${doc.nome_file}</p>
-          ${isImage
-            ? `<img src="${url}" style="max-width:100%;height:auto;display:block">`
-            : `<embed src="${url}" type="application/pdf" width="100%" height="900px">`
-          }
+        if (!isImage) return '' // i PDF vengono aperti in tab separato
+        return `<div style="page-break-before:always;padding-top:16px">
+          <p style="font-size:.75rem;color:#999;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Allegato: ${doc.nome_file}</p>
+          <img src="${url}" style="max-width:100%;height:auto;display:block">
         </div>`
       })
       .join('')
 
-    const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
-<title>Commessa — ${commessa.cliente_nome}</title>
-<style>
-  body{font-family:sans-serif;max-width:680px;margin:36px auto;color:#111;font-size:14px}
-  .azienda{display:flex;align-items:center;gap:14px;margin-bottom:12px}
-  .logo{height:48px;width:auto;object-fit:contain}
-  .azienda-info{display:flex;flex-direction:column;font-size:.8rem;color:#555}
-  .azienda-info strong{font-size:1rem;color:#111}
-  .sep{border:none;border-top:1px solid #ddd;margin:12px 0 18px}
-  h1{font-size:1.4rem;margin:0 0 4px}
-  .sub{color:#666;font-size:.8rem;margin-bottom:20px}
-  .sec-title{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px}
-  .big{font-size:1.4rem;font-weight:700}
-  .importi{display:flex;gap:28px;flex-wrap:wrap}
-  .imp-item .val{font-size:1.1rem;font-weight:700}
-  .imp-item .lbl{font-size:.7rem;color:#999}
-  table{width:100%;border-collapse:collapse;margin-top:4px}
-  th{text-align:left;font-size:.7rem;color:#999;padding:3px 6px;border-bottom:1px solid #eee}
-  td{padding:5px 6px;border-bottom:1px solid #f3f3f3}
-  .saldo-sec{border-top:2px solid #eee;margin-top:20px;padding-top:14px}
-  .doc-list{margin:4px 0 0;padding-left:16px;font-size:.8rem;color:#444}
-  .doc-list li{margin-bottom:2px}
-  .badge{background:#e0f2fe;color:#0369a1;font-size:.65rem;padding:1px 5px;border-radius:4px;margin-left:4px}
-  .allegato{page-break-before:always;padding-top:16px}
-  .allegato-label{font-size:.75rem;color:#999;margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-  @media print{body{margin:16px}}
-</style></head><body>
-${intestazioneAzienda}
-<h1>${commessa.cliente_nome}</h1>
-<p class="sub">${[commessa.numero_commessa && `N. ${commessa.numero_commessa}`, statoInfo.label, formatMese(commessa.data_conferma), commessa.operatore_nome].filter(Boolean).join(' · ')}</p>
-${commessa.note ? `<div class="sec-title">Descrizione lavori</div><p>${commessa.note}</p>` : ''}
-${commessa.numero_preventivo ? `<div class="sec-title">Preventivo</div><p style="font-family:monospace">${commessa.numero_preventivo}</p>` : ''}
-${docList}
-<div class="sec-title">Importi</div>
-<div class="importi">
-  <div class="imp-item"><div class="big">${formatEuro(commessa.totale)}</div><div class="lbl">Totale</div></div>
-  <div class="imp-item"><div class="val">${formatEuro(commessa.imponibile)}</div><div class="lbl">Imponibile</div></div>
-  <div class="imp-item"><div class="val">${formatEuro(commessa.iva_totale)}</div><div class="lbl">IVA</div></div>
-</div>
-${commessa.acconti.length > 0 ? `
-<div class="sec-title">Pagamenti ricevuti</div>
-<table><thead><tr><th>Data</th><th>Metodo</th><th style="text-align:right">Importo</th><th>Note</th></tr></thead>
-<tbody>${righeAcconti}</tbody></table>
-<p style="text-align:right;color:#666;margin-top:4px">Totale acconti: <strong>${formatEuro(commessa.totale_acconti)}</strong></p>` : ''}
-<div class="saldo-sec">
-  <div class="sec-title">Saldo rimanente</div>
-  <div class="big" style="color:${saldoZero ? '#16a34a' : '#ea580c'}">${formatEuro(commessa.saldo)}</div>
-  <p style="color:#666;font-size:.8rem">${saldoZero ? 'Pagato ✓' : 'Da pagare'}</p>
-</div>
-${allegati}
-</body></html>`
+    const innerHtml = `
+      <div style="font-family:sans-serif;max-width:680px;margin:0 auto;color:#111;font-size:14px">
+        ${intestazioneAzienda}
+        <h1 style="font-size:1.4rem;margin:0 0 4px">${commessa.cliente_nome}</h1>
+        <p style="color:#666;font-size:.8rem;margin-bottom:20px">${[commessa.numero_commessa && `N. ${commessa.numero_commessa}`, statoInfo.label, formatMese(commessa.data_conferma), commessa.operatore_nome].filter(Boolean).join(' · ')}</p>
+        ${commessa.note ? `<p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Descrizione lavori</p><p>${commessa.note}</p>` : ''}
+        ${commessa.numero_preventivo ? `<p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Preventivo</p><p style="font-family:monospace">${commessa.numero_preventivo}</p>` : ''}
+        ${docList}
+        <p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Importi</p>
+        <div style="display:flex;gap:28px;flex-wrap:wrap">
+          <div><div style="font-size:1.4rem;font-weight:700">${formatEuro(commessa.totale)}</div><div style="font-size:.7rem;color:#999">Totale</div></div>
+          <div><div style="font-size:1.1rem;font-weight:700">${formatEuro(commessa.imponibile)}</div><div style="font-size:.7rem;color:#999">Imponibile</div></div>
+          <div><div style="font-size:1.1rem;font-weight:700">${formatEuro(commessa.iva_totale)}</div><div style="font-size:.7rem;color:#999">IVA</div></div>
+        </div>
+        ${commessa.acconti.length > 0 ? `
+          <p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Pagamenti ricevuti</p>
+          <table style="width:100%;border-collapse:collapse;margin-top:4px">
+            <thead><tr>
+              <th style="text-align:left;font-size:.7rem;color:#999;padding:3px 6px;border-bottom:1px solid #eee">Data</th>
+              <th style="text-align:left;font-size:.7rem;color:#999;padding:3px 6px;border-bottom:1px solid #eee">Metodo</th>
+              <th style="text-align:right;font-size:.7rem;color:#999;padding:3px 6px;border-bottom:1px solid #eee">Importo</th>
+              <th style="text-align:left;font-size:.7rem;color:#999;padding:3px 6px;border-bottom:1px solid #eee">Note</th>
+            </tr></thead>
+            <tbody>${righeAcconti}</tbody>
+          </table>
+          <p style="text-align:right;color:#666;margin-top:4px">Totale acconti: <strong>${formatEuro(commessa.totale_acconti)}</strong></p>` : ''}
+        <div style="border-top:2px solid #eee;margin-top:20px;padding-top:14px">
+          <p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:0 0 4px">Saldo rimanente</p>
+          <div style="font-size:1.4rem;font-weight:700;color:${saldoZero ? '#16a34a' : '#ea580c'}">${formatEuro(commessa.saldo)}</div>
+          <p style="color:#666;font-size:.8rem">${saldoZero ? 'Pagato ✓' : 'Da pagare'}</p>
+        </div>
+        ${allegatiHtml}
+      </div>`
 
-    const iframe = document.createElement('iframe')
-    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:800px;height:1100px;visibility:hidden;'
-    document.body.appendChild(iframe)
-    const doc = iframe.contentDocument ?? iframe.contentWindow?.document
-    if (!doc) { toast.error('Errore nella preparazione della stampa'); document.body.removeChild(iframe); return }
-    doc.open(); doc.write(html); doc.close()
-    setTimeout(() => {
-      iframe.contentWindow?.focus()
-      iframe.contentWindow?.print()
-      setTimeout(() => document.body.removeChild(iframe), 1000)
-    }, 600)
+    // Inietta nel DOM corrente e usa window.print() — evita problemi di focus del Dialog
+    const printEl = document.createElement('div')
+    printEl.id = '__cp_scheda__'
+    printEl.innerHTML = innerHtml
+    document.body.appendChild(printEl)
+
+    const styleEl = document.createElement('style')
+    styleEl.id = '__cp_style__'
+    styleEl.textContent = `
+      @media screen { #__cp_scheda__ { display: none !important; } }
+      @media print {
+        body > *:not(#__cp_scheda__) { display: none !important; }
+        #__cp_scheda__ { display: block !important; }
+      }
+    `
+    document.head.appendChild(styleEl)
+
+    window.print()
+
+    document.body.removeChild(printEl)
+    document.head.removeChild(styleEl)
+
+    // Apri i PDF selezionati in tab separati dopo la stampa
+    selectedDocs.forEach(({ doc, url }) => {
+      const ext = doc.nome_file.split('.').pop()?.toLowerCase() ?? ''
+      if (ext === 'pdf') window.open(url, '_blank')
+    })
   }
 
   // ── Acconti ───────────────────────────────────────────────
