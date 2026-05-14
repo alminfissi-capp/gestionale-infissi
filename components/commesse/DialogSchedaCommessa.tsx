@@ -318,19 +318,24 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
          ).join('')}</ul>`
       : ''
 
-    // Immagini: embed diretto. PDF: aperto in tab separato dopo la stampa.
     const selectedDocs = selectedDocIds
       .map((id) => ({ doc: commessa.documenti.find((d) => d.id === id), url: urlMap[id] }))
       .filter((x): x is { doc: DocumentoCommessa; url: string } => !!x.doc && !!x.url)
+
+    const hasPdfs = selectedDocs.some(({ doc }) =>
+      doc.nome_file.split('.').pop()?.toLowerCase() === 'pdf'
+    )
 
     const allegatiHtml = selectedDocs
       .map(({ doc, url }) => {
         const ext = doc.nome_file.split('.').pop()?.toLowerCase() ?? ''
         const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext)
-        if (!isImage) return '' // i PDF vengono aperti in tab separato
         return `<div style="page-break-before:always;padding-top:16px">
           <p style="font-size:.75rem;color:#999;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Allegato: ${doc.nome_file}</p>
-          <img src="${url}" style="max-width:100%;height:auto;display:block">
+          ${isImage
+            ? `<img src="${url}" style="max-width:100%;height:auto;display:block">`
+            : `<embed src="${url}" type="application/pdf" style="width:100%;height:100vh;display:block">`
+          }
         </div>`
       })
       .join('')
@@ -386,16 +391,15 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
     `
     document.head.appendChild(styleEl)
 
-    window.print()
+    const cleanup = () => {
+      document.getElementById('__cp_scheda__') && document.body.removeChild(printEl)
+      document.getElementById('__cp_style__') && document.head.removeChild(styleEl)
+      window.removeEventListener('afterprint', cleanup)
+    }
+    window.addEventListener('afterprint', cleanup)
 
-    document.body.removeChild(printEl)
-    document.head.removeChild(styleEl)
-
-    // Apri i PDF selezionati in tab separati dopo la stampa
-    selectedDocs.forEach(({ doc, url }) => {
-      const ext = doc.nome_file.split('.').pop()?.toLowerCase() ?? ''
-      if (ext === 'pdf') window.open(url, '_blank')
-    })
+    // Dai tempo ai PDF di caricarsi prima di aprire il dialogo di stampa
+    setTimeout(() => window.print(), hasPdfs ? 1500 : 50)
   }
 
   // ── Acconti ───────────────────────────────────────────────
