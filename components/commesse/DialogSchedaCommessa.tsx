@@ -288,14 +288,14 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
     setStampaDialogOpen(true)
   }
 
-  const handleStampa = (selectedDocIds: string[]) => {
+  const handleStampa = (selectedDocIds: string[], printWin: Window | null) => {
     const righeAcconti = commessa.acconti
       .map(
         (a) => `<tr>
-          <td>${formatData(a.data_pagamento)}</td>
-          <td>${METODI.find((m) => m.value === a.metodo_pagamento)?.label ?? a.metodo_pagamento}</td>
-          <td style="text-align:right;font-weight:600">${formatEuro(a.importo)}</td>
-          <td style="color:#999">${a.note ?? ''}</td>
+          <td style="padding:5px 6px;border-bottom:1px solid #f3f3f3">${formatData(a.data_pagamento)}</td>
+          <td style="padding:5px 6px;border-bottom:1px solid #f3f3f3">${METODI.find((m) => m.value === a.metodo_pagamento)?.label ?? a.metodo_pagamento}</td>
+          <td style="padding:5px 6px;border-bottom:1px solid #f3f3f3;text-align:right;font-weight:600">${formatEuro(a.importo)}</td>
+          <td style="padding:5px 6px;border-bottom:1px solid #f3f3f3;color:#999">${a.note ?? ''}</td>
         </tr>`
       )
       .join('')
@@ -340,66 +340,53 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
       })
       .join('')
 
-    const innerHtml = `
-      <div style="font-family:sans-serif;max-width:680px;margin:0 auto;color:#111;font-size:14px">
-        ${intestazioneAzienda}
-        <h1 style="font-size:1.4rem;margin:0 0 4px">${commessa.cliente_nome}</h1>
-        <p style="color:#666;font-size:.8rem;margin-bottom:20px">${[commessa.numero_commessa && `N. ${commessa.numero_commessa}`, statoInfo.label, formatMese(commessa.data_conferma), commessa.operatore_nome].filter(Boolean).join(' · ')}</p>
-        ${commessa.note ? `<p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Descrizione lavori</p><p>${commessa.note}</p>` : ''}
-        ${commessa.numero_preventivo ? `<p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Preventivo</p><p style="font-family:monospace">${commessa.numero_preventivo}</p>` : ''}
-        ${docList}
-        <p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Importi</p>
-        <div style="display:flex;gap:28px;flex-wrap:wrap">
-          <div><div style="font-size:1.4rem;font-weight:700">${formatEuro(commessa.totale)}</div><div style="font-size:.7rem;color:#999">Totale</div></div>
-          <div><div style="font-size:1.1rem;font-weight:700">${formatEuro(commessa.imponibile)}</div><div style="font-size:.7rem;color:#999">Imponibile</div></div>
-          <div><div style="font-size:1.1rem;font-weight:700">${formatEuro(commessa.iva_totale)}</div><div style="font-size:.7rem;color:#999">IVA</div></div>
-        </div>
-        ${commessa.acconti.length > 0 ? `
-          <p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Pagamenti ricevuti</p>
-          <table style="width:100%;border-collapse:collapse;margin-top:4px">
-            <thead><tr>
-              <th style="text-align:left;font-size:.7rem;color:#999;padding:3px 6px;border-bottom:1px solid #eee">Data</th>
-              <th style="text-align:left;font-size:.7rem;color:#999;padding:3px 6px;border-bottom:1px solid #eee">Metodo</th>
-              <th style="text-align:right;font-size:.7rem;color:#999;padding:3px 6px;border-bottom:1px solid #eee">Importo</th>
-              <th style="text-align:left;font-size:.7rem;color:#999;padding:3px 6px;border-bottom:1px solid #eee">Note</th>
-            </tr></thead>
-            <tbody>${righeAcconti}</tbody>
-          </table>
-          <p style="text-align:right;color:#666;margin-top:4px">Totale acconti: <strong>${formatEuro(commessa.totale_acconti)}</strong></p>` : ''}
-        <div style="border-top:2px solid #eee;margin-top:20px;padding-top:14px">
-          <p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:0 0 4px">Saldo rimanente</p>
-          <div style="font-size:1.4rem;font-weight:700;color:${saldoZero ? '#16a34a' : '#ea580c'}">${formatEuro(commessa.saldo)}</div>
-          <p style="color:#666;font-size:.8rem">${saldoZero ? 'Pagato ✓' : 'Da pagare'}</p>
-        </div>
-        ${allegatiHtml}
-      </div>`
+    const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<title>Commessa — ${commessa.cliente_nome}</title>
+<style>
+  body{font-family:sans-serif;max-width:680px;margin:36px auto;color:#111;font-size:14px}
+  h1{font-size:1.4rem;margin:0 0 4px}
+  table{width:100%;border-collapse:collapse;margin-top:4px}
+  th{text-align:left;font-size:.7rem;color:#999;padding:3px 6px;border-bottom:1px solid #eee}
+  @media print{body{margin:16px}}
+</style></head><body>
+${intestazioneAzienda}
+<h1>${commessa.cliente_nome}</h1>
+<p style="color:#666;font-size:.8rem;margin-bottom:20px">${[commessa.numero_commessa && `N. ${commessa.numero_commessa}`, statoInfo.label, formatMese(commessa.data_conferma), commessa.operatore_nome].filter(Boolean).join(' · ')}</p>
+${commessa.note ? `<p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Descrizione lavori</p><p>${commessa.note}</p>` : ''}
+${commessa.numero_preventivo ? `<p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Preventivo</p><p style="font-family:monospace">${commessa.numero_preventivo}</p>` : ''}
+${docList}
+<p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Importi</p>
+<div style="display:flex;gap:28px;flex-wrap:wrap">
+  <div><div style="font-size:1.4rem;font-weight:700">${formatEuro(commessa.totale)}</div><div style="font-size:.7rem;color:#999">Totale</div></div>
+  <div><div style="font-size:1.1rem;font-weight:700">${formatEuro(commessa.imponibile)}</div><div style="font-size:.7rem;color:#999">Imponibile</div></div>
+  <div><div style="font-size:1.1rem;font-weight:700">${formatEuro(commessa.iva_totale)}</div><div style="font-size:.7rem;color:#999">IVA</div></div>
+</div>
+${commessa.acconti.length > 0 ? `
+<p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Pagamenti ricevuti</p>
+<table><thead><tr>
+  <th>Data</th><th>Metodo</th><th style="text-align:right">Importo</th><th>Note</th>
+</tr></thead><tbody>${righeAcconti}</tbody></table>
+<p style="text-align:right;color:#666;margin-top:4px">Totale acconti: <strong>${formatEuro(commessa.totale_acconti)}</strong></p>` : ''}
+<div style="border-top:2px solid #eee;margin-top:20px;padding-top:14px">
+  <p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:0 0 4px">Saldo rimanente</p>
+  <div style="font-size:1.4rem;font-weight:700;color:${saldoZero ? '#16a34a' : '#ea580c'}">${formatEuro(commessa.saldo)}</div>
+  <p style="color:#666;font-size:.8rem">${saldoZero ? 'Pagato ✓' : 'Da pagare'}</p>
+</div>
+${allegatiHtml}
+</body></html>`
 
-    // Inietta nel DOM corrente e usa window.print() — evita problemi di focus del Dialog
-    const printEl = document.createElement('div')
-    printEl.id = '__cp_scheda__'
-    printEl.innerHTML = innerHtml
-    document.body.appendChild(printEl)
-
-    const styleEl = document.createElement('style')
-    styleEl.id = '__cp_style__'
-    styleEl.textContent = `
-      @media screen { #__cp_scheda__ { display: none !important; } }
-      @media print {
-        body > *:not(#__cp_scheda__) { display: none !important; }
-        #__cp_scheda__ { display: block !important; }
-      }
-    `
-    document.head.appendChild(styleEl)
-
-    const cleanup = () => {
-      document.getElementById('__cp_scheda__') && document.body.removeChild(printEl)
-      document.getElementById('__cp_style__') && document.head.removeChild(styleEl)
-      window.removeEventListener('afterprint', cleanup)
+    if (!printWin) {
+      toast.error('Popup bloccato: consenti i popup per questo sito e riprova')
+      return
     }
-    window.addEventListener('afterprint', cleanup)
-
-    // Dai tempo ai PDF di caricarsi prima di aprire il dialogo di stampa
-    setTimeout(() => window.print(), hasPdfs ? 1500 : 50)
+    printWin.document.write(html)
+    printWin.document.close()
+    printWin.focus()
+    // I PDF embedded richiedono più tempo per caricarsi
+    setTimeout(() => {
+      printWin.print()
+      printWin.addEventListener('afterprint', () => printWin.close())
+    }, hasPdfs ? 2000 : 500)
   }
 
   // ── Acconti ───────────────────────────────────────────────
@@ -606,8 +593,10 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                 size="sm"
                 onClick={() => {
                   const docIds = [...stampaDocSelezioni]
+                  // Apri la finestra SUBITO (gesto utente sincrono → popup blocker non interviene)
+                  const printWin = window.open('', '_blank', 'width=900,height=700')
                   setStampaDialogOpen(false)
-                  setTimeout(() => handleStampa(docIds), 350)
+                  setTimeout(() => handleStampa(docIds, printWin), 350)
                 }}
               >
                 <Printer className="h-4 w-4 mr-1.5" />
