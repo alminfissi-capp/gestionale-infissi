@@ -473,16 +473,24 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
               <Button variant="ghost" size="sm" onClick={() => setStampaDialogOpen(false)}>
                 Annulla
               </Button>
-              <Button size="sm" asChild>
-                <a
-                  href={`/commesse/${commessa.id}/stampa${stampaDocSelezioni.length > 0 ? `?docs=${stampaDocSelezioni.join(',')}` : ''}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setStampaDialogOpen(false)}
-                >
-                  <Printer className="h-4 w-4 mr-1.5" />
-                  Stampa
-                </a>
+              <Button
+                size="sm"
+                onClick={() => {
+                  const docsParam = stampaDocSelezioni.join(',')
+                  const url = `/commesse/${commessa.id}/stampa${docsParam ? `?docs=${docsParam}` : ''}`
+                  // Crea l'anchor fuori dal Dialog per evitare che Radix intercetti l'evento
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.target = '_blank'
+                  a.rel = 'noopener noreferrer'
+                  document.body.appendChild(a)
+                  a.click()
+                  document.body.removeChild(a)
+                  setStampaDialogOpen(false)
+                }}
+              >
+                <Printer className="h-4 w-4 mr-1.5" />
+                Stampa
               </Button>
             </div>
           </DialogContent>
