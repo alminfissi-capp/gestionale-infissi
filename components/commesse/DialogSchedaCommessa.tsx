@@ -311,12 +311,17 @@ ${commessa.acconti.length > 0 ? `
 </div>
 </body></html>`
 
-    const win = window.open('', '_blank')
-    if (!win) { toast.error('Abilita i popup per stampare'); return }
-    win.document.write(html)
-    win.document.close()
-    win.focus()
-    setTimeout(() => { win.print(); win.close() }, 400)
+    const iframe = document.createElement('iframe')
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;'
+    document.body.appendChild(iframe)
+    const doc = iframe.contentDocument ?? iframe.contentWindow?.document
+    if (!doc) { toast.error('Errore nella preparazione della stampa'); document.body.removeChild(iframe); return }
+    doc.open(); doc.write(html); doc.close()
+    iframe.contentWindow?.focus()
+    setTimeout(() => {
+      iframe.contentWindow?.print()
+      document.body.removeChild(iframe)
+    }, 400)
   }
 
   // ── Acconti ───────────────────────────────────────────────
