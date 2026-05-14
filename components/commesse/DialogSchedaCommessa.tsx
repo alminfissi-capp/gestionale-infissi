@@ -14,6 +14,8 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog'
 import {
   Select,
@@ -32,6 +34,7 @@ import {
   getDocumentoCommessaUrl,
   getOrgIdPerUpload,
 } from '@/actions/commesse'
+import { getSettings, getLogoSignedUrl } from '@/actions/impostazioni'
 import { formatEuro } from '@/lib/pricing'
 import type {
   CommessaCompleta,
@@ -43,6 +46,7 @@ import type {
   Reparto,
   UtentePerCommessa,
 } from '@/types/commessa'
+import type { Settings } from '@/types/impostazioni'
 import { REPARTI } from '@/types/commessa'
 
 // ── Costanti ────────────────────────────────────────────────
@@ -134,6 +138,12 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null)
   const [urlMap, setUrlMap] = useState<Record<string, string>>({})
 
+  // Stampa
+  const [settings, setSettings] = useState<Settings | null>(null)
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [stampaDialogOpen, setStampaDialogOpen] = useState(false)
+  const [stampaDocSelezioni, setStampaDocSelezioni] = useState<string[]>([])
+
   // Reset all'apertura
   useEffect(() => {
     if (!open || !commessa) return
@@ -143,6 +153,19 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
     setUrlMap({})
     setForm(commessaToForm(commessa))
   }, [open, commessa?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Carica impostazioni azienda (logo incluso) una volta per apertura
+  useEffect(() => {
+    if (!open) return
+    getSettings().then(async (s) => {
+      setSettings(s)
+      if (s?.logo_url) {
+        getLogoSignedUrl(s.logo_url).then((url) => setLogoUrl(url))
+      } else {
+        setLogoUrl(null)
+      }
+    })
+  }, [open])
 
   // Risincronizza form dopo router.refresh() (solo se non in edit mode)
   useEffect(() => {
@@ -260,7 +283,12 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
     } catch { /* annullato */ }
   }
 
-  const handleStampa = () => {
+  const handleClickStampa = () => {
+    setStampaDocSelezioni(commessa.documenti.map((d) => d.id))
+    setStampaDialogOpen(true)
+  }
+
+  const handleStampa = (selectedDocIds: string[]) => {
     const righeAcconti = commessa.acconti
       .map(
         (a) => `<tr>
@@ -272,10 +300,48 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
       )
       .join('')
 
+    const intestazioneAzienda = settings?.denominazione
+      ? `<div class="azienda">
+          ${logoUrl ? `<img src="${logoUrl}" class="logo" alt="Logo">` : ''}
+          <div class="azienda-info">
+            <strong>${settings.denominazione}</strong>
+            <span>${[settings.indirizzo, settings.piva ? `P.IVA ${settings.piva}` : null, settings.telefono, settings.email].filter(Boolean).join(' · ')}</span>
+          </div>
+        </div>
+        <hr class="sep">`
+      : ''
+
+    const docList = commessa.documenti.length > 0
+      ? `<div class="sec-title">Documenti allegati</div>
+         <ul class="doc-list">${commessa.documenti.map((d) => `<li>${d.nome_file}${selectedDocIds.includes(d.id) ? ' <span class="badge">allegato</span>' : ''}</li>`).join('')}</ul>`
+      : ''
+
+    const allegati = selectedDocIds
+      .map((id) => {
+        const doc = commessa.documenti.find((d) => d.id === id)
+        const url = urlMap[id]
+        if (!doc || !url) return ''
+        const ext = doc.nome_file.split('.').pop()?.toLowerCase() ?? ''
+        const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext)
+        return `<div class="allegato">
+          <p class="allegato-label">Allegato: ${doc.nome_file}</p>
+          ${isImage
+            ? `<img src="${url}" style="max-width:100%;height:auto;display:block">`
+            : `<embed src="${url}" type="application/pdf" width="100%" height="900px">`
+          }
+        </div>`
+      })
+      .join('')
+
     const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
 <title>Commessa — ${commessa.cliente_nome}</title>
 <style>
   body{font-family:sans-serif;max-width:680px;margin:36px auto;color:#111;font-size:14px}
+  .azienda{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+  .logo{height:48px;width:auto;object-fit:contain}
+  .azienda-info{display:flex;flex-direction:column;font-size:.8rem;color:#555}
+  .azienda-info strong{font-size:1rem;color:#111}
+  .sep{border:none;border-top:1px solid #ddd;margin:12px 0 18px}
   h1{font-size:1.4rem;margin:0 0 4px}
   .sub{color:#666;font-size:.8rem;margin-bottom:20px}
   .sec-title{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px}
@@ -287,12 +353,19 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
   th{text-align:left;font-size:.7rem;color:#999;padding:3px 6px;border-bottom:1px solid #eee}
   td{padding:5px 6px;border-bottom:1px solid #f3f3f3}
   .saldo-sec{border-top:2px solid #eee;margin-top:20px;padding-top:14px}
+  .doc-list{margin:4px 0 0;padding-left:16px;font-size:.8rem;color:#444}
+  .doc-list li{margin-bottom:2px}
+  .badge{background:#e0f2fe;color:#0369a1;font-size:.65rem;padding:1px 5px;border-radius:4px;margin-left:4px}
+  .allegato{page-break-before:always;padding-top:16px}
+  .allegato-label{font-size:.75rem;color:#999;margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
   @media print{body{margin:16px}}
 </style></head><body>
+${intestazioneAzienda}
 <h1>${commessa.cliente_nome}</h1>
 <p class="sub">${[commessa.numero_commessa && `N. ${commessa.numero_commessa}`, statoInfo.label, formatMese(commessa.data_conferma), commessa.operatore_nome].filter(Boolean).join(' · ')}</p>
 ${commessa.note ? `<div class="sec-title">Descrizione lavori</div><p>${commessa.note}</p>` : ''}
 ${commessa.numero_preventivo ? `<div class="sec-title">Preventivo</div><p style="font-family:monospace">${commessa.numero_preventivo}</p>` : ''}
+${docList}
 <div class="sec-title">Importi</div>
 <div class="importi">
   <div class="imp-item"><div class="big">${formatEuro(commessa.totale)}</div><div class="lbl">Totale</div></div>
@@ -309,6 +382,7 @@ ${commessa.acconti.length > 0 ? `
   <div class="big" style="color:${saldoZero ? '#16a34a' : '#ea580c'}">${formatEuro(commessa.saldo)}</div>
   <p style="color:#666;font-size:.8rem">${saldoZero ? 'Pagato ✓' : 'Da pagare'}</p>
 </div>
+${allegati}
 </body></html>`
 
     const iframe = document.createElement('iframe')
@@ -473,7 +547,7 @@ ${commessa.acconti.length > 0 ? `
                   <Pencil className="h-3.5 w-3.5 mr-1.5" />
                   Modifica
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleStampa}>
+                <Button variant="outline" size="sm" onClick={handleClickStampa}>
                   <Printer className="h-3.5 w-3.5 mr-1.5" />
                   Stampa
                 </Button>
@@ -485,6 +559,58 @@ ${commessa.acconti.length > 0 ? `
             )}
           </div>
         </div>
+
+        {/* ── Dialog selezione documenti per stampa ── */}
+        <Dialog open={stampaDialogOpen} onOpenChange={setStampaDialogOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Stampa scheda commessa</DialogTitle>
+            </DialogHeader>
+            {commessa.documenti.length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-500">Seleziona i documenti da allegare alla stampa:</p>
+                <div className="space-y-2">
+                  {commessa.documenti.map((doc) => (
+                    <label key={doc.id} className="flex items-center gap-2.5 text-sm cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300 accent-teal-600"
+                        checked={stampaDocSelezioni.includes(doc.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setStampaDocSelezioni((s) => [...s, doc.id])
+                          else setStampaDocSelezioni((s) => s.filter((id) => id !== doc.id))
+                        }}
+                        disabled={!urlMap[doc.id]}
+                      />
+                      <FileText className="h-3.5 w-3.5 text-red-400 shrink-0" />
+                      <span className="truncate text-gray-700">{doc.nome_file}</span>
+                      {!urlMap[doc.id] && (
+                        <span className="text-[10px] text-gray-400">(caricamento…)</span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">Nessun documento allegato. La stampa includerà solo la scheda.</p>
+            )}
+            <div className="flex gap-2 justify-end pt-1">
+              <Button variant="ghost" size="sm" onClick={() => setStampaDialogOpen(false)}>
+                Annulla
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setStampaDialogOpen(false)
+                  handleStampa(stampaDocSelezioni)
+                }}
+              >
+                <Printer className="h-4 w-4 mr-1.5" />
+                Stampa
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* ── Body ── */}
         <div className="flex-1 overflow-y-auto">
