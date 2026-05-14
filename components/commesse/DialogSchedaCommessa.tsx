@@ -473,17 +473,16 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
               <Button variant="ghost" size="sm" onClick={() => setStampaDialogOpen(false)}>
                 Annulla
               </Button>
-              <Button
-                size="sm"
-                onClick={() => {
-                  const docsParam = stampaDocSelezioni.join(',')
-                  const url = `/commesse/${commessa.id}/stampa${docsParam ? `?docs=${docsParam}` : ''}`
-                  window.open(url, '_blank')
-                  setStampaDialogOpen(false)
-                }}
-              >
-                <Printer className="h-4 w-4 mr-1.5" />
-                Stampa
+              <Button size="sm" asChild>
+                <a
+                  href={`/commesse/${commessa.id}/stampa${stampaDocSelezioni.length > 0 ? `?docs=${stampaDocSelezioni.join(',')}` : ''}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setStampaDialogOpen(false)}
+                >
+                  <Printer className="h-4 w-4 mr-1.5" />
+                  Stampa
+                </a>
               </Button>
             </div>
           </DialogContent>
