@@ -34,7 +34,6 @@ import {
   getDocumentoCommessaUrl,
   getOrgIdPerUpload,
 } from '@/actions/commesse'
-import { getSettings, getLogoSignedUrl } from '@/actions/impostazioni'
 import { formatEuro } from '@/lib/pricing'
 import type {
   CommessaCompleta,
@@ -46,7 +45,6 @@ import type {
   Reparto,
   UtentePerCommessa,
 } from '@/types/commessa'
-import type { Settings } from '@/types/impostazioni'
 import { REPARTI } from '@/types/commessa'
 
 // ── Costanti ────────────────────────────────────────────────
@@ -139,8 +137,6 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
   const [urlMap, setUrlMap] = useState<Record<string, string>>({})
 
   // Stampa
-  const [settings, setSettings] = useState<Settings | null>(null)
-  const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [stampaDialogOpen, setStampaDialogOpen] = useState(false)
   const [stampaDocSelezioni, setStampaDocSelezioni] = useState<string[]>([])
 
@@ -154,18 +150,6 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
     setForm(commessaToForm(commessa))
   }, [open, commessa?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Carica impostazioni azienda (logo incluso) una volta per apertura
-  useEffect(() => {
-    if (!open) return
-    getSettings().then(async (s) => {
-      setSettings(s)
-      if (s?.logo_url) {
-        getLogoSignedUrl(s.logo_url).then((url) => setLogoUrl(url))
-      } else {
-        setLogoUrl(null)
-      }
-    })
-  }, [open])
 
   // Risincronizza form dopo router.refresh() (solo se non in edit mode)
   useEffect(() => {
@@ -288,106 +272,6 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
     setStampaDialogOpen(true)
   }
 
-  const handleStampa = (selectedDocIds: string[], printWin: Window | null) => {
-    const righeAcconti = commessa.acconti
-      .map(
-        (a) => `<tr>
-          <td style="padding:5px 6px;border-bottom:1px solid #f3f3f3">${formatData(a.data_pagamento)}</td>
-          <td style="padding:5px 6px;border-bottom:1px solid #f3f3f3">${METODI.find((m) => m.value === a.metodo_pagamento)?.label ?? a.metodo_pagamento}</td>
-          <td style="padding:5px 6px;border-bottom:1px solid #f3f3f3;text-align:right;font-weight:600">${formatEuro(a.importo)}</td>
-          <td style="padding:5px 6px;border-bottom:1px solid #f3f3f3;color:#999">${a.note ?? ''}</td>
-        </tr>`
-      )
-      .join('')
-
-    const intestazioneAzienda = settings?.denominazione
-      ? `<div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
-          ${logoUrl ? `<img src="${logoUrl}" style="height:48px;width:auto;object-fit:contain" alt="Logo">` : ''}
-          <div style="display:flex;flex-direction:column;font-size:.8rem;color:#555">
-            <strong style="font-size:1rem;color:#111">${settings.denominazione}</strong>
-            <span>${[settings.indirizzo, settings.piva ? `P.IVA ${settings.piva}` : null, settings.telefono, settings.email].filter(Boolean).join(' · ')}</span>
-          </div>
-        </div>
-        <hr style="border:none;border-top:1px solid #ddd;margin:12px 0 18px">`
-      : ''
-
-    const docList = commessa.documenti.length > 0
-      ? `<p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Documenti allegati</p>
-         <ul style="margin:4px 0 0;padding-left:16px;font-size:.8rem;color:#444">${commessa.documenti.map((d) =>
-           `<li style="margin-bottom:2px">${d.nome_file}${selectedDocIds.includes(d.id) ? ' <span style="background:#e0f2fe;color:#0369a1;font-size:.65rem;padding:1px 5px;border-radius:4px;margin-left:4px">allegato</span>' : ''}</li>`
-         ).join('')}</ul>`
-      : ''
-
-    const selectedDocs = selectedDocIds
-      .map((id) => ({ doc: commessa.documenti.find((d) => d.id === id), url: urlMap[id] }))
-      .filter((x): x is { doc: DocumentoCommessa; url: string } => !!x.doc && !!x.url)
-
-    const hasPdfs = selectedDocs.some(({ doc }) =>
-      doc.nome_file.split('.').pop()?.toLowerCase() === 'pdf'
-    )
-
-    const allegatiHtml = selectedDocs
-      .map(({ doc, url }) => {
-        const ext = doc.nome_file.split('.').pop()?.toLowerCase() ?? ''
-        const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext)
-        return `<div style="page-break-before:always;padding-top:16px">
-          <p style="font-size:.75rem;color:#999;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Allegato: ${doc.nome_file}</p>
-          ${isImage
-            ? `<img src="${url}" style="max-width:100%;height:auto;display:block">`
-            : `<embed src="${url}" type="application/pdf" style="width:100%;height:100vh;display:block">`
-          }
-        </div>`
-      })
-      .join('')
-
-    const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
-<title>Commessa — ${commessa.cliente_nome}</title>
-<style>
-  body{font-family:sans-serif;max-width:680px;margin:36px auto;color:#111;font-size:14px}
-  h1{font-size:1.4rem;margin:0 0 4px}
-  table{width:100%;border-collapse:collapse;margin-top:4px}
-  th{text-align:left;font-size:.7rem;color:#999;padding:3px 6px;border-bottom:1px solid #eee}
-  @media print{body{margin:16px}}
-</style></head><body>
-${intestazioneAzienda}
-<h1>${commessa.cliente_nome}</h1>
-<p style="color:#666;font-size:.8rem;margin-bottom:20px">${[commessa.numero_commessa && `N. ${commessa.numero_commessa}`, statoInfo.label, formatMese(commessa.data_conferma), commessa.operatore_nome].filter(Boolean).join(' · ')}</p>
-${commessa.note ? `<p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Descrizione lavori</p><p>${commessa.note}</p>` : ''}
-${commessa.numero_preventivo ? `<p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Preventivo</p><p style="font-family:monospace">${commessa.numero_preventivo}</p>` : ''}
-${docList}
-<p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Importi</p>
-<div style="display:flex;gap:28px;flex-wrap:wrap">
-  <div><div style="font-size:1.4rem;font-weight:700">${formatEuro(commessa.totale)}</div><div style="font-size:.7rem;color:#999">Totale</div></div>
-  <div><div style="font-size:1.1rem;font-weight:700">${formatEuro(commessa.imponibile)}</div><div style="font-size:.7rem;color:#999">Imponibile</div></div>
-  <div><div style="font-size:1.1rem;font-weight:700">${formatEuro(commessa.iva_totale)}</div><div style="font-size:.7rem;color:#999">IVA</div></div>
-</div>
-${commessa.acconti.length > 0 ? `
-<p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:16px 0 4px">Pagamenti ricevuti</p>
-<table><thead><tr>
-  <th>Data</th><th>Metodo</th><th style="text-align:right">Importo</th><th>Note</th>
-</tr></thead><tbody>${righeAcconti}</tbody></table>
-<p style="text-align:right;color:#666;margin-top:4px">Totale acconti: <strong>${formatEuro(commessa.totale_acconti)}</strong></p>` : ''}
-<div style="border-top:2px solid #eee;margin-top:20px;padding-top:14px">
-  <p style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin:0 0 4px">Saldo rimanente</p>
-  <div style="font-size:1.4rem;font-weight:700;color:${saldoZero ? '#16a34a' : '#ea580c'}">${formatEuro(commessa.saldo)}</div>
-  <p style="color:#666;font-size:.8rem">${saldoZero ? 'Pagato ✓' : 'Da pagare'}</p>
-</div>
-${allegatiHtml}
-</body></html>`
-
-    if (!printWin) {
-      toast.error('Popup bloccato: consenti i popup per questo sito e riprova')
-      return
-    }
-    printWin.document.write(html)
-    printWin.document.close()
-    printWin.focus()
-    // I PDF embedded richiedono più tempo per caricarsi
-    setTimeout(() => {
-      printWin.print()
-      printWin.addEventListener('afterprint', () => printWin.close())
-    }, hasPdfs ? 2000 : 500)
-  }
 
   // ── Acconti ───────────────────────────────────────────────
 
@@ -592,11 +476,10 @@ ${allegatiHtml}
               <Button
                 size="sm"
                 onClick={() => {
-                  const docIds = [...stampaDocSelezioni]
-                  // Apri la finestra SUBITO (gesto utente sincrono → popup blocker non interviene)
-                  const printWin = window.open('', '_blank', 'width=900,height=700')
+                  const docsParam = stampaDocSelezioni.join(',')
+                  const url = `/commesse/${commessa.id}/stampa${docsParam ? `?docs=${docsParam}` : ''}`
+                  window.open(url, '_blank')
                   setStampaDialogOpen(false)
-                  setTimeout(() => handleStampa(docIds, printWin), 350)
                 }}
               >
                 <Printer className="h-4 w-4 mr-1.5" />

@@ -53,6 +53,29 @@ export async function getCommesse(): Promise<CommessaCompleta[]> {
   })
 }
 
+export async function getCommessaById(id: string): Promise<CommessaCompleta | null> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const [{ data: c, error }, { data: acconti }, { data: documenti }] = await Promise.all([
+    supabase.from('commesse').select('*').eq('id', id).eq('organization_id', orgId).maybeSingle(),
+    supabase.from('acconti_commessa').select('*').eq('commessa_id', id).order('data_pagamento', { ascending: true }),
+    supabase.from('documenti_commessa').select('*').eq('commessa_id', id).order('created_at', { ascending: true }),
+  ])
+  if (error || !c) return null
+  const acc = acconti ?? []
+  const totAcc = acc.reduce((sum, a) => sum + Number(a.importo), 0)
+  return {
+    ...c,
+    imponibile: Number(c.imponibile),
+    iva_totale: Number(c.iva_totale),
+    totale: Number(c.totale),
+    acconti: acc.map((a) => ({ ...a, importo: Number(a.importo) })),
+    documenti: documenti ?? [],
+    totale_acconti: totAcc,
+    saldo: Number(c.totale) - totAcc,
+  }
+}
+
 export async function createCommessa(input: CommessaInput): Promise<{ id: string }> {
   const supabase = await createClient()
   const orgId = await getOrgId()
