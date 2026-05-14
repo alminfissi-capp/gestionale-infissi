@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import {
-  Plus, Search, Trash2, Pencil, Paperclip, FileText, Upload,
+  Plus, Search, Trash2, LayoutList, Paperclip, FileText, Upload,
   GripVertical, MoreVertical, Copy, WifiOff,
 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -118,6 +118,7 @@ import DialogCommessa from './DialogCommessa'
 import DialogAcconto from './DialogAcconto'
 import DialogDocumenti from './DialogDocumenti'
 import DialogPreventivoManuale from './DialogPreventivoManuale'
+import DialogSchedaCommessa from './DialogSchedaCommessa'
 
 interface Props {
   commesse: CommessaCompleta[]
@@ -138,7 +139,7 @@ function formatMese(data: string): string {
 
 interface RowProps {
   c: CommessaCompleta
-  onEdit: () => void
+  onScheda: () => void
   onDelete: () => void
   onDuplica: () => void
   onAcconto: () => void
@@ -147,7 +148,7 @@ interface RowProps {
   onStatoChange: (s: StatoCommessa) => void
 }
 
-function SortableRow({ c, onEdit, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange }: RowProps) {
+function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange }: RowProps) {
   const {
     attributes,
     listeners,
@@ -340,9 +341,9 @@ function SortableRow({ c, onEdit, onDelete, onDuplica, onAcconto, onDocumenti, o
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onEdit}>
-              <Pencil className="h-3.5 w-3.5 mr-2" />
-              Modifica
+            <DropdownMenuItem onClick={onScheda}>
+              <LayoutList className="h-3.5 w-3.5 mr-2" />
+              Scheda
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onDuplica}>
               <Copy className="h-3.5 w-3.5 mr-2" />
@@ -416,13 +417,18 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
   const [items, setItems] = useState<CommessaCompleta[]>(commesse)
   const [search, setSearch] = useState('')
   const [dialogCommessa, setDialogCommessa] = useState(false)
-  const [editingCommessa, setEditingCommessa] = useState<CommessaCompleta | null>(null)
+  const [schedaCommessaId, setSchedaCommessaId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [dialogAcconto, setDialogAcconto] = useState<CommessaCompleta | null>(null)
   const [dialogDocumenti, setDialogDocumenti] = useState<CommessaCompleta | null>(null)
   const [dialogPrevManuale, setDialogPrevManuale] = useState<CommessaCompleta | null>(null)
   const autoOpenDone = useRef(false)
+
+  // Commessa correntemente in scheda — si aggiorna automaticamente dopo router.refresh()
+  const schedaCommessa = schedaCommessaId
+    ? items.find((c) => c.id === schedaCommessaId) ?? null
+    : null
 
   // Commesse pending da IDB (create offline)
   const pendingIdb = useLiveQuery(() => db.pendingCommesse.toArray(), [])
@@ -438,7 +444,6 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
   useEffect(() => {
     if (preventivoDaConvertire && !autoOpenDone.current) {
       autoOpenDone.current = true
-      setEditingCommessa(null)
       setDialogCommessa(true)
     }
   }, [preventivoDaConvertire])
@@ -531,11 +536,6 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
     }
   }
 
-  const openEdit = (c: CommessaCompleta) => {
-    setEditingCommessa(c)
-    setDialogCommessa(true)
-  }
-
   return (
     <div className="space-y-4">
       {/* Toolbar */}
@@ -555,7 +555,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
             Offline
           </span>
         )}
-        <Button onClick={() => { setEditingCommessa(null); setDialogCommessa(true) }}>
+        <Button onClick={() => { setDialogCommessa(true) }}>
           <Plus className="h-4 w-4 mr-1" />
           Nuova commessa
         </Button>
@@ -568,7 +568,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
             <>
               <p className="text-lg font-medium mb-2">Nessuna commessa</p>
               <p className="text-sm mb-4">Crea la prima commessa per iniziare.</p>
-              <Button onClick={() => { setEditingCommessa(null); setDialogCommessa(true) }}>
+              <Button onClick={() => { setDialogCommessa(true) }}>
                 <Plus className="h-4 w-4 mr-1" />
                 Nuova commessa
               </Button>
@@ -608,7 +608,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
                     <SortableRow
                       key={c.id}
                       c={c}
-                      onEdit={() => openEdit(c)}
+                      onScheda={() => setSchedaCommessaId(c.id)}
                       onDelete={() => setDeletingId(c.id)}
                       onDuplica={() => handleDuplica(c.id)}
                       onAcconto={() => setDialogAcconto(c)}
@@ -658,12 +658,19 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
       {/* Dialogs */}
       <DialogCommessa
         open={dialogCommessa}
-        onOpenChange={(v) => { setDialogCommessa(v); if (!v) setEditingCommessa(null) }}
-        commessa={editingCommessa}
+        onOpenChange={setDialogCommessa}
+        commessa={null}
         preventivi={preventivi}
         utenti={utenti}
         clienti={clienti}
-        preventivoDaConvertire={!editingCommessa ? preventivoDaConvertire : null}
+        preventivoDaConvertire={preventivoDaConvertire}
+      />
+
+      <DialogSchedaCommessa
+        open={!!schedaCommessaId}
+        onOpenChange={(v) => { if (!v) setSchedaCommessaId(null) }}
+        commessa={schedaCommessa}
+        utenti={utenti}
       />
 
       {dialogAcconto && (
