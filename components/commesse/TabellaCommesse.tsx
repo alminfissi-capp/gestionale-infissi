@@ -583,7 +583,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <Table>
               <TableHeader>
-                <TableRow className="sticky top-0 z-20 bg-white">
+                <TableRow>
                   <TableHead className="w-8" />
                   <TableHead className="min-w-[140px]">Cliente</TableHead>
                   <TableHead className="min-w-[90px]">N. Prev.</TableHead>
