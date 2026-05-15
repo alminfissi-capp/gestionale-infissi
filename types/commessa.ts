@@ -59,9 +59,22 @@ export type DocumentoCommessa = {
   created_at: string
 }
 
+export type PreventivoCommessa = {
+  id: string
+  commessa_id: string
+  organization_id: string
+  preventivo_id: string | null
+  numero_preventivo: string | null
+  nome_file: string | null
+  storage_path: string | null
+  ordine: number
+  created_at: string
+}
+
 export type CommessaCompleta = Commessa & {
   acconti: AccontoCommessa[]
   documenti: DocumentoCommessa[]
+  preventivi_collegati: PreventivoCommessa[]
   totale_acconti: number
   saldo: number
 }

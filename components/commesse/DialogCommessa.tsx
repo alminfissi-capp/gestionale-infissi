@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ChevronsUpDown, X, UserPlus, Building2, User, Upload, FileText } from 'lucide-react'
+import {
+  ChevronsUpDown, X, UserPlus, Building2, User,
+  Upload, FileText, Link2, Plus, FilePlus2,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,10 +38,22 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { createClient } from '@/lib/supabase/client'
-import { createCommessa, updateCommessa, addDocumentoCommessa, getOrgIdPerUpload } from '@/actions/commesse'
+import {
+  createCommessa,
+  updateCommessa,
+  setPreventiviCommessa,
+  getOrgIdPerUpload,
+} from '@/actions/commesse'
 import { createCliente } from '@/actions/clienti'
 import { formatEuro } from '@/lib/pricing'
-import type { CommessaCompleta, CommessaInput, PreventivoPerCommessa, Reparto, UtentePerCommessa } from '@/types/commessa'
+import type {
+  CommessaCompleta,
+  CommessaInput,
+  PreventivoPerCommessa,
+  PreventivoCommessa,
+  Reparto,
+  UtentePerCommessa,
+} from '@/types/commessa'
 import { REPARTI } from '@/types/commessa'
 import type { Cliente } from '@/types/cliente'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
@@ -56,6 +71,21 @@ interface Props {
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 const today = () => new Date().toISOString().split('T')[0]
+let _nextTempId = 0
+const nextTempId = () => `tmp-${_nextTempId++}`
+
+// ── Tipo stato locale per ogni preventivo in lista ──────────────
+type PrevItem = {
+  tempId: string
+  tipo: 'sistema' | 'manuale'
+  preventivo_id: string | null
+  numero: string
+  cliente_nome?: string
+  file: File | null          // nuovo file da caricare
+  dbId?: string              // id DB (se già salvato)
+  storage_path?: string | null
+  nome_file?: string | null
+}
 
 const emptyForm = (): CommessaInput => ({
   numero_commessa: '',
@@ -77,6 +107,24 @@ function nomeCliente(c: Cliente): string {
   return [c.nome, c.cognome].filter(Boolean).join(' ') || c.email || '—'
 }
 
+function pcToItem(pc: PreventivoCommessa, preventivi: PreventivoPerCommessa[]): PrevItem {
+  return {
+    tempId: pc.id,
+    tipo: pc.preventivo_id ? 'sistema' : 'manuale',
+    preventivo_id: pc.preventivo_id,
+    numero: pc.numero_preventivo ?? '',
+    cliente_nome: pc.preventivo_id
+      ? preventivi.find((p) => p.id === pc.preventivo_id)?.cliente_nome
+      : undefined,
+    file: null,
+    dbId: pc.id,
+    storage_path: pc.storage_path,
+    nome_file: pc.nome_file,
+  }
+}
+
+// ── Componente principale ────────────────────────────────────────
+
 export default function DialogCommessa({
   open,
   onOpenChange,
@@ -91,19 +139,21 @@ export default function DialogCommessa({
   const [form, setForm] = useState<CommessaInput>(emptyForm())
   const [loading, setLoading] = useState(false)
 
+  // Lista preventivi collegati
+  const [prevItems, setPrevItems] = useState<PrevItem[]>([])
+  const [sistemaOpen, setSistemaOpen] = useState(false)
+
   // Selezione cliente da anagrafica
   const [clienteId, setClienteId] = useState<string | null>(null)
   const [comboOpen, setComboOpen] = useState(false)
-  // Nuovo cliente da salvare in anagrafica
   const [salvaCliente, setSalvaCliente] = useState(false)
   const [nuovoTipo, setNuovoTipo] = useState<'privato' | 'azienda'>('privato')
   const [nuovoNome, setNuovoNome] = useState('')
   const [nuovoCognome, setNuovoCognome] = useState('')
   const [nuovoRS, setNuovoRS] = useState('')
 
-  // File PDF preventivo (solo in creazione, senza preventivo collegato)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [filePDF, setFilePDF] = useState<File | null>(null)
+  // File input refs per i preventivi manuali
+  const fileInputsRef = useRef<Record<string, HTMLInputElement | null>>({})
 
   // Reset all'apertura
   useEffect(() => {
@@ -114,7 +164,8 @@ export default function DialogCommessa({
     setNuovoNome('')
     setNuovoCognome('')
     setNuovoRS('')
-    setFilePDF(null)
+    setSistemaOpen(false)
+
     if (commessa) {
       setForm({
         numero_commessa: commessa.numero_commessa,
@@ -130,6 +181,7 @@ export default function DialogCommessa({
         note: commessa.note,
         reparti: commessa.reparti ?? [],
       })
+      setPrevItems((commessa.preventivi_collegati ?? []).map((pc) => pcToItem(pc, preventivi)))
     } else if (preventivoDaConvertire) {
       const imp = round2(preventivoDaConvertire.imponibile)
       const iva = round2(preventivoDaConvertire.iva_totale)
@@ -142,10 +194,20 @@ export default function DialogCommessa({
         iva_totale: iva,
         totale: round2(imp + iva),
       })
+      setPrevItems([{
+        tempId: nextTempId(),
+        tipo: 'sistema',
+        preventivo_id: preventivoDaConvertire.id,
+        numero: preventivoDaConvertire.numero ?? '',
+        cliente_nome: preventivoDaConvertire.cliente_nome,
+        file: null,
+      }])
     } else {
       setForm(emptyForm())
+      setPrevItems([])
     }
-  }, [open, commessa, preventivoDaConvertire])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   // Sincronizza cliente_nome quando si compila il form nuovo cliente
   useEffect(() => {
@@ -169,29 +231,55 @@ export default function DialogCommessa({
 
   const handleDeselectCliente = () => setClienteId(null)
 
-  const setPreventivoSelezionato = (pid: string) => {
-    if (pid === '__nessuno__') {
-      setForm((f) => ({ ...f, preventivo_id: null, numero_preventivo: null }))
-      setFilePDF(null)
-      return
-    }
+  // ── Gestione lista preventivi ──────────────────────────────────
+
+  const addSistema = (pid: string) => {
+    if (prevItems.find((p) => p.preventivo_id === pid)) return
     const prev = preventivi.find((p) => p.id === pid)
     if (!prev) return
-    const imp = round2(prev.imponibile)
-    const iva = round2(prev.iva_totale)
-    setForm((f) => ({
-      ...f,
-      preventivo_id: prev.id,
-      numero_preventivo: prev.numero,
+    setPrevItems((items) => [...items, {
+      tempId: nextTempId(),
+      tipo: 'sistema',
+      preventivo_id: pid,
+      numero: prev.numero ?? '',
       cliente_nome: prev.cliente_nome,
-      imponibile: imp,
-      iva_totale: iva,
-      totale: round2(imp + iva),
-    }))
-    setClienteId(null)
-    setSalvaCliente(false)
-    setFilePDF(null)
+      file: null,
+    }])
+    setSistemaOpen(false)
   }
+
+  const addManuale = () => {
+    setPrevItems((items) => [...items, {
+      tempId: nextTempId(),
+      tipo: 'manuale',
+      preventivo_id: null,
+      numero: '',
+      file: null,
+    }])
+  }
+
+  const removeItem = (tempId: string) => {
+    setPrevItems((items) => items.filter((i) => i.tempId !== tempId))
+  }
+
+  const updateNumero = (tempId: string, numero: string) => {
+    setPrevItems((items) =>
+      items.map((i) => i.tempId === tempId ? { ...i, numero } : i)
+    )
+  }
+
+  const updateFile = (tempId: string, file: File | null) => {
+    setPrevItems((items) =>
+      items.map((i) => i.tempId === tempId ? { ...i, file, nome_file: file?.name ?? i.nome_file } : i)
+    )
+  }
+
+  const setFileInputRef = useCallback((tempId: string) => (el: HTMLInputElement | null) => {
+    fileInputsRef.current[tempId] = el
+  }, [])
+
+  // IDs già selezionati come sistema (per escluderli dal combobox)
+  const selectedPrevIds = new Set(prevItems.filter((i) => i.tipo === 'sistema').map((i) => i.preventivo_id))
 
   const setOperatore = (uid: string) => {
     if (uid === '__nessuno__') {
@@ -222,14 +310,7 @@ export default function DialogCommessa({
     })
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0] ?? null
-    if (f && f.size > 20 * 1024 * 1024) {
-      toast.error('File troppo grande (max 20 MB)')
-      return
-    }
-    setFilePDF(f)
-  }
+  // ── Submit ──────────────────────────────────────────────────────
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -254,6 +335,18 @@ export default function DialogCommessa({
       }
     }
 
+    // Deriva preventivo_id / numero_preventivo dal primo elemento (backward compat)
+    const firstItem = prevItems[0]
+    const derivedPreventivoId = firstItem?.preventivo_id ?? null
+    const derivedNumeroPreventivo = firstItem?.numero || null
+
+    const formFinale: CommessaInput = {
+      ...form,
+      cliente_nome: nomeDaSalvare,
+      preventivo_id: derivedPreventivoId,
+      numero_preventivo: derivedNumeroPreventivo,
+    }
+
     setLoading(true)
     try {
       if (salvaCliente && !clienteId && !commessa) {
@@ -265,14 +358,13 @@ export default function DialogCommessa({
         })
       }
 
-      const formFinale = { ...form, cliente_nome: nomeDaSalvare }
-
       if (commessa) {
         if (!isOnline) {
           toast.error('Connessione assente. La modifica non è disponibile offline.')
           return
         }
         await updateCommessa(commessa.id, formFinale)
+        await uploadAndSavePreventivi(commessa.id)
         toast.success('Commessa aggiornata')
         onOpenChange(false)
         router.refresh()
@@ -282,24 +374,7 @@ export default function DialogCommessa({
         onOpenChange(false)
       } else {
         const { id: newId } = await createCommessa(formFinale)
-
-        // Upload PDF preventivo se fornito
-        if (filePDF) {
-          try {
-            const orgId = await getOrgIdPerUpload()
-            const ext = filePDF.name.split('.').pop() ?? 'bin'
-            const storagePath = `${orgId}/${newId}/prev_${Date.now()}.${ext}`
-            const supabase = createClient()
-            const { error: uploadError } = await supabase.storage
-              .from('commesse-docs')
-              .upload(storagePath, filePDF)
-            if (uploadError) throw uploadError
-            await addDocumentoCommessa(newId, filePDF.name, storagePath, 'preventivo')
-          } catch {
-            toast.error('Commessa creata, ma errore nel caricamento del PDF')
-          }
-        }
-
+        await uploadAndSavePreventivi(newId)
         toast.success('Commessa creata')
         onOpenChange(false)
         router.refresh()
@@ -309,6 +384,42 @@ export default function DialogCommessa({
     } finally {
       setLoading(false)
     }
+  }
+
+  const uploadAndSavePreventivi = async (commessaId: string) => {
+    const supabase = createClient()
+    const items = await Promise.all(
+      prevItems.map(async (item, i) => {
+        let storagePath = item.storage_path ?? null
+        let nomeFile = item.nome_file ?? null
+
+        if (item.file) {
+          try {
+            const orgId = await getOrgIdPerUpload()
+            const ext = item.file.name.split('.').pop() ?? 'bin'
+            storagePath = `${orgId}/${commessaId}/prev_${i}_${Date.now()}.${ext}`
+            const { error } = await supabase.storage
+              .from('commesse-docs')
+              .upload(storagePath, item.file)
+            if (error) throw error
+            nomeFile = item.file.name
+          } catch {
+            toast.error(`Errore upload "${item.file.name}"`)
+            storagePath = null
+            nomeFile = null
+          }
+        }
+
+        return {
+          preventivo_id: item.preventivo_id,
+          numero_preventivo: item.numero || null,
+          storage_path: storagePath,
+          nome_file: nomeFile,
+          ordine: i,
+        }
+      })
+    )
+    await setPreventiviCommessa(commessaId, items)
   }
 
   const totale = form.imponibile + form.iva_totale
@@ -323,70 +434,134 @@ export default function DialogCommessa({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
 
-          {/* ── Preventivo ── */}
+          {/* ── Preventivi collegati ── */}
           <div className="space-y-2">
-            <Label>Preventivo dal sistema (opzionale)</Label>
-            <Select
-              value={form.preventivo_id ?? '__nessuno__'}
-              onValueChange={setPreventivoSelezionato}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleziona preventivo..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__nessuno__">— Nessuno —</SelectItem>
-                {preventivi.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.numero ? `${p.numero} — ` : ''}{p.cliente_nome || 'Cliente senza nome'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center justify-between">
+              <Label>Preventivi collegati</Label>
+              <div className="flex gap-1.5">
+                {/* Aggiungi da sistema */}
+                <Popover open={sistemaOpen} onOpenChange={setSistemaOpen}>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs gap-1">
+                      <Link2 className="h-3 w-3" />
+                      Dal sistema
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0 w-72" align="end">
+                    <Command>
+                      <CommandInput placeholder="Cerca preventivo..." />
+                      <CommandList>
+                        <CommandEmpty className="py-3 text-center text-sm text-gray-500">
+                          Nessun preventivo trovato
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {preventivi
+                            .filter((p) => !selectedPrevIds.has(p.id))
+                            .map((p) => (
+                              <CommandItem
+                                key={p.id}
+                                value={`${p.numero} ${p.cliente_nome}`}
+                                onSelect={() => addSistema(p.id)}
+                              >
+                                <div className="flex flex-col">
+                                  <span className="font-mono text-xs">{p.numero || '—'}</span>
+                                  <span className="text-xs text-gray-500 truncate">{p.cliente_nome}</span>
+                                </div>
+                              </CommandItem>
+                            ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
 
-            {/* N. preventivo manuale + upload PDF — visibili solo senza preventivo collegato */}
-            {!form.preventivo_id && (
-              <div className="space-y-2 pt-1">
-                <Input
-                  value={form.numero_preventivo ?? ''}
-                  onChange={(e) => setForm((f) => ({ ...f, numero_preventivo: e.target.value || null }))}
-                  placeholder="N. preventivo manuale (es. 2026/042)"
-                />
-
-                {/* Upload PDF — solo in creazione */}
-                {isCreazione && (
-                  <div className="space-y-1">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png,.webp"
-                      className="hidden"
-                      onChange={handleFileChange}
-                    />
-                    {filePDF ? (
-                      <div className="flex items-center gap-2 rounded-md border px-3 py-2 bg-gray-50 text-sm">
-                        <FileText className="h-4 w-4 text-red-400 shrink-0" />
-                        <span className="flex-1 truncate text-gray-700">{filePDF.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => { setFilePDF(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
-                          className="text-gray-400 hover:text-red-500"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex items-center gap-2 text-sm text-gray-500 border border-dashed border-gray-300 rounded-md px-3 py-2 w-full hover:border-gray-400 hover:text-gray-700 transition-colors"
-                      >
-                        <Upload className="h-4 w-4 shrink-0" />
-                        Allega PDF preventivo (opzionale)
-                      </button>
-                    )}
-                  </div>
-                )}
+                {/* Aggiungi manuale */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs gap-1"
+                  onClick={addManuale}
+                >
+                  <FilePlus2 className="h-3 w-3" />
+                  Manuale
+                </Button>
               </div>
+            </div>
+
+            {/* Lista preventivi */}
+            {prevItems.length > 0 ? (
+              <div className="space-y-2">
+                {prevItems.map((item) => (
+                  <div
+                    key={item.tempId}
+                    className="flex items-center gap-2 rounded-md border bg-gray-50 px-2.5 py-2"
+                  >
+                    {item.tipo === 'sistema' ? (
+                      <>
+                        <Link2 className="h-3.5 w-3.5 text-teal-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-mono text-xs font-medium text-teal-700">
+                            {item.numero || '—'}
+                          </p>
+                          {item.cliente_nome && (
+                            <p className="text-xs text-gray-400 truncate">{item.cliente_nome}</p>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                        <Input
+                          value={item.numero}
+                          onChange={(e) => updateNumero(item.tempId, e.target.value)}
+                          placeholder="N. preventivo (es. 2026/042)"
+                          className="h-7 text-xs flex-1 font-mono"
+                        />
+                        {/* Upload PDF */}
+                        <input
+                          ref={setFileInputRef(item.tempId)}
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png,.webp"
+                          className="hidden"
+                          onChange={(e) => updateFile(item.tempId, e.target.files?.[0] ?? null)}
+                        />
+                        {item.file || item.storage_path ? (
+                          <button
+                            type="button"
+                            title={item.file?.name ?? item.nome_file ?? 'PDF allegato'}
+                            className="flex items-center gap-1 text-[10px] bg-red-50 border border-red-200 text-red-600 rounded px-1.5 py-0.5 hover:bg-red-100 max-w-[90px]"
+                            onClick={() => fileInputsRef.current[item.tempId]?.click()}
+                          >
+                            <FileText className="h-2.5 w-2.5 shrink-0" />
+                            <span className="truncate">{item.file?.name ?? item.nome_file}</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => fileInputsRef.current[item.tempId]?.click()}
+                            className="flex items-center gap-1 text-xs text-gray-400 border border-dashed border-gray-300 rounded px-1.5 py-0.5 hover:border-teal-400 hover:text-teal-600 whitespace-nowrap"
+                          >
+                            <Upload className="h-3 w-3" />
+                            PDF
+                          </button>
+                        )}
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeItem(item.tempId)}
+                      className="text-gray-300 hover:text-red-500 shrink-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 py-1">
+                Nessun preventivo collegato — usa i pulsanti sopra per aggiungerne.
+              </p>
             )}
           </div>
 

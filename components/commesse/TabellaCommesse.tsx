@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import {
-  Plus, Search, Trash2, LayoutList, Paperclip, FileText, Upload,
+  Plus, Search, Trash2, LayoutList, Paperclip, FileText, Link2,
   GripVertical, MoreVertical, Copy, WifiOff,
 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -94,6 +94,7 @@ function pendingToCommessa(p: PendingCommessa): CommessaCompleta {
     updated_at: p.createdAt,
     acconti: [],
     documenti: [],
+    preventivi_collegati: [],
     totale_acconti: 0,
     saldo: p.input.totale,
   }
@@ -117,7 +118,6 @@ function statoBadgeClass(stato: StatoCommessa): string {
 import DialogCommessa from './DialogCommessa'
 import DialogAcconto from './DialogAcconto'
 import DialogDocumenti from './DialogDocumenti'
-import DialogPreventivoManuale from './DialogPreventivoManuale'
 import DialogSchedaCommessa from './DialogSchedaCommessa'
 
 interface Props {
@@ -144,11 +144,10 @@ interface RowProps {
   onDuplica: () => void
   onAcconto: () => void
   onDocumenti: () => void
-  onPrevManuale: () => void
   onStatoChange: (s: StatoCommessa) => void
 }
 
-function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange }: RowProps) {
+function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onStatoChange }: RowProps) {
   const {
     attributes,
     listeners,
@@ -166,7 +165,6 @@ function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti,
 
   const saldoPositivo = c.saldo > 0.005
   const saldoZero = !saldoPositivo && c.saldo >= -0.005
-  const nPrev = c.documenti.filter((d) => d.tipo_documento === 'preventivo').length
 
   return (
     <TableRow
@@ -192,34 +190,34 @@ function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti,
         {c.note && <p className="text-xs text-gray-400 truncate max-w-[130px]">{c.note}</p>}
       </TableCell>
 
-      {/* N. Preventivo */}
+      {/* N. Preventivo — tutti i collegati */}
       <TableCell>
-        {c.preventivo_id ? (
-          <Link
-            href={`/preventivi/${c.preventivo_id}`}
-            className="font-mono text-xs text-teal-600 hover:underline"
-            title="Apri preventivo"
-          >
-            {c.numero_preventivo || 'Vedi prev.'}
-          </Link>
-        ) : (
-          <button
-            onClick={onPrevManuale}
-            className="group flex items-center gap-1 text-left"
-            title={nPrev > 0 ? 'Vedi PDF preventivo' : 'Carica PDF preventivo'}
-          >
-            <span className="font-mono text-xs text-gray-500 group-hover:text-gray-800">
-              {c.numero_preventivo || '—'}
-            </span>
-            {nPrev > 0 ? (
-              <span className="flex items-center gap-0.5 text-[10px] bg-blue-100 text-blue-600 rounded px-1">
-                <FileText className="h-2.5 w-2.5" />
-                {nPrev}
-              </span>
-            ) : (
-              <Upload className="h-3 w-3 text-gray-300 group-hover:text-teal-500" />
+        {c.preventivi_collegati.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {c.preventivi_collegati.map((pc) =>
+              pc.preventivo_id ? (
+                <Link
+                  key={pc.id}
+                  href={`/preventivi/${pc.preventivo_id}`}
+                  className="inline-flex items-center gap-0.5 font-mono text-xs text-teal-600 hover:underline bg-teal-50 border border-teal-200 rounded px-1.5 py-0.5 whitespace-nowrap"
+                  title="Apri preventivo"
+                >
+                  <Link2 className="h-2.5 w-2.5 shrink-0" />
+                  {pc.numero_preventivo || 'Prev.'}
+                </Link>
+              ) : (
+                <span
+                  key={pc.id}
+                  className="inline-flex items-center gap-0.5 font-mono text-xs text-gray-600 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 whitespace-nowrap"
+                >
+                  {pc.storage_path && <FileText className="h-2.5 w-2.5 text-red-400 shrink-0" />}
+                  {pc.numero_preventivo || '—'}
+                </span>
+              )
             )}
-          </button>
+          </div>
+        ) : (
+          <span className="text-gray-300 text-xs">—</span>
         )}
       </TableCell>
 
@@ -422,7 +420,6 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
   const [deleting, setDeleting] = useState(false)
   const [dialogAcconto, setDialogAcconto] = useState<CommessaCompleta | null>(null)
   const [dialogDocumenti, setDialogDocumenti] = useState<CommessaCompleta | null>(null)
-  const [dialogPrevManuale, setDialogPrevManuale] = useState<CommessaCompleta | null>(null)
   const autoOpenDone = useRef(false)
 
   // Commessa correntemente in scheda — si aggiorna automaticamente dopo router.refresh()
@@ -464,6 +461,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
       c.stato,
       STATI.find((s) => s.value === c.stato)?.label,
       (c.reparti ?? []).map((r) => REPARTI.find((x) => x.value === r)?.label ?? r).join(' '),
+      (c.preventivi_collegati ?? []).map((p) => p.numero_preventivo).join(' '),
     ].some((f) => f?.toLowerCase().includes(q))
 
   const filtered = useMemo(() => {
@@ -613,7 +611,6 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
                       onDuplica={() => handleDuplica(c.id)}
                       onAcconto={() => setDialogAcconto(c)}
                       onDocumenti={() => setDialogDocumenti(c)}
-                      onPrevManuale={() => setDialogPrevManuale(c)}
                       onStatoChange={(s) => handleStatoChange(c.id, s)}
                     />
                   ))}
@@ -690,17 +687,6 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
           commessaId={dialogDocumenti.id}
           clienteNome={dialogDocumenti.cliente_nome}
           documenti={dialogDocumenti.documenti}
-        />
-      )}
-
-      {dialogPrevManuale && (
-        <DialogPreventivoManuale
-          open
-          onOpenChange={(v) => { if (!v) setDialogPrevManuale(null) }}
-          commessaId={dialogPrevManuale.id}
-          clienteNome={dialogPrevManuale.cliente_nome}
-          numeroPrev={dialogPrevManuale.numero_preventivo}
-          documenti={dialogPrevManuale.documenti}
         />
       )}
 

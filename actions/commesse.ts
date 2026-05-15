@@ -10,13 +10,19 @@ import type {
   AccontoInput,
   PreventivoPerCommessa,
   UtentePerCommessa,
+  PreventivoCommessa,
 } from '@/types/commessa'
 
 export async function getCommesse(): Promise<CommessaCompleta[]> {
   const supabase = await createClient()
   const orgId = await getOrgId()
 
-  const [{ data: commesse, error }, { data: acconti }, { data: documenti }] = await Promise.all([
+  const [
+    { data: commesse, error },
+    { data: acconti },
+    { data: documenti },
+    { data: prevCollegati },
+  ] = await Promise.all([
     supabase
       .from('commesse')
       .select('*')
@@ -32,6 +38,11 @@ export async function getCommesse(): Promise<CommessaCompleta[]> {
       .select('*')
       .eq('organization_id', orgId)
       .order('created_at', { ascending: true }),
+    supabase
+      .from('preventivi_commessa')
+      .select('*')
+      .eq('organization_id', orgId)
+      .order('ordine', { ascending: true }),
   ])
 
   if (error) throw new Error(error.message)
@@ -39,6 +50,7 @@ export async function getCommesse(): Promise<CommessaCompleta[]> {
   return (commesse ?? []).map((c) => {
     const acc = (acconti ?? []).filter((a) => a.commessa_id === c.id)
     const docs = (documenti ?? []).filter((d) => d.commessa_id === c.id)
+    const prevs = (prevCollegati ?? []).filter((p) => p.commessa_id === c.id) as PreventivoCommessa[]
     const totAcc = acc.reduce((sum, a) => sum + Number(a.importo), 0)
     return {
       ...c,
@@ -47,6 +59,7 @@ export async function getCommesse(): Promise<CommessaCompleta[]> {
       totale: Number(c.totale),
       acconti: acc.map((a) => ({ ...a, importo: Number(a.importo) })),
       documenti: docs,
+      preventivi_collegati: prevs,
       totale_acconti: totAcc,
       saldo: Number(c.totale) - totAcc,
     }
@@ -56,10 +69,11 @@ export async function getCommesse(): Promise<CommessaCompleta[]> {
 export async function getCommessaById(id: string): Promise<CommessaCompleta | null> {
   const supabase = await createClient()
   const orgId = await getOrgId()
-  const [{ data: c, error }, { data: acconti }, { data: documenti }] = await Promise.all([
+  const [{ data: c, error }, { data: acconti }, { data: documenti }, { data: prevCollegati }] = await Promise.all([
     supabase.from('commesse').select('*').eq('id', id).eq('organization_id', orgId).maybeSingle(),
     supabase.from('acconti_commessa').select('*').eq('commessa_id', id).order('data_pagamento', { ascending: true }),
     supabase.from('documenti_commessa').select('*').eq('commessa_id', id).order('created_at', { ascending: true }),
+    supabase.from('preventivi_commessa').select('*').eq('commessa_id', id).order('ordine', { ascending: true }),
   ])
   if (error || !c) return null
   const acc = acconti ?? []
@@ -71,6 +85,7 @@ export async function getCommessaById(id: string): Promise<CommessaCompleta | nu
     totale: Number(c.totale),
     acconti: acc.map((a) => ({ ...a, importo: Number(a.importo) })),
     documenti: documenti ?? [],
+    preventivi_collegati: (prevCollegati ?? []) as PreventivoCommessa[],
     totale_acconti: totAcc,
     saldo: Number(c.totale) - totAcc,
   }
@@ -147,6 +162,45 @@ export async function deleteDocumentoCommessa(id: string, storagePath: string): 
   await supabase.storage.from('commesse-docs').remove([storagePath])
   const { error } = await supabase.from('documenti_commessa').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  revalidatePath('/commesse')
+}
+
+export type PreventivoCommessaItemInput = {
+  preventivo_id: string | null
+  numero_preventivo: string | null
+  storage_path: string | null
+  nome_file: string | null
+  ordine: number
+}
+
+export async function setPreventiviCommessa(
+  commessaId: string,
+  items: PreventivoCommessaItemInput[]
+): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { data: existing } = await supabase
+    .from('preventivi_commessa')
+    .select('storage_path')
+    .eq('commessa_id', commessaId)
+
+  const existingPaths = (existing ?? []).map((e) => e.storage_path).filter(Boolean) as string[]
+  const newPaths = items.map((i) => i.storage_path).filter(Boolean) as string[]
+  const orphaned = existingPaths.filter((p) => !newPaths.includes(p))
+  if (orphaned.length > 0) {
+    await supabase.storage.from('commesse-docs').remove(orphaned)
+  }
+
+  await supabase.from('preventivi_commessa').delete().eq('commessa_id', commessaId)
+
+  if (items.length > 0) {
+    const { error } = await supabase
+      .from('preventivi_commessa')
+      .insert(items.map((item) => ({ ...item, commessa_id: commessaId, organization_id: orgId })))
+    if (error) throw new Error(error.message)
+  }
+
   revalidatePath('/commesse')
 }
 
@@ -240,6 +294,27 @@ export async function duplicaCommessa(id: string): Promise<{ id: string }> {
     .single()
 
   if (insertError) throw new Error(insertError.message)
+
+  // Duplica anche preventivi_commessa (senza storage_path — i file non vengono copiati)
+  const { data: prevs } = await supabase
+    .from('preventivi_commessa')
+    .select('*')
+    .eq('commessa_id', id)
+    .order('ordine', { ascending: true })
+  if (prevs && prevs.length > 0) {
+    await supabase.from('preventivi_commessa').insert(
+      prevs.map((p) => ({
+        commessa_id: nuova.id,
+        organization_id: orgId,
+        preventivo_id: p.preventivo_id,
+        numero_preventivo: p.numero_preventivo,
+        nome_file: null,
+        storage_path: null,
+        ordine: p.ordine,
+      }))
+    )
+  }
+
   revalidatePath('/commesse')
   return { id: nuova.id }
 }
