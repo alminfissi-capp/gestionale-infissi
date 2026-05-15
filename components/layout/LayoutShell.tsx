@@ -36,7 +36,10 @@ export default function LayoutShell({ children, logoUrl, denominazione, permessi
 
   return (
     <PermissionsProvider permessi={permessi} isAdmin={isAdmin}>
-      <div className="flex min-h-screen bg-gray-50">
+      <div
+        className="flex min-h-screen bg-gray-50"
+        style={{ ['--sidebar-w' as string]: collapsed ? '4rem' : '16rem' }}
+      >
         <div
           className={`fixed inset-0 z-20 bg-black/50 transition-opacity duration-300 lg:hidden print:hidden ${
             mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'

@@ -535,7 +535,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-14">
       {/* Toolbar */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-xs">
@@ -619,30 +619,33 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
                   <PendingCommessaRow key={c.id} c={c} />
                 ))}
               </TableBody>
-              <tfoot>
-                <tr className="border-t-2 border-gray-100">
-                  <td className="py-2.5 w-8" />
-                  <td className="py-2.5 pl-4 text-xs text-gray-400 whitespace-nowrap">
-                    {totali.count} {totali.count === 1 ? 'commessa' : 'commesse'}{search ? ' trovate' : ''}
-                  </td>
-                  <td className="py-2.5 px-4" />
-                  <td className="py-2.5 px-4 text-right text-sm font-bold text-gray-900 whitespace-nowrap">
-                    {formatEuro(totali.totale)}
-                  </td>
-                  <td className="py-2.5 px-4 text-right text-sm text-gray-600 whitespace-nowrap">
-                    {formatEuro(totali.iva)}
-                  </td>
-                  <td className="py-2.5 px-4" />
-                  <td className={`py-2.5 px-4 text-right text-sm font-bold whitespace-nowrap ${totali.saldo > 0.005 ? 'text-orange-600' : 'text-green-600'}`}>
-                    {formatEuro(totali.saldo)}
-                  </td>
-                  <td colSpan={7} />
-                </tr>
-              </tfoot>
             </Table>
           </DndContext>
         </div>
       )}
+
+      {/* Barra totali fissa in fondo */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-gray-200 py-2.5 px-4 sm:px-6 flex items-center gap-6 print:hidden lg:[left:var(--sidebar-w,16rem)]"
+      >
+        <span className="text-xs text-gray-400 whitespace-nowrap">
+          {totali.count} {totali.count === 1 ? 'commessa' : 'commesse'}{search ? ' trovate' : ''}
+        </span>
+        <div className="flex items-center gap-1 ml-auto">
+          <span className="text-xs text-gray-400 mr-1">Totale</span>
+          <span className="text-sm font-bold text-gray-900 whitespace-nowrap">{formatEuro(totali.totale)}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-400 mr-1">IVA</span>
+          <span className="text-sm text-gray-600 whitespace-nowrap">{formatEuro(totali.iva)}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-400 mr-1">Saldo</span>
+          <span className={`text-sm font-bold whitespace-nowrap ${totali.saldo > 0.005 ? 'text-orange-600' : 'text-green-600'}`}>
+            {formatEuro(totali.saldo)}
+          </span>
+        </div>
+      </div>
 
       {/* Dialogs */}
       <DialogCommessa
