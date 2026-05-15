@@ -624,27 +624,30 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
         </div>
       )}
 
-      {/* Barra totali fissa in fondo */}
-      <div
-        className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-gray-200 py-2.5 px-4 sm:px-6 flex items-center gap-6 print:hidden lg:[left:var(--sidebar-w,16rem)]"
-      >
-        <span className="text-xs text-gray-400 whitespace-nowrap">
-          {totali.count} {totali.count === 1 ? 'commessa' : 'commesse'}{search ? ' trovate' : ''}
-        </span>
-        <div className="flex items-center gap-1 ml-auto">
-          <span className="text-xs text-gray-400 mr-1">Totale</span>
-          <span className="text-sm font-bold text-gray-900 whitespace-nowrap">{formatEuro(totali.totale)}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-gray-400 mr-1">IVA</span>
-          <span className="text-sm text-gray-600 whitespace-nowrap">{formatEuro(totali.iva)}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-gray-400 mr-1">Saldo</span>
-          <span className={`text-sm font-bold whitespace-nowrap ${totali.saldo > 0.005 ? 'text-orange-600' : 'text-green-600'}`}>
-            {formatEuro(totali.saldo)}
-          </span>
-        </div>
+      {/* Barra totali fissa in fondo — stessa struttura colonne della tabella */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-gray-200 print:hidden overflow-x-auto lg:[left:var(--sidebar-w,16rem)]">
+        <Table>
+          <TableBody>
+            <TableRow className="hover:bg-transparent border-0">
+              <TableCell className="w-8 py-2" />
+              <TableCell className="min-w-[140px] py-2 text-xs text-gray-400 whitespace-nowrap">
+                {totali.count} {totali.count === 1 ? 'commessa' : 'commesse'}{search ? ' trovate' : ''}
+              </TableCell>
+              <TableCell className="min-w-[90px] py-2" />
+              <TableCell className="min-w-[100px] py-2 text-right text-sm font-bold text-gray-900 whitespace-nowrap">
+                {formatEuro(totali.totale)}
+              </TableCell>
+              <TableCell className="min-w-[80px] py-2 text-right text-sm text-gray-600 whitespace-nowrap">
+                {formatEuro(totali.iva)}
+              </TableCell>
+              <TableCell className="min-w-[130px] py-2" />
+              <TableCell className={`min-w-[100px] py-2 text-right text-sm font-bold whitespace-nowrap ${totali.saldo > 0.005 ? 'text-orange-600' : 'text-green-600'}`}>
+                {formatEuro(totali.saldo)}
+              </TableCell>
+              <TableCell colSpan={7} />
+            </TableRow>
+          </TableBody>
+        </Table>
       </div>
 
       {/* Dialogs */}
