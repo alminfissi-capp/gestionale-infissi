@@ -583,7 +583,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="sticky top-0 z-20 bg-white">
                   <TableHead className="w-8" />
                   <TableHead className="min-w-[140px]">Cliente</TableHead>
                   <TableHead className="min-w-[90px]">N. Prev.</TableHead>
@@ -620,31 +620,31 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
                 ))}
               </TableBody>
               <tfoot>
-                <tr className="border-t-2 border-gray-100">
+                <tr>
                   {/* drag handle */}
-                  <td className="sticky bottom-0 bg-white py-2.5 w-8" />
+                  <td className="sticky bottom-0 z-10 bg-white border-t-2 border-gray-100 py-2.5 w-8" />
                   {/* Cliente — etichetta conteggio */}
-                  <td className="sticky bottom-0 bg-white py-2.5 pl-4 text-xs text-gray-400 whitespace-nowrap">
+                  <td className="sticky bottom-0 z-10 bg-white border-t-2 border-gray-100 py-2.5 pl-4 text-xs text-gray-400 whitespace-nowrap">
                     {totali.count} {totali.count === 1 ? 'commessa' : 'commesse'}{search ? ' trovate' : ''}
                   </td>
                   {/* N. Prev */}
-                  <td className="sticky bottom-0 bg-white py-2.5 px-4" />
+                  <td className="sticky bottom-0 z-10 bg-white border-t-2 border-gray-100 py-2.5 px-4" />
                   {/* Totale */}
-                  <td className="sticky bottom-0 bg-white py-2.5 px-4 text-right text-sm font-bold text-gray-900 whitespace-nowrap">
+                  <td className="sticky bottom-0 z-10 bg-white border-t-2 border-gray-100 py-2.5 px-4 text-right text-sm font-bold text-gray-900 whitespace-nowrap">
                     {formatEuro(totali.totale)}
                   </td>
                   {/* IVA */}
-                  <td className="sticky bottom-0 bg-white py-2.5 px-4 text-right text-sm text-gray-600 whitespace-nowrap">
+                  <td className="sticky bottom-0 z-10 bg-white border-t-2 border-gray-100 py-2.5 px-4 text-right text-sm text-gray-600 whitespace-nowrap">
                     {formatEuro(totali.iva)}
                   </td>
                   {/* Acconti */}
-                  <td className="sticky bottom-0 bg-white py-2.5 px-4" />
+                  <td className="sticky bottom-0 z-10 bg-white border-t-2 border-gray-100 py-2.5 px-4" />
                   {/* Saldo */}
-                  <td className={`sticky bottom-0 bg-white py-2.5 px-4 text-right text-sm font-bold whitespace-nowrap ${totali.saldo > 0.005 ? 'text-orange-600' : 'text-green-600'}`}>
+                  <td className={`sticky bottom-0 z-10 bg-white border-t-2 border-gray-100 py-2.5 px-4 text-right text-sm font-bold whitespace-nowrap ${totali.saldo > 0.005 ? 'text-orange-600' : 'text-green-600'}`}>
                     {formatEuro(totali.saldo)}
                   </td>
                   {/* N. Commessa, Stato, Mese, Operatore, Reparto, Docs, Menu */}
-                  <td className="sticky bottom-0 bg-white" colSpan={7} />
+                  <td className="sticky bottom-0 z-10 bg-white border-t-2 border-gray-100" colSpan={7} />
                 </tr>
               </tfoot>
             </Table>
