@@ -136,6 +136,29 @@ function formatMese(data: string): string {
   return `${mese.charAt(0).toUpperCase() + mese.slice(1)} ${y}`
 }
 
+/* ── Colgroup condiviso — garantisce allineamento tra tabella e footer ── */
+
+function CommessaColGroup() {
+  return (
+    <colgroup>
+      <col className="w-8" />
+      <col className="w-[140px]" />
+      <col className="w-[90px]" />
+      <col className="w-[100px]" />
+      <col className="w-[80px]" />
+      <col className="w-[130px]" />
+      <col className="w-[100px]" />
+      <col className="w-[110px]" />
+      <col className="w-[130px]" />
+      <col className="w-[110px]" />
+      <col className="w-[70px]" />
+      <col className="w-[80px]" />
+      <col className="w-10" />
+      <col className="w-12" />
+    </colgroup>
+  )
+}
+
 /* ── Riga sortable ─────────────────────────────────────────── */
 
 interface RowProps {
@@ -187,9 +210,9 @@ function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti,
         </button>
       </TableCell>
 
-      <TableCell>
-        <p className="font-medium text-sm">{c.cliente_nome}</p>
-        {c.note && <p className="text-xs text-gray-400 truncate max-w-[130px]">{c.note}</p>}
+      <TableCell className="overflow-hidden">
+        <p className="font-medium text-sm truncate">{c.cliente_nome}</p>
+        {c.note && <p className="text-xs text-gray-400 truncate">{c.note}</p>}
       </TableCell>
 
       {/* N. Preventivo — tutti i collegati */}
@@ -590,21 +613,22 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
       {(filtered.length > 0 || filteredPending.length > 0) && (
         <div className="rounded-md border bg-white overflow-x-auto">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <Table>
+            <Table className="table-fixed">
+              <CommessaColGroup />
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8" />
-                  <TableHead className="min-w-[140px]">Cliente</TableHead>
-                  <TableHead className="min-w-[90px]">N. Prev.</TableHead>
-                  <TableHead className="text-right min-w-[100px]">Totale</TableHead>
-                  <TableHead className="text-right min-w-[80px]">IVA</TableHead>
-                  <TableHead className="text-right min-w-[130px]">Acconti</TableHead>
-                  <TableHead className="text-right min-w-[100px]">Saldo</TableHead>
-                  <TableHead className="min-w-[110px]">N. Commessa</TableHead>
-                  <TableHead className="min-w-[130px]">Stato</TableHead>
-                  <TableHead className="min-w-[110px]">Mese</TableHead>
-                  <TableHead className="min-w-[70px]">Operatore</TableHead>
-                  <TableHead className="min-w-[80px]">Reparto</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>N. Prev.</TableHead>
+                  <TableHead className="text-right">Totale</TableHead>
+                  <TableHead className="text-right">IVA</TableHead>
+                  <TableHead className="text-right">Acconti</TableHead>
+                  <TableHead className="text-right">Saldo</TableHead>
+                  <TableHead>N. Commessa</TableHead>
+                  <TableHead>Stato</TableHead>
+                  <TableHead>Mese</TableHead>
+                  <TableHead>Operatore</TableHead>
+                  <TableHead>Reparto</TableHead>
                   <TableHead className="w-10" />
                   <TableHead className="w-12" />
                 </TableRow>
@@ -634,27 +658,34 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
         </div>
       )}
 
-      {/* Barra totali fissa in fondo — stessa struttura colonne della tabella */}
+      {/* Barra totali fissa in fondo — table-fixed + stesso colgroup = allineamento garantito */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-gray-200 print:hidden overflow-x-auto lg:[left:var(--sidebar-w,16rem)]">
-        <Table>
+        <Table className="table-fixed">
+          <CommessaColGroup />
           <TableBody>
             <TableRow className="hover:bg-transparent border-0">
-              <TableCell className="w-8 py-2" />
-              <TableCell className="min-w-[140px] py-2 text-xs text-gray-400 whitespace-nowrap">
+              <TableCell className="py-2" />
+              <TableCell className="py-2 text-xs text-gray-400 whitespace-nowrap">
                 {totali.count} {totali.count === 1 ? 'commessa' : 'commesse'}{search ? ' trovate' : ''}
               </TableCell>
-              <TableCell className="min-w-[90px] py-2" />
-              <TableCell className="min-w-[100px] py-2 text-right text-sm font-bold text-gray-900 whitespace-nowrap">
+              <TableCell className="py-2" />
+              <TableCell className="py-2 text-right text-sm font-bold text-gray-900 whitespace-nowrap">
                 {formatEuro(totali.totale)}
               </TableCell>
-              <TableCell className="min-w-[80px] py-2 text-right text-sm text-gray-600 whitespace-nowrap">
+              <TableCell className="py-2 text-right text-sm text-gray-600 whitespace-nowrap">
                 {formatEuro(totali.iva)}
               </TableCell>
-              <TableCell className="min-w-[130px] py-2" />
-              <TableCell className={`min-w-[100px] py-2 text-right text-sm font-bold whitespace-nowrap ${totali.saldo > 0.005 ? 'text-orange-600' : 'text-green-600'}`}>
+              <TableCell className="py-2" />
+              <TableCell className={`py-2 text-right text-sm font-bold whitespace-nowrap ${totali.saldo > 0.005 ? 'text-orange-600' : 'text-green-600'}`}>
                 {formatEuro(totali.saldo)}
               </TableCell>
-              <TableCell colSpan={7} />
+              <TableCell className="py-2" />
+              <TableCell className="py-2" />
+              <TableCell className="py-2" />
+              <TableCell className="py-2" />
+              <TableCell className="py-2" />
+              <TableCell className="py-2" />
+              <TableCell className="py-2" />
             </TableRow>
           </TableBody>
         </Table>
