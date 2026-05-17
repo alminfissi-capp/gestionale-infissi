@@ -119,6 +119,7 @@ import DialogCommessa from './DialogCommessa'
 import DialogAcconto from './DialogAcconto'
 import DialogDocumenti from './DialogDocumenti'
 import DialogSchedaCommessa from './DialogSchedaCommessa'
+import DialogPreventivoManuale from './DialogPreventivoManuale'
 
 interface Props {
   commesse: CommessaCompleta[]
@@ -144,10 +145,11 @@ interface RowProps {
   onDuplica: () => void
   onAcconto: () => void
   onDocumenti: () => void
+  onPrevManuale: (numeroPrev: string | null) => void
   onStatoChange: (s: StatoCommessa) => void
 }
 
-function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onStatoChange }: RowProps) {
+function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange }: RowProps) {
   const {
     attributes,
     listeners,
@@ -206,13 +208,15 @@ function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti,
                   {pc.numero_preventivo || 'Prev.'}
                 </Link>
               ) : (
-                <span
+                <button
                   key={pc.id}
-                  className="inline-flex items-center gap-0.5 font-mono text-xs text-gray-600 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 whitespace-nowrap"
+                  onClick={() => onPrevManuale(pc.numero_preventivo)}
+                  className="inline-flex items-center gap-0.5 font-mono text-xs text-gray-600 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 whitespace-nowrap hover:bg-gray-200 hover:border-gray-300 transition-colors cursor-pointer"
+                  title="Visualizza / carica PDF preventivo esterno"
                 >
-                  {pc.storage_path && <FileText className="h-2.5 w-2.5 text-red-400 shrink-0" />}
+                  <FileText className="h-2.5 w-2.5 text-red-400 shrink-0" />
                   {pc.numero_preventivo || '—'}
-                </span>
+                </button>
               )
             )}
           </div>
@@ -420,7 +424,12 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
   const [deleting, setDeleting] = useState(false)
   const [dialogAcconto, setDialogAcconto] = useState<CommessaCompleta | null>(null)
   const [dialogDocumenti, setDialogDocumenti] = useState<CommessaCompleta | null>(null)
+  const [dialogPrevManuale, setDialogPrevManuale] = useState<{ commessaId: string; numeroPrev: string | null } | null>(null)
   const autoOpenDone = useRef(false)
+
+  const dialogPrevManualeCommessa = dialogPrevManuale
+    ? items.find((c) => c.id === dialogPrevManuale.commessaId) ?? null
+    : null
 
   // Commessa correntemente in scheda — si aggiorna automaticamente dopo router.refresh()
   const schedaCommessa = schedaCommessaId
@@ -611,6 +620,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
                       onDuplica={() => handleDuplica(c.id)}
                       onAcconto={() => setDialogAcconto(c)}
                       onDocumenti={() => setDialogDocumenti(c)}
+                      onPrevManuale={(numeroPrev) => setDialogPrevManuale({ commessaId: c.id, numeroPrev })}
                       onStatoChange={(s) => handleStatoChange(c.id, s)}
                     />
                   ))}
@@ -685,6 +695,17 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
           commessaId={dialogDocumenti.id}
           clienteNome={dialogDocumenti.cliente_nome}
           documenti={dialogDocumenti.documenti}
+        />
+      )}
+
+      {dialogPrevManualeCommessa && (
+        <DialogPreventivoManuale
+          open
+          onOpenChange={(v) => { if (!v) setDialogPrevManuale(null) }}
+          commessaId={dialogPrevManualeCommessa.id}
+          clienteNome={dialogPrevManualeCommessa.cliente_nome}
+          numeroPrev={dialogPrevManuale!.numeroPrev}
+          documenti={dialogPrevManualeCommessa.documenti}
         />
       )}
 
