@@ -9,6 +9,7 @@ import TemplateNote from '@/components/impostazioni/TemplateNote'
 import FormAliquoteIva from '@/components/impostazioni/FormAliquoteIva'
 import FormNumerazione from '@/components/impostazioni/FormNumerazione'
 import FormValiditaPreventivo from '@/components/impostazioni/FormValiditaPreventivo'
+import ThemeToggle from '@/components/impostazioni/ThemeToggle'
 
 export default async function ImpostazioniPage() {
   await requireAccesso('impostazioni')
@@ -43,9 +44,20 @@ export default async function ImpostazioniPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Impostazioni</h1>
-        <p className="text-sm text-gray-500 mt-1">Configura i dati aziendali e le preferenze del gestionale.</p>
+        <h1 className="text-2xl font-bold">Impostazioni</h1>
+        <p className="text-sm text-muted-foreground mt-1">Configura i dati aziendali e le preferenze del gestionale.</p>
       </div>
+
+      {/* Tema */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Tema</CardTitle>
+          <CardDescription>Scegli il tema dell&apos;interfaccia.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ThemeToggle />
+        </CardContent>
+      </Card>
 
       {/* Dati aziendali */}
       <Card>

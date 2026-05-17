@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, GripVertical, Search, ExternalLink } from 'lucide-react'
+import { Plus, GripVertical, Search, ExternalLink, Hammer } from 'lucide-react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import {
   DndContext,
   closestCenter,
@@ -28,6 +29,8 @@ import CategoriaCardSuMisura from '@/components/listini/CategoriaCardSuMisura'
 import DialogCategoria from '@/components/listini/DialogCategoria'
 import { toast } from 'sonner'
 import type { CategoriaConListini } from '@/types/listino'
+
+const FerroCalcolatore = dynamic(() => import('@/components/ferro/FerroCalcolatore'), { ssr: false })
 
 function SortableCategoriaWrapper({ categoria, onSuccess }: { categoria: CategoriaConListini; onSuccess: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: categoria.id })
@@ -74,6 +77,7 @@ export default function ListiniClient({ initialCategorie }: Props) {
   const [loading, setLoading] = useState(false)
   const [newCatOpen, setNewCatOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [activeTab, setActiveTab] = useState<'listini' | 'ferro'>('listini')
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
@@ -125,26 +129,41 @@ export default function ListiniClient({ initialCategorie }: Props) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestione Listini</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {loading ? '...' : `${categorie.length} categorie · ${totaleListini} listini`}
+          <h1 className="text-2xl font-bold">{activeTab === 'ferro' ? 'Ferro & Cancelli' : 'Gestione Listini'}</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {activeTab === 'ferro' ? 'Calcolo preventivi ferro, cancelli e cancellate' : (loading ? '...' : `${categorie.length} categorie · ${totaleListini} listini`)}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link href="/listini/scorrevoli">
-            <Button variant="outline">
-              <ExternalLink className="h-4 w-4 mr-1" />
-              Scorrevoli COPRAL
+        <div className="flex gap-2 items-center">
+          {/* Tab switcher */}
+          <div className="flex rounded-md border border-border overflow-hidden text-sm">
+            <button onClick={() => setActiveTab('listini')}
+              className={`px-3 py-1.5 font-medium transition-colors ${activeTab === 'listini' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}>
+              Listini
+            </button>
+            <button onClick={() => setActiveTab('ferro')}
+              className={`px-3 py-1.5 font-medium transition-colors flex items-center gap-1.5 ${activeTab === 'ferro' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}>
+              <Hammer className="h-3.5 w-3.5" /> Ferro & Cancelli
+            </button>
+          </div>
+          {activeTab === 'listini' && <>
+            <Link href="/listini/scorrevoli">
+              <Button variant="outline">
+                <ExternalLink className="h-4 w-4 mr-1" />
+                Scorrevoli COPRAL
+              </Button>
+            </Link>
+            <Button onClick={() => setNewCatOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              Nuova categoria
             </Button>
-          </Link>
-          <Button onClick={() => setNewCatOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" />
-            Nuova categoria
-          </Button>
+          </>}
         </div>
       </div>
 
-      {!loading && categorie.length > 0 && (
+      {activeTab === 'ferro' && <FerroCalcolatore mode="db" />}
+
+      {activeTab === 'listini' && !loading && categorie.length > 0 && (
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
@@ -156,7 +175,7 @@ export default function ListiniClient({ initialCategorie }: Props) {
         </div>
       )}
 
-      {loading && (
+      {activeTab === 'listini' && loading && (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-16 rounded-lg border bg-white animate-pulse" />
@@ -164,14 +183,14 @@ export default function ListiniClient({ initialCategorie }: Props) {
         </div>
       )}
 
-      {!loading && categorieFiltered.length === 0 && categorie.length > 0 && (
+      {activeTab === 'listini' && !loading && categorieFiltered.length === 0 && categorie.length > 0 && (
         <div className="text-center py-16 text-gray-400">
           <p className="text-lg font-medium mb-2">Nessuna categoria trovata</p>
           <p className="text-sm">Prova con un termine di ricerca diverso.</p>
         </div>
       )}
 
-      {!loading && categorie.length === 0 && (
+      {activeTab === 'listini' && !loading && categorie.length === 0 && (
         <div className="text-center py-16 text-gray-400">
           <p className="text-lg font-medium mb-2">Nessuna categoria</p>
           <p className="text-sm mb-4">Crea una categoria per iniziare ad aggiungere i listini prezzi.</p>
@@ -182,7 +201,7 @@ export default function ListiniClient({ initialCategorie }: Props) {
         </div>
       )}
 
-      {!loading && categorieFiltered.length > 0 && (
+      {activeTab === 'listini' && !loading && categorieFiltered.length > 0 && (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={search ? () => {} : handleDragEnd}>
           <SortableContext items={categorieFiltered.map((c) => c.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-4">

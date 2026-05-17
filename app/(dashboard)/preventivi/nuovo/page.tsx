@@ -2,7 +2,7 @@ import { getClienti } from '@/actions/clienti'
 import { getCategorie } from '@/actions/listini'
 import { getSettings, getNoteTemplates } from '@/actions/impostazioni'
 import { getScorevoliListino } from '@/actions/scorrevoli'
-import WizardPreventivo from '@/components/preventivi/WizardPreventivo'
+import NuovoPreventivoShell from '@/components/preventivi/NuovoPreventivoShell'
 
 export default async function NuovoPreventivoPage() {
   const [clienti, listini, settings, noteTemplates, scorevoliListino] = await Promise.all([
@@ -14,10 +14,10 @@ export default async function NuovoPreventivoPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Nuovo Preventivo</h1>
-        <p className="text-sm text-gray-500 mt-1">Compila il modulo passo per passo</p>
+        <h1 className="text-2xl font-bold">Nuovo Preventivo</h1>
+        <p className="text-sm text-muted-foreground mt-1">Compila il modulo passo per passo</p>
       </div>
-      <WizardPreventivo
+      <NuovoPreventivoShell
         clienti={clienti}
         listini={listini}
         aliquote={aliquote}

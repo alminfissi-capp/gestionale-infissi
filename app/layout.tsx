@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Geist } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration'
+import { ThemeProvider } from '@/components/providers/ThemeProvider'
 import './globals.css'
 
 const geistSans = Geist({
@@ -28,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="it">
+    <html lang="it" suppressHydrationWarning>
       <head>
         <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -38,9 +39,11 @@ export default function RootLayout({
         <link rel="manifest" href="/site.webmanifest" />
       </head>
       <body className={`${geistSans.variable} antialiased`}>
-        {children}
-        <Toaster richColors position="top-right" />
-        <ServiceWorkerRegistration />
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+          {children}
+          <Toaster richColors position="top-right" />
+          <ServiceWorkerRegistration />
+        </ThemeProvider>
       </body>
     </html>
   )

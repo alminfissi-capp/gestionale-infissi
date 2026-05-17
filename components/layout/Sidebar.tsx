@@ -96,7 +96,7 @@ export default function Sidebar({
   return (
     <aside
       className={cn(
-        'fixed inset-y-0 left-0 z-30 flex flex-col bg-white border-r border-gray-200',
+        'fixed inset-y-0 left-0 z-30 flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800',
         'transition-all duration-300 ease-in-out',
         mobileOpen ? 'translate-x-0' : '-translate-x-full',
         'lg:relative lg:translate-x-0 lg:z-auto lg:shrink-0',
@@ -107,12 +107,12 @@ export default function Sidebar({
       {/* Header */}
       <div
         className={cn(
-          'relative flex items-center border-b border-gray-200 shrink-0 p-4',
+          'relative flex items-center border-b border-gray-200 dark:border-gray-800 shrink-0 p-4',
           collapsed && 'lg:justify-center lg:p-3',
         )}
       >
         <button
-          className="lg:hidden absolute top-3 right-3 p-1.5 rounded-md text-gray-400 hover:bg-gray-100 active:bg-gray-200"
+          className="lg:hidden absolute top-3 right-3 p-1.5 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700"
           onClick={onMobileClose}
           aria-label="Chiudi menu"
         >
@@ -134,10 +134,10 @@ export default function Sidebar({
               <Image src={logoUrl} alt="Logo" fill className="object-contain object-left" />
             </div>
           ) : null}
-          <p className="text-sm font-bold text-gray-900 truncate">
+          <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
             {denominazione || 'A.L.M. Infissi'}
           </p>
-          <p className="text-xs text-gray-500 mt-0.5">Gestionale</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Gestionale</p>
         </div>
       </div>
 
@@ -158,8 +158,8 @@ export default function Sidebar({
                 'flex items-center gap-3 rounded-md text-sm font-medium transition-colors py-2.5 px-3',
                 collapsed && 'lg:justify-center lg:px-0',
                 isActive
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200',
+                  ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 active:bg-gray-200 dark:active:bg-gray-700',
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
@@ -170,13 +170,13 @@ export default function Sidebar({
       </nav>
 
       {/* Footer */}
-      <div className="p-2 border-t border-gray-200 space-y-0.5 shrink-0">
+      <div className="p-2 border-t border-gray-200 dark:border-gray-800 space-y-0.5 shrink-0">
         <Button
           variant="ghost"
           size="sm"
           title={collapsed ? 'Esci' : undefined}
           className={cn(
-            'w-full gap-3 text-gray-600 hover:text-gray-900 justify-start px-3',
+            'w-full gap-3 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 justify-start px-3',
             collapsed && 'lg:justify-center lg:px-0',
           )}
           onClick={handleLogout}
@@ -190,7 +190,7 @@ export default function Sidebar({
           size="sm"
           title={collapsed ? 'Espandi menu' : 'Comprimi menu'}
           className={cn(
-            'hidden lg:flex w-full gap-3 text-gray-400 hover:text-gray-600 justify-start px-3',
+            'hidden lg:flex w-full gap-3 text-gray-400 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-300 justify-start px-3',
             collapsed && 'justify-center px-0',
           )}
           onClick={onToggleCollapse}

@@ -37,7 +37,7 @@ export default function LayoutShell({ children, logoUrl, denominazione, permessi
   return (
     <PermissionsProvider permessi={permessi} isAdmin={isAdmin}>
       <div
-        className="flex min-h-screen bg-gray-50"
+        className="flex min-h-screen bg-gray-50 dark:bg-gray-950"
         style={{ ['--sidebar-w' as string]: collapsed ? '4rem' : '16rem' }}
       >
         <div
@@ -61,15 +61,15 @@ export default function LayoutShell({ children, logoUrl, denominazione, permessi
         </div>
 
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden print:ml-0">
-          <header className="lg:hidden print:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 shrink-0">
+          <header className="lg:hidden print:hidden flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shrink-0">
             <button
               onClick={() => setMobileOpen(true)}
-              className="p-1.5 rounded-md text-gray-600 hover:bg-gray-100 active:bg-gray-200"
+              className="p-1.5 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700"
               aria-label="Apri menu"
             >
               <Menu className="h-5 w-5" />
             </button>
-            <span className="text-sm font-semibold text-gray-900 truncate flex-1">
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate flex-1">
               {denominazione || 'A.L.M. Infissi'}
             </span>
             <OfflineIndicator />
