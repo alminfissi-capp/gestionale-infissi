@@ -5,8 +5,9 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X, Share2, ChevronDown, ChevronUp, Paperclip, FileText, FileSignature, CheckCircle, Clock, XCircle } from 'lucide-react'
+import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X, Share2, ChevronDown, ChevronUp, Paperclip, FileText, FileSignature, CheckCircle, Clock, XCircle, Download } from 'lucide-react'
 import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
+import { getFirmaSignedUrl } from '@/actions/firma'
 import DialogAllegaCatalogo from '@/components/preventivi/DialogAllegaCatalogo'
 import DialogFirma from '@/components/preventivi/DialogFirma'
 import DialogAllegatiCalcoli from '@/components/preventivi/DialogAllegatiCalcoli'
@@ -75,8 +76,23 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const [firmaOpen, setFirmaOpen] = useState(false)
   const [firmaStato, setFirmaStato] = useState(p.firma_stato)
   const [firmaSigningUrl, setFirmaSigningUrl] = useState<string | null>(p.firma_signing_url ?? null)
+  const [firmaPdfPath] = useState<string | null>(p.firma_pdf_path ?? null)
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
 
   useEffect(() => { setOrigin(window.location.origin) }, [])
+
+  const handleDownloadFirmato = async () => {
+    if (!firmaPdfPath) return
+    setIsDownloadingPdf(true)
+    try {
+      const url = await getFirmaSignedUrl(firmaPdfPath)
+      window.open(url, '_blank')
+    } catch {
+      toast.error('Errore nel download del PDF firmato')
+    } finally {
+      setIsDownloadingPdf(false)
+    }
+  }
 
   const handleWhatsAppClick = () => {
     if (stato !== 'bozza') return
@@ -424,10 +440,18 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
             )}
           </div>
         ) : firmaStato === 'firmato' ? (
-          <span className="flex items-center gap-1.5 text-sm text-green-700 bg-green-50 px-2.5 py-1 rounded-full w-fit">
-            <CheckCircle className="h-3.5 w-3.5" />
-            Firmato il {p.firma_completata_at ? new Date(p.firma_completata_at).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
-          </span>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="flex items-center gap-1.5 text-sm text-green-700 bg-green-50 px-2.5 py-1 rounded-full">
+              <CheckCircle className="h-3.5 w-3.5" />
+              Firmato il {p.firma_completata_at ? new Date(p.firma_completata_at).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
+            </span>
+            {firmaPdfPath && (
+              <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50" onClick={handleDownloadFirmato} disabled={isDownloadingPdf}>
+                {isDownloadingPdf ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1" />}
+                Scarica PDF firmato
+              </Button>
+            )}
+          </div>
         ) : firmaStato === 'rifiutato' ? (
           <span className="flex items-center gap-1.5 text-sm text-red-700 bg-red-50 px-2.5 py-1 rounded-full w-fit">
             <XCircle className="h-3.5 w-3.5" />
