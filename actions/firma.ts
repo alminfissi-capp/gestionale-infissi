@@ -67,12 +67,7 @@ export async function richiediFirmaPreventivo(
   const signerMobile = rawMobile ? normalizzaTelefono(rawMobile) : ''
 
   const payload = {
-    inputDocuments: [
-      {
-        uri: `data:application/pdf;base64,${pdfBase64}`,
-        title: pdfName,
-      },
-    ],
+    inputDocuments: [{ sourceType: 'base64', payload: pdfBase64 }],
     signers: [
       {
         name: signerName,
@@ -80,20 +75,21 @@ export async function richiediFirmaPreventivo(
         email: signerEmail,
         mobile: signerMobile,
         authentication: ['sms'],
-        signatures: [
-          {
-            documentTitle: pdfName,
-            pageNumber: 1,
-            x: 70,
-            y: 680,
-            signatureName: 'Firma Cliente',
-          },
-        ],
+        signatures: [{ page: 1, x: '70', y: '680' }],
+        language: 'it',
       },
     ],
-    callbackUrl: `${appUrl}/api/firma-callback?token=${token}`,
-    redirectUrl: `${appUrl}/conferma/${token}/grazie`,
-    signatureMode: ['typed', 'drawn'],
+    callback: {
+      method: 'JSON',
+      url: `${appUrl}/api/firma-callback?token=${token}`,
+    },
+    options: {
+      signatureMode: ['typed', 'drawn'],
+      ui: {
+        completeUrl: `${appUrl}/conferma/${token}/grazie`,
+        cancelUrl: `${appUrl}/conferma/${token}/grazie`,
+      },
+    },
   }
 
   const res = await fetch(`${EU_SES_BASE}/EU-SES`, {
@@ -126,6 +122,7 @@ export async function richiediFirmaPreventivo(
     .update({
       token_conferma: token,
       firma_documento_id: documentId,
+      firma_signing_url: signingUrl,
       firma_stato: 'in_attesa',
       firma_richiesta_at: new Date().toISOString(),
     })

@@ -13,6 +13,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: 'body non valido' }, { status: 400 })
   }
 
+  console.log('[firma-callback] token:', token, 'body:', JSON.stringify(body))
   const documentId = body.id as string | undefined
   const state = (body.state as string | undefined)?.toUpperCase()
 
