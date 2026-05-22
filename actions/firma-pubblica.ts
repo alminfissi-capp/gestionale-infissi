@@ -147,13 +147,22 @@ export async function avviaFirmaPreventivo(
 
   const data = await res.json()
   const documentId: string = data.id
+
+  // Cerca il signingUrl in tutti i possibili campi della risposta
   const signingUrl: string =
     data.signers?.[0]?.signingUrl ??
     data.signers?.[0]?.url ??
+    data.signers?.[0]?.link ??
+    data.signers?.[0]?.signUrl ??
+    data.signers?.[0]?.signerUrl ??
     data.signingUrl ??
+    data.url ??
     ''
 
-  if (!signingUrl) throw new Error('openapi.it non ha restituito il link di firma')
+  if (!signingUrl) {
+    // Log struttura risposta per debug
+    throw new Error(`openapi.it non ha restituito il link di firma. Risposta: ${JSON.stringify(data)}`)
+  }
 
   await service.from('preventivi').update({
     token_conferma: firmaToken,
