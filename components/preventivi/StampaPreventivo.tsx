@@ -83,19 +83,23 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
         }
 
         console.log('[firma] Blob size:', blob.size, '— type:', blob.type)
+        if (blob.size === 0) throw new Error('Generazione PDF fallita: blob vuoto (0 byte)')
 
         // Verifica header PDF (%PDF-)
-        const header = await blob.slice(0, 5).text()
-        console.log('[firma] Header PDF (atteso "%PDF-"):', JSON.stringify(header))
+        const headerBytes = await blob.slice(0, 5).text()
+        console.log('[firma] Header PDF (atteso "%PDF-"):', JSON.stringify(headerBytes))
+        if (!headerBytes.startsWith('%PDF')) throw new Error('Generazione PDF fallita: header non valido — ' + JSON.stringify(headerBytes))
 
-        if (blob.size === 0) throw new Error('Generazione PDF fallita: blob vuoto (0 byte)')
-        if (!header.startsWith('%PDF')) throw new Error('Generazione PDF fallita: header non valido — ' + JSON.stringify(header))
+        // Converte blob → base64 string (evita problemi binari di FormData nei Server Actions)
+        const pdfBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve((reader.result as string).split(',')[1])
+          reader.onerror = () => reject(new Error('Errore lettura blob PDF'))
+          reader.readAsDataURL(blob)
+        })
+        console.log('[firma] base64 length:', pdfBase64.length, '— invio al server action')
 
-        const formData = new FormData()
-        formData.append('pdf', blob, pdfName)
-        console.log('[firma] Invio al server action, size:', blob.size)
-
-        const { signingUrl } = await avviaFirmaPreventivo(token, telefono, formData)
+        const { signingUrl } = await avviaFirmaPreventivo(token, telefono, pdfBase64, pdfName)
         window.location.href = signingUrl
       } catch (err) {
         setFirmaError(err instanceof Error ? err.message : 'Errore nella richiesta firma')

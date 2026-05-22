@@ -17,17 +17,20 @@ function normalizzaTelefono(raw: string): string {
 }
 
 /**
- * Avvia il processo di firma EU-SES quando il cliente clicca "Accetta" sulla
- * pagina pubblica del preventivo. Il PDF è generato lato client e passato via FormData.
+ * Avvia il processo di firma EU-SES quando il cliente clicca "Accetta".
+ * Il PDF è generato lato client e trasmesso come base64 string (evita problemi
+ * di encoding binario con FormData nei Server Actions).
  *
  * @param shareToken  token pubblico del preventivo (da URL /p/[token])
- * @param telefono    cellulare del firmatario (E.164 o formato italiano)
- * @param formData    FormData con campo "pdf" (File/Blob)
+ * @param telefono    cellulare del firmatario in qualsiasi formato italiano
+ * @param pdfBase64   contenuto del PDF codificato base64 (senza prefisso data:...)
+ * @param pdfName     nome file (es. "preventivo-2025-001.pdf")
  */
 export async function avviaFirmaPreventivo(
   shareToken: string,
   telefono: string,
-  formData: FormData
+  pdfBase64: string,
+  pdfName: string
 ): Promise<{ signingUrl: string }> {
   const service = createServiceClient()
 
@@ -41,16 +44,16 @@ export async function avviaFirmaPreventivo(
   if (prev.firma_stato === 'firmato') throw new Error('Preventivo già firmato')
   if (prev.firma_stato === 'in_attesa') throw new Error('Firma già in corso')
 
-  // PDF generato lato client
-  const pdfFile = formData.get('pdf') as File | null
-  console.log('[firma-pubblica] pdfFile ricevuto — size:', pdfFile?.size ?? 'null', 'name:', pdfFile?.name)
-  if (!pdfFile || pdfFile.size === 0) throw new Error('PDF mancante o vuoto')
-
-  const pdfArrayBuffer = await pdfFile.arrayBuffer()
-  console.log('[firma-pubblica] arrayBuffer byteLength:', pdfArrayBuffer.byteLength)
-  const pdfBuffer = Buffer.from(pdfArrayBuffer)
+  // Decodifica base64 → Buffer
+  console.log('[firma-pubblica] pdfBase64 length:', pdfBase64.length)
+  const pdfBuffer = Buffer.from(pdfBase64, 'base64')
   console.log('[firma-pubblica] Buffer.length:', pdfBuffer.length)
-  const pdfName = pdfFile.name || (prev.numero ? `preventivo-${prev.numero}.pdf` : 'preventivo.pdf')
+  if (pdfBuffer.length === 0) throw new Error('PDF ricevuto vuoto (0 byte dopo decodifica base64)')
+
+  // Verifica header %PDF
+  const header = pdfBuffer.slice(0, 5).toString('ascii')
+  console.log('[firma-pubblica] Header PDF:', JSON.stringify(header))
+  if (!header.startsWith('%PDF')) throw new Error('PDF non valido: header errato — ' + JSON.stringify(header))
 
   // Dati firmatario dal snapshot
   const snap = prev.cliente_snapshot as {
@@ -73,19 +76,20 @@ export async function avviaFirmaPreventivo(
   const firmaToken = crypto.randomUUID()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!
 
-  // Carica PDF su storage → openapi.it lo scarica via URL firmato (non accetta data URI)
+  // Carica PDF su storage → openapi.it lo scarica via URL firmato
   const tempPath = `firma-temp/${prev.id}/${firmaToken}.pdf`
-  const { error: uploadError, data: uploadData } = await service.storage
+  const { error: uploadError } = await service.storage
     .from('commesse-docs')
     .upload(tempPath, pdfBuffer, { contentType: 'application/pdf', upsert: true })
-  console.log('[firma-pubblica] Upload Supabase — error:', uploadError?.message ?? 'nessuno', 'path:', uploadData?.path)
+  console.log('[firma-pubblica] Upload Supabase:', uploadError ? uploadError.message : 'OK — ' + tempPath)
   if (uploadError) throw new Error(`Errore upload PDF: ${uploadError.message}`)
 
   const { data: signedUrlData } = await service.storage
     .from('commesse-docs')
-    .createSignedUrl(tempPath, 86400) // 24h
+    .createSignedUrl(tempPath, 86400)
   if (!signedUrlData?.signedUrl) throw new Error('Impossibile generare URL firmato per il PDF')
   const pdfUrl = signedUrlData.signedUrl
+  console.log('[firma-pubblica] Signed URL generato, lunghezza:', pdfUrl.length)
 
   const payload = {
     inputDocuments: [{ uri: pdfUrl, title: pdfName }],
@@ -137,5 +141,6 @@ export async function avviaFirmaPreventivo(
     stato: 'inviato',
   }).eq('id', prev.id)
 
+  console.log('[firma-pubblica] OK — documentId:', documentId)
   return { signingUrl }
 }
