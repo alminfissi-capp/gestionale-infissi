@@ -63,23 +63,37 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
     startTransition(async () => {
       try {
         // Genera PDF lato client (renderToBuffer server-side produce buffer vuoti in Vercel)
-        console.log('[firma] Avvio generazione PDF client-side...')
+        console.log('[firma] Avvio — preventivo:', p.id, 'articoli:', p.articoli?.length ?? 'n/a')
         const [{ pdf }, { default: PreventivoPdf }] = await Promise.all([
           import('@react-pdf/renderer'),
           import('@/lib/pdf/preventivoPdf'),
         ])
-        console.log('[firma] Moduli caricati, rendering preventivo:', p.id, 'articoli:', p.articoli?.length)
+        console.log('[firma] Moduli caricati')
         const pdfName = p.numero ? `preventivo-${p.numero}.pdf` : 'preventivo.pdf'
         const el = createElement(PreventivoPdf, { preventivo: p, settings, logoUrl })
-        // pdf() si aspetta ReactElement<DocumentProps>; PreventivoPdf rende <Document> internamente
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const blob = await pdf(el as any).toBlob()
-        console.log('[firma] Blob generato — size:', blob.size, 'type:', blob.type)
-        if (blob.size === 0) throw new Error('Generazione PDF fallita: il documento è vuoto (0 byte). Controlla la console per dettagli.')
+
+        let blob: Blob
+        try {
+          // pdf() si aspetta ReactElement<DocumentProps>; PreventivoPdf rende <Document> internamente
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          blob = await pdf(el as any).toBlob()
+        } catch (pdfErr) {
+          console.error('[firma] ERRORE in pdf().toBlob():', pdfErr)
+          throw new Error('Generazione PDF fallita: ' + (pdfErr instanceof Error ? pdfErr.message : String(pdfErr)))
+        }
+
+        console.log('[firma] Blob size:', blob.size, '— type:', blob.type)
+
+        // Verifica header PDF (%PDF-)
+        const header = await blob.slice(0, 5).text()
+        console.log('[firma] Header PDF (atteso "%PDF-"):', JSON.stringify(header))
+
+        if (blob.size === 0) throw new Error('Generazione PDF fallita: blob vuoto (0 byte)')
+        if (!header.startsWith('%PDF')) throw new Error('Generazione PDF fallita: header non valido — ' + JSON.stringify(header))
 
         const formData = new FormData()
         formData.append('pdf', blob, pdfName)
-        console.log('[firma] FormData pronta, chiamo server action...')
+        console.log('[firma] Invio al server action, size:', blob.size)
 
         const { signingUrl } = await avviaFirmaPreventivo(token, telefono, formData)
         window.location.href = signingUrl

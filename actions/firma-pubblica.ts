@@ -43,9 +43,13 @@ export async function avviaFirmaPreventivo(
 
   // PDF generato lato client
   const pdfFile = formData.get('pdf') as File | null
+  console.log('[firma-pubblica] pdfFile ricevuto — size:', pdfFile?.size ?? 'null', 'name:', pdfFile?.name)
   if (!pdfFile || pdfFile.size === 0) throw new Error('PDF mancante o vuoto')
 
-  const pdfBuffer = Buffer.from(await pdfFile.arrayBuffer())
+  const pdfArrayBuffer = await pdfFile.arrayBuffer()
+  console.log('[firma-pubblica] arrayBuffer byteLength:', pdfArrayBuffer.byteLength)
+  const pdfBuffer = Buffer.from(pdfArrayBuffer)
+  console.log('[firma-pubblica] Buffer.length:', pdfBuffer.length)
   const pdfName = pdfFile.name || (prev.numero ? `preventivo-${prev.numero}.pdf` : 'preventivo.pdf')
 
   // Dati firmatario dal snapshot
@@ -71,9 +75,10 @@ export async function avviaFirmaPreventivo(
 
   // Carica PDF su storage → openapi.it lo scarica via URL firmato (non accetta data URI)
   const tempPath = `firma-temp/${prev.id}/${firmaToken}.pdf`
-  const { error: uploadError } = await service.storage
+  const { error: uploadError, data: uploadData } = await service.storage
     .from('commesse-docs')
     .upload(tempPath, pdfBuffer, { contentType: 'application/pdf', upsert: true })
+  console.log('[firma-pubblica] Upload Supabase — error:', uploadError?.message ?? 'nessuno', 'path:', uploadData?.path)
   if (uploadError) throw new Error(`Errore upload PDF: ${uploadError.message}`)
 
   const { data: signedUrlData } = await service.storage
