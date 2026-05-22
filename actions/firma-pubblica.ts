@@ -85,7 +85,6 @@ export async function avviaFirmaPreventivo(
   }
 
   const pdfBuffer = await generatePreventivoPdf(preventivo, settings, logoData)
-  const pdfBase64 = pdfBuffer.toString('base64')
   const pdfName = prev.numero ? `preventivo-${prev.numero}.pdf` : 'preventivo.pdf'
 
   // Dati firmatario dal snapshot
@@ -110,8 +109,21 @@ export async function avviaFirmaPreventivo(
   const firmaToken = crypto.randomUUID()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!
 
+  // Carica PDF su storage → openapi.it lo scarica via URL (non accetta bene data URI inline)
+  const tempPath = `firma-temp/${prev.id}/${firmaToken}.pdf`
+  const { error: uploadError } = await service.storage
+    .from('commesse-docs')
+    .upload(tempPath, pdfBuffer, { contentType: 'application/pdf', upsert: true })
+  if (uploadError) throw new Error(`Errore upload PDF: ${uploadError.message}`)
+
+  const { data: signedUrlData } = await service.storage
+    .from('commesse-docs')
+    .createSignedUrl(tempPath, 86400) // 24h — tempo sufficiente per la sessione di firma
+  if (!signedUrlData?.signedUrl) throw new Error('Impossibile generare URL firmato per il PDF')
+  const pdfUrl = signedUrlData.signedUrl
+
   const payload = {
-    inputDocuments: [{ uri: `data:application/pdf;base64,${pdfBase64}`, title: pdfName }],
+    inputDocuments: [{ uri: pdfUrl, title: pdfName }],
     signers: [{
       name: signerName,
       surname: signerSurname,
