@@ -459,13 +459,14 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
   const { articoliConCosto, totaleCostiAcquisto } = await calcolaCostiAcquistoInput(input.articoli, regole)
   const quoteTrasporto = calcolaQuoteTrasportoPerArticolo(input.articoli, regole, regoleLiberi)
   const articoliConQuota = input.articoli.map((a, i) => ({ ...a, quota_trasporto: quoteTrasporto[i] }))
-  const riepilogoIva = calcolaRiepilogoIva(articoliConQuota, input.scontoGlobale)
+  const riepilogoIva = calcolaRiepilogoIva(articoliConQuota, input.scontoGlobale, input.scontoImportoFisso ?? null)
   const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
   const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
     subtotale,
     input.scontoGlobale,
     speseTrasporto,
-    ivaTotale
+    ivaTotale,
+    input.scontoImportoFisso ?? null
   )
 
   const { data: prev, error: prevErr } = await supabase
@@ -476,6 +477,7 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
       numero: numeroFinale,
       cliente_snapshot: input.clienteSnapshot,
       sconto_globale: input.scontoGlobale,
+      sconto_importo_fisso: input.scontoImportoFisso ?? null,
       mostra_sconto_riga: input.mostraSconto,
       note: input.note || null,
       subtotale,
@@ -532,13 +534,14 @@ export async function updatePreventivo(
   const { articoliConCosto, totaleCostiAcquisto } = await calcolaCostiAcquistoInput(input.articoli, regole)
   const quoteTrasporto = calcolaQuoteTrasportoPerArticolo(input.articoli, regole, regoleLiberi)
   const articoliConQuota = input.articoli.map((a, i) => ({ ...a, quota_trasporto: quoteTrasporto[i] }))
-  const riepilogoIva = calcolaRiepilogoIva(articoliConQuota, input.scontoGlobale)
+  const riepilogoIva = calcolaRiepilogoIva(articoliConQuota, input.scontoGlobale, input.scontoImportoFisso ?? null)
   const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
   const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
     subtotale,
     input.scontoGlobale,
     speseTrasporto,
-    ivaTotale
+    ivaTotale,
+    input.scontoImportoFisso ?? null
   )
 
   const { error: prevErr } = await supabase
@@ -548,6 +551,7 @@ export async function updatePreventivo(
       numero: input.numero || null,
       cliente_snapshot: input.clienteSnapshot,
       sconto_globale: input.scontoGlobale,
+      sconto_importo_fisso: input.scontoImportoFisso ?? null,
       mostra_sconto_riga: input.mostraSconto,
       note: input.note || null,
       subtotale,
@@ -635,6 +639,7 @@ export async function duplicaPreventivo(id: string): Promise<{ id: string }> {
       numero: numeroFinale,
       cliente_snapshot: src.cliente_snapshot,
       sconto_globale: src.sconto_globale,
+      sconto_importo_fisso: src.sconto_importo_fisso ?? null,
       mostra_sconto_riga: src.mostra_sconto_riga ?? false,
       note: src.note,
       subtotale: src.subtotale,

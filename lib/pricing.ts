@@ -103,14 +103,20 @@ export function calcolaSpeseTrasportoPezzi(
  * Calcola sconto globale, totale articoli e totale finale.
  * Il trasporto (sempre in modalità ripartito) viene assorbito in totaleArticoli,
  * così l'imponibile visibile al cliente coincide con la base IVA.
+ *
+ * Se `scontoImportoFisso` è valorizzato viene usato come importo esatto (tombale);
+ * altrimenti si calcola dalla percentuale `scontoGlobale`.
  */
 export function calcolaTotalePreventivo(
   subtotale: number,
   scontoGlobale: number,
   speseTrasporto: number,
-  ivaTotale = 0
+  ivaTotale = 0,
+  scontoImportoFisso: number | null = null
 ): { importoSconto: number; totaleArticoli: number; totaleFinale: number } {
-  const importoSconto = subtotale * (scontoGlobale / 100)
+  const importoSconto = scontoImportoFisso != null
+    ? Math.min(scontoImportoFisso, subtotale)
+    : subtotale * (scontoGlobale / 100)
   // trasporto assorbito nell'imponibile: lo sconto si applica solo ai prodotti
   const totaleArticoli = subtotale - importoSconto + speseTrasporto
   const totaleFinale = totaleArticoli + ivaTotale
@@ -124,12 +130,21 @@ export type RiepilogoIvaItem = { aliquota: number; imponibile: number; iva: numb
  * Ogni articolo porta la propria quota di trasporto (calcolata per categoria),
  * così il trasporto di una categoria si somma solo all'IVA di quella categoria.
  * Lo sconto globale si applica solo al prezzo prodotto; il trasporto è al prezzo pieno.
+ *
+ * Se `scontoImportoFisso` è valorizzato il fattore viene derivato dall'importo esatto.
  */
 export function calcolaRiepilogoIva(
   articoli: { prezzo_totale_riga: number; aliquota_iva: number | null; quota_trasporto?: number }[],
   scontoGlobale: number,
+  scontoImportoFisso: number | null = null
 ): RiepilogoIvaItem[] {
-  const factor = 1 - scontoGlobale / 100
+  let factor: number
+  if (scontoImportoFisso != null) {
+    const subtotale = articoli.reduce((sum, a) => sum + a.prezzo_totale_riga, 0)
+    factor = subtotale > 0 ? 1 - Math.min(scontoImportoFisso, subtotale) / subtotale : 1
+  } else {
+    factor = 1 - scontoGlobale / 100
+  }
   const map = new Map<number, number>()
   for (const a of articoli) {
     if (a.aliquota_iva == null) continue

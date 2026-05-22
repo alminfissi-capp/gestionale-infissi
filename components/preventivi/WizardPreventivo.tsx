@@ -195,6 +195,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
 
   // Step 3 — note/sconto globale
   const [scontoGlobale, setScontoGlobale] = useState(preventivo?.sconto_globale ?? 0)
+  const [scontoImportoFisso, setScontoImportoFisso] = useState<number | null>(preventivo?.sconto_importo_fisso ?? null)
   const [mostraSconto, setMostraSconto] = useState(preventivo?.mostra_sconto_riga ?? false)
   const [note, setNote] = useState(preventivo?.note ?? '')
   const [noteAperte, setNoteAperte] = useState(!!(preventivo?.note))
@@ -210,7 +211,9 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
       setNumero(bozza.numero)
       setArticoli(bozza.articoli)
       setScontoGlobale(bozza.scontoGlobale)
+      setScontoImportoFisso(bozza.scontoImportoFisso ?? null)
       setScontoGlobaleStr(bozza.scontoGlobale > 0 ? formatPct(bozza.scontoGlobale) : '')
+      setScontoEuroStr(bozza.scontoImportoFisso ? formatEuro(bozza.scontoImportoFisso) : '')
       setMostraSconto(bozza.mostraSconto)
       setNote(bozza.note)
       setBozzaRipristinata(true)
@@ -236,13 +239,14 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
         numero,
         articoli,
         scontoGlobale,
+        scontoImportoFisso,
         mostraSconto,
         note,
         updatedAt: new Date().toISOString(),
       })
     }, 1500)
     return () => clearTimeout(timer)
-  }, [preventivo, clienteId, snapshot, numero, articoli, scontoGlobale, mostraSconto, note])
+  }, [preventivo, clienteId, snapshot, numero, articoli, scontoGlobale, scontoImportoFisso, mostraSconto, note])
 
   const scartaBozza = async () => {
     await db.bozzeWizard.delete(BOZZA_KEY)
@@ -251,6 +255,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
     setNumero('')
     setArticoli([])
     setScontoGlobale(0)
+    setScontoImportoFisso(null)
     setScontoGlobaleStr('')
     setScontoEuroStr('')
     setMostraSconto(false)
@@ -265,7 +270,9 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
   // Campi testo per sconto % e sconto €, sincronizzati bidirezionalmente
   const initPct = preventivo?.sconto_globale ?? 0
   const [scontoGlobaleStr, setScontoGlobaleStr] = useState(initPct > 0 ? formatPct(initPct) : '')
-  const [scontoEuroStr, setScontoEuroStr] = useState('')
+  const [scontoEuroStr, setScontoEuroStr] = useState(
+    preventivo?.sconto_importo_fisso ? formatEuro(preventivo.sconto_importo_fisso) : ''
+  )
 
   const handleScontoGlobaleStrBlur = () => {
     const raw = scontoGlobaleStr.replace(',', '.')
@@ -274,11 +281,13 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
       setScontoGlobale(0)
       setScontoGlobaleStr('')
       setScontoEuroStr('')
+      setScontoImportoFisso(null)
       return
     }
     const capped = Math.min(val, 50)
     setScontoGlobale(capped)
     setScontoGlobaleStr(formatPct(capped))
+    setScontoImportoFisso(null)  // % manuale: nessun importo fisso
     const sub = calcolaSubtotale(articoli)
     setScontoEuroStr(sub > 0 ? formatEuro(sub * capped / 100) : '')
   }
@@ -291,12 +300,15 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
       setScontoGlobale(0)
       setScontoGlobaleStr('')
       setScontoEuroStr('')
+      setScontoImportoFisso(null)
       return
     }
     const capped = Math.min(val, sub * 0.5)
-    const newPct = (capped / sub) * 100  // precisione float piena
-    setScontoGlobale(newPct)
-    setScontoGlobaleStr(formatPct(newPct))
+    // Salva l'importo esatto in € — non si rideriverà mai dalla percentuale
+    setScontoImportoFisso(capped)
+    const derivedPct = (capped / sub) * 100
+    setScontoGlobale(derivedPct)
+    setScontoGlobaleStr(formatPct(derivedPct))
     setScontoEuroStr(formatEuro(capped))
   }
 
@@ -308,17 +320,18 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
       calcolaTrasportoPerCategoria(articoliListino, listini)
     const quoteTrasporto = calcolaQuoteTrasportoWizard(articoli, listini)
     const articoliConQuota = articoli.map((a, i) => ({ ...a, quota_trasporto: quoteTrasporto[i] }))
-    const riepilogoIva = calcolaRiepilogoIva(articoliConQuota, scontoGlobale)
+    const riepilogoIva = calcolaRiepilogoIva(articoliConQuota, scontoGlobale, scontoImportoFisso)
     const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
     const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
       subtotale,
       scontoGlobale,
       speseTrasporto,
-      ivaTotale
+      ivaTotale,
+      scontoImportoFisso
     )
     const totalePezzi = articoli.reduce((s, a) => s + a.quantita, 0)
     return { totalePezzi, subtotale, speseTrasporto, dettaglioTrasporto, riepilogoIva, ivaTotale, importoSconto, totaleArticoli, totaleFinale }
-  }, [articoli, scontoGlobale, listini])
+  }, [articoli, scontoGlobale, scontoImportoFisso, listini])
 
   const canGoNext = () => {
     if (step === 0) return true
@@ -370,6 +383,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
           numero,
           articoli: articoli.map(({ tempId: _t, ...rest }) => rest),
           scontoGlobale,
+          scontoImportoFisso,
           mostraSconto,
           note,
         }
@@ -585,7 +599,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
                     <span>€ {formatEuro(totali.subtotale)}</span>
                   </div>
                   <div className="flex justify-between text-red-600">
-                    <span>Sconto globale {formatPct(scontoGlobale)}%</span>
+                    <span>Sconto globale{scontoImportoFisso == null ? ` ${formatPct(scontoGlobale)}%` : ''}</span>
                     <span>− € {formatEuro(totali.importoSconto)}</span>
                   </div>
                 </>

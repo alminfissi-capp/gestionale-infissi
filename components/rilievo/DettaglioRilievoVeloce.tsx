@@ -170,6 +170,7 @@ export default function DettaglioRilievoVeloce({ rilievo: rilievoInit, opzioni, 
           numero: '',
           articoli,
           scontoGlobale: 0,
+          scontoImportoFisso: null,
           mostraSconto: false,
           note: rilievoInit.note ?? '',
         })

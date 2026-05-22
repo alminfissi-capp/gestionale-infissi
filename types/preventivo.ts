@@ -129,6 +129,7 @@ export type Preventivo = {
   numero: string | null
   cliente_snapshot: ClienteSnapshot
   sconto_globale: number
+  sconto_importo_fisso: number | null
   note: string | null
   subtotale: number
   importo_sconto: number
@@ -165,6 +166,7 @@ export type PreventivoInput = {
   numero: string
   articoli: Omit<ArticoloWizard, 'tempId'>[]
   scontoGlobale: number
+  scontoImportoFisso: number | null
   mostraSconto: boolean
   note: string
 }

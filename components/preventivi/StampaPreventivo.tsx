@@ -375,8 +375,8 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
           {/* Subtotale — in modalità ripartito il trasporto è già nelle righe articolo,
               quindi si mostra solo se c'è sconto globale (per spiegare la differenza).
               In modalità separato si mostra anche se c'è il trasporto. */}
-          {((p.modalita_trasporto === 'ripartito' && p.sconto_globale > 0) ||
-            (p.modalita_trasporto === 'separato' && (p.sconto_globale > 0 || p.spese_trasporto > 0))) && (
+          {((p.modalita_trasporto === 'ripartito' && (p.sconto_globale > 0 || (p.sconto_importo_fisso ?? 0) > 0)) ||
+            (p.modalita_trasporto === 'separato' && (p.sconto_globale > 0 || (p.sconto_importo_fisso ?? 0) > 0 || p.spese_trasporto > 0))) && (
             <div className="flex justify-between text-gray-600">
               <span>Subtotale ({p.totale_pezzi} pz)</span>
               <span className="tabular-nums">€ {formatEuro(
@@ -386,9 +386,9 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
               )}</span>
             </div>
           )}
-          {p.sconto_globale > 0 && (
+          {(p.sconto_globale > 0 || (p.sconto_importo_fisso ?? 0) > 0) && (
             <div className="flex justify-between text-green-700">
-              <span>Sconto {p.sconto_globale}%</span>
+              <span>{p.sconto_importo_fisso ? 'Sconto' : `Sconto ${p.sconto_globale}%`}</span>
               <span className="tabular-nums">− € {formatEuro(p.importo_sconto)}</span>
             </div>
           )}

@@ -531,20 +531,20 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
         <div className="bg-white rounded-lg border p-4">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Riepilogo</p>
           <div className="space-y-1.5 text-sm">
-            {p.sconto_globale > 0 && (
+            {(p.sconto_globale > 0 || (p.sconto_importo_fisso ?? 0) > 0) && (
               <>
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotale ({p.totale_pezzi} pz)</span>
                   <span>€ {formatEuro(p.subtotale)}</span>
                 </div>
                 <div className="flex justify-between text-red-600">
-                  <span>Sconto globale {p.sconto_globale}%</span>
+                  <span>{p.sconto_importo_fisso ? 'Sconto globale' : `Sconto globale ${p.sconto_globale}%`}</span>
                   <span>− € {formatEuro(p.importo_sconto)}</span>
                 </div>
               </>
             )}
             <div className="flex justify-between text-gray-600">
-              <span>Totale articoli{p.sconto_globale === 0 ? ` (${p.totale_pezzi} pz)` : ''}</span>
+              <span>Totale articoli{p.sconto_globale === 0 && !(p.sconto_importo_fisso ?? 0) ? ` (${p.totale_pezzi} pz)` : ''}</span>
               <span>€ {formatEuro(p.totale_articoli)}</span>
             </div>
             {p.riepilogo_iva.map((r) => (
@@ -690,14 +690,14 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                   <span className="tabular-nums">€ {formatEuro(p.spese_trasporto)}</span>
                 </div>
               )}
-              {p.sconto_globale > 0 && (
+              {(p.sconto_globale > 0 || (p.sconto_importo_fisso ?? 0) > 0) && (
                 <>
                   <div className="flex justify-between text-gray-500 text-xs">
                     <span>Ricavo lordo (IVA esclusa)</span>
                     <span className="tabular-nums">€ {formatEuro(p.subtotale)}</span>
                   </div>
                   <div className="flex justify-between text-red-600 text-xs">
-                    <span>Sconto globale {p.sconto_globale}%</span>
+                    <span>{p.sconto_importo_fisso ? 'Sconto globale' : `Sconto globale ${p.sconto_globale}%`}</span>
                     <span className="tabular-nums">− € {formatEuro(p.importo_sconto)}</span>
                   </div>
                 </>

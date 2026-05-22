@@ -18,6 +18,7 @@ export interface BozzaWizard {
   numero: string
   articoli: ArticoloWizard[]
   scontoGlobale: number
+  scontoImportoFisso: number | null
   mostraSconto: boolean
   note: string
   updatedAt: string
