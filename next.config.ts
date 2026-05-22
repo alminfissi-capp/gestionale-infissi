@@ -11,6 +11,8 @@ if (existsSync(workerSrc) && !existsSync(workerDst)) {
 }
 
 const nextConfig: NextConfig = {
+  // @react-pdf/renderer usa moduli nativi (fontkit, pdfkit) che webpack non può bundlare
+  serverExternalPackages: ['@react-pdf/renderer', 'sharp'],
   images: {
     remotePatterns: [
       {
