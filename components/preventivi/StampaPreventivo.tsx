@@ -63,18 +63,23 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
     startTransition(async () => {
       try {
         // Genera PDF lato client (renderToBuffer server-side produce buffer vuoti in Vercel)
+        console.log('[firma] Avvio generazione PDF client-side...')
         const [{ pdf }, { default: PreventivoPdf }] = await Promise.all([
           import('@react-pdf/renderer'),
           import('@/lib/pdf/preventivoPdf'),
         ])
+        console.log('[firma] Moduli caricati, rendering preventivo:', p.id, 'articoli:', p.articoli?.length)
         const pdfName = p.numero ? `preventivo-${p.numero}.pdf` : 'preventivo.pdf'
         const el = createElement(PreventivoPdf, { preventivo: p, settings, logoUrl })
         // pdf() si aspetta ReactElement<DocumentProps>; PreventivoPdf rende <Document> internamente
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const blob = await pdf(el as any).toBlob()
+        console.log('[firma] Blob generato — size:', blob.size, 'type:', blob.type)
+        if (blob.size === 0) throw new Error('Generazione PDF fallita: il documento è vuoto (0 byte). Controlla la console per dettagli.')
 
         const formData = new FormData()
         formData.append('pdf', blob, pdfName)
+        console.log('[firma] FormData pronta, chiamo server action...')
 
         const { signingUrl } = await avviaFirmaPreventivo(token, telefono, formData)
         window.location.href = signingUrl
