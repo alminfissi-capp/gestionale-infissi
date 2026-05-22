@@ -5,9 +5,10 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X, Share2, ChevronDown, ChevronUp, Paperclip, FileText } from 'lucide-react'
+import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X, Share2, ChevronDown, ChevronUp, Paperclip, FileText, FileSignature, CheckCircle, Clock, XCircle } from 'lucide-react'
 import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
 import DialogAllegaCatalogo from '@/components/preventivi/DialogAllegaCatalogo'
+import DialogFirma from '@/components/preventivi/DialogFirma'
 import DialogAllegatiCalcoli from '@/components/preventivi/DialogAllegatiCalcoli'
 import DialogInvioEmail from '@/components/preventivi/DialogInvioEmail'
 import { generaShareToken, revokaShareToken } from '@/actions/condivisione'
@@ -71,6 +72,9 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const [noteEspanse, setNoteEspanse] = useState(false)
   const [origin, setOrigin] = useState('')
   const [stato, setStato] = useState<StatoPreventivo>(p.stato)
+  const [firmaOpen, setFirmaOpen] = useState(false)
+  const [firmaStato, setFirmaStato] = useState(p.firma_stato)
+  const [firmaSigningUrl, setFirmaSigningUrl] = useState<string | null>(null)
 
   useEffect(() => { setOrigin(window.location.origin) }, [])
 
@@ -247,6 +251,15 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
             </Link>
           </Button>
           <Button
+            variant="outline"
+            size="sm"
+            className="text-blue-700 border-blue-300 hover:bg-blue-50"
+            onClick={() => setFirmaOpen(true)}
+          >
+            <FileSignature className="h-4 w-4 mr-1" />
+            Firma
+          </Button>
+          <Button
             variant="ghost"
             size="sm"
             className="text-red-500 hover:text-red-700 hover:bg-red-50"
@@ -369,6 +382,62 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
               )}
             </div>
           </div>
+        )}
+      </div>
+
+      {/* Firma elettronica */}
+      <div className="bg-white rounded-lg border p-4">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Firma elettronica</p>
+        {!firmaStato && !firmaSigningUrl ? (
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-gray-400">Nessuna firma richiesta.</p>
+            <Button size="sm" variant="outline" className="text-blue-700 border-blue-300 hover:bg-blue-50" onClick={() => setFirmaOpen(true)}>
+              <FileSignature className="h-3.5 w-3.5 mr-1" />
+              Richiedi firma
+            </Button>
+          </div>
+        ) : firmaStato === 'in_attesa' || firmaSigningUrl ? (
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="flex items-center gap-1.5 text-sm text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full">
+              <Clock className="h-3.5 w-3.5" />
+              In attesa di firma
+            </span>
+            {firmaSigningUrl && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(firmaSigningUrl); }}>
+                  <Copy className="h-3.5 w-3.5 mr-1" />
+                  Copia link firma
+                </Button>
+                {p.cliente_snapshot.telefono && (
+                  <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50" asChild>
+                    <a
+                      href={`https://wa.me/${p.cliente_snapshot.telefono.startsWith('+') ? p.cliente_snapshot.telefono.replace(/\D/g, '') : '39' + p.cliente_snapshot.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(`Gentile cliente, la invitiamo a firmare il preventivo${p.numero ? ` n. ${p.numero}` : ''}: ${firmaSigningUrl}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5 mr-1" />
+                      WhatsApp
+                    </a>
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        ) : firmaStato === 'firmato' ? (
+          <span className="flex items-center gap-1.5 text-sm text-green-700 bg-green-50 px-2.5 py-1 rounded-full w-fit">
+            <CheckCircle className="h-3.5 w-3.5" />
+            Firmato il {p.firma_completata_at ? new Date(p.firma_completata_at).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
+          </span>
+        ) : firmaStato === 'rifiutato' ? (
+          <span className="flex items-center gap-1.5 text-sm text-red-700 bg-red-50 px-2.5 py-1 rounded-full w-fit">
+            <XCircle className="h-3.5 w-3.5" />
+            Firma rifiutata
+          </span>
+        ) : (
+          <span className="flex items-center gap-1.5 text-sm text-gray-500 bg-gray-50 px-2.5 py-1 rounded-full w-fit">
+            <Clock className="h-3.5 w-3.5" />
+            Link scaduto
+          </span>
         )}
       </div>
 
@@ -793,6 +862,18 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
         onClose={() => setEmailDialogOpen(false)}
         preventivo={p}
         nomeCliente={nomeCliente}
+      />
+
+      <DialogFirma
+        open={firmaOpen}
+        onOpenChange={setFirmaOpen}
+        preventivoId={p.id}
+        numero={p.numero}
+        clienteSnapshot={p.cliente_snapshot}
+        onSuccess={(url) => {
+          setFirmaSigningUrl(url)
+          setFirmaStato('in_attesa')
+        }}
       />
     </div>
   )

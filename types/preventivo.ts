@@ -149,6 +149,12 @@ export type Preventivo = {
   visualizzato_via: 'email' | 'whatsapp' | 'link' | null
   email_aperta_at: string | null
   cataloghi_allegati: string[]
+  token_conferma: string | null
+  firma_documento_id: string | null
+  firma_stato: 'in_attesa' | 'firmato' | 'rifiutato' | 'scaduto' | null
+  firma_richiesta_at: string | null
+  firma_completata_at: string | null
+  firma_pdf_path: string | null
   created_at: string
   updated_at: string
 }
