@@ -151,6 +151,7 @@ export type Preventivo = {
   cataloghi_allegati: string[]
   token_conferma: string | null
   firma_documento_id: string | null
+  firma_signing_url: string | null
   firma_stato: 'in_attesa' | 'firmato' | 'rifiutato' | 'scaduto' | null
   firma_richiesta_at: string | null
   firma_completata_at: string | null

@@ -159,9 +159,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'openapi.it non ha restituito il link di firma' }, { status: 502 })
     }
 
-    // 4. Aggiorna DB con firma_documento_id
+    // 4. Aggiorna DB con firma_documento_id e firma_signing_url
     await service.from('preventivi').update({
       firma_documento_id: documentId,
+      firma_signing_url: signingUrl,
     }).eq('id', prev.id)
 
     console.log('[avvia-firma] OK — documentId:', documentId, 'signingUrl:', signingUrl.slice(0, 60))

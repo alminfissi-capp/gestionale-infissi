@@ -74,7 +74,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const [stato, setStato] = useState<StatoPreventivo>(p.stato)
   const [firmaOpen, setFirmaOpen] = useState(false)
   const [firmaStato, setFirmaStato] = useState(p.firma_stato)
-  const [firmaSigningUrl, setFirmaSigningUrl] = useState<string | null>(null)
+  const [firmaSigningUrl, setFirmaSigningUrl] = useState<string | null>(p.firma_signing_url ?? null)
 
   useEffect(() => { setOrigin(window.location.origin) }, [])
 
@@ -404,7 +404,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
             </span>
             {firmaSigningUrl && (
               <>
-                <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(firmaSigningUrl); }}>
+                <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(firmaSigningUrl!); toast.success('Link firma copiato'); }}>
                   <Copy className="h-3.5 w-3.5 mr-1" />
                   Copia link firma
                 </Button>

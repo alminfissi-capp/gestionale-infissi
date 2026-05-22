@@ -123,6 +123,7 @@ export async function avviaFirmaPreventivo(
   await service.from('preventivi').update({
     token_conferma: firmaToken,
     firma_documento_id: documentId,
+    firma_signing_url: signingUrl,
     firma_stato: 'in_attesa',
     firma_richiesta_at: new Date().toISOString(),
     stato: 'inviato',
