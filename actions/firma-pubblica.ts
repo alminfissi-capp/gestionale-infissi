@@ -73,31 +73,31 @@ export async function avviaFirmaPreventivo(
   const firmaToken = crypto.randomUUID()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!
 
-  // Invia il PDF direttamente come data URI — evita il fetch asincrono da URL che causa dimensione=0
-  const pdfDataUri = `data:application/pdf;base64,${pdfBase64}`
-
   const payload = {
-    inputDocuments: [{ uri: pdfDataUri, title: pdfName }],
+    inputDocuments: [{ sourceType: 'base64', payload: pdfBase64 }],
     signers: [{
       name: signerName,
       surname: signerSurname,
       email: signerEmail,
       mobile: signerMobile,
       authentication: ['sms'],
-      signatures: [{
-        documentTitle: pdfName,
-        pageNumber: 1,
-        x: 70,
-        y: 680,
-        signatureName: 'Firma Cliente',
-      }],
+      signatures: [{ page: 1, x: '70', y: '680' }],
+      language: 'it',
     }],
-    callbackUrl: `${appUrl}/api/firma-callback?token=${firmaToken}`,
-    redirectUrl: `${appUrl}/conferma/${firmaToken}/grazie`,
-    signatureMode: ['typed', 'drawn'],
+    callback: {
+      method: 'JSON',
+      url: `${appUrl}/api/firma-callback?token=${firmaToken}`,
+    },
+    options: {
+      signatureMode: ['typed', 'drawn'],
+      ui: {
+        completeUrl: `${appUrl}/conferma/${firmaToken}/grazie`,
+        cancelUrl: `${appUrl}/conferma/${firmaToken}/grazie`,
+      },
+    },
   }
 
-  console.log('[firma-pubblica] Chiamata openapi.it — pdfDataUri length:', pdfDataUri.length)
+  console.log('[firma-pubblica] Chiamata openapi.it — pdfBase64 length:', pdfBase64.length)
 
   const res = await fetch(`${EU_SES_BASE}/EU-SES`, {
     method: 'POST',

@@ -108,26 +108,28 @@ export async function POST(req: NextRequest) {
       stato: 'inviato',
     }).eq('id', prev.id)
 
-    // 3. Passa il PDF come data URI con asyncDocumentsValidation: false
-    //    (openapi.it decodifica la base64 inline senza dover fare HTTP GET)
-    const pdfDataUri = `data:application/pdf;base64,${pdfBase64}`
-    console.log('[avvia-firma] pdfDataUri length:', pdfDataUri.length)
-
+    // 3. Invia il PDF come base64 puro (EU-SES sourceType: 'base64')
     const payload = {
-      inputDocuments: [{ uri: pdfDataUri, title: pdfName || 'preventivo.pdf' }],
+      inputDocuments: [{ sourceType: 'base64', payload: pdfBase64 }],
       signers: [{
         name: signerName,
         surname: signerSurname,
         email: signerEmail,
         mobile: signerMobile,
         authentication: ['sms'],
-        signatures: [{ documentTitle: pdfName || 'preventivo.pdf', pageNumber: 1, x: 70, y: 680, signatureName: 'Firma Cliente' }],
+        signatures: [{ page: 1, x: '70', y: '680' }],
+        language: 'it',
       }],
-      callbackUrl: `${appUrl}/api/firma-callback?token=${firmaToken}`,
-      redirectUrl: `${appUrl}/conferma/${firmaToken}/grazie`,
-      signatureMode: ['typed', 'drawn'],
+      callback: {
+        method: 'JSON',
+        url: `${appUrl}/api/firma-callback?token=${firmaToken}`,
+      },
       options: {
-        asyncDocumentsValidation: false,
+        signatureMode: ['typed', 'drawn'],
+        ui: {
+          completeUrl: `${appUrl}/conferma/${firmaToken}/grazie`,
+          cancelUrl: `${appUrl}/conferma/${firmaToken}/grazie`,
+        },
       },
     }
 
