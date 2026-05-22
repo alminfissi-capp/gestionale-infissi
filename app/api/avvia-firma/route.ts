@@ -120,17 +120,9 @@ export async function POST(req: NextRequest) {
         signatures: [{ page: 1, x: '70', y: '680' }],
         language: 'it',
       }],
-      callback: {
-        method: 'JSON',
-        url: `${appUrl}/api/firma-callback?token=${firmaToken}`,
-      },
-      options: {
-        signatureMode: ['typed', 'drawn'],
-        ui: {
-          completeUrl: `${appUrl}/conferma/${firmaToken}/grazie`,
-          cancelUrl: `${appUrl}/conferma/${firmaToken}/grazie`,
-        },
-      },
+      callbackUrl: `${appUrl}/api/firma-callback?token=${firmaToken}`,
+      redirectUrl: `${appUrl}/conferma/${firmaToken}/grazie`,
+      signatureMode: ['typed', 'drawn'],
     }
 
     const res = await fetch(`${EU_SES_BASE}/EU-SES`, {

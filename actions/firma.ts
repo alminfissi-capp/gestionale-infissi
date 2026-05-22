@@ -79,17 +79,9 @@ export async function richiediFirmaPreventivo(
         language: 'it',
       },
     ],
-    callback: {
-      method: 'JSON',
-      url: `${appUrl}/api/firma-callback?token=${token}`,
-    },
-    options: {
-      signatureMode: ['typed', 'drawn'],
-      ui: {
-        completeUrl: `${appUrl}/conferma/${token}/grazie`,
-        cancelUrl: `${appUrl}/conferma/${token}/grazie`,
-      },
-    },
+    callbackUrl: `${appUrl}/api/firma-callback?token=${token}`,
+    redirectUrl: `${appUrl}/conferma/${token}/grazie`,
+    signatureMode: ['typed', 'drawn'],
   }
 
   const res = await fetch(`${EU_SES_BASE}/EU-SES`, {
