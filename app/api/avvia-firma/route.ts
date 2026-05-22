@@ -108,12 +108,13 @@ export async function POST(req: NextRequest) {
       stato: 'inviato',
     }).eq('id', prev.id)
 
-    // 3. URL proxy pubblico che openapi.it chiamerà via HTTP GET
-    const pdfProxyUrl = `${appUrl}/api/firma-pdf/${firmaToken}`
-    console.log('[avvia-firma] pdfProxyUrl:', pdfProxyUrl)
+    // 3. Passa il PDF come data URI con asyncDocumentsValidation: false
+    //    (openapi.it decodifica la base64 inline senza dover fare HTTP GET)
+    const pdfDataUri = `data:application/pdf;base64,${pdfBase64}`
+    console.log('[avvia-firma] pdfDataUri length:', pdfDataUri.length)
 
     const payload = {
-      inputDocuments: [{ uri: pdfProxyUrl, title: pdfName || 'preventivo.pdf' }],
+      inputDocuments: [{ uri: pdfDataUri, title: pdfName || 'preventivo.pdf' }],
       signers: [{
         name: signerName,
         surname: signerSurname,
@@ -125,6 +126,9 @@ export async function POST(req: NextRequest) {
       callbackUrl: `${appUrl}/api/firma-callback?token=${firmaToken}`,
       redirectUrl: `${appUrl}/conferma/${firmaToken}/grazie`,
       signatureMode: ['typed', 'drawn'],
+      options: {
+        asyncDocumentsValidation: false,
+      },
     }
 
     const res = await fetch(`${EU_SES_BASE}/EU-SES`, {
