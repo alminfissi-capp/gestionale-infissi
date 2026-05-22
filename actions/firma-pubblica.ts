@@ -11,6 +11,15 @@ const EU_SES_BASE =
 
 const SUPPORTED_IMG = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
 
+/** Normalizza un numero italiano in formato E.164 (es. "+393331234567") */
+function normalizzaTelefono(raw: string): string {
+  const digits = raw.replace(/\D/g, '')
+  if (raw.startsWith('+')) return `+${digits}`          // già internazionale
+  if (digits.startsWith('0039')) return `+${digits.slice(4)}`
+  if (digits.startsWith('39') && digits.length >= 11) return `+${digits}`
+  return `+39${digits}`                                  // numero italiano senza prefisso
+}
+
 async function toDataUrl(url: string): Promise<string | null> {
   try {
     const res = await fetch(url)
@@ -94,9 +103,9 @@ export async function avviaFirmaPreventivo(
   const signerName = parts[0] || 'Cliente'
   const signerSurname = parts.slice(1).join(' ') || ' '
   const signerEmail = snap.email || ''
-  const signerMobile = telefonoOverride || snap.telefono || ''
-
-  if (!signerMobile) throw new Error('Numero di cellulare obbligatorio per ricevere il codice OTP')
+  const rawMobile = telefonoOverride || snap.telefono || ''
+  if (!rawMobile) throw new Error('Numero di cellulare obbligatorio per ricevere il codice OTP')
+  const signerMobile = normalizzaTelefono(rawMobile)
 
   const firmaToken = crypto.randomUUID()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!

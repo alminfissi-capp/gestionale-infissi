@@ -10,6 +10,14 @@ const EU_SES_BASE =
     ? 'https://esignature.openapi.com'
     : 'https://test.esignature.openapi.com'
 
+function normalizzaTelefono(raw: string): string {
+  const digits = raw.replace(/\D/g, '')
+  if (raw.startsWith('+')) return `+${digits}`
+  if (digits.startsWith('0039')) return `+${digits.slice(4)}`
+  if (digits.startsWith('39') && digits.length >= 11) return `+${digits}`
+  return `+39${digits}`
+}
+
 export async function richiediFirmaPreventivo(
   preventivoId: string,
   formData: FormData
@@ -55,7 +63,8 @@ export async function richiediFirmaPreventivo(
   const signerName = parts[0] || 'Cliente'
   const signerSurname = parts.slice(1).join(' ') || ' '
   const signerEmail = (formData.get('email') as string) || s.email || ''
-  const signerMobile = (formData.get('telefono') as string) || s.telefono || ''
+  const rawMobile = (formData.get('telefono') as string) || s.telefono || ''
+  const signerMobile = rawMobile ? normalizzaTelefono(rawMobile) : ''
 
   const payload = {
     inputDocuments: [
