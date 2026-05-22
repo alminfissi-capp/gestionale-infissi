@@ -17,10 +17,14 @@ function normalizzaTelefono(raw: string): string {
 /**
  * POST /api/avvia-firma
  *
- * Usato dalla pagina pubblica /p/[token] invece di un Server Action,
- * per evitare il limite di 1 MB sugli argomenti dei Server Actions di Next.js.
- *
  * Body JSON: { shareToken, telefono, pdfBase64, pdfName }
+ *
+ * Flusso:
+ * 1. Valida il PDF ricevuto dal client
+ * 2. Carica il PDF su Supabase storage (firma-temp/{prevId}/{firmaToken}.pdf)
+ * 3. Salva token_conferma in DB (così /api/firma-pdf/[token] può trovare il file)
+ * 4. Chiama openapi.it con URL proxy pubblico (GET /api/firma-pdf/[token])
+ * 5. Aggiorna DB con firma_documento_id e firma_stato
  */
 export async function POST(req: NextRequest) {
   try {
@@ -79,12 +83,37 @@ export async function POST(req: NextRequest) {
 
     const firmaToken = crypto.randomUUID()
     const appUrl = process.env.NEXT_PUBLIC_APP_URL!
-    const pdfDataUri = `data:application/pdf;base64,${pdfBase64}`
 
-    console.log('[avvia-firma] pdfDataUri length:', pdfDataUri.length, '— chiamata openapi.it')
+    // 1. Carica PDF su Supabase storage
+    const storagePath = `firma-temp/${prev.id}/${firmaToken}.pdf`
+    const { error: uploadError } = await service.storage
+      .from('commesse-docs')
+      .upload(storagePath, pdfBuffer, {
+        contentType: 'application/pdf',
+        upsert: false,
+      })
+
+    if (uploadError) {
+      console.error('[avvia-firma] Upload Supabase error:', uploadError.message)
+      return NextResponse.json({ error: 'Errore upload PDF: ' + uploadError.message }, { status: 500 })
+    }
+    console.log('[avvia-firma] PDF caricato su Supabase:', storagePath)
+
+    // 2. Salva token_conferma in DB prima di chiamare openapi.it
+    //    (così /api/firma-pdf/[token] può trovare il file)
+    await service.from('preventivi').update({
+      token_conferma: firmaToken,
+      firma_stato: 'in_attesa',
+      firma_richiesta_at: new Date().toISOString(),
+      stato: 'inviato',
+    }).eq('id', prev.id)
+
+    // 3. URL proxy pubblico che openapi.it chiamerà via HTTP GET
+    const pdfProxyUrl = `${appUrl}/api/firma-pdf/${firmaToken}`
+    console.log('[avvia-firma] pdfProxyUrl:', pdfProxyUrl)
 
     const payload = {
-      inputDocuments: [{ uri: pdfDataUri, title: pdfName || 'preventivo.pdf' }],
+      inputDocuments: [{ uri: pdfProxyUrl, title: pdfName || 'preventivo.pdf' }],
       signers: [{
         name: signerName,
         surname: signerSurname,
@@ -109,6 +138,8 @@ export async function POST(req: NextRequest) {
 
     if (!res.ok) {
       const err = await res.text()
+      // Ripristina stato in caso di errore
+      await service.from('preventivi').update({ firma_stato: null }).eq('id', prev.id)
       return NextResponse.json({ error: `openapi.it errore ${res.status}: ${err}` }, { status: 502 })
     }
 
@@ -117,17 +148,17 @@ export async function POST(req: NextRequest) {
     const documentId: string = responseData.id
     const signingUrl: string = responseData.signers?.[0]?.url ?? responseData.signers?.[0]?.signingUrl ?? ''
 
-    if (!signingUrl) return NextResponse.json({ error: 'openapi.it non ha restituito il link di firma' }, { status: 502 })
+    if (!signingUrl) {
+      await service.from('preventivi').update({ firma_stato: null }).eq('id', prev.id)
+      return NextResponse.json({ error: 'openapi.it non ha restituito il link di firma' }, { status: 502 })
+    }
 
+    // 4. Aggiorna DB con firma_documento_id
     await service.from('preventivi').update({
-      token_conferma: firmaToken,
       firma_documento_id: documentId,
-      firma_stato: 'in_attesa',
-      firma_richiesta_at: new Date().toISOString(),
-      stato: 'inviato',
     }).eq('id', prev.id)
 
-    console.log('[avvia-firma] OK — documentId:', documentId)
+    console.log('[avvia-firma] OK — documentId:', documentId, 'signingUrl:', signingUrl.slice(0, 60))
     return NextResponse.json({ signingUrl })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Errore sconosciuto'
