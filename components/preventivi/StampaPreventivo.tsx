@@ -11,7 +11,6 @@ import type { Settings } from '@/types/impostazioni'
 import AllegatoCatalogoPdf from '@/components/preventivi/AllegatoCatalogoPdf'
 import ScaleToFit from '@/components/preventivi/ScaleToFit'
 import { rispondiPreventivo } from '@/actions/condivisione'
-import { avviaFirmaPreventivo } from '@/actions/firma-pubblica'
 
 interface Props {
   preventivo: PreventivoCompleto
@@ -97,10 +96,17 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
           reader.onerror = () => reject(new Error('Errore lettura blob PDF'))
           reader.readAsDataURL(blob)
         })
-        console.log('[firma] base64 length:', pdfBase64.length, '— invio al server action')
+        console.log('[firma] base64 length:', pdfBase64.length, '— invio a /api/avvia-firma')
 
-        const { signingUrl } = await avviaFirmaPreventivo(token, telefono, pdfBase64, pdfName)
-        window.location.href = signingUrl
+        // API route invece di server action: nessun limite 1MB sugli argomenti
+        const apiRes = await fetch('/api/avvia-firma', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shareToken: token, telefono, pdfBase64, pdfName }),
+        })
+        const apiJson = await apiRes.json()
+        if (!apiRes.ok) throw new Error(apiJson.error ?? `Errore ${apiRes.status}`)
+        window.location.href = apiJson.signingUrl
       } catch (err) {
         setFirmaError(err instanceof Error ? err.message : 'Errore nella richiesta firma')
         setFirmaStep('idle')

@@ -1,0 +1,137 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createServiceClient } from '@/lib/supabase/service'
+
+const EU_SES_BASE =
+  process.env.NODE_ENV === 'production'
+    ? 'https://esignature.openapi.com'
+    : 'https://test.esignature.openapi.com'
+
+function normalizzaTelefono(raw: string): string {
+  const digits = raw.replace(/\D/g, '')
+  if (raw.startsWith('+')) return `+${digits}`
+  if (digits.startsWith('0039')) return `+${digits.slice(4)}`
+  if (digits.startsWith('39') && digits.length >= 11) return `+${digits}`
+  return `+39${digits}`
+}
+
+/**
+ * POST /api/avvia-firma
+ *
+ * Usato dalla pagina pubblica /p/[token] invece di un Server Action,
+ * per evitare il limite di 1 MB sugli argomenti dei Server Actions di Next.js.
+ *
+ * Body JSON: { shareToken, telefono, pdfBase64, pdfName }
+ */
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json() as {
+      shareToken: string
+      telefono: string
+      pdfBase64: string
+      pdfName: string
+    }
+    const { shareToken, telefono, pdfBase64, pdfName } = body
+
+    console.log('[avvia-firma] shareToken:', shareToken?.slice(0, 8), 'pdfBase64 length:', pdfBase64?.length)
+
+    if (!shareToken) return NextResponse.json({ error: 'shareToken mancante' }, { status: 400 })
+    if (!pdfBase64)  return NextResponse.json({ error: 'PDF mancante' }, { status: 400 })
+
+    const pdfBuffer = Buffer.from(pdfBase64, 'base64')
+    console.log('[avvia-firma] Buffer length:', pdfBuffer.length)
+    if (pdfBuffer.length === 0) {
+      return NextResponse.json({ error: 'PDF ricevuto vuoto (0 byte dopo decodifica base64)' }, { status: 400 })
+    }
+
+    const header = pdfBuffer.slice(0, 5).toString('ascii')
+    console.log('[avvia-firma] Header PDF:', JSON.stringify(header))
+    if (!header.startsWith('%PDF')) {
+      return NextResponse.json({ error: 'PDF non valido: header errato — ' + JSON.stringify(header) }, { status: 400 })
+    }
+
+    const service = createServiceClient()
+    const { data: prev } = await service
+      .from('preventivi')
+      .select('*')
+      .eq('share_token', shareToken)
+      .single()
+
+    if (!prev) return NextResponse.json({ error: 'Preventivo non trovato' }, { status: 404 })
+    if (prev.firma_stato === 'firmato')   return NextResponse.json({ error: 'Preventivo già firmato' }, { status: 400 })
+    if (prev.firma_stato === 'in_attesa') return NextResponse.json({ error: 'Firma già in corso' }, { status: 400 })
+
+    const snap = prev.cliente_snapshot as {
+      tipo?: string; ragione_sociale?: string | null
+      nome?: string | null; cognome?: string | null
+      email?: string | null; telefono?: string | null
+    }
+    const nomeCompleto =
+      snap.tipo === 'azienda'
+        ? (snap.ragione_sociale || 'Cliente')
+        : [snap.nome, snap.cognome].filter(Boolean).join(' ') || 'Cliente'
+
+    const parts = nomeCompleto.trim().split(/\s+/)
+    const signerName    = parts[0] || 'Cliente'
+    const signerSurname = parts.slice(1).join(' ') || ' '
+    const signerEmail   = snap.email || ''
+    if (!telefono) return NextResponse.json({ error: 'Numero di cellulare obbligatorio per ricevere il codice OTP' }, { status: 400 })
+    const signerMobile = normalizzaTelefono(telefono)
+
+    const firmaToken = crypto.randomUUID()
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL!
+    const pdfDataUri = `data:application/pdf;base64,${pdfBase64}`
+
+    console.log('[avvia-firma] pdfDataUri length:', pdfDataUri.length, '— chiamata openapi.it')
+
+    const payload = {
+      inputDocuments: [{ uri: pdfDataUri, title: pdfName || 'preventivo.pdf' }],
+      signers: [{
+        name: signerName,
+        surname: signerSurname,
+        email: signerEmail,
+        mobile: signerMobile,
+        authentication: ['sms'],
+        signatures: [{ documentTitle: pdfName || 'preventivo.pdf', pageNumber: 1, x: 70, y: 680, signatureName: 'Firma Cliente' }],
+      }],
+      callbackUrl: `${appUrl}/api/firma-callback?token=${firmaToken}`,
+      redirectUrl: `${appUrl}/conferma/${firmaToken}/grazie`,
+      signatureMode: ['typed', 'drawn'],
+    }
+
+    const res = await fetch(`${EU_SES_BASE}/EU-SES`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAPI_IT_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+
+    if (!res.ok) {
+      const err = await res.text()
+      return NextResponse.json({ error: `openapi.it errore ${res.status}: ${err}` }, { status: 502 })
+    }
+
+    const json = await res.json()
+    const responseData = json.data ?? json
+    const documentId: string = responseData.id
+    const signingUrl: string = responseData.signers?.[0]?.url ?? responseData.signers?.[0]?.signingUrl ?? ''
+
+    if (!signingUrl) return NextResponse.json({ error: 'openapi.it non ha restituito il link di firma' }, { status: 502 })
+
+    await service.from('preventivi').update({
+      token_conferma: firmaToken,
+      firma_documento_id: documentId,
+      firma_stato: 'in_attesa',
+      firma_richiesta_at: new Date().toISOString(),
+      stato: 'inviato',
+    }).eq('id', prev.id)
+
+    console.log('[avvia-firma] OK — documentId:', documentId)
+    return NextResponse.json({ signingUrl })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Errore sconosciuto'
+    console.error('[avvia-firma] Errore:', message)
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
