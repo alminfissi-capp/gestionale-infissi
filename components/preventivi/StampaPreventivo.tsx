@@ -2,14 +2,16 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { Printer, ChevronLeft, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { Printer, ChevronLeft, ThumbsUp, ThumbsDown, Loader2, FileSignature } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { formatEuro } from '@/lib/pricing'
 import type { PreventivoCompleto } from '@/types/preventivo'
 import type { Settings } from '@/types/impostazioni'
 import AllegatoCatalogoPdf from '@/components/preventivi/AllegatoCatalogoPdf'
 import ScaleToFit from '@/components/preventivi/ScaleToFit'
 import { rispondiPreventivo } from '@/actions/condivisione'
+import { avviaFirmaPreventivo } from '@/actions/firma-pubblica'
 
 interface Props {
   preventivo: PreventivoCompleto
@@ -37,7 +39,39 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
   const [risposta, setRisposta] = useState<'accettato' | 'rifiutato' | null>(statoIniziale)
   const [isPending, startTransition] = useTransition()
 
-  const handleRisposta = (r: 'accettato' | 'rifiutato') => {
+  // Flusso firma
+  type FirmaStep = 'idle' | 'chiedi_telefono' | 'loading'
+  const telefonoSnapshot = p.cliente_snapshot?.telefono || ''
+  const [firmaStep, setFirmaStep] = useState<FirmaStep>('idle')
+  const [telefonoInput, setTelefonoInput] = useState(telefonoSnapshot)
+  const [firmaError, setFirmaError] = useState<string | null>(null)
+
+  const handleAccettaClick = () => {
+    if (!token) return
+    // Se abbiamo già il telefono, chiediamo solo conferma inline
+    if (telefonoSnapshot) {
+      avviaFirma(telefonoSnapshot)
+    } else {
+      setFirmaStep('chiedi_telefono')
+    }
+  }
+
+  const avviaFirma = (telefono: string) => {
+    if (!token) return
+    setFirmaStep('loading')
+    setFirmaError(null)
+    startTransition(async () => {
+      try {
+        const { signingUrl } = await avviaFirmaPreventivo(token, telefono)
+        window.location.href = signingUrl
+      } catch (err) {
+        setFirmaError(err instanceof Error ? err.message : 'Errore nella richiesta firma')
+        setFirmaStep('idle')
+      }
+    })
+  }
+
+  const handleRisposta = (r: 'rifiutato') => {
     if (!token || isPending) return
     setRisposta(r)
     startTransition(async () => {
@@ -73,18 +107,55 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
             <span className={`text-sm font-medium px-3 py-1 rounded-full ${risposta === 'accettato' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
               {risposta === 'accettato' ? '✓ Offerta accettata' : '✗ Offerta rifiutata'}
             </span>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500 hidden sm:inline">Vuoi accettare questa offerta?</span>
+          ) : p.firma_stato === 'firmato' ? (
+            <span className="text-sm font-medium px-3 py-1 rounded-full bg-green-100 text-green-700">
+              ✓ Offerta firmata e accettata
+            </span>
+          ) : p.firma_stato === 'in_attesa' ? (
+            <span className="text-sm px-3 py-1 rounded-full bg-amber-50 text-amber-700">
+              ⏳ Firma in attesa — controlla il link inviato via SMS
+            </span>
+          ) : firmaStep === 'loading' ? (
+            <span className="flex items-center gap-2 text-sm text-gray-600">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Preparazione firma in corso...
+            </span>
+          ) : firmaStep === 'chiedi_telefono' ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-gray-600 hidden sm:inline">Il tuo numero di cellulare:</span>
+              <Input
+                className="h-8 w-40 text-sm"
+                placeholder="+39 333 123 4567"
+                value={telefonoInput}
+                onChange={e => setTelefonoInput(e.target.value)}
+                autoFocus
+              />
               <Button
                 size="sm"
-                variant="outline"
-                className="border-green-500 text-green-700 hover:bg-green-50"
-                disabled={isPending}
-                onClick={() => handleRisposta('accettato')}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => avviaFirma(telefonoInput)}
+                disabled={!telefonoInput.trim()}
               >
-                <ThumbsUp className="h-4 w-4 mr-1.5" />
-                Accetta
+                <FileSignature className="h-4 w-4 mr-1.5" />
+                Firma
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setFirmaStep('idle')}>
+                Annulla
+              </Button>
+              {firmaError && <span className="text-xs text-red-600">{firmaError}</span>}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-gray-500 hidden sm:inline">Vuoi accettare questa offerta?</span>
+              {firmaError && <span className="text-xs text-red-600">{firmaError}</span>}
+              <Button
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 text-white"
+                disabled={isPending}
+                onClick={handleAccettaClick}
+              >
+                <FileSignature className="h-4 w-4 mr-1.5" />
+                Accetta e Firma
               </Button>
               <Button
                 size="sm"
