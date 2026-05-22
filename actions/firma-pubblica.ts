@@ -18,13 +18,9 @@ function normalizzaTelefono(raw: string): string {
 
 /**
  * Avvia il processo di firma EU-SES quando il cliente clicca "Accetta".
- * Il PDF è generato lato client e trasmesso come base64 string (evita problemi
- * di encoding binario con FormData nei Server Actions).
- *
- * @param shareToken  token pubblico del preventivo (da URL /p/[token])
- * @param telefono    cellulare del firmatario in qualsiasi formato italiano
- * @param pdfBase64   contenuto del PDF codificato base64 (senza prefisso data:...)
- * @param pdfName     nome file (es. "preventivo-2025-001.pdf")
+ * Il PDF è generato lato client e inviato come base64 string.
+ * Viene passato direttamente a openapi.it come data URI (evita problemi
+ * di fetch asincrono da URL esterni con asyncDocumentsValidation).
  */
 export async function avviaFirmaPreventivo(
   shareToken: string,
@@ -44,13 +40,14 @@ export async function avviaFirmaPreventivo(
   if (prev.firma_stato === 'firmato') throw new Error('Preventivo già firmato')
   if (prev.firma_stato === 'in_attesa') throw new Error('Firma già in corso')
 
-  // Decodifica base64 → Buffer
+  // Validazione PDF ricevuto dal client
   console.log('[firma-pubblica] pdfBase64 length:', pdfBase64.length)
+  if (!pdfBase64) throw new Error('PDF base64 mancante')
+
   const pdfBuffer = Buffer.from(pdfBase64, 'base64')
-  console.log('[firma-pubblica] Buffer.length:', pdfBuffer.length)
+  console.log('[firma-pubblica] Buffer length dopo decodifica:', pdfBuffer.length)
   if (pdfBuffer.length === 0) throw new Error('PDF ricevuto vuoto (0 byte dopo decodifica base64)')
 
-  // Verifica header %PDF
   const header = pdfBuffer.slice(0, 5).toString('ascii')
   console.log('[firma-pubblica] Header PDF:', JSON.stringify(header))
   if (!header.startsWith('%PDF')) throw new Error('PDF non valido: header errato — ' + JSON.stringify(header))
@@ -76,23 +73,11 @@ export async function avviaFirmaPreventivo(
   const firmaToken = crypto.randomUUID()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!
 
-  // Carica PDF su storage → openapi.it lo scarica via URL firmato
-  const tempPath = `firma-temp/${prev.id}/${firmaToken}.pdf`
-  const { error: uploadError } = await service.storage
-    .from('commesse-docs')
-    .upload(tempPath, pdfBuffer, { contentType: 'application/pdf', upsert: true })
-  console.log('[firma-pubblica] Upload Supabase:', uploadError ? uploadError.message : 'OK — ' + tempPath)
-  if (uploadError) throw new Error(`Errore upload PDF: ${uploadError.message}`)
-
-  const { data: signedUrlData } = await service.storage
-    .from('commesse-docs')
-    .createSignedUrl(tempPath, 86400)
-  if (!signedUrlData?.signedUrl) throw new Error('Impossibile generare URL firmato per il PDF')
-  const pdfUrl = signedUrlData.signedUrl
-  console.log('[firma-pubblica] Signed URL generato, lunghezza:', pdfUrl.length)
+  // Invia il PDF direttamente come data URI — evita il fetch asincrono da URL che causa dimensione=0
+  const pdfDataUri = `data:application/pdf;base64,${pdfBase64}`
 
   const payload = {
-    inputDocuments: [{ uri: pdfUrl, title: pdfName }],
+    inputDocuments: [{ uri: pdfDataUri, title: pdfName }],
     signers: [{
       name: signerName,
       surname: signerSurname,
@@ -111,6 +96,8 @@ export async function avviaFirmaPreventivo(
     redirectUrl: `${appUrl}/conferma/${firmaToken}/grazie`,
     signatureMode: ['typed', 'drawn'],
   }
+
+  console.log('[firma-pubblica] Chiamata openapi.it — pdfDataUri length:', pdfDataUri.length)
 
   const res = await fetch(`${EU_SES_BASE}/EU-SES`, {
     method: 'POST',
@@ -141,6 +128,6 @@ export async function avviaFirmaPreventivo(
     stato: 'inviato',
   }).eq('id', prev.id)
 
-  console.log('[firma-pubblica] OK — documentId:', documentId)
+  console.log('[firma-pubblica] OK — documentId:', documentId, 'signingUrl:', signingUrl.slice(0, 60))
   return { signingUrl }
 }
