@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { createElement, useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Printer, ChevronLeft, ThumbsUp, ThumbsDown, Loader2, FileSignature } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -62,7 +62,21 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
     setFirmaError(null)
     startTransition(async () => {
       try {
-        const { signingUrl } = await avviaFirmaPreventivo(token, telefono)
+        // Genera PDF lato client (renderToBuffer server-side produce buffer vuoti in Vercel)
+        const [{ pdf }, { default: PreventivoPdf }] = await Promise.all([
+          import('@react-pdf/renderer'),
+          import('@/lib/pdf/preventivoPdf'),
+        ])
+        const pdfName = p.numero ? `preventivo-${p.numero}.pdf` : 'preventivo.pdf'
+        const el = createElement(PreventivoPdf, { preventivo: p, settings, logoUrl })
+        // pdf() si aspetta ReactElement<DocumentProps>; PreventivoPdf rende <Document> internamente
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const blob = await pdf(el as any).toBlob()
+
+        const formData = new FormData()
+        formData.append('pdf', blob, pdfName)
+
+        const { signingUrl } = await avviaFirmaPreventivo(token, telefono, formData)
         window.location.href = signingUrl
       } catch (err) {
         setFirmaError(err instanceof Error ? err.message : 'Errore nella richiesta firma')

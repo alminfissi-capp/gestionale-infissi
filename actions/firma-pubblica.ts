@@ -1,46 +1,33 @@
 'use server'
 
 import { createServiceClient } from '@/lib/supabase/service'
-import { generatePreventivoPdf } from '@/lib/pdf/generatePreventivoPdf'
-import type { Settings } from '@/types/impostazioni'
 
 const EU_SES_BASE =
   process.env.NODE_ENV === 'production'
     ? 'https://esignature.openapi.com'
     : 'https://test.esignature.openapi.com'
 
-const SUPPORTED_IMG = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
-
 /** Normalizza un numero italiano in formato E.164 (es. "+393331234567") */
 function normalizzaTelefono(raw: string): string {
   const digits = raw.replace(/\D/g, '')
-  if (raw.startsWith('+')) return `+${digits}`          // già internazionale
+  if (raw.startsWith('+')) return `+${digits}`
   if (digits.startsWith('0039')) return `+${digits.slice(4)}`
   if (digits.startsWith('39') && digits.length >= 11) return `+${digits}`
-  return `+39${digits}`                                  // numero italiano senza prefisso
-}
-
-async function toDataUrl(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url)
-    if (!res.ok) return null
-    const ct = (res.headers.get('content-type') || 'image/png').split(';')[0].trim()
-    const buf = Buffer.from(await res.arrayBuffer())
-    if (SUPPORTED_IMG.includes(ct)) return `data:${ct};base64,${buf.toString('base64')}`
-    return null
-  } catch { return null }
+  return `+39${digits}`
 }
 
 /**
  * Avvia il processo di firma EU-SES quando il cliente clicca "Accetta" sulla
- * pagina pubblica del preventivo. Non richiede autenticazione utente.
+ * pagina pubblica del preventivo. Il PDF è generato lato client e passato via FormData.
  *
  * @param shareToken  token pubblico del preventivo (da URL /p/[token])
- * @param telefonoOverride  cellulare digitato dal cliente (se non nel snapshot)
+ * @param telefono    cellulare del firmatario (E.164 o formato italiano)
+ * @param formData    FormData con campo "pdf" (File/Blob)
  */
 export async function avviaFirmaPreventivo(
   shareToken: string,
-  telefonoOverride?: string
+  telefono: string,
+  formData: FormData
 ): Promise<{ signingUrl: string }> {
   const service = createServiceClient()
 
@@ -54,38 +41,12 @@ export async function avviaFirmaPreventivo(
   if (prev.firma_stato === 'firmato') throw new Error('Preventivo già firmato')
   if (prev.firma_stato === 'in_attesa') throw new Error('Firma già in corso')
 
-  const [{ data: articoli }, { data: settingsRaw }] = await Promise.all([
-    service.from('articoli_preventivo').select('*').eq('preventivo_id', prev.id).order('ordine'),
-    service.from('settings').select('*').eq('organization_id', prev.organization_id).maybeSingle(),
-  ])
+  // PDF generato lato client
+  const pdfFile = formData.get('pdf') as File | null
+  if (!pdfFile || pdfFile.size === 0) throw new Error('PDF mancante o vuoto')
 
-  const settings = settingsRaw as Settings | null
-
-  // Logo → data URL (react-pdf richiede data URL o URL pubblico con estensione)
-  let logoData: string | null = null
-  if (settings?.logo_url) {
-    const { data } = await service.storage.from('logos').createSignedUrl(settings.logo_url, 300)
-    if (data?.signedUrl) logoData = await toDataUrl(data.signedUrl)
-  }
-
-  // Immagini articoli → data URL
-  const articoliConImg = await Promise.all(
-    (articoli ?? []).map(async (a) => {
-      if (!a.immagine_url) return a
-      const img = await toDataUrl(a.immagine_url)
-      return { ...a, immagine_url: img }
-    })
-  )
-
-  const preventivo = {
-    ...prev,
-    articoli: articoliConImg,
-    cataloghi_allegati_data: [],
-    allegati_calcoli_data: [],
-  }
-
-  const pdfBuffer = await generatePreventivoPdf(preventivo, settings, logoData)
-  const pdfName = prev.numero ? `preventivo-${prev.numero}.pdf` : 'preventivo.pdf'
+  const pdfBuffer = Buffer.from(await pdfFile.arrayBuffer())
+  const pdfName = pdfFile.name || (prev.numero ? `preventivo-${prev.numero}.pdf` : 'preventivo.pdf')
 
   // Dati firmatario dal snapshot
   const snap = prev.cliente_snapshot as {
@@ -102,14 +63,13 @@ export async function avviaFirmaPreventivo(
   const signerName = parts[0] || 'Cliente'
   const signerSurname = parts.slice(1).join(' ') || ' '
   const signerEmail = snap.email || ''
-  const rawMobile = telefonoOverride || snap.telefono || ''
-  if (!rawMobile) throw new Error('Numero di cellulare obbligatorio per ricevere il codice OTP')
-  const signerMobile = normalizzaTelefono(rawMobile)
+  if (!telefono) throw new Error('Numero di cellulare obbligatorio per ricevere il codice OTP')
+  const signerMobile = normalizzaTelefono(telefono)
 
   const firmaToken = crypto.randomUUID()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!
 
-  // Carica PDF su storage → openapi.it lo scarica via URL (non accetta bene data URI inline)
+  // Carica PDF su storage → openapi.it lo scarica via URL firmato (non accetta data URI)
   const tempPath = `firma-temp/${prev.id}/${firmaToken}.pdf`
   const { error: uploadError } = await service.storage
     .from('commesse-docs')
@@ -118,7 +78,7 @@ export async function avviaFirmaPreventivo(
 
   const { data: signedUrlData } = await service.storage
     .from('commesse-docs')
-    .createSignedUrl(tempPath, 86400) // 24h — tempo sufficiente per la sessione di firma
+    .createSignedUrl(tempPath, 86400) // 24h
   if (!signedUrlData?.signedUrl) throw new Error('Impossibile generare URL firmato per il PDF')
   const pdfUrl = signedUrlData.signedUrl
 
