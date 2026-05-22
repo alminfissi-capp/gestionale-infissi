@@ -110,12 +110,12 @@ export async function richiediFirmaPreventivo(
     throw new Error(`openapi.it errore ${res.status}: ${err}`)
   }
 
-  const data = await res.json()
-  const documentId: string = data.id
+  const json = await res.json()
+  const responseData = json.data ?? json
+  const documentId: string = responseData.id
   const signingUrl: string =
-    data.signers?.[0]?.signingUrl ??
-    data.signers?.[0]?.url ??
-    data.signingUrl ??
+    responseData.signers?.[0]?.url ??
+    responseData.signers?.[0]?.signingUrl ??
     ''
 
   if (!signingUrl) throw new Error('openapi.it non ha restituito il link di firma')
