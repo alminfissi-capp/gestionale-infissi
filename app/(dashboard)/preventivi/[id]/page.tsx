@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation'
 import { getPreventivo } from '@/actions/preventivi'
 import DettaglioPreventivo from '@/components/preventivi/DettaglioPreventivo'
 
+export const dynamic = 'force-dynamic'
+
 interface Props {
   params: Promise<{ id: string }>
 }
