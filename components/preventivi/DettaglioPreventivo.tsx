@@ -426,7 +426,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
               Richiedi firma
             </Button>
           </div>
-        ) : firmaStato === 'in_attesa' || firmaSigningUrl ? (
+        ) : firmaStato === 'in_attesa' ? (
           <div className="flex items-center gap-3 flex-wrap">
             <span className="flex items-center gap-1.5 text-sm text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full">
               <Clock className="h-3.5 w-3.5" />

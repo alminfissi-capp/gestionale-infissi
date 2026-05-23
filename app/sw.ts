@@ -1,5 +1,5 @@
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist'
-import { Serwist } from 'serwist'
+import { Serwist, NetworkOnly } from 'serwist'
 import { defaultCache } from '@serwist/next/worker'
 
 declare global {
@@ -15,7 +15,14 @@ const serwist = new Serwist({
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
-  runtimeCaching: defaultCache,
+  runtimeCaching: [
+    // Le pagine HTML (navigate) non vengono mai messe in cache — sempre dati freschi dal server
+    {
+      matcher: ({ request }) => request.mode === 'navigate',
+      handler: new NetworkOnly(),
+    },
+    ...defaultCache,
+  ],
   fallbacks: {
     entries: [
       {
