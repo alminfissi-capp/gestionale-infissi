@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X, Share2, ChevronDown, ChevronUp, Paperclip, FileText, FileSignature, CheckCircle, Clock, XCircle, Download } from 'lucide-react'
 import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
-import { getFirmaSignedUrl, recuperaPdfFirmato } from '@/actions/firma'
+import { getFirmaSignedUrl, recuperaPdfFirmato, verificaERecuperaFirma } from '@/actions/firma'
 import DialogAllegaCatalogo from '@/components/preventivi/DialogAllegaCatalogo'
 import DialogFirma from '@/components/preventivi/DialogFirma'
 import DialogAllegatiCalcoli from '@/components/preventivi/DialogAllegatiCalcoli'
@@ -81,6 +81,29 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const [isRecuperandoPdf, setIsRecuperandoPdf] = useState(false)
 
   useEffect(() => { setOrigin(window.location.origin) }, [])
+
+  // Polling automatico: quando la firma è in attesa, controlla openapi.it ogni 30s
+  useEffect(() => {
+    if (firmaStato !== 'in_attesa' || !p.firma_documento_id) return
+    let cancelled = false
+
+    const check = async () => {
+      if (cancelled) return
+      try {
+        const result = await verificaERecuperaFirma(p.id)
+        if (result.firmato && !cancelled) {
+          setFirmaStato('firmato')
+          setStato('accettato')
+          if (result.pdfPath) setFirmaPdfPath(result.pdfPath)
+          router.refresh()
+        }
+      } catch { /* ignora errori di rete */ }
+    }
+
+    const firstCheck = setTimeout(check, 10_000)
+    const interval = setInterval(check, 30_000)
+    return () => { cancelled = true; clearTimeout(firstCheck); clearInterval(interval) }
+  }, [firmaStato, p.id, p.firma_documento_id, router])
 
   const handleDownloadFirmato = async () => {
     if (!firmaPdfPath) return

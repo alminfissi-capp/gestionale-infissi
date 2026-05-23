@@ -125,6 +125,70 @@ export async function richiediFirmaPreventivo(
   return { signingUrl, token }
 }
 
+export async function verificaERecuperaFirma(
+  preventivoId: string
+): Promise<{ firmato: boolean; pdfPath?: string }> {
+  const orgId = await getOrgId()
+  const supabase = await createClient()
+
+  const { data: prev } = await supabase
+    .from('preventivi')
+    .select('id, firma_documento_id, firma_pdf_path, firma_stato')
+    .eq('id', preventivoId)
+    .eq('organization_id', orgId)
+    .single()
+
+  if (!prev) return { firmato: false }
+  if (prev.firma_stato === 'firmato') return { firmato: true, pdfPath: prev.firma_pdf_path ?? undefined }
+  if (!prev.firma_documento_id) return { firmato: false }
+
+  try {
+    const pdfRes = await fetch(
+      `https://esignature.openapi.com/signatures/${prev.firma_documento_id}/signedDocument`,
+      { headers: { Authorization: `Bearer ${process.env.OPENAPI_IT_TOKEN}` }, cache: 'no-store' }
+    )
+
+    if (!pdfRes.ok) return { firmato: false }
+
+    const contentType = pdfRes.headers.get('content-type') ?? ''
+    let pdfBuffer: Buffer | null = null
+
+    if (contentType.includes('application/json')) {
+      const json = await pdfRes.json()
+      const downloadUrl: string | undefined =
+        json.url ?? json.downloadUrl ?? json.data?.url ?? json.data?.downloadUrl
+      if (downloadUrl) {
+        const pdf2 = await fetch(downloadUrl)
+        if (pdf2.ok) pdfBuffer = Buffer.from(await pdf2.arrayBuffer())
+      }
+    } else {
+      pdfBuffer = Buffer.from(await pdfRes.arrayBuffer())
+    }
+
+    const service = createServiceClient()
+    const updates: Record<string, unknown> = {
+      firma_stato: 'firmato',
+      firma_completata_at: new Date().toISOString(),
+      stato: 'accettato',
+    }
+
+    if (pdfBuffer && pdfBuffer.length > 0) {
+      const storagePath = `firmati/${preventivoId}/${prev.firma_documento_id}.pdf`
+      const { error: uploadErr } = await service.storage
+        .from('commesse-docs')
+        .upload(storagePath, pdfBuffer, { contentType: 'application/pdf', upsert: true })
+      if (!uploadErr) updates.firma_pdf_path = storagePath
+    }
+
+    await service.from('preventivi').update(updates).eq('id', preventivoId)
+    revalidatePath(`/preventivi/${preventivoId}`)
+
+    return { firmato: true, pdfPath: (updates.firma_pdf_path as string) ?? undefined }
+  } catch {
+    return { firmato: false }
+  }
+}
+
 export async function getFirmaSignedUrl(path: string): Promise<string> {
   await getOrgId()
   const service = createServiceClient()
