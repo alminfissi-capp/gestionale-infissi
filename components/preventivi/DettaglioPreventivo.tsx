@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X, Share2, ChevronDown, ChevronUp, Paperclip, FileText, FileSignature, CheckCircle, Clock, XCircle, Download } from 'lucide-react'
 import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
-import { getFirmaSignedUrl, verificaStatoFirma } from '@/actions/firma'
+import { getFirmaSignedUrl } from '@/actions/firma'
 import DialogAllegaCatalogo from '@/components/preventivi/DialogAllegaCatalogo'
 import DialogFirma from '@/components/preventivi/DialogFirma'
 import DialogAllegatiCalcoli from '@/components/preventivi/DialogAllegatiCalcoli'
@@ -78,26 +78,8 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const [firmaSigningUrl, setFirmaSigningUrl] = useState<string | null>(p.firma_signing_url ?? null)
   const [firmaPdfPath] = useState<string | null>(p.firma_pdf_path ?? null)
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
-  const [isVerificando, setIsVerificando] = useState(false)
 
   useEffect(() => { setOrigin(window.location.origin) }, [])
-
-  const handleVerificaStato = async () => {
-    setIsVerificando(true)
-    try {
-      const { stato, aggiornato } = await verificaStatoFirma(p.id)
-      if (aggiornato) {
-        toast.success(`Stato aggiornato: ${stato}`)
-        router.refresh()
-      } else {
-        toast.info(`Stato attuale su openapi.it: ${stato}`)
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Errore verifica stato')
-    } finally {
-      setIsVerificando(false)
-    }
-  }
 
   const handleDownloadFirmato = async () => {
     if (!firmaPdfPath) return
@@ -436,10 +418,6 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
               <Clock className="h-3.5 w-3.5" />
               In attesa di firma
             </span>
-            <Button size="sm" variant="outline" onClick={handleVerificaStato} disabled={isVerificando}>
-              {isVerificando ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5 mr-1" />}
-              Verifica stato
-            </Button>
             {firmaSigningUrl && (
               <>
                 <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(firmaSigningUrl!); toast.success('Link firma copiato'); }}>

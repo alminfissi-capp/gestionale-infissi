@@ -1,4 +1,6 @@
 import { CheckCircle } from 'lucide-react'
+import { createServiceClient } from '@/lib/supabase/service'
+import { revalidatePath } from 'next/cache'
 
 interface Props {
   params: Promise<{ token: string }>
@@ -7,7 +9,30 @@ interface Props {
 export const metadata = { title: 'Firma completata' }
 
 export default async function GraziePerLaFirmaPage({ params }: Props) {
-  await params // consume params to avoid lint warning
+  const { token } = await params
+
+  // Aggiorna automaticamente firma_stato quando il cliente arriva qui dopo aver firmato
+  try {
+    const service = createServiceClient()
+    const { data: prev } = await service
+      .from('preventivi')
+      .select('id, firma_stato')
+      .eq('token_conferma', token)
+      .single()
+
+    if (prev && prev.firma_stato === 'in_attesa') {
+      await service.from('preventivi').update({
+        firma_stato: 'firmato',
+        firma_completata_at: new Date().toISOString(),
+        stato: 'accettato',
+      }).eq('id', prev.id)
+
+      revalidatePath(`/preventivi/${prev.id}`)
+    }
+  } catch {
+    // Non bloccare la pagina per errori
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       <div className="bg-white rounded-2xl shadow-sm border max-w-md w-full p-10 text-center space-y-4">
