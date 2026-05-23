@@ -55,25 +55,31 @@ export async function POST(req: NextRequest) {
     // Scarica il PDF firmato da openapi.it e salvalo su Supabase
     if (documentId) {
       try {
-        const docRes = await fetch(`${EU_SES_BASE}/EU-SES/${documentId}`, {
-          headers: { Authorization: `Bearer ${process.env.OPENAPI_IT_TOKEN}` },
-        })
-        const docJson = await docRes.json()
-        console.log('[firma-callback] document info:', JSON.stringify(docJson).slice(0, 1000))
+        const pdfRes = await fetch(
+          `${EU_SES_BASE}/signatures/${documentId}/signedDocument`,
+          {
+            headers: { Authorization: `Bearer ${process.env.OPENAPI_IT_TOKEN}` },
+            cache: 'no-store',
+          }
+        )
+        if (pdfRes.ok) {
+          const contentType = pdfRes.headers.get('content-type') ?? ''
+          let pdfBuffer: Buffer | null = null
 
-        const data = docJson.data ?? docJson
-        // Prova vari path comuni per l'URL di download del firmato
-        const downloadUrl: string | undefined =
-          data?.downloadUrl ??
-          data?.documents?.[0]?.downloadUrl ??
-          data?.inputDocuments?.[0]?.downloadUrl ??
-          data?.signedDocuments?.[0]?.url ??
-          data?.signedDocuments?.[0]?.downloadUrl
+          if (contentType.includes('application/json')) {
+            const json = await pdfRes.json()
+            console.log('[firma-callback] risposta JSON download:', JSON.stringify(json).slice(0, 500))
+            const downloadUrl: string | undefined =
+              json.url ?? json.downloadUrl ?? json.data?.url ?? json.data?.downloadUrl
+            if (downloadUrl) {
+              const pdf2 = await fetch(downloadUrl)
+              if (pdf2.ok) pdfBuffer = Buffer.from(await pdf2.arrayBuffer())
+            }
+          } else {
+            pdfBuffer = Buffer.from(await pdfRes.arrayBuffer())
+          }
 
-        if (downloadUrl) {
-          const pdfRes = await fetch(downloadUrl)
-          if (pdfRes.ok) {
-            const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer())
+          if (pdfBuffer && pdfBuffer.length > 0) {
             const storagePath = `firmati/${prev.id}/${documentId}.pdf`
             const { error: uploadErr } = await service.storage
               .from('commesse-docs')
@@ -84,9 +90,12 @@ export async function POST(req: NextRequest) {
             } else {
               console.error('[firma-callback] upload error:', uploadErr.message)
             }
+          } else {
+            console.warn('[firma-callback] pdfBuffer vuoto o null')
           }
         } else {
-          console.warn('[firma-callback] nessun downloadUrl trovato nella risposta')
+          const errText = await pdfRes.text()
+          console.error('[firma-callback] download PDF fallito:', pdfRes.status, errText.slice(0, 300))
         }
       } catch (e) {
         console.error('[firma-callback] errore download PDF firmato:', e)

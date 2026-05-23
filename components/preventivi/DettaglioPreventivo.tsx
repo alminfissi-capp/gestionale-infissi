@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X, Share2, ChevronDown, ChevronUp, Paperclip, FileText, FileSignature, CheckCircle, Clock, XCircle, Download } from 'lucide-react'
 import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
-import { getFirmaSignedUrl } from '@/actions/firma'
+import { getFirmaSignedUrl, recuperaPdfFirmato } from '@/actions/firma'
 import DialogAllegaCatalogo from '@/components/preventivi/DialogAllegaCatalogo'
 import DialogFirma from '@/components/preventivi/DialogFirma'
 import DialogAllegatiCalcoli from '@/components/preventivi/DialogAllegatiCalcoli'
@@ -76,8 +76,9 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const [firmaOpen, setFirmaOpen] = useState(false)
   const [firmaStato, setFirmaStato] = useState(p.firma_stato)
   const [firmaSigningUrl, setFirmaSigningUrl] = useState<string | null>(p.firma_signing_url ?? null)
-  const [firmaPdfPath] = useState<string | null>(p.firma_pdf_path ?? null)
+  const [firmaPdfPath, setFirmaPdfPath] = useState<string | null>(p.firma_pdf_path ?? null)
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
+  const [isRecuperandoPdf, setIsRecuperandoPdf] = useState(false)
 
   useEffect(() => { setOrigin(window.location.origin) }, [])
 
@@ -91,6 +92,19 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
       toast.error('Errore nel download del PDF firmato')
     } finally {
       setIsDownloadingPdf(false)
+    }
+  }
+
+  const handleRecuperaPdf = async () => {
+    setIsRecuperandoPdf(true)
+    try {
+      const { path } = await recuperaPdfFirmato(p.id)
+      setFirmaPdfPath(path)
+      toast.success('PDF firmato recuperato')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Errore nel recupero del PDF firmato')
+    } finally {
+      setIsRecuperandoPdf(false)
     }
   }
 
@@ -445,10 +459,15 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
               <CheckCircle className="h-3.5 w-3.5" />
               Firmato il {p.firma_completata_at ? new Date(p.firma_completata_at).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
             </span>
-            {firmaPdfPath && (
+            {firmaPdfPath ? (
               <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50" onClick={handleDownloadFirmato} disabled={isDownloadingPdf}>
                 {isDownloadingPdf ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1" />}
                 Scarica PDF firmato
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" onClick={handleRecuperaPdf} disabled={isRecuperandoPdf}>
+                {isRecuperandoPdf ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1" />}
+                {isRecuperandoPdf ? 'Recupero in corso...' : 'Recupera PDF firmato'}
               </Button>
             )}
           </div>

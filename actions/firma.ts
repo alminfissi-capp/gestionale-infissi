@@ -135,15 +135,15 @@ export async function getFirmaSignedUrl(path: string): Promise<string> {
   return data.signedUrl
 }
 
-export async function verificaStatoFirma(
+export async function recuperaPdfFirmato(
   preventivoId: string
-): Promise<{ stato: string; aggiornato: boolean }> {
+): Promise<{ path: string }> {
   const orgId = await getOrgId()
   const supabase = await createClient()
 
   const { data: prev } = await supabase
     .from('preventivi')
-    .select('id, firma_documento_id, firma_stato')
+    .select('id, firma_documento_id, firma_pdf_path')
     .eq('id', preventivoId)
     .eq('organization_id', orgId)
     .single()
@@ -151,67 +151,48 @@ export async function verificaStatoFirma(
   if (!prev) throw new Error('Preventivo non trovato')
   if (!prev.firma_documento_id) throw new Error('Nessun documento di firma associato')
 
-  const res = await fetch(`${EU_SES_BASE}/EU-SES/${prev.firma_documento_id}`, {
-    headers: { Authorization: `Bearer ${process.env.OPENAPI_IT_TOKEN}` },
-    cache: 'no-store',
-  })
+  if (prev.firma_pdf_path) return { path: prev.firma_pdf_path }
 
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`openapi.it errore ${res.status}: ${err}`)
+  const pdfRes = await fetch(
+    `https://esignature.openapi.com/signatures/${prev.firma_documento_id}/signedDocument`,
+    {
+      headers: { Authorization: `Bearer ${process.env.OPENAPI_IT_TOKEN}` },
+      cache: 'no-store',
+    }
+  )
+
+  if (!pdfRes.ok) {
+    const err = await pdfRes.text()
+    throw new Error(`openapi.it errore ${pdfRes.status}: ${err.slice(0, 200)}`)
   }
 
-  const json = await res.json()
-  console.log('[verificaStatoFirma] risposta openapi.it:', JSON.stringify(json).slice(0, 500))
+  const contentType = pdfRes.headers.get('content-type') ?? ''
+  let pdfBuffer: Buffer
 
-  const data = json.data ?? json
-  const state = (data.state as string | undefined)?.toUpperCase()
-
-  const firmaStato =
-    state === 'COMPLETED' ? 'firmato' :
-    state === 'REJECTED'  ? 'rifiutato' :
-    state === 'EXPIRED'   ? 'scaduto' :
-    null
-
-  if (!firmaStato || firmaStato === prev.firma_stato) {
-    return { stato: state ?? 'sconosciuto', aggiornato: false }
+  if (contentType.includes('application/json')) {
+    const json = await pdfRes.json()
+    const downloadUrl: string | undefined =
+      json.url ?? json.downloadUrl ?? json.data?.url ?? json.data?.downloadUrl
+    if (!downloadUrl) throw new Error('URL download non trovato nella risposta')
+    const pdf2 = await fetch(downloadUrl)
+    if (!pdf2.ok) throw new Error(`Download PDF fallito: ${pdf2.status}`)
+    pdfBuffer = Buffer.from(await pdf2.arrayBuffer())
+  } else {
+    pdfBuffer = Buffer.from(await pdfRes.arrayBuffer())
   }
+
+  if (pdfBuffer.length === 0) throw new Error('PDF ricevuto vuoto')
 
   const service = createServiceClient()
-  const updates: Record<string, unknown> = {
-    firma_stato: firmaStato,
-    firma_completata_at: firmaStato === 'firmato' ? new Date().toISOString() : null,
-  }
-  if (firmaStato === 'firmato') updates.stato = 'accettato'
+  const storagePath = `firmati/${preventivoId}/${prev.firma_documento_id}.pdf`
+  const { error: uploadErr } = await service.storage
+    .from('commesse-docs')
+    .upload(storagePath, pdfBuffer, { contentType: 'application/pdf', upsert: true })
 
-  // Scarica il PDF firmato se disponibile
-  if (firmaStato === 'firmato') {
-    const downloadUrl: string | undefined =
-      data?.downloadUrl ??
-      data?.documents?.[0]?.downloadUrl ??
-      data?.inputDocuments?.[0]?.downloadUrl ??
-      data?.signedDocuments?.[0]?.url ??
-      data?.signedDocuments?.[0]?.downloadUrl
+  if (uploadErr) throw new Error('Errore upload PDF: ' + uploadErr.message)
 
-    if (downloadUrl) {
-      try {
-        const pdfRes = await fetch(downloadUrl)
-        if (pdfRes.ok) {
-          const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer())
-          const storagePath = `firmati/${preventivoId}/${prev.firma_documento_id}.pdf`
-          const { error: uploadErr } = await service.storage
-            .from('commesse-docs')
-            .upload(storagePath, pdfBuffer, { contentType: 'application/pdf', upsert: true })
-          if (!uploadErr) updates.firma_pdf_path = storagePath
-        }
-      } catch (e) {
-        console.error('[verificaStatoFirma] errore download PDF:', e)
-      }
-    }
-  }
-
-  await service.from('preventivi').update(updates).eq('id', preventivoId)
+  await service.from('preventivi').update({ firma_pdf_path: storagePath }).eq('id', preventivoId)
   revalidatePath(`/preventivi/${preventivoId}`)
 
-  return { stato: state ?? 'sconosciuto', aggiornato: true }
+  return { path: storagePath }
 }
