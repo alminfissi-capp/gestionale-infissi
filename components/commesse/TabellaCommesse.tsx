@@ -133,7 +133,7 @@ function formatMese(data: string): string {
   const [y, m] = data.split('-').map(Number)
   const d = new Date(y, m - 1, 1)
   const mese = d.toLocaleDateString('it-IT', { month: 'short' })
-  return `${mese.charAt(0).toUpperCase() + mese.slice(1)} ${y}`
+  return `${mese.charAt(0).toUpperCase() + mese.slice(1)} ${String(y).slice(-2)}`
 }
 
 /* ── Colgroup condiviso — garantisce allineamento tra tabella e footer ── */
@@ -143,15 +143,15 @@ function CommessaColGroup() {
     <colgroup>
       <col className="w-8" />
       <col className="w-[200px]" />
-      <col className="w-[90px]" />
-      <col className="w-[100px]" />
-      <col className="w-[80px]" />
       <col className="w-[130px]" />
       <col className="w-[100px]" />
       <col className="w-[80px]" />
       <col className="w-[130px]" />
-      <col className="w-[72px]" />
+      <col className="w-[100px]" />
       <col className="w-[80px]" />
+      <col className="w-[130px]" />
+      <col className="w-[56px]" />
+      <col className="w-[56px]" />
       <col className="w-[80px]" />
       <col className="w-10" />
       <col className="w-12" />
@@ -320,7 +320,7 @@ function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti,
         {formatMese(c.data_conferma)}
       </TableCell>
 
-      <TableCell className="text-sm text-gray-600 max-w-[90px]">
+      <TableCell className="text-sm text-gray-600 max-w-[56px]">
         <span className="truncate block">{c.operatore_nome || <span className="text-gray-300">—</span>}</span>
       </TableCell>
 
@@ -627,7 +627,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
                   <TableHead className="text-right">N. Commessa</TableHead>
                   <TableHead>Stato</TableHead>
                   <TableHead>Mese</TableHead>
-                  <TableHead>Operatore</TableHead>
+                  <TableHead>Op.</TableHead>
                   <TableHead>Reparto</TableHead>
                   <TableHead className="w-10" />
                   <TableHead className="w-12" />
