@@ -513,10 +513,11 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
   const totali = useMemo(() => {
     const all = [...filtered, ...filteredPending]
     return {
-      totale: all.reduce((s, c) => s + c.totale, 0),
-      iva:    all.reduce((s, c) => s + c.iva_totale, 0),
-      saldo:  all.reduce((s, c) => s + c.saldo, 0),
-      count:  all.length,
+      totale:  all.reduce((s, c) => s + c.totale, 0),
+      iva:     all.reduce((s, c) => s + c.iva_totale, 0),
+      acconti: all.reduce((s, c) => s + c.totale_acconti, 0),
+      saldo:   all.reduce((s, c) => s + c.saldo, 0),
+      count:   all.length,
     }
   }, [filtered, filteredPending])
 
@@ -624,7 +625,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
                   <TableHead className="text-right">IVA</TableHead>
                   <TableHead className="text-right">Acconti</TableHead>
                   <TableHead className="text-right">Saldo</TableHead>
-                  <TableHead className="text-right">N. Commessa</TableHead>
+                  <TableHead className="text-right">N. Comm.</TableHead>
                   <TableHead>Stato</TableHead>
                   <TableHead>Mese</TableHead>
                   <TableHead>Op.</TableHead>
@@ -675,7 +676,9 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
               <TableCell className="py-2 text-right text-sm text-gray-600 whitespace-nowrap">
                 {formatEuro(totali.iva)}
               </TableCell>
-              <TableCell className="py-2" />
+              <TableCell className="py-2 text-right text-sm text-gray-600 whitespace-nowrap">
+                {totali.acconti > 0 ? formatEuro(totali.acconti) : ''}
+              </TableCell>
               <TableCell className={`py-2 text-right text-sm font-bold whitespace-nowrap ${totali.saldo > 0.005 ? 'text-orange-600' : 'text-green-600'}`}>
                 {formatEuro(totali.saldo)}
               </TableCell>
