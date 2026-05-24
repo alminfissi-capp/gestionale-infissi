@@ -1,7 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, FileText, Table2, Package, Trash2, Pencil, Plus, Search, X, Copy, Layers } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, FileText, Table2, Package, Trash2, Pencil, Plus, Search, X, Copy, Layers, Hammer } from 'lucide-react'
+import dynamic from 'next/dynamic'
+
+const FerroCalcolatore = dynamic(() => import('@/components/ferro/FerroCalcolatore'), { ssr: false })
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import FormVoceLibera from './FormVoceLibera'
@@ -34,7 +37,7 @@ export default function ArticoliEditor({
   onAnnulla,
   scorevoliListino,
 }: Props) {
-  const [categoriaSel, setCategoriaSel] = useState<string | 'libera' | 'scorrevole'>(listini[0]?.id ?? 'libera')
+  const [categoriaSel, setCategoriaSel] = useState<string | 'libera' | 'scorrevole' | 'ferro'>(listini[0]?.id ?? 'libera')
   const [editingSuMisura, setEditingSuMisura] = useState<ArticoloWizard | null>(null)
   const [itemConfig, setItemConfig] = useState<ItemSel | null>(null)
   const [ricerca, setRicerca] = useState('')
@@ -233,6 +236,19 @@ export default function ArticoliEditor({
               </button>
             )}
 
+            {/* Ferro & Cancelli */}
+            <button
+              onClick={() => handleSelectCategoria('ferro')}
+              className={`w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-all text-sm font-medium ${
+                categoriaSel === 'ferro'
+                  ? 'bg-orange-600 text-white border-orange-600 shadow-sm'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300 hover:bg-orange-50'
+              }`}
+            >
+              <Hammer className="h-4 w-4 shrink-0" />
+              <span className="truncate">Ferro & Cancelli</span>
+            </button>
+
             {/* Categorie listini */}
             {listini.map((cat) => {
               const isActive = categoriaSel === cat.id
@@ -267,11 +283,13 @@ export default function ArticoliEditor({
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest shrink-0">
               {categoriaSel === 'libera'
                 ? 'Voce libera'
+                : categoriaSel === 'ferro'
+                ? 'Ferro & Cancelli'
                 : categoria
                 ? categoria.nome
                 : 'Elenco prodotti'}
             </p>
-            {categoriaSel !== 'libera' && (
+            {categoriaSel !== 'libera' && categoriaSel !== 'ferro' && (
               <div className="relative flex-1 max-w-xs ml-auto">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
                 <Input
@@ -293,7 +311,11 @@ export default function ArticoliEditor({
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {categoriaSel === 'libera' ? (
+            {categoriaSel === 'ferro' ? (
+              <div className="overflow-y-auto h-full">
+                <FerroCalcolatore mode="calc" />
+              </div>
+            ) : categoriaSel === 'libera' ? (
               <div className="p-4 max-w-xl">
                 <FormVoceLibera
                   key={editingLibera?.tempId ?? 'new'}
