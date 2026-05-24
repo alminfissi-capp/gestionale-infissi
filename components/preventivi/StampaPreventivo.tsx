@@ -39,7 +39,7 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
   const [isPending, startTransition] = useTransition()
 
   // Flusso firma
-  type FirmaStep = 'idle' | 'chiedi_telefono' | 'loading'
+  type FirmaStep = 'idle' | 'conferma_legale' | 'chiedi_telefono' | 'loading'
   const telefonoSnapshot = p.cliente_snapshot?.telefono || ''
   const [firmaStep, setFirmaStep] = useState<FirmaStep>('idle')
   const [telefonoInput, setTelefonoInput] = useState(telefonoSnapshot)
@@ -47,7 +47,10 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
 
   const handleAccettaClick = () => {
     if (!token) return
-    // Se abbiamo già il telefono, chiediamo solo conferma inline
+    setFirmaStep('conferma_legale')
+  }
+
+  const handleConfermaLegale = () => {
     if (telefonoSnapshot) {
       avviaFirma(telefonoSnapshot)
     } else {
@@ -163,6 +166,26 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
               <Loader2 className="h-4 w-4 animate-spin" />
               Preparazione firma in corso...
             </span>
+          ) : firmaStep === 'conferma_legale' ? (
+            <div className="w-full max-w-xl">
+              <div className="rounded border border-amber-300 bg-amber-50 px-4 py-3 text-[11px] leading-relaxed text-amber-900">
+                <p className="font-semibold mb-1 text-[12px]">Dichiarazione di identità e responsabilità legale</p>
+                <p>Inserendo il codice OTP ricevuto e apponendo la propria firma digitale, il firmatario dichiara sotto la propria responsabilità di essere il soggetto identificato nel presente documento e di agire per conto proprio o con espressa delega del titolare. Qualsiasi atto di sostituzione di persona o utilizzo fraudolento dell&apos;identità altrui comporta conseguenze penali ai sensi dell&apos;art.&nbsp;494 del Codice Penale (Sostituzione di persona), procedibile d&apos;ufficio.</p>
+              </div>
+              <div className="flex items-center gap-2 mt-3">
+                <Button
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={handleConfermaLegale}
+                >
+                  <FileSignature className="h-4 w-4 mr-1.5" />
+                  Ho letto, procedi alla firma
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setFirmaStep('idle')}>
+                  Annulla
+                </Button>
+              </div>
+            </div>
           ) : firmaStep === 'chiedi_telefono' ? (
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm text-gray-600 hidden sm:inline">Il tuo numero di cellulare:</span>
