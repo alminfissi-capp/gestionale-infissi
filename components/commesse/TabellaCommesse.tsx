@@ -132,7 +132,7 @@ interface Props {
 function formatMese(data: string): string {
   const [y, m] = data.split('-').map(Number)
   const d = new Date(y, m - 1, 1)
-  const mese = d.toLocaleDateString('it-IT', { month: 'long' })
+  const mese = d.toLocaleDateString('it-IT', { month: 'short' })
   return `${mese.charAt(0).toUpperCase() + mese.slice(1)} ${y}`
 }
 
@@ -142,16 +142,16 @@ function CommessaColGroup() {
   return (
     <colgroup>
       <col className="w-8" />
-      <col className="w-[140px]" />
+      <col className="w-[200px]" />
       <col className="w-[90px]" />
       <col className="w-[100px]" />
       <col className="w-[80px]" />
       <col className="w-[130px]" />
       <col className="w-[100px]" />
-      <col className="w-[110px]" />
+      <col className="w-[80px]" />
       <col className="w-[130px]" />
-      <col className="w-[110px]" />
-      <col className="w-[70px]" />
+      <col className="w-[72px]" />
+      <col className="w-[80px]" />
       <col className="w-[80px]" />
       <col className="w-10" />
       <col className="w-12" />
@@ -287,7 +287,7 @@ function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti,
         </Badge>
       </TableCell>
 
-      <TableCell className="font-mono text-sm">
+      <TableCell className="font-mono text-sm text-right">
         {c.numero_commessa || <span className="text-gray-300">—</span>}
       </TableCell>
 
@@ -413,7 +413,7 @@ function PendingCommessaRow({ c }: { c: CommessaCompleta }) {
           {formatEuro(c.saldo)}
         </Badge>
       </TableCell>
-      <TableCell className="font-mono text-sm text-gray-400">
+      <TableCell className="font-mono text-sm text-right text-gray-400">
         {c.numero_commessa || '—'}
       </TableCell>
       <TableCell>
@@ -624,7 +624,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
                   <TableHead className="text-right">IVA</TableHead>
                   <TableHead className="text-right">Acconti</TableHead>
                   <TableHead className="text-right">Saldo</TableHead>
-                  <TableHead>N. Commessa</TableHead>
+                  <TableHead className="text-right">N. Commessa</TableHead>
                   <TableHead>Stato</TableHead>
                   <TableHead>Mese</TableHead>
                   <TableHead>Operatore</TableHead>
