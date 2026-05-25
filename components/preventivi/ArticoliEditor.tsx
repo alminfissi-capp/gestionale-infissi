@@ -27,6 +27,7 @@ interface Props {
   onConferma: () => void
   onAnnulla: () => void
   scorevoliListino?: ScorevoliListino | null
+  onPdfFile?: (file: File) => void
 }
 
 export default function ArticoliEditor({
@@ -37,6 +38,7 @@ export default function ArticoliEditor({
   onConferma,
   onAnnulla,
   scorevoliListino,
+  onPdfFile,
 }: Props) {
   const [categoriaSel, setCategoriaSel] = useState<string | 'libera' | 'scorrevole' | 'ferro'>(listini[0]?.id ?? 'libera')
   const [editingSuMisura, setEditingSuMisura] = useState<ArticoloWizard | null>(null)
@@ -199,7 +201,7 @@ export default function ArticoliEditor({
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          <ImportaPdfCosti onImporta={handleImporta} />
+          <ImportaPdfCosti onImporta={handleImporta} onPdfFile={onPdfFile} />
           <Button onClick={onConferma} disabled={articoli.length === 0} size="sm">
             Riepilogo
             <ChevronRight className="h-4 w-4 ml-1" />

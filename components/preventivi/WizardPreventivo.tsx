@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, Save, Loader2, Truck, RotateCcw } from 'lucide-react'
 import { createPreventivo, updatePreventivo } from '@/actions/preventivi'
+import { addAllegatoCalcoli } from '@/actions/allegati-calcoli'
+import { getCurrentOrgId } from '@/actions/listini'
+import { createClient } from '@/lib/supabase/client'
 import { createCliente } from '@/actions/clienti'
 import { db } from '@/lib/db'
 import type { PendingPreventivo } from '@/lib/db'
@@ -199,6 +202,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
   const [mostraSconto, setMostraSconto] = useState(preventivo?.mostra_sconto_riga ?? false)
   const [note, setNote] = useState(preventivo?.note ?? '')
   const [noteAperte, setNoteAperte] = useState(!!(preventivo?.note))
+  const [importedPdfFile, setImportedPdfFile] = useState<File | null>(null)
 
   // Ripristino bozza al mount (solo modalità nuovo)
   useEffect(() => {
@@ -408,6 +412,25 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
 
         const { id } = await createPreventivo(input)
         await db.bozzeWizard.delete(BOZZA_KEY)
+
+        // Allega il PDF costi come allegato interno (se importato)
+        if (importedPdfFile) {
+          try {
+            const orgId = await getCurrentOrgId()
+            const supabase = createClient()
+            const storagePath = `${orgId}/${id}/${crypto.randomUUID()}.pdf`
+            const { error: uploadErr } = await supabase.storage
+              .from('allegati-calcoli')
+              .upload(storagePath, importedPdfFile, { contentType: 'application/pdf' })
+            if (!uploadErr) {
+              const nome = importedPdfFile.name.replace(/\.pdf$/i, '')
+              await addAllegatoCalcoli(id, nome, storagePath)
+            }
+          } catch {
+            // non bloccante: il preventivo è già creato
+          }
+        }
+
         toast.success('Preventivo creato')
         router.push(`/preventivi/${id}`)
       } catch (e: unknown) {
@@ -428,6 +451,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
           onConferma={() => setStep(2)}
           onAnnulla={() => setStep(0)}
           scorevoliListino={scorevoliListino}
+          onPdfFile={setImportedPdfFile}
         />
       )}
 

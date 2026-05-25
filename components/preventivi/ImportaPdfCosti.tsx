@@ -11,9 +11,10 @@ import type { ArticoloWizard } from '@/types/preventivo'
 
 interface Props {
   onImporta: (articoli: ArticoloWizard[]) => void
+  onPdfFile?: (file: File) => void
 }
 
-export default function ImportaPdfCosti({ onImporta }: Props) {
+export default function ImportaPdfCosti({ onImporta, onPdfFile }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)
 
@@ -111,6 +112,7 @@ export default function ImportaPdfCosti({ onImporta }: Props) {
       }
 
       onImporta(articoli)
+      onPdfFile?.(file)
       toast.success(`${articoli.length} voci importate dal PDF`)
     } catch (e) {
       console.error('[ImportaPdfCosti]', e)
