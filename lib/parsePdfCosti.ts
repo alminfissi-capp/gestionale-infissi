@@ -41,12 +41,12 @@ function parsePageText(text: string): Omit<VocePdf, 'immagineBlob'> | null {
   const posainopera = parseNum(text.match(/Posa in opera\s+([\d.,]+)/m)?.[1])
   const imponibile = parseNum(text.match(/Imponibile netto\s+([\d.,]+)/m)?.[1])
   const iva = parseInt(text.match(/IVA\s+[\d.,]+\s+[\d.,]+\s+(\d+)\s*%/m)?.[1] ?? '10')
-  // Costo materiale: prova vari nomi usati da WinStudio
-  const materialeCosto = parseNum(
-    text.match(/Prodotto\s+([\d.,]+)/m)?.[1] ??
-    text.match(/Materiale\s+([\d.,]+)/m)?.[1] ??
-    text.match(/Serrament[io]\s+([\d.,]+)/m)?.[1]
-  )
+  // Utile: prova formati "Utile 20% 345,60" o "Utile 345,60"
+  const utileMatch = text.match(/Utile\s+[\d.,]+\s*%\s+([\d.,]+)/m)
+    ?? text.match(/Utile\s+([\d.,]+)/m)
+  const utile = parseNum(utileMatch?.[1])
+  // Costo acquisto = tutto tranne mano d'opera e utile
+  const materialeCosto = Math.max(0, imponibile - lavorazione - posainopera - utile)
 
   return {
     voceNum: parseInt(voceMatch[1]),
