@@ -53,22 +53,41 @@ function parsePageText(text: string): Omit<VocePdf, 'immagineBlob'> | null {
   }
 }
 
+function asImageBitmap(v: unknown): ImageBitmap | null {
+  if (!v || typeof v !== 'object') return null
+  // instanceof può fallire con SES/realm diversi — uso duck typing
+  if (typeof (v as ImageBitmap).close === 'function' &&
+      typeof (v as ImageBitmap).width === 'number' &&
+      typeof (v as ImageBitmap).height === 'number') {
+    return v as ImageBitmap
+  }
+  return null
+}
+
 async function imageObjToBlob(img: unknown): Promise<Blob | null> {
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
   if (!ctx) return null
 
-  if (img instanceof ImageBitmap) {
-    canvas.width = img.width
-    canvas.height = img.height
-    ctx.drawImage(img, 0, 0)
-  } else if (img && typeof img === 'object' && 'data' in img && 'width' in img && 'height' in img) {
-    const i = img as { data: Uint8ClampedArray; width: number; height: number }
-    canvas.width = i.width
-    canvas.height = i.height
-    const imgData = ctx.createImageData(i.width, i.height)
-    imgData.data.set(i.data)
-    ctx.putImageData(imgData, 0, 0)
+  // pdfjs v5: ImageBitmap diretto o nel campo .bitmap
+  const bmp = asImageBitmap(img) ??
+    (img && typeof img === 'object' ? asImageBitmap((img as Record<string, unknown>).bitmap) : null)
+
+  if (bmp) {
+    canvas.width = bmp.width
+    canvas.height = bmp.height
+    ctx.drawImage(bmp, 0, 0)
+  } else if (img && typeof img === 'object') {
+    const o = img as Record<string, unknown>
+    if (o.data && typeof o.width === 'number' && typeof o.height === 'number') {
+      canvas.width = o.width
+      canvas.height = o.height
+      const imgData = ctx.createImageData(o.width, o.height)
+      imgData.data.set(o.data as Uint8ClampedArray)
+      ctx.putImageData(imgData, 0, 0)
+    } else {
+      return null
+    }
   } else {
     return null
   }
@@ -79,9 +98,14 @@ async function imageObjToBlob(img: unknown): Promise<Blob | null> {
 }
 
 function getImgSize(img: unknown): { w: number; h: number } {
-  if (img instanceof ImageBitmap) return { w: img.width, h: img.height }
-  if (img && typeof img === 'object' && 'width' in img && 'height' in img) {
-    return { w: (img as { width: number; height: number }).width, h: (img as { width: number; height: number }).height }
+  const bmp = asImageBitmap(img) ??
+    (img && typeof img === 'object' ? asImageBitmap((img as Record<string, unknown>).bitmap) : null)
+  if (bmp) return { w: bmp.width, h: bmp.height }
+  if (img && typeof img === 'object') {
+    const o = img as Record<string, unknown>
+    if (typeof o.width === 'number' && typeof o.height === 'number') {
+      return { w: o.width, h: o.height }
+    }
   }
   return { w: 0, h: 0 }
 }
