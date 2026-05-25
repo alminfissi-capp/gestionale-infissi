@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, FileText, Table2, Pa
 import dynamic from 'next/dynamic'
 
 const FerroCalcolatore = dynamic(() => import('@/components/ferro/FerroCalcolatore'), { ssr: false })
+const ImportaPdfCosti = dynamic(() => import('./ImportaPdfCosti'), { ssr: false })
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import FormVoceLibera from './FormVoceLibera'
@@ -175,6 +176,11 @@ export default function ArticoliEditor({
 
   const subtotale = calcolaSubtotale(articoli)
 
+  function handleImporta(nuovi: ArticoloWizard[]) {
+    const withOrdine = nuovi.map((a, i) => ({ ...a, ordine: articoli.length + i }))
+    onArticoliChange([...articoli, ...withOrdine])
+  }
+
   return (
     <div className="fixed inset-0 z-40 bg-white flex flex-col">
 
@@ -192,10 +198,13 @@ export default function ArticoliEditor({
             Compilazione Preventivo
           </h2>
         </div>
-        <Button onClick={onConferma} disabled={articoli.length === 0} size="sm">
-          Riepilogo
-          <ChevronRight className="h-4 w-4 ml-1" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <ImportaPdfCosti onImporta={handleImporta} />
+          <Button onClick={onConferma} disabled={articoli.length === 0} size="sm">
+            Riepilogo
+            <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        </div>
       </div>
 
       {/* ── Body: 3 colonne ── */}
