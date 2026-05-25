@@ -90,7 +90,7 @@ export default function ImportaPdfCosti({ onImporta }: Props) {
           finitura_aumento: 0,
           finitura_aumento_euro: 0,
           note: manodopera > 0
-            ? `Mano d'opera: lav. ${formatEuro(voce.lavorazione)} + posa ${formatEuro(voce.posainopera)} = ${formatEuro(manodopera)}`
+            ? `Lav. ${formatEuro(voce.lavorazione)} + posa ${formatEuro(voce.posainopera)}`
             : null,
           immagine_url: immagineUrl,
           quantita: qty,
@@ -98,8 +98,8 @@ export default function ImportaPdfCosti({ onImporta }: Props) {
           prezzo_unitario: pu,
           sconto_articolo: 0,
           prezzo_totale_riga: pu * qty,
-          costo_acquisto_unitario: voce.lavorazione,
-          costo_posa: voce.posainopera,
+          costo_acquisto_unitario: voce.materialeCosto,
+          costo_posa: manodopera,
           aliquota_iva: voce.aliquotaIva,
           ordine: 0,
           bypass_calcolo: false,

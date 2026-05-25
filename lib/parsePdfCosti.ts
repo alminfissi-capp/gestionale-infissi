@@ -7,6 +7,7 @@ export type VocePdf = {
   dimensione: string
   quantita: number
   imponibileUnitario: number
+  materialeCosto: number
   lavorazione: number
   posainopera: number
   aliquotaIva: number
@@ -40,6 +41,12 @@ function parsePageText(text: string): Omit<VocePdf, 'immagineBlob'> | null {
   const posainopera = parseNum(text.match(/Posa in opera\s+([\d.,]+)/m)?.[1])
   const imponibile = parseNum(text.match(/Imponibile netto\s+([\d.,]+)/m)?.[1])
   const iva = parseInt(text.match(/IVA\s+[\d.,]+\s+[\d.,]+\s+(\d+)\s*%/m)?.[1] ?? '10')
+  // Costo materiale: prova vari nomi usati da WinStudio
+  const materialeCosto = parseNum(
+    text.match(/Prodotto\s+([\d.,]+)/m)?.[1] ??
+    text.match(/Materiale\s+([\d.,]+)/m)?.[1] ??
+    text.match(/Serrament[io]\s+([\d.,]+)/m)?.[1]
+  )
 
   return {
     voceNum: parseInt(voceMatch[1]),
@@ -47,6 +54,7 @@ function parsePageText(text: string): Omit<VocePdf, 'immagineBlob'> | null {
     dimensione,
     quantita: numStrutture,
     imponibileUnitario: imponibile,
+    materialeCosto,
     lavorazione,
     posainopera,
     aliquotaIva: iva,
@@ -76,15 +84,30 @@ async function imageObjToBlob(img: unknown): Promise<Blob | null> {
   if (bmp) {
     canvas.width = bmp.width
     canvas.height = bmp.height
+    ctx.save()
+    ctx.translate(0, bmp.height)
+    ctx.scale(1, -1)
     ctx.drawImage(bmp, 0, 0)
+    ctx.restore()
   } else if (img && typeof img === 'object') {
     const o = img as Record<string, unknown>
     if (o.data && typeof o.width === 'number' && typeof o.height === 'number') {
+      // putImageData ignora i transform: disegno su canvas temp poi flippo
+      const tmp = document.createElement('canvas')
+      tmp.width = o.width
+      tmp.height = o.height
+      const tc = tmp.getContext('2d')
+      if (!tc) return null
+      const id = tc.createImageData(o.width, o.height)
+      id.data.set(o.data as Uint8ClampedArray)
+      tc.putImageData(id, 0, 0)
       canvas.width = o.width
       canvas.height = o.height
-      const imgData = ctx.createImageData(o.width, o.height)
-      imgData.data.set(o.data as Uint8ClampedArray)
-      ctx.putImageData(imgData, 0, 0)
+      ctx.save()
+      ctx.translate(0, o.height)
+      ctx.scale(1, -1)
+      ctx.drawImage(tmp, 0, 0)
+      ctx.restore()
     } else {
       return null
     }
