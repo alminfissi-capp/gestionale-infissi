@@ -279,7 +279,13 @@ export default function PreventivoPdf({ preventivo: p, settings, logoUrl }: Prop
                         misura arrotondata a {a.larghezza_listino_mm}×{a.altezza_listino_mm}
                       </Text>
                     )}
-                    {a.note && <Text style={{ ...s.artSub, fontFamily: 'Helvetica-Oblique' }}>{a.note}</Text>}
+                    {a.note && (
+                      <View>
+                        {a.note.split('\n').map((line, i) => (
+                          <Text key={i} style={{ ...s.artSub, fontFamily: 'Helvetica-Oblique' }}>{line}</Text>
+                        ))}
+                      </View>
+                    )}
                   </View>
                 </View>
               </View>
