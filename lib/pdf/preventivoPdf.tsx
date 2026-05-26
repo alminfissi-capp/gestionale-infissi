@@ -280,9 +280,9 @@ export default function PreventivoPdf({ preventivo: p, settings, logoUrl }: Prop
                       </Text>
                     )}
                     {a.note && (
-                      <View>
-                        {a.note.split('\n').map((line, i) => (
-                          <Text key={i} style={{ ...s.artSub, fontFamily: 'Helvetica-Oblique' }}>{line}</Text>
+                      <View style={{ marginTop: 2 }}>
+                        {a.note.split('\n').filter(Boolean).map((line, i) => (
+                          <Text key={i} style={{ color: GRAY_MID, fontSize: 8, fontFamily: 'Helvetica-Oblique', lineHeight: 1.4 }}>{line}</Text>
                         ))}
                       </View>
                     )}
