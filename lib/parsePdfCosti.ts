@@ -42,7 +42,6 @@ function parsePageText(text: string): Omit<VocePdf, 'immagineBlob'> | null {
   // Estrai solo la sezione header (prima di "Costo materiali") per evitare falsi match
   const headerSection = text.split(/Costo\s+materiali/)[0]
 
-  console.log('[parsePdfCosti] headerSection:', JSON.stringify(headerSection.slice(0, 400)))
   const tipologia = headerSection.match(/Tipologia\s+(.+)/m)?.[1]?.trim() ?? ''
   const numStrutture = parseInt(headerSection.match(/Num\.\s*strutture\s+(\d+)/m)?.[1] ?? '1')
   const dimensione = headerSection.match(/Dimensione\s+(\d+x\d+)/m)?.[1] ?? ''

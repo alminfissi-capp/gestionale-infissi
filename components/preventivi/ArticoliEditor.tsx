@@ -654,6 +654,11 @@ function ArticoloCard({
             {articolo.larghezza_mm}×{articolo.altezza_mm} mm
           </p>
         )}
+        {articolo.note && (
+          <p className="text-[10px] text-gray-400 mt-0.5 whitespace-pre-line leading-snug line-clamp-4">
+            {articolo.note}
+          </p>
+        )}
         <div className="flex items-center justify-between mt-1">
           <span className="text-[11px] text-gray-500">
             {articolo.quantita} pz

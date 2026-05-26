@@ -73,20 +73,12 @@ export default function ImportaPdfCosti({ onImporta, onPdfFile }: Props) {
         const manodopera = voce.lavorazione + voce.posainopera
 
         // Costruisce nota con dettagli tecnici estratti dal PDF
-        console.log('[ImportaPdfCosti] voce', voce.voceNum, {
-          profili: voce.profili,
-          trattEsterno: voce.trattEsterno,
-          trattInterno: voce.trattInterno,
-          trattAccessori: voce.trattAccessori,
-          vetri: voce.vetri,
-        })
         const dettagli: string[] = []
         if (voce.profili) dettagli.push(`Profili: ${voce.profili}`)
         if (voce.trattEsterno) dettagli.push(`Est.: ${voce.trattEsterno}`)
         if (voce.trattInterno) dettagli.push(`Int.: ${voce.trattInterno}`)
         if (voce.trattAccessori) dettagli.push(`Acc.: ${voce.trattAccessori}`)
         if (voce.vetri) dettagli.push(`Vetri: ${voce.vetri}`)
-        console.log('[ImportaPdfCosti] dettagli', dettagli, 'note', dettagli.join('|'))
         const note = dettagli.length > 0 ? dettagli.join('\n') : null
 
         const a: ArticoloWizard = {
