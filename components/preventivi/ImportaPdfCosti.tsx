@@ -158,7 +158,7 @@ export default function ImportaPdfCosti({ onImporta, onPdfFile }: Props) {
         ) : (
           <>
             <FileUp className="h-3.5 w-3.5" />
-            Importa PDF costi
+            Importa PDF costi FP-PRO
           </>
         )}
       </Button>
