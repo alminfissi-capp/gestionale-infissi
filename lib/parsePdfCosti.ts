@@ -42,19 +42,17 @@ function parsePageText(text: string): Omit<VocePdf, 'immagineBlob'> | null {
   // Estrai solo la sezione header (prima di "Costo materiali") per evitare falsi match
   const headerSection = text.split(/Costo\s+materiali/)[0]
 
-  // DEBUG temporaneo — rimuovere dopo verifica
-  console.log('[parsePdfCosti] headerSection voce', voceMatch[1], ':\n', headerSection.slice(0, 600))
-
   const tipologia = headerSection.match(/Tipologia\s+(.+)/m)?.[1]?.trim() ?? ''
   const numStrutture = parseInt(headerSection.match(/Num\.\s*strutture\s+(\d+)/m)?.[1] ?? '1')
   const dimensione = headerSection.match(/Dimensione\s+(\d+x\d+)/m)?.[1] ?? ''
   const profili = headerSection.match(/Profili\s+(.+)/m)?.[1]?.trim() ?? ''
-  const trattEsterno = headerSection.match(/Tratt\. sup\. esterno\s+(.+)/m)?.[1]?.trim() ?? ''
-  const trattInterno = headerSection.match(/Tratt\. sup\. interno\s+(.+)/m)?.[1]?.trim() ?? ''
-  const trattAccessori = headerSection.match(/Tratt\. accessori\s*(.*)/m)?.[1]?.trim() ?? ''
+  const trattEsterno = headerSection.match(/Tratt\.\s+sup\.\s+esterno\s+(.+)/m)?.[1]?.trim() ?? ''
+  const trattInterno = headerSection.match(/Tratt\.\s+sup\.\s+interno\s+(.+)/m)?.[1]?.trim() ?? ''
+  const trattAccessori = headerSection.match(/Tratt\.\s+accessori\s*(.*)/m)?.[1]?.trim() ?? ''
   const vetriHeader = headerSection.match(/Vetri\s+(.+)/m)?.[1]?.trim() ?? ''
   const pannelliHeader = headerSection.match(/Pannelli\s+(.+)/m)?.[1]?.trim() ?? ''
   const vetri = [vetriHeader, pannelliHeader].filter(Boolean).join(' | ')
+  console.log('[parsePdfCosti] voce', voceMatch[1], '→ profili:', profili, '| esterno:', trattEsterno, '| vetri:', vetriHeader)
 
   const lavorazione = parseNum(text.match(/Lavorazione\s+([\d.,]+)/m)?.[1])
   const posainopera = parseNum(text.match(/Posa in opera\s+([\d.,]+)/m)?.[1])
