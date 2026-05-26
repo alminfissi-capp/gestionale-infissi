@@ -182,16 +182,23 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
                         ))}
                       </div>
                     ) : null}
-                    {(a.note || focusedNoteId === a.tempId) ? (
-                      <Input
-                        type="text"
+                    {focusedNoteId === a.tempId ? (
+                      <textarea
                         placeholder="Aggiungi nota..."
                         value={a.note ?? ''}
                         onChange={(e) => updateNote(a.tempId, e.target.value)}
                         onBlur={() => setFocusedNoteId(null)}
-                        autoFocus={focusedNoteId === a.tempId && !a.note}
-                        className="text-xs text-gray-400 border-0 px-0 h-6 mt-1 bg-transparent focus-visible:ring-0 shadow-none"
+                        autoFocus
+                        rows={Math.max(2, (a.note ?? '').split('\n').length)}
+                        className="text-xs text-gray-400 border-0 px-0 mt-1 bg-transparent focus:outline-none resize-none w-full leading-snug"
                       />
+                    ) : a.note ? (
+                      <p
+                        onClick={() => setFocusedNoteId(a.tempId)}
+                        className="text-xs text-gray-400 italic mt-0.5 whitespace-pre-line cursor-text leading-snug"
+                      >
+                        {a.note}
+                      </p>
                     ) : (
                       <button
                         type="button"

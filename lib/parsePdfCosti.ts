@@ -52,7 +52,6 @@ function parsePageText(text: string): Omit<VocePdf, 'immagineBlob'> | null {
   const vetriHeader = headerSection.match(/Vetri\s+(.+)/m)?.[1]?.trim() ?? ''
   const pannelliHeader = headerSection.match(/Pannelli\s+(.+)/m)?.[1]?.trim() ?? ''
   const vetri = [vetriHeader, pannelliHeader].filter(Boolean).join(' | ')
-  console.log('[parsePdfCosti] voce', voceMatch[1], '→ profili:', profili, '| esterno:', trattEsterno, '| vetri:', vetriHeader)
 
   const lavorazione = parseNum(text.match(/Lavorazione\s+([\d.,]+)/m)?.[1])
   const posainopera = parseNum(text.match(/Posa in opera\s+([\d.,]+)/m)?.[1])
