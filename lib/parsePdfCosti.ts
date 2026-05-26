@@ -12,6 +12,11 @@ export type VocePdf = {
   posainopera: number
   aliquotaIva: number
   immagineBlob: Blob | null
+  profili: string
+  trattEsterno: string
+  trattInterno: string
+  trattAccessori: string
+  vetri: string
 }
 
 function parseNum(s: string | undefined): number {
@@ -34,9 +39,20 @@ function parsePageText(text: string): Omit<VocePdf, 'immagineBlob'> | null {
   const voceMatch = text.match(/Costi Totali per Voce (\d+)/)
   if (!voceMatch) return null
 
-  const tipologia = text.match(/Tipologia\s+(.+)/m)?.[1]?.trim() ?? ''
-  const numStrutture = parseInt(text.match(/Num\.\s*strutture\s+(\d+)/m)?.[1] ?? '1')
-  const dimensione = text.match(/Dimensione\s+(\d+x\d+)/m)?.[1] ?? ''
+  // Estrai solo la sezione header (prima di "Costo materiali") per evitare falsi match
+  const headerSection = text.split(/Costo materiali/)[0]
+
+  const tipologia = headerSection.match(/Tipologia\s+(.+)/m)?.[1]?.trim() ?? ''
+  const numStrutture = parseInt(headerSection.match(/Num\.\s*strutture\s+(\d+)/m)?.[1] ?? '1')
+  const dimensione = headerSection.match(/Dimensione\s+(\d+x\d+)/m)?.[1] ?? ''
+  const profili = headerSection.match(/Profili\s+(.+)/m)?.[1]?.trim() ?? ''
+  const trattEsterno = headerSection.match(/Tratt\. sup\. esterno\s+(.+)/m)?.[1]?.trim() ?? ''
+  const trattInterno = headerSection.match(/Tratt\. sup\. interno\s+(.+)/m)?.[1]?.trim() ?? ''
+  const trattAccessori = headerSection.match(/Tratt\. accessori\s*(.*)/m)?.[1]?.trim() ?? ''
+  const vetriHeader = headerSection.match(/Vetri\s+(.+)/m)?.[1]?.trim() ?? ''
+  const pannelliHeader = headerSection.match(/Pannelli\s+(.+)/m)?.[1]?.trim() ?? ''
+  const vetri = [vetriHeader, pannelliHeader].filter(Boolean).join(' | ')
+
   const lavorazione = parseNum(text.match(/Lavorazione\s+([\d.,]+)/m)?.[1])
   const posainopera = parseNum(text.match(/Posa in opera\s+([\d.,]+)/m)?.[1])
   const imponibile = parseNum(text.match(/Imponibile netto\s+([\d.,]+)/m)?.[1])
@@ -58,6 +74,11 @@ function parsePageText(text: string): Omit<VocePdf, 'immagineBlob'> | null {
     lavorazione,
     posainopera,
     aliquotaIva: iva,
+    profili,
+    trattEsterno,
+    trattInterno,
+    trattAccessori,
+    vetri,
   }
 }
 

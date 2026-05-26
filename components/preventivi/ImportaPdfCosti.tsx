@@ -72,6 +72,18 @@ export default function ImportaPdfCosti({ onImporta, onPdfFile }: Props) {
           : voce.tipologia
         const manodopera = voce.lavorazione + voce.posainopera
 
+        // Costruisce nota con dettagli tecnici estratti dal PDF
+        const noteParti: string[] = []
+        const dettagli: string[] = []
+        if (voce.profili) dettagli.push(`Profili: ${voce.profili}`)
+        if (voce.trattEsterno) dettagli.push(`Est.: ${voce.trattEsterno}`)
+        if (voce.trattInterno) dettagli.push(`Int.: ${voce.trattInterno}`)
+        if (voce.trattAccessori) dettagli.push(`Acc.: ${voce.trattAccessori}`)
+        if (voce.vetri) dettagli.push(`Vetri: ${voce.vetri}`)
+        if (dettagli.length > 0) noteParti.push(dettagli.join('\n'))
+        if (manodopera > 0) noteParti.push(`Lav. ${formatEuro(voce.lavorazione)} + posa ${formatEuro(voce.posainopera)}`)
+        const note = noteParti.length > 0 ? noteParti.join('\n') : null
+
         const a: ArticoloWizard = {
           tempId: crypto.randomUUID(),
           tipo: 'libera',
@@ -90,9 +102,7 @@ export default function ImportaPdfCosti({ onImporta, onPdfFile }: Props) {
           finitura_nome: null,
           finitura_aumento: 0,
           finitura_aumento_euro: 0,
-          note: manodopera > 0
-            ? `Lav. ${formatEuro(voce.lavorazione)} + posa ${formatEuro(voce.posainopera)}`
-            : null,
+          note,
           immagine_url: immagineUrl,
           quantita: qty,
           prezzo_base: null,
