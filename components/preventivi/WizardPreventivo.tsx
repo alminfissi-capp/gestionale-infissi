@@ -292,25 +292,27 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
     setScontoGlobale(capped)
     setScontoGlobaleStr(formatPct(capped))
     setScontoImportoFisso(null)  // % manuale: nessun importo fisso
-    const sub = calcolaSubtotale(articoli)
-    setScontoEuroStr(sub > 0 ? formatEuro(sub * capped / 100) : '')
+    // Base = lordo completo (articoli + trasporto), coerente con calcolaTotalePreventivo
+    const grosso = totali.subtotale + totali.speseTrasporto
+    setScontoEuroStr(grosso > 0 ? formatEuro(grosso * capped / 100) : '')
   }
 
   const handleScontoEuroBlur = () => {
     const raw = scontoEuroStr.replace(/[^\d,.]/g, '').replace(',', '.')
     const val = parseFloat(raw)
-    const sub = calcolaSubtotale(articoli)
-    if (isNaN(val) || val <= 0 || sub <= 0) {
+    // Base = lordo completo (articoli + trasporto), coerente con calcolaTotalePreventivo
+    const grosso = totali.subtotale + totali.speseTrasporto
+    if (isNaN(val) || val <= 0 || grosso <= 0) {
       setScontoGlobale(0)
       setScontoGlobaleStr('')
       setScontoEuroStr('')
       setScontoImportoFisso(null)
       return
     }
-    const capped = Math.min(val, sub * 0.5)
+    const capped = Math.min(val, grosso * 0.5)
     // Salva l'importo esatto in € — non si rideriverà mai dalla percentuale
     setScontoImportoFisso(capped)
-    const derivedPct = (capped / sub) * 100
+    const derivedPct = (capped / grosso) * 100
     setScontoGlobale(derivedPct)
     setScontoGlobaleStr(formatPct(derivedPct))
     setScontoEuroStr(formatEuro(capped))

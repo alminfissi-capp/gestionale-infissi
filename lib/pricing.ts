@@ -101,11 +101,11 @@ export function calcolaSpeseTrasportoPezzi(
 
 /**
  * Calcola sconto globale, totale articoli e totale finale.
- * Il trasporto (sempre in modalità ripartito) viene assorbito in totaleArticoli,
- * così l'imponibile visibile al cliente coincide con la base IVA.
+ * Il trasporto viene assorbito nel lordo (subtotale + speseTrasporto) che funge
+ * da base dello sconto globale: lo sconto si applica su tutto, trasporto incluso.
  *
  * Se `scontoImportoFisso` è valorizzato viene usato come importo esatto (tombale);
- * altrimenti si calcola dalla percentuale `scontoGlobale`.
+ * altrimenti si calcola dalla percentuale `scontoGlobale` applicata al lordo.
  */
 export function calcolaTotalePreventivo(
   subtotale: number,
@@ -114,11 +114,11 @@ export function calcolaTotalePreventivo(
   ivaTotale = 0,
   scontoImportoFisso: number | null = null
 ): { importoSconto: number; totaleArticoli: number; totaleFinale: number } {
+  const grosso = subtotale + speseTrasporto
   const importoSconto = scontoImportoFisso != null
-    ? Math.min(scontoImportoFisso, subtotale)
-    : subtotale * (scontoGlobale / 100)
-  // trasporto assorbito nell'imponibile: lo sconto si applica solo ai prodotti
-  const totaleArticoli = subtotale - importoSconto + speseTrasporto
+    ? Math.min(scontoImportoFisso, grosso)
+    : grosso * (scontoGlobale / 100)
+  const totaleArticoli = grosso - importoSconto
   const totaleFinale = totaleArticoli + ivaTotale
   return { importoSconto, totaleArticoli, totaleFinale }
 }
@@ -127,11 +127,12 @@ export type RiepilogoIvaItem = { aliquota: number; imponibile: number; iva: numb
 
 /**
  * Calcola il riepilogo IVA raggruppando per aliquota, applicando lo sconto globale.
- * Ogni articolo porta la propria quota di trasporto (calcolata per categoria),
- * così il trasporto di una categoria si somma solo all'IVA di quella categoria.
- * Lo sconto globale si applica solo al prezzo prodotto; il trasporto è al prezzo pieno.
+ * Ogni articolo porta la propria quota di trasporto (calcolata per categoria).
+ * Lo sconto si applica al lordo (articolo + quota_trasporto) per coerenza con
+ * calcolaTotalePreventivo che usa grosso = subtotale + speseTrasporto come base.
  *
- * Se `scontoImportoFisso` è valorizzato il fattore viene derivato dall'importo esatto.
+ * Se `scontoImportoFisso` è valorizzato il fattore viene derivato dall'importo esatto
+ * rapportato al lordo totale (articoli + trasporto).
  */
 export function calcolaRiepilogoIva(
   articoli: { prezzo_totale_riga: number; aliquota_iva: number | null; quota_trasporto?: number }[],
@@ -140,16 +141,15 @@ export function calcolaRiepilogoIva(
 ): RiepilogoIvaItem[] {
   let factor: number
   if (scontoImportoFisso != null) {
-    const subtotale = articoli.reduce((sum, a) => sum + a.prezzo_totale_riga, 0)
-    factor = subtotale > 0 ? 1 - Math.min(scontoImportoFisso, subtotale) / subtotale : 1
+    const grosso = articoli.reduce((sum, a) => sum + a.prezzo_totale_riga + (a.quota_trasporto ?? 0), 0)
+    factor = grosso > 0 ? 1 - Math.min(scontoImportoFisso, grosso) / grosso : 1
   } else {
     factor = 1 - scontoGlobale / 100
   }
   const map = new Map<number, number>()
   for (const a of articoli) {
     if (a.aliquota_iva == null) continue
-    // sconto solo sui prodotti; trasporto ripartito al prezzo pieno
-    const base = a.prezzo_totale_riga * factor + (a.quota_trasporto ?? 0)
+    const base = (a.prezzo_totale_riga + (a.quota_trasporto ?? 0)) * factor
     map.set(a.aliquota_iva, (map.get(a.aliquota_iva) ?? 0) + base)
   }
   return [...map.entries()]
