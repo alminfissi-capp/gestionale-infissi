@@ -776,33 +776,21 @@ export async function getProdottiCatalogoESP(
 export async function getConteggioTipologie(): Promise<CountTipologia[]> {
   const supabase = await createClient()
   const orgId = await getOrgId()
-  const { data, error } = await supabase
-    .from('anagrafica_prodotti')
-    .select('tipologia')
-    .eq('organization_id', orgId)
-    .eq('origine', 'esp')
-    .not('tipologia', 'is', null)
+  const { data, error } = await supabase.rpc('count_esp_tipologie', { p_org_id: orgId })
   if (error) throw new Error(error.message)
-  const counts: Record<string, number> = {}
-  data?.forEach(r => { counts[r.tipologia!] = (counts[r.tipologia!] ?? 0) + 1 })
-  return Object.entries(counts)
-    .map(([tipologia, cnt]) => ({ tipologia: tipologia as TipologiaESP, cnt }))
-    .sort((a, b) => b.cnt - a.cnt)
+  return (data ?? []).map((r: { tipologia: string; cnt: number }) => ({
+    tipologia: r.tipologia as TipologiaESP,
+    cnt: Number(r.cnt),
+  }))
 }
 
 export async function getConteggioMateriali(): Promise<CountMateriale[]> {
   const supabase = await createClient()
   const orgId = await getOrgId()
-  const { data, error } = await supabase
-    .from('anagrafica_prodotti')
-    .select('materiale')
-    .eq('organization_id', orgId)
-    .eq('origine', 'esp')
-    .not('materiale', 'is', null)
+  const { data, error } = await supabase.rpc('count_esp_materiali', { p_org_id: orgId })
   if (error) throw new Error(error.message)
-  const counts: Record<string, number> = {}
-  data?.forEach(r => { counts[r.materiale!] = (counts[r.materiale!] ?? 0) + 1 })
-  return Object.entries(counts)
-    .map(([materiale, cnt]) => ({ materiale: materiale as MaterialeESP, cnt }))
-    .sort((a, b) => b.cnt - a.cnt)
+  return (data ?? []).map((r: { materiale: string; cnt: number }) => ({
+    materiale: r.materiale as MaterialeESP,
+    cnt: Number(r.cnt),
+  }))
 }
