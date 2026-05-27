@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { getOrgId } from '@/lib/auth'
+import type { FiltriCatalogoESP, CountTipologia, CountMateriale, TipologiaESP, MaterialeESP } from '@/types/catalogo-esp'
 import type {
   Fornitore, FornitoreInput,
   CategoriaMagazzino,
@@ -740,4 +741,68 @@ export async function duplicaArticoloMagazzino(id: string): Promise<void> {
   })
   if (error) throw new Error(error.message)
   revalidatePath('/magazzino/scorte')
+}
+
+// ---- Catalogo ESP ----
+
+const CATALOGO_ESP_PAGE_SIZE = 50
+
+export async function getProdottiCatalogoESP(
+  filtri: FiltriCatalogoESP
+): Promise<{ prodotti: AnagraficaProdotto[]; totale: number }> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const pagina = filtri.pagina ?? 1
+  const offset = (pagina - 1) * CATALOGO_ESP_PAGE_SIZE
+
+  let query = supabase
+    .from('anagrafica_prodotti')
+    .select('*', { count: 'exact' })
+    .eq('organization_id', orgId)
+    .eq('origine', 'esp')
+
+  if (filtri.tipologia) query = query.eq('tipologia', filtri.tipologia)
+  if (filtri.materiale) query = query.eq('materiale', filtri.materiale)
+  if (filtri.cerca) query = query.ilike('nome', `%${filtri.cerca}%`)
+
+  const { data, error, count } = await query
+    .order('nome', { ascending: true })
+    .range(offset, offset + CATALOGO_ESP_PAGE_SIZE - 1)
+
+  if (error) throw new Error(error.message)
+  return { prodotti: (data ?? []) as AnagraficaProdotto[], totale: count ?? 0 }
+}
+
+export async function getConteggioTipologie(): Promise<CountTipologia[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data, error } = await supabase
+    .from('anagrafica_prodotti')
+    .select('tipologia')
+    .eq('organization_id', orgId)
+    .eq('origine', 'esp')
+    .not('tipologia', 'is', null)
+  if (error) throw new Error(error.message)
+  const counts: Record<string, number> = {}
+  data?.forEach(r => { counts[r.tipologia!] = (counts[r.tipologia!] ?? 0) + 1 })
+  return Object.entries(counts)
+    .map(([tipologia, cnt]) => ({ tipologia: tipologia as TipologiaESP, cnt }))
+    .sort((a, b) => b.cnt - a.cnt)
+}
+
+export async function getConteggioMateriali(): Promise<CountMateriale[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data, error } = await supabase
+    .from('anagrafica_prodotti')
+    .select('materiale')
+    .eq('organization_id', orgId)
+    .eq('origine', 'esp')
+    .not('materiale', 'is', null)
+  if (error) throw new Error(error.message)
+  const counts: Record<string, number> = {}
+  data?.forEach(r => { counts[r.materiale!] = (counts[r.materiale!] ?? 0) + 1 })
+  return Object.entries(counts)
+    .map(([materiale, cnt]) => ({ materiale: materiale as MaterialeESP, cnt }))
+    .sort((a, b) => b.cnt - a.cnt)
 }

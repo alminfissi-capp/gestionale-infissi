@@ -105,6 +105,9 @@ export type AnagraficaProdotto = {
   foto_url: string | null
   dxf_url: string | null
   note: string | null
+  tipologia: string | null
+  materiale: string | null
+  origine: string
   created_at: string
   updated_at: string
 }
