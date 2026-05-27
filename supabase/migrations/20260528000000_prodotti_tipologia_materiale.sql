@@ -6,7 +6,7 @@
 ALTER TABLE anagrafica_prodotti
   ADD COLUMN IF NOT EXISTS tipologia TEXT,
   ADD COLUMN IF NOT EXISTS materiale TEXT,
-  ADD COLUMN IF NOT EXISTS origine TEXT NOT NULL DEFAULT 'manuale';
+  ADD COLUMN IF NOT EXISTS origine TEXT NOT NULL DEFAULT 'manuale' CHECK (origine IN ('manuale', 'esp'));
 
 -- Indici per performance su filtri comuni
 CREATE INDEX IF NOT EXISTS idx_anagrafica_prodotti_org_tipologia
