@@ -620,7 +620,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
                 <>
                   <div className="flex justify-between text-gray-600">
                     <span>Subtotale ({totali.totalePezzi} pz)</span>
-                    <span>€ {formatEuro(totali.subtotale)}</span>
+                    <span>€ {formatEuro(totali.subtotale + totali.speseTrasporto)}</span>
                   </div>
                   <div className="flex justify-between text-red-600">
                     <span>Sconto globale{scontoImportoFisso == null ? ` ${formatPct(scontoGlobale)}%` : ''}</span>

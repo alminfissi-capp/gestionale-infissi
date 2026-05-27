@@ -670,7 +670,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
               <>
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotale ({p.totale_pezzi} pz)</span>
-                  <span>€ {formatEuro(p.subtotale)}</span>
+                  <span>€ {formatEuro(p.subtotale + (p.modalita_trasporto !== 'separato' ? p.spese_trasporto : 0))}</span>
                 </div>
                 <div className="flex justify-between text-red-600">
                   <span>{p.sconto_importo_fisso ? 'Sconto globale' : `Sconto globale ${p.sconto_globale}%`}</span>
