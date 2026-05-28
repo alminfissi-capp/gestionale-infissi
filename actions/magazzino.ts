@@ -763,7 +763,7 @@ export async function getProdottiCatalogoESP(
 
   if (filtri.tipologia) query = query.eq('tipologia', filtri.tipologia)
   if (filtri.materiale) query = query.eq('materiale', filtri.materiale)
-  if (filtri.cerca) query = query.ilike('nome', `%${filtri.cerca}%`)
+  if (filtri.cerca) query = query.or(`nome.ilike.%${filtri.cerca}%,codice.ilike.%${filtri.cerca}%`)
 
   const { data, error, count } = await query
     .order('nome', { ascending: true })

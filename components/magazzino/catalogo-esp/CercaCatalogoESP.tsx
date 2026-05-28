@@ -27,7 +27,7 @@ export default function CercaCatalogoESP() {
     <div className="relative max-w-sm">
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
       <Input
-        placeholder="Cerca per descrizione…"
+        placeholder="Cerca per codice o descrizione…"
         defaultValue={params.get('cerca') ?? ''}
         onChange={handleChange}
         className="pl-9"
