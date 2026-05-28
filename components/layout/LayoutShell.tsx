@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
-import { Menu } from 'lucide-react'
+import { Menu, Sparkles } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import Sidebar from './Sidebar'
 import { PermissionsProvider } from '@/contexts/PermissionsContext'
@@ -10,6 +10,7 @@ import type { PermessiUtente } from '@/types/permessi'
 
 const DataSync = dynamic(() => import('@/components/pwa/DataSync'), { ssr: false })
 const OfflineIndicator = dynamic(() => import('@/components/pwa/OfflineIndicator'), { ssr: false })
+const AISidebar = dynamic(() => import('@/components/assistant/AISidebar'), { ssr: false })
 
 interface Props {
   children: React.ReactNode
@@ -23,6 +24,7 @@ export default function LayoutShell({ children, logoUrl, denominazione, permessi
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
 
   useEffect(() => {
     setMobileOpen(false)
@@ -73,6 +75,13 @@ export default function LayoutShell({ children, logoUrl, denominazione, permessi
               {denominazione || 'A.L.M. Infissi'}
             </span>
             <OfflineIndicator />
+            <button
+              onClick={() => setAiOpen((o) => !o)}
+              className="p-1.5 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700"
+              aria-label="Assistente AI"
+            >
+              <Sparkles className="h-5 w-5" />
+            </button>
           </header>
           <DataSync />
 
@@ -80,6 +89,20 @@ export default function LayoutShell({ children, logoUrl, denominazione, permessi
             <div className="p-2 sm:p-4 lg:p-6">{children}</div>
           </main>
         </div>
+        <button
+          onClick={() => setAiOpen((o) => !o)}
+          className={`hidden lg:flex fixed bottom-6 right-6 z-30 items-center gap-2 px-4 py-2.5 rounded-full shadow-lg text-sm font-medium transition-colors print:hidden ${
+            aiOpen
+              ? 'bg-teal-700 text-white'
+              : 'bg-teal-600 text-white hover:bg-teal-700'
+          }`}
+          aria-label="Assistente AI"
+        >
+          <Sparkles className="h-4 w-4" />
+          AI
+        </button>
+
+        <AISidebar open={aiOpen} onClose={() => setAiOpen(false)} />
       </div>
     </PermissionsProvider>
   )
