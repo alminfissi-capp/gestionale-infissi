@@ -14,16 +14,14 @@ interface Props {
 }
 
 // Tool names that are "read" operations — show spinner while loading
-const READ_TOOLS = ['get_clienti', 'get_preventivi', 'get_commesse', 'get_magazzino', 'cerca_cliente', 'cerca_preventivo']
+const READ_TOOLS = ['list_clienti', 'get_cliente', 'list_preventivi', 'get_preventivo']
 
 function readToolLabel(toolName: string): string {
   const labels: Record<string, string> = {
-    get_clienti: 'Carico clienti…',
-    get_preventivi: 'Carico preventivi…',
-    get_commesse: 'Carico commesse…',
-    get_magazzino: 'Carico magazzino…',
-    cerca_cliente: 'Cerco cliente…',
-    cerca_preventivo: 'Cerco preventivo…',
+    list_clienti: 'Carico clienti…',
+    get_cliente: 'Cerco cliente…',
+    list_preventivi: 'Carico preventivi…',
+    get_preventivo: 'Cerco preventivo…',
   }
   return labels[toolName] ?? `Eseguo ${toolName}…`
 }
@@ -54,6 +52,9 @@ export default function AISidebar({ open, onClose }: Props) {
   const { messages, input, handleInputChange, handleSubmit, isLoading, addToolResult } = useChat({
     api: '/api/assistant',
     body: { pageContext: { pathname } },
+    onError: (err) => {
+      toast.error(`Errore AI: ${err.message}`)
+    },
   })
 
   // Auto-scroll to latest message
