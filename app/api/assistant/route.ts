@@ -1,5 +1,10 @@
-import { anthropic } from '@ai-sdk/anthropic'
+import { createOpenAI } from '@ai-sdk/openai'
 import { streamText, tool } from 'ai'
+
+const openrouter = createOpenAI({
+  baseURL: 'https://openrouter.ai/api/v1',
+  apiKey: process.env.OPENROUTER_API_KEY,
+})
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
@@ -20,7 +25,7 @@ export async function POST(req: Request) {
   const orgId = await getOrgId()
 
   const result = streamText({
-    model: anthropic('claude-3-5-sonnet-20241022'),
+    model: openrouter('minimax/minimax-m2.5:free'),
     system: `Sei l'assistente AI di Win Studio, il gestionale infissi di A.L.M. Infissi.
 Rispondi sempre in italiano.
 Pagina corrente: ${pageContext?.pathname ?? '/'}.
