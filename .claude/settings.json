@@ -4,5 +4,11 @@
       "Bash(npm run build)",
       "Bash(npm run build --webpack)"
     ]
+  },
+  "enabledPlugins": {
+    "superpowers@superpowers-marketplace": true,
+    "frontend-design@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "claude-mem@thedotmack": true
   }
 }
