@@ -75,6 +75,13 @@ function Ricevuta({ commessa, acconto, settings, logoUrl, ricevutaRef }: {
   logoUrl: string | null
   ricevutaRef: string
 }) {
+  // Snapshot alla data di emissione: solo acconti creati fino a questo incluso
+  const accontinSnapshot = commessa.acconti
+    .filter((a) => a.created_at <= acconto.created_at)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+  const totaleSnapshot = accontinSnapshot.reduce((sum, a) => sum + a.importo, 0)
+  const saldoSnapshot = commessa.totale - totaleSnapshot
+
   return (
     <div className="font-sans text-gray-900 text-[13px] space-y-6">
 
@@ -164,11 +171,11 @@ function Ricevuta({ commessa, acconto, settings, logoUrl, ricevutaRef }: {
       </div>
 
       {/* Riepilogo acconti */}
-      {commessa.acconti.length > 1 && (
-        <div>
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
-            Riepilogo pagamenti ricevuti
-          </p>
+      <div>
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
+          Riepilogo pagamenti
+        </p>
+        {accontinSnapshot.length > 1 && (
           <table className="w-full text-[12px] border-collapse">
             <thead>
               <tr className="border-b border-gray-200">
@@ -178,7 +185,7 @@ function Ricevuta({ commessa, acconto, settings, logoUrl, ricevutaRef }: {
               </tr>
             </thead>
             <tbody>
-              {commessa.acconti.map((a) => (
+              {accontinSnapshot.map((a) => (
                 <tr key={a.id} className={`border-b border-gray-100 ${a.id === acconto.id ? 'font-semibold bg-gray-50' : 'text-gray-500'}`}>
                   <td className="py-1">{formatData(a.data_pagamento)}</td>
                   <td className="py-1">{METODI[a.metodo_pagamento] ?? a.metodo_pagamento}</td>
@@ -187,18 +194,22 @@ function Ricevuta({ commessa, acconto, settings, logoUrl, ricevutaRef }: {
               ))}
             </tbody>
           </table>
-          <div className="flex justify-between mt-2 text-[12px]">
-            <span className="text-gray-500">Totale ricevuto</span>
-            <span className="font-semibold">{formatEuro(commessa.totale_acconti)}</span>
-          </div>
-          <div className="flex justify-between mt-0.5 text-[12px]">
-            <span className="text-gray-500">Saldo rimanente</span>
-            <span className={`font-semibold ${commessa.saldo <= 0.005 ? 'text-green-600' : 'text-orange-600'}`}>
-              {formatEuro(commessa.saldo)}
-            </span>
-          </div>
+        )}
+        <div className="flex justify-between mt-2 text-[12px]">
+          <span className="text-gray-500">Totale lavori</span>
+          <span className="font-medium">{formatEuro(commessa.totale)}</span>
         </div>
-      )}
+        <div className="flex justify-between mt-0.5 text-[12px]">
+          <span className="text-gray-500">Totale ricevuto</span>
+          <span className="font-semibold">{formatEuro(totaleSnapshot)}</span>
+        </div>
+        <div className="flex justify-between mt-1 pt-1 text-[12px] border-t border-gray-200">
+          <span className="text-gray-600 font-medium">Saldo rimanente</span>
+          <span className={`font-bold ${saldoSnapshot <= 0.005 ? 'text-green-600' : 'text-orange-600'}`}>
+            {formatEuro(saldoSnapshot)}
+          </span>
+        </div>
+      </div>
 
       <hr className="border-gray-300 mt-8" />
 
