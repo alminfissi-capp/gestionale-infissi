@@ -139,7 +139,9 @@ Puoi usare strumenti per leggere dati dal database (clienti, preventivi) e per n
       },
     })
 
-    return result.toDataStreamResponse()
+    return result.toDataStreamResponse({
+      getErrorMessage: (error) => error instanceof Error ? error.message : String(error),
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Errore interno'
     return new Response(JSON.stringify({ error: message }), {
