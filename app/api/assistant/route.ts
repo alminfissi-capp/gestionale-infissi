@@ -132,8 +132,8 @@ Puoi usare strumenti per leggere dati dal database (clienti, preventivi) e per n
         navigate_to: tool({
           description: "Naviga verso una pagina dell'applicazione. Richiede conferma dell'utente.",
           parameters: z.object({
-            path: z.string().describe('Percorso della pagina (es. /clienti, /preventivi)'),
-            label: z.string().describe('Nome leggibile della destinazione'),
+            page: z.string().describe('Percorso della pagina (es. /clienti, /preventivi)'),
+            label: z.string().optional().describe('Nome leggibile della destinazione'),
           }),
         }),
       },

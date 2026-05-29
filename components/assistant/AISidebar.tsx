@@ -27,7 +27,8 @@ function readToolLabel(toolName: string): string {
 }
 
 interface NavigateArgs {
-  path: string
+  page: string
+  label?: string
   [key: string]: unknown
 }
 
@@ -129,10 +130,10 @@ export default function AISidebar({ open, onClose }: Props) {
         return (
           <div key={key} className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
             <p className="font-medium text-blue-800 mb-1">Navigare verso:</p>
-            <p className="text-blue-700 font-mono text-xs mb-3">{args.path}</p>
+            <p className="text-blue-700 font-mono text-xs mb-3">{args.page}</p>
             <div className="flex gap-2">
               <button
-                onClick={() => handleNavigateConfirm(inv.toolCallId, args.path)}
+                onClick={() => handleNavigateConfirm(inv.toolCallId, args.page)}
                 className="flex-1 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 active:bg-blue-800 transition-colors"
               >
                 Vai
