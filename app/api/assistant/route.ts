@@ -24,33 +24,52 @@ export async function POST(req: Request) {
 
     const supabase = await createClient()
     const orgId = await getOrgId()
+    const pathname = pageContext?.pathname ?? '/'
 
     const result = streamText({
-      model: openrouter('meta-llama/llama-3.3-70b-instruct'),
-      maxSteps: 5,
-      system: `Sei l'assistente AI di Win Studio, il gestionale infissi di A.L.M. Infissi.
-Rispondi sempre in italiano. Sii conciso e diretto.
-Pagina corrente: ${pageContext?.pathname ?? '/'}.
-Puoi usare strumenti per leggere dati dal database (clienti, preventivi) e per navigare nell'app.`,
+      model: openrouter('openai/gpt-4o-mini'),
+      maxSteps: 10,
+      system: `Sei l'assistente AI di Win Studio, il gestionale infissi di A.L.M. Infissi. Rispondi SEMPRE in italiano. Sii conciso e diretto.
+
+REGOLE FONDAMENTALI:
+- Per qualsiasi domanda su clienti o preventivi: chiama SEMPRE lo strumento appropriato. Non rispondere mai da memoria o inventare dati.
+- Dopo aver ricevuto i risultati dallo strumento, usa quei dati per rispondere.
+- Se cerchi un cliente per nome/cognome, usa list_clienti con il parametro search.
+- Se cerchi preventivi di un cliente specifico, usa list_preventivi con il parametro cliente_search.
+- Aumenta il limit se l'utente chiede conteggi o vuole vedere tutti i risultati.
+
+PAGINE DISPONIBILI (usa navigate_to per andarci):
+/clienti, /preventivi, /commesse, /listini, /magazzino, /impostazioni
+
+Pagina corrente: ${pathname}`,
       messages: messages as Parameters<typeof streamText>[0]['messages'],
       tools: {
         list_clienti: tool({
-          description: "Elenca i clienti dell'organizzazione corrente.",
-          parameters: z.object({}),
-          execute: async () => {
-            const { data, error } = await supabase
+          description: 'Elenca i clienti. Usa search per filtrare per nome o cognome (ricerca parziale). Aumenta limit se servono più risultati.',
+          parameters: z.object({
+            search: z.string().optional().describe('Testo da cercare in nome, cognome o ragione sociale'),
+            limit: z.number().int().min(1).max(200).optional().default(50).describe('Numero massimo di risultati (default 50)'),
+          }),
+          execute: async ({ search, limit }) => {
+            let query = supabase
               .from('clienti')
               .select('id, nome, cognome, ragione_sociale, tipo, email, telefono')
               .eq('organization_id', orgId)
               .order('cognome', { ascending: true })
-              .limit(50)
+              .limit(limit ?? 50)
+            if (search) {
+              query = query.or(
+                `cognome.ilike.%${search}%,nome.ilike.%${search}%,ragione_sociale.ilike.%${search}%`
+              )
+            }
+            const { data, error } = await query
             if (error) return { error: error.message }
-            return { clienti: data ?? [] }
+            return { clienti: data ?? [], totale: data?.length ?? 0 }
           },
         }),
 
         get_cliente: tool({
-          description: 'Recupera i dettagli di un cliente tramite il suo id.',
+          description: 'Recupera tutti i dettagli di un cliente tramite il suo id.',
           parameters: z.object({
             id: z.string().describe('ID del cliente'),
           }),
@@ -67,37 +86,36 @@ Puoi usare strumenti per leggere dati dal database (clienti, preventivi) e per n
         }),
 
         list_preventivi: tool({
-          description: "Elenca i preventivi dell'organizzazione con dati cliente. Filtro opzionale per stato.",
+          description: 'Elenca i preventivi. Filtra per stato e/o per nome cliente. Aumenta limit per conteggi completi.',
           parameters: z.object({
             stato: z
               .enum(['bozza', 'inviato', 'accettato', 'rifiutato', 'scaduto'])
               .optional()
               .describe('Filtra per stato preventivo'),
-            limit: z
-              .number()
-              .int()
-              .min(1)
-              .max(100)
-              .optional()
-              .default(20)
-              .describe('Numero massimo di risultati (default 20)'),
+            cliente_search: z.string().optional().describe('Cerca per nome o cognome del cliente'),
+            limit: z.number().int().min(1).max(200).optional().default(50).describe('Numero massimo di risultati (default 50)'),
           }),
-          execute: async ({ stato, limit }) => {
+          execute: async ({ stato, cliente_search, limit }) => {
             let query = supabase
               .from('preventivi')
-              .select('id, numero, data, stato, totale_finale, clienti(nome, cognome, ragione_sociale)')
+              .select('id, numero, data, stato, totale_finale, clienti(id, nome, cognome, ragione_sociale)')
               .eq('organization_id', orgId)
               .order('created_at', { ascending: false })
-              .limit(limit ?? 20)
+              .limit(limit ?? 50)
             if (stato) query = query.eq('stato', stato)
+            if (cliente_search) {
+              query = query.or(
+                `clienti.cognome.ilike.%${cliente_search}%,clienti.nome.ilike.%${cliente_search}%,clienti.ragione_sociale.ilike.%${cliente_search}%`
+              )
+            }
             const { data, error } = await query
             if (error) return { error: error.message }
-            return { preventivi: data ?? [] }
+            return { preventivi: data ?? [], totale: data?.length ?? 0 }
           },
         }),
 
         get_preventivo: tool({
-          description: 'Recupera i dettagli di un preventivo tramite il suo id, con dati cliente.',
+          description: 'Recupera tutti i dettagli di un preventivo tramite il suo id, inclusi articoli e dati cliente.',
           parameters: z.object({
             id: z.string().describe('ID del preventivo'),
           }),
