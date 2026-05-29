@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const orgId = await getOrgId()
 
     const result = streamText({
-      model: openrouter('google/gemma-4-31b-it:free'),
+      model: openrouter('meta-llama/llama-3.3-70b-instruct:free'),
       maxSteps: 5,
       system: `Sei l'assistente AI di Win Studio, il gestionale infissi di A.L.M. Infissi.
 Rispondi sempre in italiano. Sii conciso e diretto.
