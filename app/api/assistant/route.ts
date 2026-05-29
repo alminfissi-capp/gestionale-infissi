@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const orgId = await getOrgId()
 
     const result = streamText({
-      model: openrouter('meta-llama/llama-3.3-70b-instruct:free'),
+      model: openrouter('openai/gpt-oss-120b:free'),
       maxSteps: 5,
       system: `Sei l'assistente AI di Win Studio, il gestionale infissi di A.L.M. Infissi.
 Rispondi sempre in italiano. Sii conciso e diretto.
