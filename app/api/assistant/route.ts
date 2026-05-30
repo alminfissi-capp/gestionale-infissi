@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     const pathname = pageContext?.pathname ?? '/'
 
     const result = streamText({
-      model: openrouter('openai/gpt-4o-mini'),
+      model: openrouter('anthropic/claude-3-5-haiku-20241022'),
       maxSteps: 10,
       system: `Sei l'assistente AI di Win Studio, il gestionale infissi di A.L.M. Infissi. Rispondi SEMPRE in italiano. Sii conciso e diretto.
 
