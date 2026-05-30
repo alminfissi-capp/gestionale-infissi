@@ -1,6 +1,7 @@
 'use client'
 
-import { Printer, ChevronLeft } from 'lucide-react'
+import { useState } from 'react'
+import { Printer, ChevronLeft, Share2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { formatEuro } from '@/lib/pricing'
@@ -30,6 +31,47 @@ function formatData(d: string) {
 
 export default function RicevutaAcconto({ commessa, acconto, settings, logoUrl }: Props) {
   const ricevutaRef = acconto.id.slice(-6).toUpperCase()
+  const [sharing, setSharing] = useState(false)
+
+  async function handleShare() {
+    setSharing(true)
+    try {
+      const [{ pdf }, { default: RicevutaPdfDocument }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('./RicevutaPdfDocument'),
+      ])
+
+      const blob = await pdf(
+        <RicevutaPdfDocument
+          commessa={commessa}
+          acconto={acconto}
+          settings={settings}
+          logoUrl={logoUrl}
+        />
+      ).toBlob()
+
+      const [y, m, d] = acconto.data_pagamento.split('-')
+      const dataStr = `${d}.${m}.${y.slice(2)}`
+      const fileName = `Ric.n ${ricevutaRef} - ${commessa.cliente_nome} - ${dataStr}.pdf`
+      const file = new File([blob], fileName, { type: 'application/pdf' })
+
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: fileName })
+      } else {
+        // Fallback: download diretto
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = fileName
+        a.click()
+        URL.revokeObjectURL(url)
+      }
+    } catch {
+      // L'utente ha chiuso il pannello di condivisione — nessun errore da mostrare
+    } finally {
+      setSharing(false)
+    }
+  }
 
   return (
     <>
@@ -42,6 +84,10 @@ export default function RicevutaAcconto({ commessa, acconto, settings, logoUrl }
           </Link>
         </Button>
         <div className="flex-1" />
+        <Button variant="outline" size="sm" onClick={handleShare} disabled={sharing}>
+          <Share2 className="h-4 w-4 mr-1.5" />
+          {sharing ? 'Generazione...' : 'Condividi PDF'}
+        </Button>
         <Button size="sm" onClick={() => window.print()}>
           <Printer className="h-4 w-4 mr-1.5" />
           Stampa / Salva PDF
