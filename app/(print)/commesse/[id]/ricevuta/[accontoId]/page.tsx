@@ -1,10 +1,26 @@
 import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
 import { getCommessaById } from '@/actions/commesse'
 import { getSettings, getLogoSignedUrl } from '@/actions/impostazioni'
 import RicevutaAcconto from '@/components/commesse/RicevutaAcconto'
 
 interface Props {
   params: Promise<{ id: string; accontoId: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id, accontoId } = await params
+  const commessa = await getCommessaById(id)
+  if (!commessa) return { title: 'Ricevuta' }
+  const acconto = commessa.acconti.find((a) => a.id === accontoId)
+  if (!acconto) return { title: 'Ricevuta' }
+
+  const ref = acconto.id.slice(-6).toUpperCase()
+  const [y, m, d] = acconto.data_pagamento.split('-')
+  const data = `${d}.${m}.${y.slice(2)}`
+  const nome = commessa.cliente_nome || ''
+
+  return { title: `Ric.n ${ref} - ${nome} - ${data}` }
 }
 
 export default async function RicevutaAccontoPage({ params }: Props) {
