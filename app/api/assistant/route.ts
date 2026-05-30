@@ -325,9 +325,13 @@ Pagina corrente: ${pathname}`,
     })
 
     return result.toDataStreamResponse({
-      getErrorMessage: (error) => error instanceof Error ? error.message : String(error),
+      getErrorMessage: (error) => {
+        console.error('[AI assistant] stream error:', error)
+        return error instanceof Error ? error.message : String(error)
+      },
     })
   } catch (err) {
+    console.error('[AI assistant] catch error:', err)
     const message = err instanceof Error ? err.message : 'Errore interno'
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
