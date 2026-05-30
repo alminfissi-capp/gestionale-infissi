@@ -59,6 +59,8 @@ export default function LayoutShell({ children, logoUrl, denominazione, permessi
             onToggleCollapse={() => setCollapsed((c) => !c)}
             mobileOpen={mobileOpen}
             onMobileClose={() => setMobileOpen(false)}
+            aiOpen={aiOpen}
+            onAiToggle={() => setAiOpen((o) => !o)}
           />
         </div>
 
@@ -89,20 +91,7 @@ export default function LayoutShell({ children, logoUrl, denominazione, permessi
             <div className="p-2 sm:p-4 lg:p-6">{children}</div>
           </main>
         </div>
-        <button
-          onClick={() => setAiOpen((o) => !o)}
-          className={`hidden lg:flex fixed bottom-6 right-6 z-30 items-center gap-2 px-4 py-2.5 rounded-full shadow-lg text-sm font-medium transition-colors print:hidden ${
-            aiOpen
-              ? 'bg-teal-700 text-white'
-              : 'bg-teal-600 text-white hover:bg-teal-700'
-          }`}
-          aria-label="Assistente AI"
-        >
-          <Sparkles className="h-4 w-4" />
-          AI
-        </button>
-
-        <AISidebar open={aiOpen} onClose={() => setAiOpen(false)} />
+<AISidebar open={aiOpen} onClose={() => setAiOpen(false)} />
       </div>
     </PermissionsProvider>
   )

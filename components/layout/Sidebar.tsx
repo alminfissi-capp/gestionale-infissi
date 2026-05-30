@@ -21,6 +21,7 @@ import {
   Warehouse,
   UserCog,
   Briefcase,
+  Sparkles,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -61,6 +62,8 @@ interface Props {
   onToggleCollapse: () => void
   mobileOpen: boolean
   onMobileClose: () => void
+  aiOpen: boolean
+  onAiToggle: () => void
 }
 
 export default function Sidebar({
@@ -72,6 +75,8 @@ export default function Sidebar({
   onToggleCollapse,
   mobileOpen,
   onMobileClose,
+  aiOpen,
+  onAiToggle,
 }: Props) {
   const pathname = usePathname()
   const router = useRouter()
@@ -171,6 +176,23 @@ export default function Sidebar({
 
       {/* Footer */}
       <div className="p-2 border-t border-gray-200 dark:border-gray-800 space-y-0.5 shrink-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          title={collapsed ? 'Assistente AI' : undefined}
+          className={cn(
+            'w-full gap-3 justify-start px-3',
+            collapsed && 'lg:justify-center lg:px-0',
+            aiOpen
+              ? 'bg-teal-50 text-teal-700 hover:bg-teal-100 dark:bg-teal-950 dark:text-teal-400'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100',
+          )}
+          onClick={onAiToggle}
+        >
+          <Sparkles className="h-4 w-4 shrink-0" />
+          <span className={cn(collapsed && 'lg:hidden')}>Assistente AI</span>
+        </Button>
+
         <Button
           variant="ghost"
           size="sm"
