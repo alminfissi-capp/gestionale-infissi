@@ -1,10 +1,12 @@
 import { getClienti } from '@/actions/clienti'
+import { getSettings } from '@/actions/impostazioni'
 import { requireAccesso } from '@/lib/permessi'
 import TabellaClienti from '@/components/clienti/TabellaClienti'
 
 export default async function ClientiPage() {
   await requireAccesso('clienti')
-  const clienti = await getClienti()
+  const [clienti, settings] = await Promise.all([getClienti(), getSettings()])
+  const denominazione = settings?.denominazione || 'A.L.M. Infissi'
 
   return (
     <div>
@@ -16,7 +18,7 @@ export default async function ClientiPage() {
             : `${clienti.length} client${clienti.length === 1 ? 'e' : 'i'} in anagrafica`}
         </p>
       </div>
-      <TabellaClienti clienti={clienti} />
+      <TabellaClienti clienti={clienti} denominazione={denominazione} />
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Plus, Search, Pencil, Trash2 } from 'lucide-react'
+import dynamic from 'next/dynamic'
 import { deleteCliente } from '@/actions/clienti'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,11 +36,17 @@ import FormCliente from './FormCliente'
 import { usePermissions } from '@/contexts/PermissionsContext'
 import type { Cliente } from '@/types/cliente'
 
+const ClientiPdfButton = dynamic(
+  () => import('./ClientiPdfButton'),
+  { ssr: false }
+)
+
 interface Props {
   clienti: Cliente[]
+  denominazione: string
 }
 
-export default function TabellaClienti({ clienti }: Props) {
+export default function TabellaClienti({ clienti, denominazione }: Props) {
   const router = useRouter()
   const { canEdit } = usePermissions()
   const editEnabled = canEdit('clienti')
@@ -96,7 +103,7 @@ export default function TabellaClienti({ clienti }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Barra ricerca + nuovo */}
+      {/* Barra ricerca + azioni */}
       <div className="flex items-center justify-between gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -107,12 +114,19 @@ export default function TabellaClienti({ clienti }: Props) {
             className="pl-9"
           />
         </div>
-        {editEnabled && (
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-1" />
-            Nuovo cliente
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ClientiPdfButton
+            clienti={filtered}
+            totaleClienti={clienti.length}
+            denominazione={denominazione}
+          />
+          {editEnabled && (
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4 mr-1" />
+              Nuovo cliente
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Tabella */}
