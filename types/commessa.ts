@@ -1,3 +1,11 @@
+export type GruppoCommesse = {
+  id: string
+  organization_id: string
+  nome: string
+  ordine: number
+  created_at: string
+}
+
 export type MetodoPagamento = 'contanti' | 'bonifico' | 'riba' | 'altro'
 export type Reparto = 'alluminio' | 'ferro' | 'servizi' | 'rivendita' | 'ebay'
 export const REPARTI: { value: Reparto; label: string }[] = [
@@ -34,6 +42,7 @@ export type Commessa = {
   note: string | null
   stato: StatoCommessa
   reparti: Reparto[]
+  gruppo_id: string | null
   created_at: string
   updated_at: string
 }
@@ -92,6 +101,7 @@ export type CommessaInput = {
   operatore_nome: string | null
   note: string | null
   reparti: Reparto[]
+  gruppo_id?: string
 }
 
 export type AccontoInput = {
