@@ -10,7 +10,7 @@ CREATE TABLE gruppi_commesse (
 ALTER TABLE gruppi_commesse ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "org_access" ON gruppi_commesse
-  FOR ALL USING (organization_id = get_org_id());
+  FOR ALL USING (organization_id = get_user_organization_id());
 
 -- FK su commesse (nullable: nessuna commessa esistente viene rifiutata)
 ALTER TABLE commesse ADD COLUMN IF NOT EXISTS gruppo_id uuid REFERENCES gruppi_commesse(id);
