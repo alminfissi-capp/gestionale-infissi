@@ -67,6 +67,7 @@ interface Props {
   utenti: UtentePerCommessa[]
   clienti: Cliente[]
   preventivoDaConvertire?: PreventivoPerCommessa | null
+  gruppoId: string
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100
@@ -133,6 +134,7 @@ export default function DialogCommessa({
   utenti,
   clienti,
   preventivoDaConvertire,
+  gruppoId,
 }: Props) {
   const router = useRouter()
   const { isOnline } = useOnlineStatus()
@@ -373,7 +375,7 @@ export default function DialogCommessa({
         toast.success('Commessa salvata offline. Verrà sincronizzata al ritorno in rete.')
         onOpenChange(false)
       } else {
-        const { id: newId } = await createCommessa(formFinale)
+        const { id: newId } = await createCommessa({ ...formFinale, gruppo_id: gruppoId })
         await uploadAndSavePreventivi(newId)
         toast.success('Commessa creata')
         onOpenChange(false)
