@@ -14,7 +14,7 @@ import type {
   GruppoCommesse,
 } from '@/types/commessa'
 
-export async function getCommesse(): Promise<CommessaCompleta[]> {
+export async function getCommesse(gruppoId: string): Promise<CommessaCompleta[]> {
   const supabase = await createClient()
   const orgId = await getOrgId()
 
@@ -28,6 +28,7 @@ export async function getCommesse(): Promise<CommessaCompleta[]> {
       .from('commesse')
       .select('*')
       .eq('organization_id', orgId)
+      .eq('gruppo_id', gruppoId)
       .order('ordine', { ascending: true }),
     supabase
       .from('acconti_commessa')
@@ -95,13 +96,20 @@ export async function getCommessaById(id: string): Promise<CommessaCompleta | nu
 export async function createCommessa(input: CommessaInput): Promise<{ id: string }> {
   const supabase = await createClient()
   const orgId = await getOrgId()
+
+  let gruppoId = input.gruppo_id
+  if (!gruppoId) {
+    const corrente = await getGruppoCorrente()
+    gruppoId = corrente?.id
+  }
+
   const { data, error } = await supabase
     .from('commesse')
-    .insert({ ...input, organization_id: orgId })
+    .insert({ ...input, organization_id: orgId, gruppo_id: gruppoId })
     .select('id')
     .single()
   if (error) throw new Error(error.message)
-  revalidatePath('/commesse')
+  revalidatePath('/commesse', 'layout')
   return { id: data.id }
 }
 
@@ -112,14 +120,14 @@ export async function updateCommessa(id: string, input: Partial<CommessaInput>):
     .update({ ...input, updated_at: new Date().toISOString() })
     .eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath('/commesse')
+  revalidatePath('/commesse', 'layout')
 }
 
 export async function deleteCommessa(id: string): Promise<void> {
   const supabase = await createClient()
   const { error } = await supabase.from('commesse').delete().eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath('/commesse')
+  revalidatePath('/commesse', 'layout')
 }
 
 export async function addAcconto(commessaId: string, input: AccontoInput): Promise<void> {
@@ -129,14 +137,14 @@ export async function addAcconto(commessaId: string, input: AccontoInput): Promi
     .from('acconti_commessa')
     .insert({ ...input, commessa_id: commessaId, organization_id: orgId })
   if (error) throw new Error(error.message)
-  revalidatePath('/commesse')
+  revalidatePath('/commesse', 'layout')
 }
 
 export async function deleteAcconto(id: string): Promise<void> {
   const supabase = await createClient()
   const { error } = await supabase.from('acconti_commessa').delete().eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath('/commesse')
+  revalidatePath('/commesse', 'layout')
 }
 
 export async function addDocumentoCommessa(
@@ -155,7 +163,7 @@ export async function addDocumentoCommessa(
     tipo_documento: tipoDocumento,
   })
   if (error) throw new Error(error.message)
-  revalidatePath('/commesse')
+  revalidatePath('/commesse', 'layout')
 }
 
 export async function deleteDocumentoCommessa(id: string, storagePath: string): Promise<void> {
@@ -163,7 +171,7 @@ export async function deleteDocumentoCommessa(id: string, storagePath: string): 
   await supabase.storage.from('commesse-docs').remove([storagePath])
   const { error } = await supabase.from('documenti_commessa').delete().eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath('/commesse')
+  revalidatePath('/commesse', 'layout')
 }
 
 export type PreventivoCommessaItemInput = {
@@ -202,7 +210,7 @@ export async function setPreventiviCommessa(
     if (error) throw new Error(error.message)
   }
 
-  revalidatePath('/commesse')
+  revalidatePath('/commesse', 'layout')
 }
 
 export async function getDocumentoCommessaUrl(storagePath: string): Promise<string> {
@@ -277,6 +285,7 @@ export async function duplicaCommessa(id: string): Promise<{ id: string }> {
     .from('commesse')
     .insert({
       organization_id: orgId,
+      gruppo_id: orig.gruppo_id,
       numero_commessa: orig.numero_commessa ? `${orig.numero_commessa} (copia)` : '',
       preventivo_id: orig.preventivo_id,
       numero_preventivo: orig.numero_preventivo,
@@ -316,7 +325,7 @@ export async function duplicaCommessa(id: string): Promise<{ id: string }> {
     )
   }
 
-  revalidatePath('/commesse')
+  revalidatePath('/commesse', 'layout')
   return { id: nuova.id }
 }
 
@@ -327,7 +336,7 @@ export async function updateStatoCommessa(id: string, stato: import('@/types/com
     .update({ stato, updated_at: new Date().toISOString() })
     .eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath('/commesse')
+  revalidatePath('/commesse', 'layout')
 }
 
 export async function updateOrdineCommesse(updates: { id: string; ordine: number }[]): Promise<void> {
@@ -337,7 +346,7 @@ export async function updateOrdineCommesse(updates: { id: string; ordine: number
       supabase.from('commesse').update({ ordine }).eq('id', id)
     )
   )
-  revalidatePath('/commesse')
+  revalidatePath('/commesse', 'layout')
 }
 
 export async function getUtentiPerCommessa(): Promise<UtentePerCommessa[]> {
