@@ -15,10 +15,10 @@ export default async function CommesseGruppoPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ gruppoId: string }>
+  params: Promise<{ id: string }>
   searchParams: Promise<{ from?: string }>
 }) {
-  const { gruppoId } = await params
+  const { id: gruppoId } = await params
   const sp = await searchParams
 
   const [commesse, preventivi, utenti, clienti, gruppi] = await Promise.all([
