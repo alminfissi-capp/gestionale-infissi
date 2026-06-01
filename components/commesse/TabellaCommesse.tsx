@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import {
   Plus, Search, Trash2, LayoutList, Paperclip, FileText, Link2,
-  GripVertical, MoreVertical, Copy, WifiOff,
+  GripVertical, MoreVertical, Copy, WifiOff, MoveRight,
 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type PendingCommessa } from '@/lib/db'
@@ -55,9 +55,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { deleteCommessa, duplicaCommessa, updateOrdineCommesse, updateStatoCommessa } from '@/actions/commesse'
+import { deleteCommessa, duplicaCommessa, updateOrdineCommesse, updateStatoCommessa, spostaCommessa } from '@/actions/commesse'
 import { formatEuro } from '@/lib/pricing'
-import type { CommessaCompleta, PreventivoPerCommessa, StatoCommessa, UtentePerCommessa } from '@/types/commessa'
+import type { CommessaCompleta, PreventivoPerCommessa, StatoCommessa, UtentePerCommessa, GruppoCommesse } from '@/types/commessa'
 import { REPARTI } from '@/types/commessa'
 import type { Cliente } from '@/types/cliente'
 
@@ -127,6 +127,8 @@ interface Props {
   utenti: UtentePerCommessa[]
   clienti: Cliente[]
   preventivoDaConvertire?: PreventivoPerCommessa | null
+  gruppi: GruppoCommesse[]
+  gruppoCorrenteId: string
 }
 
 function formatMese(data: string): string {
@@ -170,9 +172,11 @@ interface RowProps {
   onDocumenti: () => void
   onPrevManuale: (numeroPrev: string | null) => void
   onStatoChange: (s: StatoCommessa) => void
+  altriGruppi: GruppoCommesse[]
+  onSposta: (gruppoId: string) => void
 }
 
-function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange }: RowProps) {
+function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange, altriGruppi, onSposta }: RowProps) {
   const {
     attributes,
     listeners,
@@ -374,6 +378,17 @@ function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti,
               <Copy className="h-3.5 w-3.5 mr-2" />
               Duplica
             </DropdownMenuItem>
+            {altriGruppi.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                {altriGruppi.map((g) => (
+                  <DropdownMenuItem key={g.id} onClick={() => onSposta(g.id)}>
+                    <MoveRight className="h-3.5 w-3.5 mr-2" />
+                    Sposta in {g.nome}
+                  </DropdownMenuItem>
+                ))}
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onDelete} className="text-red-600 focus:text-red-600">
               <Trash2 className="h-3.5 w-3.5 mr-2" />
@@ -436,7 +451,15 @@ function PendingCommessaRow({ c }: { c: CommessaCompleta }) {
 
 /* ── Componente principale ─────────────────────────────────── */
 
-export default function TabellaCommesse({ commesse, preventivi, utenti, clienti, preventivoDaConvertire }: Props) {
+export default function TabellaCommesse({
+  commesse,
+  preventivi,
+  utenti,
+  clienti,
+  preventivoDaConvertire,
+  gruppi,
+  gruppoCorrenteId,
+}: Props) {
   const router = useRouter()
   const { isOnline } = useOnlineStatus()
   const [items, setItems] = useState<CommessaCompleta[]>(commesse)
@@ -449,6 +472,8 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
   const [dialogDocumenti, setDialogDocumenti] = useState<CommessaCompleta | null>(null)
   const [dialogPrevManuale, setDialogPrevManuale] = useState<{ commessaId: string; numeroPrev: string | null } | null>(null)
   const autoOpenDone = useRef(false)
+
+  const altriGruppi = gruppi.filter((g) => g.id !== gruppoCorrenteId)
 
   const dialogPrevManualeCommessa = dialogPrevManuale
     ? items.find((c) => c.id === dialogPrevManuale.commessaId) ?? null
@@ -557,6 +582,16 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
     }
   }
 
+  async function handleSposta(commessaId: string, gruppoId: string) {
+    try {
+      await spostaCommessa(commessaId, gruppoId)
+      toast.success('Commessa spostata')
+      router.refresh()
+    } catch {
+      toast.error('Errore nello spostamento')
+    }
+  }
+
   const handleStatoChange = async (id: string, stato: StatoCommessa) => {
     setItems((prev) => prev.map((c) => (c.id === id ? { ...c, stato } : c)))
     try {
@@ -647,6 +682,8 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
                       onDocumenti={() => setDialogDocumenti(c)}
                       onPrevManuale={(numeroPrev) => setDialogPrevManuale({ commessaId: c.id, numeroPrev })}
                       onStatoChange={(s) => handleStatoChange(c.id, s)}
+                      altriGruppi={altriGruppi}
+                      onSposta={(gId) => handleSposta(c.id, gId)}
                     />
                   ))}
                 </SortableContext>
@@ -703,6 +740,7 @@ export default function TabellaCommesse({ commesse, preventivi, utenti, clienti,
         utenti={utenti}
         clienti={clienti}
         preventivoDaConvertire={preventivoDaConvertire}
+        gruppoId={gruppoCorrenteId}
       />
 
       <DialogSchedaCommessa
