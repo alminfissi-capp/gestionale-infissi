@@ -68,6 +68,59 @@ export async function getCommesse(gruppoId: string): Promise<CommessaCompleta[]>
   })
 }
 
+export async function getAllCommesse(): Promise<CommessaCompleta[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const [
+    { data: commesse, error },
+    { data: acconti },
+    { data: documenti },
+    { data: prevCollegati },
+  ] = await Promise.all([
+    supabase
+      .from('commesse')
+      .select('*')
+      .eq('organization_id', orgId)
+      .order('ordine', { ascending: true }),
+    supabase
+      .from('acconti_commessa')
+      .select('*')
+      .eq('organization_id', orgId)
+      .order('data_pagamento', { ascending: true }),
+    supabase
+      .from('documenti_commessa')
+      .select('*')
+      .eq('organization_id', orgId)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('preventivi_commessa')
+      .select('*')
+      .eq('organization_id', orgId)
+      .order('ordine', { ascending: true }),
+  ])
+
+  if (error) throw new Error(error.message)
+
+  return (commesse ?? []).map((c) => {
+    const acc = (acconti ?? []).filter((a) => a.commessa_id === c.id)
+    const docs = (documenti ?? []).filter((d) => d.commessa_id === c.id)
+    const prevs = (prevCollegati ?? []).filter((p) => p.commessa_id === c.id) as PreventivoCommessa[]
+    const totAcc = acc.reduce((sum, a) => sum + Number(a.importo), 0)
+    return {
+      ...c,
+      imponibile: Number(c.imponibile),
+      iva_totale: Number(c.iva_totale),
+      totale: Number(c.totale),
+      acconti: acc.map((a) => ({ ...a, importo: Number(a.importo) })),
+      documenti: docs,
+      preventivi_collegati: prevs,
+      totale_acconti: totAcc,
+      saldo: Number(c.totale) - totAcc,
+    }
+  })
+}
+
 export async function getCommessaById(id: string): Promise<CommessaCompleta | null> {
   const supabase = await createClient()
   const orgId = await getOrgId()

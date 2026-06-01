@@ -6,7 +6,7 @@ import { db } from '@/lib/db'
 import { getClienti } from '@/actions/clienti'
 import { getCategorie } from '@/actions/listini'
 import { createPreventivo } from '@/actions/preventivi'
-import { getCommesse, createCommessa, addAcconto } from '@/actions/commesse'
+import { getAllCommesse, createCommessa, addAcconto } from '@/actions/commesse'
 
 export default function DataSync() {
   // Sync dati di riferimento all'avvio (se online)
@@ -18,7 +18,7 @@ export default function DataSync() {
         const [clienti, categorie, commesse] = await Promise.all([
           getClienti(),
           getCategorie(),
-          getCommesse(),
+          getAllCommesse(),
         ])
         await db.clienti.bulkPut(clienti)
         await db.listiniData.bulkPut(categorie)
@@ -87,7 +87,7 @@ export default function DataSync() {
         )
         // Aggiorna cache IDB con dati freschi
         try {
-          const commesse = await getCommesse()
+          const commesse = await getAllCommesse()
           await db.commesse.bulkPut(commesse)
         } catch { /* best-effort */ }
       }
@@ -124,7 +124,7 @@ export default function DataSync() {
             : `${synced} acconti sincronizzati`
         )
         try {
-          const commesse = await getCommesse()
+          const commesse = await getAllCommesse()
           await db.commesse.bulkPut(commesse)
         } catch { /* best-effort */ }
       }

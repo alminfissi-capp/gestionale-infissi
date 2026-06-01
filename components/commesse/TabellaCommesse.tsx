@@ -90,6 +90,7 @@ function pendingToCommessa(p: PendingCommessa): CommessaCompleta {
     note: p.input.note,
     stato: 'in_attesa',
     reparti: p.input.reparti,
+    gruppo_id: null,
     created_at: p.createdAt,
     updated_at: p.createdAt,
     acconti: [],
