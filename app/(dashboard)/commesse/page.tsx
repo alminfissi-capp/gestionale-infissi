@@ -1,40 +1,58 @@
-import { getCommesse, getPreventiviPerCommessa, getUtentiPerCommessa } from '@/actions/commesse'
-import { getClienti } from '@/actions/clienti'
-import TabellaCommesse from '@/components/commesse/TabellaCommesse'
-import type { PreventivoPerCommessa } from '@/types/commessa'
+import { redirect } from 'next/navigation'
+import { getGruppiCommesse, getGruppoCorrente } from '@/actions/commesse'
+import { createClient } from '@/lib/supabase/server'
+import { getOrgId } from '@/lib/auth'
+import GruppiCommesse from '@/components/commesse/GruppiCommesse'
+import type { GruppoConStats } from '@/components/commesse/GruppiCommesse'
 
 export default async function CommessePage({
   searchParams,
 }: {
   searchParams: Promise<{ from?: string }>
 }) {
-  const params = await searchParams
+  const sp = await searchParams
 
-  const [commesse, preventivi, utenti, clienti] = await Promise.all([
-    getCommesse(),
-    getPreventiviPerCommessa(),
-    getUtentiPerCommessa(),
-    getClienti(),
-  ])
-
-  let preventivoDaConvertire: PreventivoPerCommessa | null = null
-  if (params.from) {
-    preventivoDaConvertire = preventivi.find((p) => p.id === params.from) ?? null
+  // Redirect da preventivo accettato → apre il blocco corrente
+  if (sp.from) {
+    const corrente = await getGruppoCorrente()
+    if (corrente) redirect(`/commesse/${corrente.id}?from=${sp.from}`)
   }
+
+  const gruppi = await getGruppiCommesse()
+
+  // Statistiche aggregate: una sola query, raggruppamento in JS
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data: statsRaw } = await supabase
+    .from('commesse')
+    .select('gruppo_id, totale')
+    .eq('organization_id', orgId)
+
+  const statsMap = new Map<string, { count: number; totale: number }>()
+  for (const r of statsRaw ?? []) {
+    if (!r.gruppo_id) continue
+    const prev = statsMap.get(r.gruppo_id) ?? { count: 0, totale: 0 }
+    statsMap.set(r.gruppo_id, {
+      count: prev.count + 1,
+      totale: prev.totale + Number(r.totale),
+    })
+  }
+
+  const gruppiConStats: GruppoConStats[] = gruppi.map((g) => ({
+    ...g,
+    count: statsMap.get(g.id)?.count ?? 0,
+    totale: statsMap.get(g.id)?.totale ?? 0,
+  }))
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Commesse</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Gestione ordini confermati, acconti e documenti</p>
+        <p className="text-sm text-gray-500 mt-0.5">
+          Seleziona un blocco per visualizzare le commesse
+        </p>
       </div>
-      <TabellaCommesse
-        commesse={commesse}
-        preventivi={preventivi}
-        utenti={utenti}
-        clienti={clienti}
-        preventivoDaConvertire={preventivoDaConvertire}
-      />
+      <GruppiCommesse gruppi={gruppiConStats} />
     </div>
   )
 }
