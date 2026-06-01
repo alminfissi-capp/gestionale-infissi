@@ -11,6 +11,7 @@ import type {
   PreventivoPerCommessa,
   UtentePerCommessa,
   PreventivoCommessa,
+  GruppoCommesse,
 } from '@/types/commessa'
 
 export async function getCommesse(): Promise<CommessaCompleta[]> {
@@ -351,4 +352,83 @@ export async function getUtentiPerCommessa(): Promise<UtentePerCommessa[]> {
     id: p.id as string,
     nome: (p.operatore as string | null) || (p.full_name as string | null) || '—',
   }))
+}
+
+export async function getGruppiCommesse(): Promise<GruppoCommesse[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data, error } = await supabase
+    .from('gruppi_commesse')
+    .select('*')
+    .eq('organization_id', orgId)
+    .order('ordine', { ascending: false })
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
+export async function getGruppoCorrente(): Promise<GruppoCommesse | null> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data } = await supabase
+    .from('gruppi_commesse')
+    .select('*')
+    .eq('organization_id', orgId)
+    .order('ordine', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data ?? null
+}
+
+export async function createGruppo(nome: string): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data: maxRow } = await supabase
+    .from('gruppi_commesse')
+    .select('ordine')
+    .eq('organization_id', orgId)
+    .order('ordine', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const nextOrdine = (maxRow?.ordine ?? -1) + 1
+  const { error } = await supabase
+    .from('gruppi_commesse')
+    .insert({ nome, organization_id: orgId, ordine: nextOrdine })
+  if (error) throw new Error(error.message)
+  revalidatePath('/commesse', 'layout')
+}
+
+export async function renameGruppo(id: string, nome: string): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('gruppi_commesse')
+    .update({ nome })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/commesse', 'layout')
+}
+
+export async function deleteGruppo(id: string): Promise<void> {
+  const supabase = await createClient()
+  const { count } = await supabase
+    .from('commesse')
+    .select('*', { count: 'exact', head: true })
+    .eq('gruppo_id', id)
+  if ((count ?? 0) > 0)
+    throw new Error('Il blocco contiene commesse. Spostale prima di eliminarlo.')
+  const { error } = await supabase
+    .from('gruppi_commesse')
+    .delete()
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/commesse', 'layout')
+}
+
+export async function spostaCommessa(commessaId: string, gruppoId: string): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('commesse')
+    .update({ gruppo_id: gruppoId })
+    .eq('id', commessaId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/commesse', 'layout')
 }
