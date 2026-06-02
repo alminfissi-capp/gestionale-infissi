@@ -15,6 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import DialogProdotto from './DialogProdotto'
+import { useSyncQueue } from './useSyncQueue'
 import { deleteProdotto, getPrezzoLive, warmupESPBackend } from '@/actions/magazzino'
 import type { ArticoloCatalogo, PrezzoLive } from '@/types/catalogo-esp'
 import type { CategoriaMagazzino, Fornitore, PosizioneMagazzino, CatalogoArticolo } from '@/types/magazzino'
@@ -42,6 +43,7 @@ function CellSync({
   codice,
   reparto,
   prezzoIniziale,
+  livePrezzo,
   isSyncLocked,
   onSyncStart,
   onSyncDone,
@@ -49,12 +51,16 @@ function CellSync({
   codice: string
   reparto?: number | null
   prezzoIniziale: PrezzoLive | null
+  livePrezzo?: number
   isSyncLocked: boolean
   onSyncStart: (codice: string) => void
   onSyncDone: (p: PrezzoLive | null) => void
 }) {
   const [prezzo, setPrezzo] = useState<PrezzoLive | null>(prezzoIniziale)
   const [isLoading, setIsLoading] = useState(false)
+
+  // Prezzo aggiornato dalla coda (Realtime) durante un bulk sync
+  const prezzoDisplay = livePrezzo != null ? livePrezzo : prezzo?.prezzo ?? null
 
   async function sincronizza(e: React.MouseEvent) {
     e.stopPropagation()
@@ -105,14 +111,14 @@ function CellSync({
     </button>
   )
 
-  if (!prezzo) {
+  if (prezzoDisplay == null && !prezzo) {
     return <div className="flex items-center gap-1 text-muted-foreground">—{btn}</div>
   }
 
   return (
     <div className="flex items-center gap-1">
       <span className="text-xs font-semibold text-gray-900 tabular-nums">
-        {prezzo.prezzo != null ? `€ ${Number(prezzo.prezzo).toFixed(2)}` : '—'}
+        {prezzoDisplay != null ? `€ ${Number(prezzoDisplay).toFixed(2)}` : '—'}
       </span>
       {btn}
     </div>
@@ -137,9 +143,10 @@ interface Props {
   categorie: CategoriaMagazzino[]
   fornitori: Fornitore[]
   posizioni: PosizioneMagazzino[]
+  orgId: string
 }
 
-export default function TabellaProdotti({ prodotti, totale, pagina, categorie, fornitori, posizioni }: Props) {
+export default function TabellaProdotti({ prodotti, totale, pagina, categorie, fornitori, posizioni, orgId }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
@@ -156,13 +163,14 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
   const [syncingCodice, setSyncingCodice] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  // Selezione multipla e bulk sync
-  const [selectedSet, setSelectedSet]   = useState<Set<string>>(new Set())
-  const [bulkPending, setBulkPending]   = useState<Set<string>>(new Set())
-  const [bulkCompleted, setBulkCompleted] = useState(0)
-  const [bulkTotal, setBulkTotal]       = useState(0)
+  // Coda di sincronizzazione persistente (Supabase + Realtime, cross-utente)
+  const { queueStatus, livePrezzi, total, completed, active, enqueue } =
+    useSyncQueue(orgId, () => startTransition(() => { router.refresh() }))
 
-  const isBulkRunning = bulkPending.size > 0
+  // Selezione multipla — illimitata, processata a batch di 10 dal processore
+  const [selectedSet, setSelectedSet] = useState<Set<string>>(new Set())
+
+  const isBulkRunning = active
   const isSyncLocked  = syncingCodice !== null || isPending || isBulkRunning
 
   function toggleSelect(codice: string) {
@@ -179,65 +187,14 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
     )
   }
 
-  async function sincronizzaSelezionati() {
-    const items = Array.from(selectedSet).slice(0, 10).map(codice => ({
+  function sincronizzaSelezionati() {
+    const items = Array.from(selectedSet).map(codice => ({
       codice,
       reparto: prodotti.find(p => p.codice === codice)?.reparto ?? null,
     }))
     setSelectedSet(new Set())
-    setBulkPending(new Set(items.map(i => i.codice)))
-    setBulkCompleted(0)
-    setBulkTotal(items.length)
-
-    try {
-      const res = await fetch('/api/sync-prezzi', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ items }),
-      })
-      if (!res.body) throw new Error('Nessun body')
-
-      const reader  = res.body.getReader()
-      const decoder = new TextDecoder()
-      let   buffer  = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const data = JSON.parse(line.slice(6))
-
-          if (data.status === 'done') {
-            setBulkPending(new Set())
-            startTransition(() => { router.refresh() })
-            break
-          }
-
-          setBulkPending(prev => { const n = new Set(prev); n.delete(data.codice); return n })
-          setBulkCompleted(prev => prev + 1)
-
-          if (data.status === 'ok') {
-            setPrezziMap(prev => ({ ...prev, [data.codice]: { ...data } }))
-            toast.success(`${data.codice}: € ${Number(data.prezzo).toFixed(2)}`)
-          } else if (data.status === 'no_price') {
-            toast.warning(`${data.codice}: trovato, prezzo non disponibile`)
-          } else if (data.status === 'not_found') {
-            toast.error(`${data.codice}: non trovato sul CRM`)
-          } else if (data.status === 'timeout') {
-            toast.error(`${data.codice}: timeout — riprova`)
-          }
-        }
-      }
-    } catch {
-      toast.error('Errore durante la sincronizzazione multipla')
-      setBulkPending(new Set())
-    }
+    enqueue(items)
+    toast.info(`${items.length} articoli in coda — sincronizzazione avviata`)
   }
 
   function handleSyncStart(codice: string) {
@@ -289,10 +246,10 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
       {isSyncLocked && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-sm">
           <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
-          {isPending
-            ? 'Aggiornamento dati in corso…'
-            : isBulkRunning
-              ? `Sincronizzazione multipla: ${bulkCompleted}/${bulkTotal} completati…`
+          {isBulkRunning
+            ? `Sincronizzazione in corso: ${completed}/${total} completati…`
+            : isPending
+              ? 'Aggiornamento dati in corso…'
               : `Sincronizzazione ${syncingCodice} in corso…`}
         </div>
       )}
@@ -358,22 +315,26 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
               </TableRow>
             )}
             {prodotti.map((p) => {
-              const cache = prezziMap[p.codice] ?? null
+              const cache  = prezziMap[p.codice] ?? null
+              const qStatus = queueStatus[p.codice]
+              const inCoda  = qStatus === 'pending' || qStatus === 'processing'
               return (
                 <TableRow
                   key={p.id}
                   className={`hover:bg-gray-50/50 ${selectedSet.has(p.codice) ? 'bg-blue-50/60' : ''}`}
                 >
-                  {/* Checkbox selezione */}
+                  {/* Checkbox selezione / stato coda */}
                   <TableCell className="py-1 pl-3 pr-1" onClick={(e) => e.stopPropagation()}>
-                    {bulkPending.has(p.codice)
+                    {qStatus === 'processing'
                       ? <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />
-                      : <Checkbox
-                          checked={selectedSet.has(p.codice)}
-                          onCheckedChange={() => toggleSelect(p.codice)}
-                          disabled={isSyncLocked}
-                          aria-label={`Seleziona ${p.codice}`}
-                        />
+                      : qStatus === 'pending'
+                        ? <span className="block h-2 w-2 rounded-full bg-amber-400 mx-auto" title="In coda" />
+                        : <Checkbox
+                            checked={selectedSet.has(p.codice)}
+                            onCheckedChange={() => toggleSelect(p.codice)}
+                            disabled={inCoda}
+                            aria-label={`Seleziona ${p.codice}`}
+                          />
                     }
                   </TableCell>
 
@@ -425,6 +386,7 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
                       codice={p.codice}
                       reparto={p.reparto}
                       prezzoIniziale={cache}
+                      livePrezzo={livePrezzi[p.codice]}
                       isSyncLocked={isSyncLocked}
                       onSyncStart={handleSyncStart}
                       onSyncDone={handleSyncDone}
@@ -501,14 +463,14 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
             <>
               <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
               <span className="text-sm font-medium">
-                {bulkCompleted}/{bulkTotal} sincronizzati…
+                Sincronizzazione: {completed}/{total} completati…
               </span>
+              <span className="text-xs text-muted-foreground">(a gruppi di 10)</span>
             </>
           ) : (
             <>
               <span className="text-sm font-medium text-gray-700">
                 {selectedSet.size} selezionat{selectedSet.size === 1 ? 'o' : 'i'}
-                {selectedSet.size > 10 && <span className="text-orange-500 ml-1">(max 10)</span>}
               </span>
               <Button size="sm" onClick={sincronizzaSelezionati} className="rounded-full gap-1.5">
                 <RefreshCw className="h-3.5 w-3.5" />

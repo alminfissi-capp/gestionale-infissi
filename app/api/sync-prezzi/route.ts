@@ -27,6 +27,22 @@ export async function POST(request: NextRequest) {
   const backendUrl = process.env.ESP_BACKEND_URL ?? 'http://localhost:3001'
   const espApiKey  = process.env.ESP_API_SECRET
 
+  // Aggiorna lo stato di una riga della coda (sorgente di verità condivisa)
+  const setQueue = async (codice: string, status: string, prezzo: number | null = null) => {
+    await supabase
+      .from('catalogo_sync_queue')
+      .update({ status, prezzo, updated_at: new Date().toISOString() })
+      .eq('organization_id', orgId)
+      .eq('codice', codice)
+  }
+
+  // Segna subito gli articoli del batch come "processing"
+  await supabase
+    .from('catalogo_sync_queue')
+    .update({ status: 'processing', updated_at: new Date().toISOString() })
+    .eq('organization_id', orgId)
+    .in('codice', limited.map(i => i.codice))
+
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
@@ -49,8 +65,8 @@ export async function POST(request: NextRequest) {
             next: { revalidate: 0 },
           })
 
-          if (res.status === 404) { send({ codice, status: 'not_found' }); continue }
-          if (!res.ok)            { send({ codice, status: 'error', error: 'Errore backend' }); continue }
+          if (res.status === 404) { await setQueue(codice, 'not_found'); send({ codice, status: 'not_found' }); continue }
+          if (!res.ok)            { await setQueue(codice, 'error');     send({ codice, status: 'error' }); continue }
 
           const json = await res.json()
 
@@ -82,8 +98,11 @@ export async function POST(request: NextRequest) {
               .eq('codice', codice)
           }
 
+          const finalStatus = priceRow.prezzo != null ? 'done' : 'no_price'
+          await setQueue(codice, finalStatus, priceRow.prezzo)
+
           send({
-            status:       priceRow.prezzo != null ? 'ok' : 'no_price',
+            status:       finalStatus,
             fetched_at:   new Date().toISOString(),
             da_cache:     false,
             descrizione:  json.descrizione  ?? null,
@@ -93,7 +112,9 @@ export async function POST(request: NextRequest) {
         } catch (err: unknown) {
           const isTimeout = err instanceof Error &&
             (err.name === 'TimeoutError' || err.name === 'AbortError')
-          send({ codice, status: isTimeout ? 'timeout' : 'error', error: String(err) })
+          const st = isTimeout ? 'timeout' : 'error'
+          await setQueue(codice, st)
+          send({ codice, status: st })
         }
       }
 
