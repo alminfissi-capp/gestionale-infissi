@@ -65,9 +65,11 @@ function CellSync({
       if (p) {
         setPrezzo(p)
         if (p.da_cache) {
-          toast.warning(`${codice}: non aggiornato, dati in cache`)
+          toast.warning(`${codice}: dati in cache, prezzo non aggiornato`)
+        } else if (p.prezzo == null) {
+          toast.warning(`${codice}: trovato sul CRM ma prezzo non disponibile (richiede finitura/configurazione)`)
         } else {
-          toast.success(`${codice} sincronizzato`)
+          toast.success(`${codice}: € ${p.prezzo.toFixed(2)} sincronizzato`)
         }
       } else {
         toast.error(`${codice}: articolo non trovato sul CRM`)
