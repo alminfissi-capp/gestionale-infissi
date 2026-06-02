@@ -39,10 +39,12 @@ function CellDisp({ disponibile, qty }: { disponibile: boolean; qty: number }) {
 // ── Cella sincronizzazione prezzo ────────────────────────────────────────────
 function CellSync({
   codice,
+  reparto,
   prezzoIniziale,
   onSync,
 }: {
   codice: string
+  reparto?: number | null
   prezzoIniziale: PrezzoLive | null
   onSync: (p: PrezzoLive) => void
 }) {
@@ -54,11 +56,15 @@ function CellSync({
     if (stato === 'loading') return
     setStato('loading')
     try {
-      const p = await getPrezzoLive(codice)
+      const p = await getPrezzoLive(codice, reparto)
       if (p) {
         setPrezzo(p)
         onSync(p)
-        toast.success(`${codice} sincronizzato`)
+        if (p.da_cache) {
+          toast.warning(`${codice}: non aggiornato sul CRM, dati in cache`)
+        } else {
+          toast.success(`${codice} sincronizzato`)
+        }
       } else {
         toast.error(`${codice}: articolo non trovato sul CRM`)
       }
@@ -269,6 +275,7 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
                   <TableCell className="py-1.5">
                     <CellSync
                       codice={p.codice}
+                      reparto={p.reparto}
                       prezzoIniziale={cache}
                       onSync={(aggiornato) => setPrezziMap((prev) => ({ ...prev, [p.codice]: aggiornato }))}
                     />

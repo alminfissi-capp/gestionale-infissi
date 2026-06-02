@@ -836,7 +836,7 @@ export async function getPrezziCache(codici: string[]): Promise<Record<string, P
 
 const PREZZO_TTL_MS = 12 * 60 * 60 * 1000  // 12 ore — lo scraper è lento, non riscrapare troppo spesso
 
-export async function getPrezzoLive(codice: string): Promise<PrezzoLive | null> {
+export async function getPrezzoLive(codice: string, reparto?: number | null): Promise<PrezzoLive | null> {
   const supabase = await createClient()
   const orgId = await getOrgId()
 
@@ -871,12 +871,18 @@ export async function getPrezzoLive(codice: string): Promise<PrezzoLive | null> 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     if (espApiKey) headers['Authorization'] = `Bearer ${espApiKey}`
 
-    const res = await fetch(`${backendUrl}/api/item?q=${encodeURIComponent(codice)}`, {
+    const params = new URLSearchParams({ q: codice })
+    if (reparto != null) params.set('reparto', String(reparto))
+
+    const res = await fetch(`${backendUrl}/api/item?${params}`, {
       next: { revalidate: 0 },
       signal: AbortSignal.timeout(30000),
       headers,
     })
+    // 404 = articolo non trovato sul CRM → non restituire cache scaduta (sarebbe un falso "sincronizzato")
+    if (res.status === 404) return null
     if (!res.ok) {
+      // Errore di rete/server → fallback a cache scaduta se disponibile
       if (cached) return { codice, prezzo: cached.prezzo, disponibile_al: cached.disponibile_al, disponibile_ct: cached.disponibile_ct, qty_al: cached.qty_al, qty_ct: cached.qty_ct, fetched_at: cached.fetched_at, da_cache: true }
       return null
     }
