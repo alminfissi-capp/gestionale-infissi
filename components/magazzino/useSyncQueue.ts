@@ -246,24 +246,29 @@ export function useSyncQueue(orgId: string, onJobComplete: () => void) {
     stopHeartbeat()
     isOwner.current = false
     setAmIOwner(false)
+    setRows(prev => {
+      const next = { ...prev }
+      Object.keys(next).forEach(k => { if (next[k].status === 'pending') delete next[k] })
+      return next
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgId, supabase])
 
   // Forza reset: usabile da qualsiasi utente dell'org quando il processore
-  // sembra bloccato (non risponde). Cancella pending e rilascia il lock
-  // senza verificare chi lo possiede.
+  // sembra bloccato. Cancella TUTTE le righe della coda (non solo pending)
+  // e resetta subito lo state locale senza aspettare Realtime.
   const forceReset = useCallback(async () => {
     cancelRef.current = true
     await supabase.from('catalogo_sync_queue')
       .delete()
       .eq('organization_id', orgId)
-      .eq('status', 'pending')
     await supabase.from('catalogo_sync_state')
       .update({ heartbeat: null, owner_id: null })
       .eq('organization_id', orgId)
     stopHeartbeat()
     isOwner.current = false
     setAmIOwner(false)
+    setRows({})  // reset immediato, non aspetta Realtime
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgId, supabase])
 
