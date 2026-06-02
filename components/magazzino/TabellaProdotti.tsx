@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, RefreshCw, Loader2 } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -154,7 +155,90 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
   // Lock globale: un solo sync alla volta; isPending=true durante router.refresh()
   const [syncingCodice, setSyncingCodice] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-  const isSyncLocked = syncingCodice !== null || isPending
+
+  // Selezione multipla e bulk sync
+  const [selectedSet, setSelectedSet]   = useState<Set<string>>(new Set())
+  const [bulkPending, setBulkPending]   = useState<Set<string>>(new Set())
+  const [bulkCompleted, setBulkCompleted] = useState(0)
+  const [bulkTotal, setBulkTotal]       = useState(0)
+
+  const isBulkRunning = bulkPending.size > 0
+  const isSyncLocked  = syncingCodice !== null || isPending || isBulkRunning
+
+  function toggleSelect(codice: string) {
+    setSelectedSet(prev => {
+      const next = new Set(prev)
+      next.has(codice) ? next.delete(codice) : next.add(codice)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    setSelectedSet(prev =>
+      prev.size === prodotti.length ? new Set() : new Set(prodotti.map(p => p.codice))
+    )
+  }
+
+  async function sincronizzaSelezionati() {
+    const items = Array.from(selectedSet).slice(0, 10).map(codice => ({
+      codice,
+      reparto: prodotti.find(p => p.codice === codice)?.reparto ?? null,
+    }))
+    setSelectedSet(new Set())
+    setBulkPending(new Set(items.map(i => i.codice)))
+    setBulkCompleted(0)
+    setBulkTotal(items.length)
+
+    try {
+      const res = await fetch('/api/sync-prezzi', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ items }),
+      })
+      if (!res.body) throw new Error('Nessun body')
+
+      const reader  = res.body.getReader()
+      const decoder = new TextDecoder()
+      let   buffer  = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          const data = JSON.parse(line.slice(6))
+
+          if (data.status === 'done') {
+            setBulkPending(new Set())
+            startTransition(() => { router.refresh() })
+            break
+          }
+
+          setBulkPending(prev => { const n = new Set(prev); n.delete(data.codice); return n })
+          setBulkCompleted(prev => prev + 1)
+
+          if (data.status === 'ok') {
+            setPrezziMap(prev => ({ ...prev, [data.codice]: { ...data } }))
+            toast.success(`${data.codice}: € ${Number(data.prezzo).toFixed(2)}`)
+          } else if (data.status === 'no_price') {
+            toast.warning(`${data.codice}: trovato, prezzo non disponibile`)
+          } else if (data.status === 'not_found') {
+            toast.error(`${data.codice}: non trovato sul CRM`)
+          } else if (data.status === 'timeout') {
+            toast.error(`${data.codice}: timeout — riprova`)
+          }
+        }
+      }
+    } catch {
+      toast.error('Errore durante la sincronizzazione multipla')
+      setBulkPending(new Set())
+    }
+  }
 
   function handleSyncStart(codice: string) {
     setSyncingCodice(codice)
@@ -207,7 +291,9 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
           <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
           {isPending
             ? 'Aggiornamento dati in corso…'
-            : `Sincronizzazione ${syncingCodice} in corso…`}
+            : isBulkRunning
+              ? `Sincronizzazione multipla: ${bulkCompleted}/${bulkTotal} completati…`
+              : `Sincronizzazione ${syncingCodice} in corso…`}
         </div>
       )}
 
@@ -240,7 +326,13 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
         <Table className="min-w-[900px] text-xs">
           <TableHeader>
             <TableRow className="bg-gray-50">
-              <TableHead className="w-9 py-2" />
+              <TableHead className="w-9 py-2 pl-3">
+                <Checkbox
+                  checked={selectedSet.size > 0 && selectedSet.size === prodotti.length}
+                  onCheckedChange={toggleSelectAll}
+                  aria-label="Seleziona tutti"
+                />
+              </TableHead>
               <TableHead className="w-28 py-2">Codice</TableHead>
               <TableHead className="py-2">Descrizione</TableHead>
               <TableHead className="w-24 py-2">Reparto</TableHead>
@@ -268,8 +360,24 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
             {prodotti.map((p) => {
               const cache = prezziMap[p.codice] ?? null
               return (
-                <TableRow key={p.id} className="hover:bg-gray-50/50">
-                  {/* Foto */}
+                <TableRow
+                  key={p.id}
+                  className={`hover:bg-gray-50/50 ${selectedSet.has(p.codice) ? 'bg-blue-50/60' : ''}`}
+                >
+                  {/* Checkbox selezione */}
+                  <TableCell className="py-1 pl-3 pr-1" onClick={(e) => e.stopPropagation()}>
+                    {bulkPending.has(p.codice)
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />
+                      : <Checkbox
+                          checked={selectedSet.has(p.codice)}
+                          onCheckedChange={() => toggleSelect(p.codice)}
+                          disabled={isSyncLocked}
+                          aria-label={`Seleziona ${p.codice}`}
+                        />
+                    }
+                  </TableCell>
+
+                  {/* Foto — ora seconda colonna */}
                   <TableCell className="py-1 px-2">
                     {p.preview_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -385,6 +493,37 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
         fornitori={fornitori}
         posizioni={posizioni}
       />
+
+      {/* Barra fluttuante selezione multipla */}
+      {(selectedSet.size > 0 || isBulkRunning) && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-white border shadow-xl rounded-full px-5 py-3">
+          {isBulkRunning ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+              <span className="text-sm font-medium">
+                {bulkCompleted}/{bulkTotal} sincronizzati…
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-sm font-medium text-gray-700">
+                {selectedSet.size} selezionat{selectedSet.size === 1 ? 'o' : 'i'}
+                {selectedSet.size > 10 && <span className="text-orange-500 ml-1">(max 10)</span>}
+              </span>
+              <Button size="sm" onClick={sincronizzaSelezionati} className="rounded-full gap-1.5">
+                <RefreshCw className="h-3.5 w-3.5" />
+                Sincronizza
+              </Button>
+              <button
+                onClick={() => setSelectedSet(new Set())}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Annulla
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       <AlertDialog open={!!deleting} onOpenChange={(v) => !v && setDeleting(null)}>
         <AlertDialogContent>
