@@ -164,7 +164,7 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
   const [isPending, startTransition] = useTransition()
 
   // Coda di sincronizzazione persistente (Supabase + Realtime, cross-utente)
-  const { queueStatus, livePrezzi, total, completed, active, enqueue } =
+  const { queueStatus, livePrezzi, total, completed, active, amIOwner, enqueue, cancel } =
     useSyncQueue(orgId, () => startTransition(() => { router.refresh() }))
 
   // Selezione multipla — illimitata, processata a batch di 10 dal processore
@@ -246,11 +246,21 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
       {isSyncLocked && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-sm">
           <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
-          {isBulkRunning
-            ? `Sincronizzazione in corso: ${completed}/${total} completati…`
-            : isPending
-              ? 'Aggiornamento dati in corso…'
-              : `Sincronizzazione ${syncingCodice} in corso…`}
+          <span className="flex-1">
+            {isBulkRunning
+              ? `Sincronizzazione in corso: ${completed}/${total} completati…`
+              : isPending
+                ? 'Aggiornamento dati in corso…'
+                : `Sincronizzazione ${syncingCodice} in corso…`}
+          </span>
+          {isBulkRunning && amIOwner && (
+            <button
+              onClick={cancel}
+              className="text-xs font-medium text-blue-500 hover:text-red-600 transition-colors underline"
+            >
+              Annulla
+            </button>
+          )}
         </div>
       )}
 
@@ -467,6 +477,14 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
                 Sincronizzazione: {completed}/{total} completati…
               </span>
               <span className="text-xs text-muted-foreground">(a gruppi di 10)</span>
+              {amIOwner && (
+                <button
+                  onClick={cancel}
+                  className="text-xs font-semibold text-red-500 hover:text-red-700 transition-colors ml-1"
+                >
+                  Annulla
+                </button>
+              )}
             </>
           ) : (
             <>

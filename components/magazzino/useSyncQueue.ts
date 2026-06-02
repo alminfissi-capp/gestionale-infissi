@@ -27,10 +27,12 @@ export function useSyncQueue(orgId: string, onJobComplete: () => void) {
   const supabase = useRef(createClient()).current
   const clientId = useRef(makeClientId()).current
 
-  const [rows, setRows]   = useState<Record<string, QueueRow>>({})
-  const isOwner           = useRef(false)
-  const heartbeatTimer    = useRef<ReturnType<typeof setInterval> | null>(null)
-  const processing        = useRef(false)
+  const [rows, setRows]     = useState<Record<string, QueueRow>>({})
+  const [amIOwner, setAmIOwner] = useState(false)
+  const isOwner             = useRef(false)
+  const cancelRef           = useRef(false)
+  const heartbeatTimer      = useRef<ReturnType<typeof setInterval> | null>(null)
+  const processing          = useRef(false)
 
   const rowsArr     = Object.values(rows)
   const total       = rowsArr.length
@@ -88,6 +90,7 @@ export function useSyncQueue(orgId: string, onJobComplete: () => void) {
       wasActive.current = false
       stopHeartbeat()
       isOwner.current = false
+      setAmIOwner(false)
       onJobComplete()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,7 +123,9 @@ export function useSyncQueue(orgId: string, onJobComplete: () => void) {
       .or(`heartbeat.is.null,heartbeat.lt.${stale}`)
       .select()
     if (data && data.length > 0) {
+      cancelRef.current = false
       isOwner.current = true
+      setAmIOwner(true)
       startHeartbeat()
       runProcessor()
     }
@@ -132,6 +137,7 @@ export function useSyncQueue(orgId: string, onJobComplete: () => void) {
     processing.current = true
     try {
       while (true) {
+        if (cancelRef.current) break
         const { data: pend } = await supabase
           .from('catalogo_sync_queue')
           .select('codice, reparto')
@@ -157,13 +163,14 @@ export function useSyncQueue(orgId: string, onJobComplete: () => void) {
       }
     } finally {
       processing.current = false
-      // libera il lock
+      cancelRef.current = false
       await supabase.from('catalogo_sync_state')
         .update({ heartbeat: null, owner_id: null })
         .eq('organization_id', orgId)
         .eq('owner_id', clientId)
       stopHeartbeat()
       isOwner.current = false
+      setAmIOwner(false)
     }
   }, [orgId, supabase])
 
@@ -210,7 +217,9 @@ export function useSyncQueue(orgId: string, onJobComplete: () => void) {
     await supabase.from('catalogo_sync_state')
       .upsert({ organization_id: orgId, owner_id: clientId, heartbeat: new Date().toISOString() },
               { onConflict: 'organization_id' })
+    cancelRef.current = false
     isOwner.current = true
+    setAmIOwner(true)
     startHeartbeat()
     runProcessor()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -221,10 +230,30 @@ export function useSyncQueue(orgId: string, onJobComplete: () => void) {
     setRows({})
   }, [orgId, supabase])
 
+  // Annulla la scansione: interrompe il loop del processore dopo il batch corrente
+  // e cancella tutti i pending rimanenti dal DB.
+  const cancel = useCallback(async () => {
+    if (!isOwner.current) return
+    cancelRef.current = true
+    await supabase.from('catalogo_sync_queue')
+      .delete()
+      .eq('organization_id', orgId)
+      .eq('status', 'pending')
+    await supabase.from('catalogo_sync_state')
+      .update({ heartbeat: null, owner_id: null })
+      .eq('organization_id', orgId)
+      .eq('owner_id', clientId)
+    stopHeartbeat()
+    isOwner.current = false
+    setAmIOwner(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId, supabase])
+
   return {
     queueStatus: Object.fromEntries(rowsArr.map(r => [r.codice, r.status])) as Record<string, SyncStatus>,
     livePrezzi:  Object.fromEntries(rowsArr.filter(r => r.prezzo != null).map(r => [r.codice, r.prezzo!])) as Record<string, number>,
     total, completed, pendingCount, active,
-    enqueue, clear,
+    amIOwner,
+    enqueue, cancel, clear,
   }
 }
