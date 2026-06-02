@@ -280,7 +280,7 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
 
       {/* Tabella — scroll orizzontale se necessario */}
       <div className="border rounded-lg overflow-x-auto">
-        <Table className="min-w-[900px] text-xs">
+        <Table className="w-full text-xs">
           <TableHeader>
             <TableRow className="bg-gray-50">
               <TableHead className="w-9 py-2 pl-3">
@@ -290,16 +290,17 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
                   aria-label="Seleziona tutti"
                 />
               </TableHead>
+              <TableHead className="w-12 py-2">Foto</TableHead>
               <TableHead className="w-28 py-2">Codice</TableHead>
-              <TableHead className="py-2">Descrizione</TableHead>
-              <TableHead className="w-24 py-2">Reparto</TableHead>
-              <TableHead className="w-10 py-2 text-center">U.M.</TableHead>
+              <TableHead className="py-2 min-w-[280px]">Descrizione</TableHead>
+              <TableHead className="w-28 py-2">Reparto</TableHead>
+              <TableHead className="w-12 py-2 text-center">U.M.</TableHead>
               <TableHead className="w-28 py-2">Prezzo</TableHead>
-              <TableHead className="w-20 py-2 text-center">
+              <TableHead className="w-16 py-2 text-center">
                 <span className="text-green-700 font-semibold">AL</span>
                 <span className="text-muted-foreground font-normal"> Alcamo</span>
               </TableHead>
-              <TableHead className="w-20 py-2 text-center">
+              <TableHead className="w-16 py-2 text-center">
                 <span className="text-blue-700 font-semibold">CT</span>
                 <span className="text-muted-foreground font-normal"> Catania</span>
               </TableHead>
@@ -309,7 +310,7 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
           <TableBody>
             {prodotti.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground py-12">
+                <TableCell colSpan={10} className="text-center text-muted-foreground py-12">
                   Nessun articolo trovato
                 </TableCell>
               </TableRow>
@@ -358,11 +359,11 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
                     {p.codice}
                   </TableCell>
 
-                  {/* Descrizione */}
-                  <TableCell className="py-1.5 max-w-0">
-                    <p className="truncate text-gray-900 font-medium" title={p.descrizione}>{p.descrizione}</p>
+                  {/* Descrizione — testo completo, va a capo */}
+                  <TableCell className="py-1.5 min-w-[280px]">
+                    <p className="text-gray-900 font-medium whitespace-normal break-words leading-snug">{p.descrizione}</p>
                     {p.gruppo && (
-                      <p className="truncate text-[10px] text-muted-foreground">{p.gruppo}</p>
+                      <p className="text-[10px] text-muted-foreground">{p.gruppo}</p>
                     )}
                   </TableCell>
 
