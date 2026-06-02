@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Pencil, Trash2, Plus, Save, Printer, Link2, Lock, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import DialogSelezioneProdottiMagazzino, { type ProdottoMagazzino } from '@/components/ferro/DialogSelezioneProdottiMagazzino'
 
 /* ── TYPES ────────────────────────────────────────────────────────────────── */
 type DbItem = { id: string; label: string; categoria: string; prezzo: number; magazzino_prodotto_id?: string | null }
@@ -345,6 +346,8 @@ export default function FerroCalcolatore({ mode = 'full' }: { mode?: 'full' | 'c
   const [mano,    setMano]     = useState({ valore: 200 })
   const [accSel,  setAccSel]   = useState<Record<string, boolean>>({})
   const [margine, setMargine]  = useState(35)
+  const [dialogMagazzino, setDialogMagazzino] = useState<{ open: boolean; table: string; set: React.Dispatch<React.SetStateAction<DbItem[]>> } | null>(null)
+  const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -486,6 +489,62 @@ export default function FerroCalcolatore({ mode = 'full' }: { mode?: 'full' | 'c
     } catch { toast.error('Errore nel salvataggio') } finally { setSaving(false) }
   }
 
+  const handleAddFromMagazzino = async (prodotti: ProdottoMagazzino[]) => {
+    if (!dialogMagazzino || prodotti.length === 0) return
+    const db = createClient()
+    const righe = prodotti.map(p => ({
+      label: p.descrizione,
+      categoria: 'altro',
+      prezzo: p.prezzo_acquisto ?? 0,
+      attivo: true,
+      magazzino_prodotto_id: p.id,
+    }))
+    const { data, error } = await db.from(dialogMagazzino.table).insert(righe).select('id,label,categoria,prezzo,magazzino_prodotto_id')
+    if (error) { toast.error('Errore nel collegamento'); return }
+    dialogMagazzino.set(prev => [...prev, ...(data as DbItem[])])
+    toast.success(`${prodotti.length} articolo/i aggiunto/i`)
+  }
+
+  const handleSincronizza = async () => {
+    setSyncing(true)
+    try {
+      const db = createClient()
+      const [rSP, rSC, rBin, rAC] = await Promise.all([
+        db.from('ferro_sezioni_piene').select('id,magazzino_prodotto_id').not('magazzino_prodotto_id', 'is', null),
+        db.from('ferro_sezioni_colonna').select('id,magazzino_prodotto_id').not('magazzino_prodotto_id', 'is', null),
+        db.from('ferro_binari').select('id,magazzino_prodotto_id').not('magazzino_prodotto_id', 'is', null),
+        db.from('ferro_accessori').select('id,magazzino_prodotto_id').not('magazzino_prodotto_id', 'is', null),
+      ])
+      const allLinked = [
+        ...((rSP.data ?? []).map(r => ({ ...r, tbl: 'ferro_sezioni_piene' as string }))),
+        ...((rSC.data ?? []).map(r => ({ ...r, tbl: 'ferro_sezioni_colonna' as string }))),
+        ...((rBin.data ?? []).map(r => ({ ...r, tbl: 'ferro_binari' as string }))),
+        ...((rAC.data ?? []).map(r => ({ ...r, tbl: 'ferro_accessori' as string }))),
+      ]
+      if (allLinked.length === 0) { toast.info('Nessun articolo collegato al magazzino'); setSyncing(false); return }
+      const uniqueIds = [...new Set(allLinked.map(r => r.magazzino_prodotto_id as string))]
+      const { data: prodotti } = await db.from('catalogo_articoli').select('id,prezzo_acquisto').in('id', uniqueIds)
+      if (!prodotti) { setSyncing(false); return }
+      const priceMap: Record<string, number> = {}
+      prodotti.forEach(p => { if (p.prezzo_acquisto != null) priceMap[p.id] = Number(p.prezzo_acquisto) })
+      await Promise.all(
+        allLinked.map(r => db.from(r.tbl).update({ prezzo: priceMap[r.magazzino_prodotto_id as string] ?? 0 }).eq('id', r.id))
+      )
+      const [nSP, nSC, nBin, nAC] = await Promise.all([
+        db.from('ferro_sezioni_piene').select('id,label,categoria,prezzo,magazzino_prodotto_id').eq('attivo', true).order('categoria').order('label'),
+        db.from('ferro_sezioni_colonna').select('id,label,categoria,prezzo,magazzino_prodotto_id').eq('attivo', true).order('label'),
+        db.from('ferro_binari').select('id,label,categoria,prezzo,magazzino_prodotto_id').eq('attivo', true).order('label'),
+        db.from('ferro_accessori').select('id,label,categoria,prezzo,magazzino_prodotto_id').eq('attivo', true).order('categoria').order('label'),
+      ])
+      if (nSP.data) setSPRaw(nSP.data as DbItem[])
+      if (nSC.data) setSCRaw(nSC.data as DbItem[])
+      if (nBin.data) setBinRaw(nBin.data as DbItem[])
+      if (nAC.data) setACRaw(nAC.data as DbItem[])
+      toast.success(`${allLinked.length} prezzi aggiornati`)
+    } catch { toast.error('Errore durante la sincronizzazione') }
+    finally { setSyncing(false) }
+  }
+
   if (!dbReady) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -509,19 +568,57 @@ export default function FerroCalcolatore({ mode = 'full' }: { mode?: 'full' | 'c
     calc.costoAcc > 0 && { label: 'Accessori & Kit', value: calc.costoAcc },
   ].filter(Boolean) as { label: string; value: number; highlight?: boolean }[]
 
+  const linkedIdsSP  = sezioniPiene.filter(i => i.magazzino_prodotto_id).map(i => i.magazzino_prodotto_id as string)
+  const linkedIdsSC  = sezioniColonna.filter(i => i.magazzino_prodotto_id).map(i => i.magazzino_prodotto_id as string)
+  const linkedIdsBin = binari.filter(i => i.magazzino_prodotto_id).map(i => i.magazzino_prodotto_id as string)
+  const linkedIdsAC  = accessori.filter(i => i.magazzino_prodotto_id).map(i => i.magazzino_prodotto_id as string)
+
   const dbSection = (
-    <Tabs defaultValue="piene">
-      <TabsList className="mb-4">
-        <TabsTrigger value="piene">Barre & Profili ({spCrud.items.length})</TabsTrigger>
-        <TabsTrigger value="colonna">Sezioni Colonna ({scCrud.items.length})</TabsTrigger>
-        <TabsTrigger value="binari">Binari ({binCrud.items.length})</TabsTrigger>
-        <TabsTrigger value="acc">Accessori ({acCrud.items.length})</TabsTrigger>
-      </TabsList>
-      <TabsContent value="piene"><DbTable items={spCrud.items} categories={CAT_PIENE} onAdd={spCrud.onAdd} onUpdate={spCrud.onUpdate} onDelete={spCrud.onDelete} /></TabsContent>
-      <TabsContent value="colonna"><DbTable items={scCrud.items} categories={CAT_COLONNA} onAdd={scCrud.onAdd} onUpdate={scCrud.onUpdate} onDelete={scCrud.onDelete} /></TabsContent>
-      <TabsContent value="binari"><DbTable items={binCrud.items} categories={CAT_BINARIO} onAdd={binCrud.onAdd} onUpdate={binCrud.onUpdate} onDelete={binCrud.onDelete} /></TabsContent>
-      <TabsContent value="acc"><DbTable items={acCrud.items} categories={CAT_ACC} priceLbl="€/pezzo" onAdd={acCrud.onAdd} onUpdate={acCrud.onUpdate} onDelete={acCrud.onDelete} /></TabsContent>
-    </Tabs>
+    <>
+      <Tabs defaultValue="piene">
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <TabsList>
+            <TabsTrigger value="piene">Barre & Profili ({spCrud.items.length})</TabsTrigger>
+            <TabsTrigger value="colonna">Sezioni Colonna ({scCrud.items.length})</TabsTrigger>
+            <TabsTrigger value="binari">Binari ({binCrud.items.length})</TabsTrigger>
+            <TabsTrigger value="acc">Accessori ({acCrud.items.length})</TabsTrigger>
+          </TabsList>
+          <Button size="sm" variant="outline" className="ml-auto gap-1.5" onClick={handleSincronizza} disabled={syncing}>
+            <RefreshCw className={cn('h-3.5 w-3.5', syncing && 'animate-spin')} />
+            Sincronizza prezzi
+          </Button>
+        </div>
+        <TabsContent value="piene">
+          <DbTable items={spCrud.items} categories={CAT_PIENE} onAdd={spCrud.onAdd} onUpdate={spCrud.onUpdate} onDelete={spCrud.onDelete}
+            onAddFromMagazzino={() => setDialogMagazzino({ open: true, table: 'ferro_sezioni_piene', set: setSPRaw })} />
+        </TabsContent>
+        <TabsContent value="colonna">
+          <DbTable items={scCrud.items} categories={CAT_COLONNA} onAdd={scCrud.onAdd} onUpdate={scCrud.onUpdate} onDelete={scCrud.onDelete}
+            onAddFromMagazzino={() => setDialogMagazzino({ open: true, table: 'ferro_sezioni_colonna', set: setSCRaw })} />
+        </TabsContent>
+        <TabsContent value="binari">
+          <DbTable items={binCrud.items} categories={CAT_BINARIO} onAdd={binCrud.onAdd} onUpdate={binCrud.onUpdate} onDelete={binCrud.onDelete}
+            onAddFromMagazzino={() => setDialogMagazzino({ open: true, table: 'ferro_binari', set: setBinRaw })} />
+        </TabsContent>
+        <TabsContent value="acc">
+          <DbTable items={acCrud.items} categories={CAT_ACC} priceLbl="€/pezzo" onAdd={acCrud.onAdd} onUpdate={acCrud.onUpdate} onDelete={acCrud.onDelete}
+            onAddFromMagazzino={() => setDialogMagazzino({ open: true, table: 'ferro_accessori', set: setACRaw })} />
+        </TabsContent>
+      </Tabs>
+      {dialogMagazzino && (
+        <DialogSelezioneProdottiMagazzino
+          open={dialogMagazzino.open}
+          onClose={() => setDialogMagazzino(null)}
+          linkedIds={
+            dialogMagazzino.table === 'ferro_sezioni_piene'   ? linkedIdsSP  :
+            dialogMagazzino.table === 'ferro_sezioni_colonna' ? linkedIdsSC  :
+            dialogMagazzino.table === 'ferro_binari'          ? linkedIdsBin :
+            linkedIdsAC
+          }
+          onConfirm={handleAddFromMagazzino}
+        />
+      )}
+    </>
   )
 
   if (mode === 'db') return dbSection
