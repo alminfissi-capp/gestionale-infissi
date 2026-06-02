@@ -867,9 +867,14 @@ export async function getPrezzoLive(codice: string): Promise<PrezzoLive | null> 
   // 2. Fetch live dal backend ESP
   const backendUrl = process.env.ESP_BACKEND_URL ?? 'http://localhost:3001'
   try {
+    const espApiKey = process.env.ESP_API_SECRET
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (espApiKey) headers['Authorization'] = `Bearer ${espApiKey}`
+
     const res = await fetch(`${backendUrl}/api/item?q=${encodeURIComponent(codice)}`, {
       next: { revalidate: 0 },
-      signal: AbortSignal.timeout(30000),  // lo scraper impiega ~7-10s per articolo
+      signal: AbortSignal.timeout(30000),
+      headers,
     })
     if (!res.ok) {
       if (cached) return { codice, prezzo: cached.prezzo, disponibile_al: cached.disponibile_al, disponibile_ct: cached.disponibile_ct, qty_al: cached.qty_al, qty_ct: cached.qty_ct, fetched_at: cached.fetched_at, da_cache: true }
