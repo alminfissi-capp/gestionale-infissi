@@ -17,7 +17,7 @@ import { Pencil, Trash2, Plus, Save, Printer } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /* ── TYPES ────────────────────────────────────────────────────────────────── */
-type DbItem = { id: string; label: string; categoria: string; prezzo: number }
+type DbItem = { id: string; label: string; categoria: string; prezzo: number; magazzino_prodotto_id?: string | null }
 type CrudOps = {
   onAdd: (item: Omit<DbItem, 'id'>) => Promise<void>
   onUpdate: (item: DbItem) => Promise<void>
@@ -332,10 +332,10 @@ export default function FerroCalcolatore({ mode = 'full' }: { mode?: 'full' | 'c
     const load = async () => {
       const db = createClient()
       const [rSP, rSC, rBin, rAC] = await Promise.all([
-        db.from('ferro_sezioni_piene').select('*').eq('attivo', true).order('categoria').order('label'),
-        db.from('ferro_sezioni_colonna').select('*').eq('attivo', true).order('label'),
-        db.from('ferro_binari').select('*').eq('attivo', true).order('label'),
-        db.from('ferro_accessori').select('*').eq('attivo', true).order('categoria').order('label'),
+        db.from('ferro_sezioni_piene').select('id,label,categoria,prezzo,magazzino_prodotto_id').eq('attivo', true).order('categoria').order('label'),
+        db.from('ferro_sezioni_colonna').select('id,label,categoria,prezzo,magazzino_prodotto_id').eq('attivo', true).order('label'),
+        db.from('ferro_binari').select('id,label,categoria,prezzo,magazzino_prodotto_id').eq('attivo', true).order('label'),
+        db.from('ferro_accessori').select('id,label,categoria,prezzo,magazzino_prodotto_id').eq('attivo', true).order('categoria').order('label'),
       ])
       if (rSP.error || rSC.error || rBin.error || rAC.error) { toast.error('Errore caricamento dati materiali'); return }
       const sp = (rSP.data ?? []) as DbItem[]
@@ -362,7 +362,9 @@ export default function FerroCalcolatore({ mode = 'full' }: { mode?: 'full' | 'c
     },
     onUpdate: async (item) => {
       const db = createClient()
-      const { error } = await db.from(table).update({ label: item.label, categoria: item.categoria, prezzo: item.prezzo }).eq('id', item.id)
+      const updateData: Record<string, unknown> = { label: item.label, categoria: item.categoria }
+      if (!item.magazzino_prodotto_id) updateData.prezzo = item.prezzo
+      const { error } = await db.from(table).update(updateData).eq('id', item.id)
       if (error) { toast.error('Errore aggiornamento'); return }
       set(prev => prev.map(i => i.id === item.id ? item : i))
     },
