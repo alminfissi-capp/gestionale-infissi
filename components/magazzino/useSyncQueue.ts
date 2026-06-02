@@ -169,19 +169,44 @@ export function useSyncQueue(orgId: string, onJobComplete: () => void) {
 
   // ─── API pubblica ──────────────────────────────────────────────────────────
   const enqueue = useCallback(async (items: QueueItem[]) => {
-    // Pulisce il job precedente e inserisce i nuovi pendenti
-    await supabase.from('catalogo_sync_queue').delete().eq('organization_id', orgId)
     const rowsToInsert = items.map(i => ({
       organization_id: orgId,
       codice:  i.codice,
       reparto: i.reparto ?? null,
       status:  'pending',
     }))
-    // ottimistico locale
+
+    // Controlla se c'è già un processore attivo di un altro tab/utente
+    const stale = new Date(Date.now() - STALE_MS).toISOString()
+    const { data: lockData } = await supabase
+      .from('catalogo_sync_state')
+      .select('owner_id, heartbeat')
+      .eq('organization_id', orgId)
+      .maybeSingle()
+
+    const lockActive = lockData?.heartbeat && lockData.heartbeat > stale
+    const lockIsOurs = lockData?.owner_id === clientId
+
+    if (lockActive && !lockIsOurs) {
+      // Un altro processore è attivo: aggiungo solo i nuovi articoli in coda senza
+      // cancellare quelli già presenti né rubare il lock. Il processore esistente
+      // li raccoglierà al prossimo giro del while loop.
+      setRows(prev => {
+        const next = { ...prev }
+        for (const i of items) next[i.codice] = { codice: i.codice, status: 'pending', prezzo: null }
+        return next
+      })
+      // Inserisce solo articoli che non sono già in coda (evita duplicati)
+      await supabase.from('catalogo_sync_queue')
+        .upsert(rowsToInsert, { onConflict: 'organization_id,codice', ignoreDuplicates: true })
+      return
+    }
+
+    // Nessun processore attivo (o siamo già noi): reset coda e avvia
+    await supabase.from('catalogo_sync_queue').delete().eq('organization_id', orgId)
     setRows(Object.fromEntries(items.map(i => [i.codice, { codice: i.codice, status: 'pending' as SyncStatus, prezzo: null }])))
     await supabase.from('catalogo_sync_queue').insert(rowsToInsert)
 
-    // diventa owner e avvia
     await supabase.from('catalogo_sync_state')
       .upsert({ organization_id: orgId, owner_id: clientId, heartbeat: new Date().toISOString() },
               { onConflict: 'organization_id' })
