@@ -6,11 +6,13 @@ import {
   getFornitori,
   getPosizioni,
   getPrezziCache,
+  getScraperPreventivo,
 } from '@/actions/magazzino'
 import { getOrgId } from '@/lib/auth'
 import FiltriRepartoHorizontal from '@/components/magazzino/FiltriRepartoHorizontal'
 import CercaCatalogoESP from '@/components/magazzino/catalogo-esp/CercaCatalogoESP'
 import TabellaProdotti from '@/components/magazzino/TabellaProdotti'
+import PreventivoScraperBadge from '@/components/magazzino/PreventivoScraperBadge'
 
 type PageProps = {
   searchParams: Promise<{ reparto?: string; cerca?: string; pagina?: string }>
@@ -28,6 +30,7 @@ export default async function ProdottiPage({ searchParams }: PageProps) {
     fornitori,
     posizioni,
     orgId,
+    scraperPreventivo,
   ] = await Promise.all([
     getProdottiCatalogoESP({ reparto, cerca: sp.cerca, pagina }),
     getRepartiConteggio(),
@@ -35,6 +38,7 @@ export default async function ProdottiPage({ searchParams }: PageProps) {
     getFornitori(),
     getPosizioni(),
     getOrgId(),
+    getScraperPreventivo(),
   ])
 
   const totaleArticoli = conteggiReparti.reduce((s, r) => s + r.cnt, 0)
@@ -52,11 +56,14 @@ export default async function ProdottiPage({ searchParams }: PageProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Prodotti</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          {totaleArticoli.toLocaleString('it-IT')} articoli totali
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Prodotti</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {totaleArticoli.toLocaleString('it-IT')} articoli totali
+          </p>
+        </div>
+        <PreventivoScraperBadge iniziale={scraperPreventivo} />
       </div>
 
       {/* Filtri reparto orizzontali */}

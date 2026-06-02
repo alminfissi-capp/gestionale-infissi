@@ -836,6 +836,24 @@ export async function getPrezziCache(codici: string[]): Promise<Record<string, P
 
 const PREZZO_TTL_MS = 12 * 60 * 60 * 1000  // 12 ore — lo scraper è lento, non riscrapare troppo spesso
 
+// Numero del preventivo CRM attualmente usato dallo scraper per recuperare prezzi/articoli.
+// Lo scraper salva la sessione (cookie + nOrdine) in crm_sessions; qui leggiamo nOrdine.
+export async function getScraperPreventivo(): Promise<string | null> {
+  try {
+    const service = createServiceClient()
+    const { data } = await service
+      .from('crm_sessions')
+      .select('cookies, updated_at')
+      .eq('id', 'main')
+      .maybeSingle()
+    if (!data) return null
+    const stato = data.cookies as { nOrdine?: string } | null
+    return stato?.nOrdine ?? null
+  } catch {
+    return null
+  }
+}
+
 export async function warmupESPBackend(): Promise<void> {
   const backendUrl = process.env.ESP_BACKEND_URL ?? 'http://localhost:3001'
   const espApiKey  = process.env.ESP_API_SECRET
