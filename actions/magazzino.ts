@@ -876,7 +876,7 @@ export async function getPrezzoLive(codice: string, reparto?: number | null): Pr
 
     const res = await fetch(`${backendUrl}/api/item?${params}`, {
       next: { revalidate: 0 },
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(90000),
       headers,
     })
     // 404 = articolo non trovato sul CRM → non restituire cache scaduta (sarebbe un falso "sincronizzato")
@@ -932,7 +932,9 @@ export async function getPrezzoLive(codice: string, reparto?: number | null): Pr
       descrizione: json.descrizione ?? null,
       um:          json.um ?? null,
     }
-  } catch {
+  } catch (err) {
+    const isTimeout = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')
+    if (isTimeout) throw new Error('timeout')
     if (cached) return { codice, prezzo: cached.prezzo, disponibile_al: cached.disponibile_al, disponibile_ct: cached.disponibile_ct, qty_al: cached.qty_al, qty_ct: cached.qty_ct, fetched_at: cached.fetched_at, da_cache: true }
     return null
   }

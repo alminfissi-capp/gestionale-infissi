@@ -75,7 +75,11 @@ function CellSync({
       onSyncDone(p)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Errore'
-      toast.error(`Errore: ${msg}`)
+      if (msg === 'timeout') {
+        toast.error(`${codice}: timeout — il backend CRM è in avvio (cold start), riprova tra 30 secondi`)
+      } else {
+        toast.error(`Errore: ${msg}`)
+      }
       onSyncDone(null)
     } finally {
       setIsLoading(false)
