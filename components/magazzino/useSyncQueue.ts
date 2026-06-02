@@ -249,11 +249,29 @@ export function useSyncQueue(orgId: string, onJobComplete: () => void) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgId, supabase])
 
+  // Forza reset: usabile da qualsiasi utente dell'org quando il processore
+  // sembra bloccato (non risponde). Cancella pending e rilascia il lock
+  // senza verificare chi lo possiede.
+  const forceReset = useCallback(async () => {
+    cancelRef.current = true
+    await supabase.from('catalogo_sync_queue')
+      .delete()
+      .eq('organization_id', orgId)
+      .eq('status', 'pending')
+    await supabase.from('catalogo_sync_state')
+      .update({ heartbeat: null, owner_id: null })
+      .eq('organization_id', orgId)
+    stopHeartbeat()
+    isOwner.current = false
+    setAmIOwner(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId, supabase])
+
   return {
     queueStatus: Object.fromEntries(rowsArr.map(r => [r.codice, r.status])) as Record<string, SyncStatus>,
     livePrezzi:  Object.fromEntries(rowsArr.filter(r => r.prezzo != null).map(r => [r.codice, r.prezzo!])) as Record<string, number>,
     total, completed, pendingCount, active,
     amIOwner,
-    enqueue, cancel, clear,
+    enqueue, cancel, forceReset, clear,
   }
 }

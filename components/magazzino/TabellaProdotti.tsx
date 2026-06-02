@@ -164,7 +164,7 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
   const [isPending, startTransition] = useTransition()
 
   // Coda di sincronizzazione persistente (Supabase + Realtime, cross-utente)
-  const { queueStatus, livePrezzi, total, completed, active, amIOwner, enqueue, cancel } =
+  const { queueStatus, livePrezzi, total, completed, active, amIOwner, enqueue, cancel, forceReset } =
     useSyncQueue(orgId, () => startTransition(() => { router.refresh() }))
 
   // Selezione multipla — illimitata, processata a batch di 10 dal processore
@@ -253,14 +253,22 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
                 ? 'Aggiornamento dati in corso…'
                 : `Sincronizzazione ${syncingCodice} in corso…`}
           </span>
-          {isBulkRunning && amIOwner && (
+          {isBulkRunning && (amIOwner ? (
             <button
               onClick={cancel}
               className="text-xs font-medium text-blue-500 hover:text-red-600 transition-colors underline"
             >
               Annulla
             </button>
-          )}
+          ) : (
+            <button
+              onClick={forceReset}
+              className="text-xs text-blue-400 hover:text-red-600 transition-colors underline"
+              title="Forza l'annullamento se la scansione sembra bloccata"
+            >
+              Forza annullamento
+            </button>
+          ))}
         </div>
       )}
 
@@ -477,12 +485,20 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
                 Sincronizzazione: {completed}/{total} completati…
               </span>
               <span className="text-xs text-muted-foreground">(a gruppi di 10)</span>
-              {amIOwner && (
+              {amIOwner ? (
                 <button
                   onClick={cancel}
                   className="text-xs font-semibold text-red-500 hover:text-red-700 transition-colors ml-1"
                 >
                   Annulla
+                </button>
+              ) : (
+                <button
+                  onClick={forceReset}
+                  className="text-xs text-muted-foreground hover:text-red-600 transition-colors ml-1"
+                  title="Forza l'annullamento se la scansione sembra bloccata"
+                >
+                  Forza annullamento
                 </button>
               )}
             </>
