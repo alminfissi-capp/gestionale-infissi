@@ -26,7 +26,7 @@ import PreviewMiniatura from './PreviewMiniatura'
 import { deleteProdotto } from '@/actions/magazzino'
 import type { GiacenzaFlatRow, ProdottoConCategoria } from '@/actions/magazzino'
 import type { CategoriaMagazzino, Fornitore, PosizioneMagazzino } from '@/types/magazzino'
-import { UNITA_MISURA_LABELS, TIPO_CATEGORIA_LABELS } from '@/types/magazzino'
+import { TIPO_CATEGORIA_LABELS } from '@/types/magazzino'
 import { cn } from '@/lib/utils'
 
 type ProdottoConPreview = ProdottoConCategoria & {
@@ -182,7 +182,7 @@ export default function TabellaScorte({ prodotti, giacenzaFlat, categorie, forni
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter((r) =>
-        [r.prodotto.codice, r.prodotto.nome, r.finitura_nome, r.variante_nome, ...r.commesse, ...r.fornitori]
+        [r.prodotto.codice, r.prodotto.descrizione, r.finitura_nome, r.variante_nome, ...r.commesse, ...r.fornitori]
           .some((f) => f?.toLowerCase().includes(q))
       )
     }
@@ -343,10 +343,7 @@ export default function TabellaScorte({ prodotti, giacenzaFlat, categorie, forni
                           <PreviewMiniatura url={p.preview_url} tipo={p.preview_tipo} size={36} />
                           <div>
                             <span className="font-bold text-sm text-gray-900 mr-1.5">{p.codice}</span>
-                            <span className="text-sm text-gray-700">{p.nome}</span>
-                            {p.descrizione && (
-                              <p className="text-xs text-gray-400 truncate max-w-52">{p.descrizione}</p>
-                            )}
+                            <span className="text-sm text-gray-700">{p.descrizione}</span>
                           </div>
                         </div>
                       ) : (
@@ -391,7 +388,7 @@ export default function TabellaScorte({ prodotti, giacenzaFlat, categorie, forni
                       )}>
                         {Number(r.giacenza).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 3 })}
                       </span>
-                      <span className="text-xs text-gray-400 ml-1">{UNITA_MISURA_LABELS[p.unita_misura]}</span>
+                      <span className="text-xs text-gray-400 ml-1">{p.um}</span>
                     </TableCell>
 
                     {/* Fornitore */}
@@ -475,7 +472,7 @@ export default function TabellaScorte({ prodotti, giacenzaFlat, categorie, forni
           <AlertDialogHeader>
             <AlertDialogTitle>Elimina prodotto</AlertDialogTitle>
             <AlertDialogDescription>
-              Elimini <strong>{deletingProdotto?.nome}</strong>? Verranno eliminati anche tutti i movimenti di magazzino associati. L&apos;operazione non è reversibile.
+              Elimini <strong>{deletingProdotto?.descrizione ?? deletingProdotto?.codice}</strong>? Verranno eliminati anche tutti i movimenti di magazzino associati. L&apos;operazione non è reversibile.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

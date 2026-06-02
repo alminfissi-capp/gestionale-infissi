@@ -22,13 +22,13 @@ import {
   updateQuantitaArticolo, deleteArticoloMagazzino, duplicaArticoloMagazzino,
 } from '@/actions/magazzino'
 import type { ArticoloMagazzinoConDettagli } from '@/types/magazzino'
-import type { AnagraficaProdotto, CategoriaMagazzino, Fornitore, PosizioneMagazzino } from '@/types/magazzino'
-import { UNITA_MISURA_LABELS, TIPO_CATEGORIA_LABELS } from '@/types/magazzino'
+import type { CatalogoArticolo, CategoriaMagazzino, Fornitore, PosizioneMagazzino } from '@/types/magazzino'
+import { TIPO_CATEGORIA_LABELS } from '@/types/magazzino'
 import { cn } from '@/lib/utils'
 
 interface Props {
   articoli: ArticoloMagazzinoConDettagli[]
-  prodotti: AnagraficaProdotto[]
+  prodotti: CatalogoArticolo[]
   categorie: CategoriaMagazzino[]
   fornitori: Fornitore[]
   posizioni: PosizioneMagazzino[]
@@ -78,7 +78,7 @@ function QtyCell({ articolo, onSaved }: { articolo: ArticoloMagazzinoConDettagli
     }
   }
 
-  const um = articolo.prodotto ? UNITA_MISURA_LABELS[articolo.prodotto.unita_misura] : ''
+  const um = articolo.prodotto?.um ?? ''
 
   if (editing) {
     return (
@@ -141,7 +141,7 @@ export default function TabellaInventario({ articoli, prodotti, categorie, forni
       list = list.filter((a) => {
         const p = a.prodotto
         return [
-          p?.codice, p?.nome, p?.descrizione,
+          p?.codice, p?.descrizione,
           a.finitura, a.commessa, a.posizione?.nome, a.fornitore?.nome,
         ].some((f) => f?.toLowerCase().includes(q))
       })
@@ -258,7 +258,7 @@ export default function TabellaInventario({ articoli, prodotti, categorie, forni
                     {/* Nome + categoria */}
                     <TableCell className="py-1.5">
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium text-gray-900">{p?.nome ?? <span className="text-gray-400 italic">Prodotto eliminato</span>}</span>
+                        <span className="text-sm font-medium text-gray-900">{p?.descrizione ?? <span className="text-gray-400 italic">Prodotto eliminato</span>}</span>
                         {cat && (
                           <Badge variant="outline" className="text-xs w-fit mt-0.5 py-0 font-normal text-gray-500">
                             {cat.nome}
@@ -337,7 +337,7 @@ export default function TabellaInventario({ articoli, prodotti, categorie, forni
           <AlertDialogHeader>
             <AlertDialogTitle>Elimina articolo</AlertDialogTitle>
             <AlertDialogDescription>
-              Elimini <strong>{deletingArticolo?.prodotto?.nome ?? 'questo articolo'}</strong>
+              Elimini <strong>{deletingArticolo?.prodotto?.descrizione ?? deletingArticolo?.prodotto?.codice ?? 'questo articolo'}</strong>
               {deletingArticolo?.finitura ? ` (${deletingArticolo.finitura})` : ''}
               {deletingArticolo?.commessa ? ` — commessa: ${deletingArticolo.commessa}` : ''}?
               L&apos;operazione non è reversibile.

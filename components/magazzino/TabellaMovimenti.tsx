@@ -25,7 +25,6 @@ import PreviewMiniatura, { prodottoPreviewProps } from './PreviewMiniatura'
 import { deleteMovimento } from '@/actions/magazzino'
 import type { MovimentoConDettagli, ProdottoConCategoria } from '@/actions/magazzino'
 import type { Fornitore } from '@/types/magazzino'
-import { UNITA_MISURA_LABELS } from '@/types/magazzino'
 
 interface Props {
   movimenti: MovimentoConDettagli[]
@@ -58,7 +57,7 @@ export default function TabellaMovimenti({ movimenti, prodotti, fornitori }: Pro
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter((m) =>
-        [m.prodotto?.codice, m.prodotto?.nome, m.commessa_ref, m.fornitore?.nome, m.finitura?.nome]
+        [m.prodotto?.codice, m.prodotto?.descrizione, m.commessa_ref, m.fornitore?.nome, m.finitura?.nome]
           .some((f) => f?.toLowerCase().includes(q))
       )
     }
@@ -217,7 +216,7 @@ export default function TabellaMovimenti({ movimenti, prodotti, fornitori }: Pro
                           <PreviewMiniatura url={preview.url} tipo={preview.tipo} size={36} />
                           <div>
                             <span className="font-bold text-sm text-gray-900 mr-1.5">{m.prodotto?.codice}</span>
-                            <span className="text-sm text-gray-700">{m.prodotto?.nome}</span>
+                            <span className="text-sm text-gray-700">{m.prodotto?.descrizione}</span>
                           </div>
                         </div>
                       )
@@ -233,7 +232,7 @@ export default function TabellaMovimenti({ movimenti, prodotti, fornitori }: Pro
                   <TableCell className="text-right font-medium">
                     {Number(m.quantita).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 3 })}
                     <span className="text-xs text-gray-400 ml-1">
-                      {m.prodotto ? UNITA_MISURA_LABELS[m.prodotto.unita_misura] : ''}
+                      {m.prodotto?.um ?? ''}
                     </span>
                   </TableCell>
                   <TableCell className="text-right text-sm text-gray-600">

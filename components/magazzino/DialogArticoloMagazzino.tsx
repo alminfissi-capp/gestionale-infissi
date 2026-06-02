@@ -20,7 +20,6 @@ import { cn } from '@/lib/utils'
 import { createArticoloMagazzino, updateArticoloMagazzino } from '@/actions/magazzino'
 import type { ArticoloMagazzinoConDettagli, ArticoloMagazzinoInput } from '@/types/magazzino'
 import type { AnagraficaProdotto, CategoriaMagazzino, Fornitore, PosizioneMagazzino } from '@/types/magazzino'
-import { UNITA_MISURA_LABELS } from '@/types/magazzino'
 
 interface Props {
   open: boolean
@@ -139,7 +138,7 @@ export default function DialogArticoloMagazzino({
               <PopoverTrigger asChild>
                 <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
                   {selectedProdotto
-                    ? <span><span className="font-mono text-xs text-gray-400 mr-1">{selectedProdotto.codice}</span>{selectedProdotto.nome}</span>
+                    ? <span><span className="font-mono text-xs text-gray-400 mr-1">{selectedProdotto.codice}</span>{selectedProdotto.descrizione}</span>
                     : <span className="text-gray-400">Cerca prodotto...</span>}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
@@ -156,13 +155,13 @@ export default function DialogArticoloMagazzino({
                           {prods.map((p) => (
                             <CommandItem
                               key={p.id}
-                              value={`${p.codice} ${p.nome}`}
+                              value={`${p.codice} ${p.descrizione}`}
                               onSelect={() => { setProdottoId(p.id); setProdottoOpen(false) }}
                             >
                               <Check className={cn('mr-2 h-4 w-4', prodottoId === p.id ? 'opacity-100' : 'opacity-0')} />
                               <span className="font-mono text-xs text-gray-400 mr-2">{p.codice}</span>
-                              <span className="flex-1 truncate">{p.nome}</span>
-                              <span className="text-xs text-gray-400 ml-2">{UNITA_MISURA_LABELS[p.unita_misura]}</span>
+                              <span className="flex-1 truncate">{p.descrizione}</span>
+                              <span className="text-xs text-gray-400 ml-2">{p.um}</span>
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -185,7 +184,7 @@ export default function DialogArticoloMagazzino({
             <div className="space-y-1.5">
               <Label htmlFor="qty">
                 Quantità *
-                {selectedProdotto && <span className="text-gray-400 ml-1">({UNITA_MISURA_LABELS[selectedProdotto.unita_misura]})</span>}
+                {selectedProdotto && <span className="text-gray-400 ml-1">({selectedProdotto.um})</span>}
               </Label>
               <Input
                 id="qty"

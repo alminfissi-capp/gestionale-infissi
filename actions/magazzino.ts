@@ -1,15 +1,16 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { revalidatePath } from 'next/cache'
 import { getOrgId } from '@/lib/auth'
-import type { FiltriCatalogoESP, CountTipologia, CountMateriale, TipologiaESP, MaterialeESP } from '@/types/catalogo-esp'
+import type { FiltriCatalogo, CountReparto, CountGruppo, ArticoloCatalogo, PrezzoLive } from '@/types/catalogo-esp'
 import type {
   Fornitore, FornitoreInput,
   CategoriaMagazzino,
   FinituraCategoria, FinituraCategoriaInput,
   PosizioneMagazzino, PosizioneInput,
-  AnagraficaProdotto, UnitaMisura,
+  CatalogoArticolo,
   VarianteProdotto,
   MovimentoMagazzino,
   ArticoloMagazzinoConDettagli, ArticoloMagazzinoInput,
@@ -241,7 +242,7 @@ export async function deletePosizione(id: string): Promise<void> {
 
 // ---- Prodotti ----
 
-export type ProdottoConCategoria = AnagraficaProdotto & {
+export type ProdottoConCategoria = CatalogoArticolo & {
   categoria: CategoriaMagazzino | null
   fornitore_principale: { nome: string } | null
   posizione: PosizioneMagazzino | null
@@ -251,7 +252,7 @@ export type ProdottoConCategoria = AnagraficaProdotto & {
 export async function getProdotti(): Promise<ProdottoConCategoria[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
-    .from('anagrafica_prodotti')
+    .from('catalogo_articoli')
     .select(`
       *,
       categoria:categorie_magazzino(*),
@@ -259,17 +260,18 @@ export async function getProdotti(): Promise<ProdottoConCategoria[]> {
       posizione:posizioni_magazzino(*),
       varianti:varianti_prodotto(*)
     `)
-    .order('nome', { ascending: true })
+    .order('descrizione', { ascending: true })
   if (error) throw new Error(error.message)
   return (data ?? []) as ProdottoConCategoria[]
 }
 
 export type ProdottoInput = {
   codice: string
-  nome: string
-  descrizione?: string
-  categoria_id?: string
-  unita_misura: UnitaMisura
+  descrizione: string
+  um?: string
+  reparto?: number | null
+  gruppo?: string | null
+  categoria_id?: string | null
   prezzo_acquisto?: number | null
   peso_al_metro?: number | null
   lunghezza_default?: number | null
@@ -279,7 +281,7 @@ export type ProdottoInput = {
   soglia_abilitata: boolean
   foto_url?: string | null
   dxf_url?: string | null
-  note?: string
+  note?: string | null
 }
 
 export type VarianteInput = {
@@ -296,7 +298,7 @@ export async function createProdotto(
   const orgId = await getOrgId()
 
   const { data, error } = await supabase
-    .from('anagrafica_prodotti')
+    .from('catalogo_articoli')
     .insert({ ...input, organization_id: orgId })
     .select('id')
     .single()
@@ -322,7 +324,7 @@ export async function updateProdotto(
   const supabase = await createClient()
 
   const { error } = await supabase
-    .from('anagrafica_prodotti')
+    .from('catalogo_articoli')
     .update({ ...input, updated_at: new Date().toISOString() })
     .eq('id', id)
   if (error) throw new Error(error.message)
@@ -358,7 +360,7 @@ export async function deleteProdotto(id: string, fotoUrl?: string | null, dxfUrl
   // Elimina prima i movimenti (FK RESTRICT), poi le varianti (CASCADE), poi il prodotto
   await supabase.from('movimenti_magazzino').delete().eq('prodotto_id', id)
 
-  const { error } = await supabase.from('anagrafica_prodotti').delete().eq('id', id)
+  const { error } = await supabase.from('catalogo_articoli').delete().eq('id', id)
   if (error) throw new Error(error.message)
 
   const pathsToDelete = [fotoUrl, dxfUrl].filter(Boolean) as string[]
@@ -372,7 +374,7 @@ export async function deleteProdotto(id: string, fotoUrl?: string | null, dxfUrl
 // ---- Movimenti ----
 
 export type MovimentoConDettagli = MovimentoMagazzino & {
-  prodotto: { codice: string; nome: string; unita_misura: UnitaMisura }
+  prodotto: { codice: string; descrizione: string; um: string }
   variante: { nome: string } | null
   fornitore: { nome: string } | null
   finitura: { nome: string } | null
@@ -398,7 +400,7 @@ export async function getMovimenti(): Promise<MovimentoConDettagli[]> {
     .from('movimenti_magazzino')
     .select(`
       *,
-      prodotto:anagrafica_prodotti(codice, nome, unita_misura),
+      prodotto:catalogo_articoli(codice, descrizione, um),
       variante:varianti_prodotto(nome),
       fornitore:fornitori(nome),
       finitura:finiture_magazzino(nome)
@@ -434,7 +436,7 @@ export type GiacenzaConSoglia = {
   prodotto_id: string
   codice: string
   prodotto_nome: string
-  unita_misura: UnitaMisura
+  unita_misura: string       // raw ESP um
   variante_id: string | null
   variante_nome: string | null
   giacenza_attuale: number
@@ -459,7 +461,7 @@ export async function getGiacenze(): Promise<GiacenzaConSoglia[]> {
 
   const [{ data: soglie }, { data: movFinitura }] = await Promise.all([
     supabase
-      .from('anagrafica_prodotti')
+      .from('catalogo_articoli')
       .select('id, soglia_minima, soglia_abilitata')
       .in('id', ids),
     supabase
@@ -640,7 +642,7 @@ export async function listArticoliMagazzino(): Promise<ArticoloMagazzinoConDetta
     .from('articoli_magazzino')
     .select(`
       *,
-      prodotto:anagrafica_prodotti(id, codice, nome, descrizione, unita_misura, categoria_id, foto_url, dxf_url),
+      prodotto:catalogo_articoli(id, codice, descrizione, um, categoria_id, foto_url, dxf_url),
       posizione:posizioni_magazzino(id, nome),
       fornitore:fornitori(id, nome)
     `)
@@ -670,7 +672,7 @@ export async function createArticoloMagazzino(input: ArticoloMagazzinoInput): Pr
     })
     .select(`
       *,
-      prodotto:anagrafica_prodotti(id, codice, nome, descrizione, unita_misura, categoria_id, foto_url, dxf_url),
+      prodotto:catalogo_articoli(id, codice, descrizione, um, categoria_id, foto_url, dxf_url),
       posizione:posizioni_magazzino(id, nome),
       fornitore:fornitori(id, nome)
     `)
@@ -748,49 +750,170 @@ export async function duplicaArticoloMagazzino(id: string): Promise<void> {
 const CATALOGO_ESP_PAGE_SIZE = 50
 
 export async function getProdottiCatalogoESP(
-  filtri: FiltriCatalogoESP
-): Promise<{ prodotti: AnagraficaProdotto[]; totale: number }> {
+  filtri: FiltriCatalogo
+): Promise<{ prodotti: ArticoloCatalogo[]; totale: number }> {
   const supabase = await createClient()
   const orgId = await getOrgId()
   const pagina = filtri.pagina ?? 1
   const offset = (pagina - 1) * CATALOGO_ESP_PAGE_SIZE
 
   let query = supabase
-    .from('anagrafica_prodotti')
+    .from('catalogo_articoli')
     .select('*', { count: 'exact' })
     .eq('organization_id', orgId)
-    .eq('origine', 'esp')
 
-  if (filtri.tipologia) query = query.eq('tipologia', filtri.tipologia)
-  if (filtri.materiale) query = query.eq('materiale', filtri.materiale)
-  if (filtri.cerca) query = query.or(`nome.ilike.%${filtri.cerca}%,codice.ilike.%${filtri.cerca}%`)
+  if (filtri.reparto !== undefined && filtri.reparto !== null) {
+    query = query.eq('reparto', filtri.reparto)
+  }
+  if (filtri.gruppo !== undefined && filtri.gruppo !== null) {
+    query = query.eq('gruppo', filtri.gruppo)
+  }
+  if (filtri.cerca) {
+    query = query.or(`codice.ilike.%${filtri.cerca}%,descrizione.ilike.%${filtri.cerca}%`)
+  }
 
   const { data, error, count } = await query
-    .order('nome', { ascending: true })
+    .order('descrizione', { ascending: true })
     .range(offset, offset + CATALOGO_ESP_PAGE_SIZE - 1)
 
   if (error) throw new Error(error.message)
-  return { prodotti: (data ?? []) as AnagraficaProdotto[], totale: count ?? 0 }
+  return { prodotti: (data ?? []) as ArticoloCatalogo[], totale: count ?? 0 }
 }
 
-export async function getConteggioTipologie(): Promise<CountTipologia[]> {
+export async function getRepartiConteggio(): Promise<CountReparto[]> {
   const supabase = await createClient()
   const orgId = await getOrgId()
-  const { data, error } = await supabase.rpc('count_esp_tipologie', { p_org_id: orgId })
+  const { data, error } = await supabase.rpc('get_reparti_conteggio', { p_org_id: orgId })
   if (error) throw new Error(error.message)
-  return (data ?? []).map((r: { tipologia: string; cnt: number }) => ({
-    tipologia: r.tipologia as TipologiaESP,
+  return (data ?? []).map((r: { reparto: number; cnt: number }) => ({
+    reparto: Number(r.reparto),
     cnt: Number(r.cnt),
   }))
 }
 
-export async function getConteggioMateriali(): Promise<CountMateriale[]> {
+export async function getGruppiConteggio(reparto: number): Promise<CountGruppo[]> {
   const supabase = await createClient()
   const orgId = await getOrgId()
-  const { data, error } = await supabase.rpc('count_esp_materiali', { p_org_id: orgId })
+  const { data, error } = await supabase.rpc('get_gruppi_conteggio', {
+    p_org_id: orgId,
+    p_reparto: reparto,
+  })
   if (error) throw new Error(error.message)
-  return (data ?? []).map((r: { materiale: string; cnt: number }) => ({
-    materiale: r.materiale as MaterialeESP,
+  return (data ?? []).map((r: { gruppo: string | null; cnt: number }) => ({
+    gruppo: r.gruppo,
     cnt: Number(r.cnt),
   }))
+}
+
+// ---- Cache prezzi (lettura bulk lato server) ----
+
+export async function getPrezziCache(codici: string[]): Promise<Record<string, PrezzoLive>> {
+  if (codici.length === 0) return {}
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data } = await supabase
+    .from('catalogo_prezzi')
+    .select('*')
+    .eq('organization_id', orgId)
+    .in('codice', codici)
+  const map: Record<string, PrezzoLive> = {}
+  for (const r of data ?? []) {
+    map[r.codice] = {
+      codice:         r.codice,
+      prezzo:         r.prezzo,
+      disponibile_al: r.disponibile_al,
+      disponibile_ct: r.disponibile_ct,
+      qty_al:         r.qty_al,
+      qty_ct:         r.qty_ct,
+      fetched_at:     r.fetched_at,
+      da_cache:       true,
+    }
+  }
+  return map
+}
+
+// ---- Prezzi live dal backend ESP ----
+
+const PREZZO_TTL_MS = 12 * 60 * 60 * 1000  // 12 ore — lo scraper è lento, non riscrapare troppo spesso
+
+export async function getPrezzoLive(codice: string): Promise<PrezzoLive | null> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  // 1. Controlla cache in catalogo_prezzi (fresca < 24h)
+  const { data: cached } = await supabase
+    .from('catalogo_prezzi')
+    .select('*')
+    .eq('organization_id', orgId)
+    .eq('codice', codice)
+    .maybeSingle()
+
+  if (cached) {
+    const age = Date.now() - new Date(cached.fetched_at).getTime()
+    if (age < PREZZO_TTL_MS) {
+      return {
+        codice: cached.codice,
+        prezzo: cached.prezzo,
+        disponibile_al: cached.disponibile_al,
+        disponibile_ct: cached.disponibile_ct,
+        qty_al: cached.qty_al,
+        qty_ct: cached.qty_ct,
+        fetched_at: cached.fetched_at,
+        da_cache: true,
+      }
+    }
+  }
+
+  // 2. Fetch live dal backend ESP
+  const backendUrl = process.env.ESP_BACKEND_URL ?? 'http://localhost:3001'
+  try {
+    const res = await fetch(`${backendUrl}/api/item?q=${encodeURIComponent(codice)}`, {
+      next: { revalidate: 0 },
+      signal: AbortSignal.timeout(30000),  // lo scraper impiega ~7-10s per articolo
+    })
+    if (!res.ok) {
+      if (cached) return { codice, prezzo: cached.prezzo, disponibile_al: cached.disponibile_al, disponibile_ct: cached.disponibile_ct, qty_al: cached.qty_al, qty_ct: cached.qty_ct, fetched_at: cached.fetched_at, da_cache: true }
+      return null
+    }
+
+    const json = await res.json()
+
+    const parsePrezzo = (v: unknown) => {
+      if (v == null) return null
+      const n = parseFloat(String(v).replace(/[€\s]/g, '').replace(',', '.'))
+      return isNaN(n) ? null : n
+    }
+
+    const priceRow = {
+      organization_id: orgId,
+      codice,
+      prezzo:         parsePrezzo(json.prezzo),
+      disponibile_al: Boolean(json.disponibile_al),
+      disponibile_ct: Boolean(json.disponibile_ct),
+      qty_al:         Number(json.qty_al ?? 0),
+      qty_ct:         Number(json.qty_ct ?? 0),
+    }
+
+    // Salva prezzo in catalogo_prezzi
+    await supabase.from('catalogo_prezzi').upsert(priceRow, { onConflict: 'organization_id,codice' })
+
+    // Aggiorna immagine_url e um in catalogo_articoli — sempre, con i dati freschi dal CRM
+    const campiDaAggiornare: Record<string, string> = {}
+    if (json.immagine_url) campiDaAggiornare.immagine_url = json.immagine_url
+    if (json.um)           campiDaAggiornare.um           = json.um
+
+    if (Object.keys(campiDaAggiornare).length > 0) {
+      const service = createServiceClient()
+      await service
+        .from('catalogo_articoli')
+        .update({ ...campiDaAggiornare, updated_at: new Date().toISOString() })
+        .eq('organization_id', orgId)
+        .eq('codice', codice)
+    }
+
+    return { ...priceRow, fetched_at: new Date().toISOString(), da_cache: false }
+  } catch {
+    if (cached) return { codice, prezzo: cached.prezzo, disponibile_al: cached.disponibile_al, disponibile_ct: cached.disponibile_ct, qty_al: cached.qty_al, qty_ct: cached.qty_ct, fetched_at: cached.fetched_at, da_cache: true }
+    return null
+  }
 }

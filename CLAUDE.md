@@ -1,3 +1,41 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+---
+
+## Comandi principali
+
+```bash
+npm run dev        # dev server (webpack, non turbopack)
+npm run build      # build produzione
+npm run lint       # eslint
+```
+
+> Service worker disabilitato in development (`NODE_ENV=development`). Il worker pdfjs viene copiato in `public/` automaticamente all'avvio.
+
+---
+
+## Architettura generale
+
+**Route groups Next.js App Router:**
+- `(auth)` — pagina login
+- `(dashboard)` — tutte le pagine admin (sidebar, auth richiesta)
+- `(print)` — layout A4 senza sidebar per stampa preventivo/calcoli/commessa
+- `(public)` — link cliente `/p/[token]` senza autenticazione
+
+**Pattern dati:**
+- Le Server Actions stanno in `actions/*.ts`. Ogni action chiama `createClient()` (da `lib/supabase/server.ts`, usa cookies) e `getOrgId()` per filtrare per `organization_id`.
+- Il client browser usa `lib/supabase/client.ts`. Per accesso senza RLS usa `lib/supabase/service.ts` (solo server, service role key).
+- Tutti i tipi TypeScript stanno in `types/*.ts`.
+- La logica di business pura (calcolo prezzi, IVA, trasporto) sta in `lib/*.ts` — nessun side effect Supabase.
+
+**Multi-tenancy:** ogni tabella ha `organization_id`. Le RLS policy usano `get_user_organization_id()` (funzione Postgres). Non bypassare mai l'RLS tranne in route API server-side con service role.
+
+**Offline/PWA:** Serwist (`app/sw.ts`) + Dexie (`lib/db.ts`) per IndexedDB. I preventivi creati offline vengono messi in coda e sincronizzati al ritorno online.
+
+---
+
 # CLAUDE.md — Contesto progetto gestionale-infissi
 
 ## Stack tecnico

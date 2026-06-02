@@ -231,7 +231,7 @@ Pagina corrente: ${pathname}`,
             if (solo_sotto_soglia && giacenze.length > 0) {
               const ids = [...new Set(giacenze.map((r) => r.prodotto_id as string))]
               const { data: soglie } = await supabase
-                .from('anagrafica_prodotti')
+                .from('catalogo_articoli')
                 .select('id, soglia_minima, soglia_abilitata')
                 .in('id', ids)
               const soglieMap = Object.fromEntries((soglie ?? []).map((s) => [s.id, s]))

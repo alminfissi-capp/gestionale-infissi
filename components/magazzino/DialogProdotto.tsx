@@ -19,8 +19,8 @@ import UploadFile from './UploadFile'
 import DxfViewer from './DxfViewer'
 import { createProdotto, updateProdotto } from '@/actions/magazzino'
 import type { ProdottoConCategoria, ProdottoInput, VarianteInput } from '@/actions/magazzino'
-import type { CategoriaMagazzino, Fornitore, UnitaMisura, PosizioneMagazzino, TipoCategoriaMagazzino } from '@/types/magazzino'
-import { UNITA_MISURA_LABELS, CATEGORIE_CON_FINITURE, TIPO_CATEGORIA_LABELS } from '@/types/magazzino'
+import type { CategoriaMagazzino, Fornitore, PosizioneMagazzino, TipoCategoriaMagazzino } from '@/types/magazzino'
+import { CATEGORIE_CON_FINITURE, TIPO_CATEGORIA_LABELS } from '@/types/magazzino'
 
 const MACRO_CONFIG: Record<TipoCategoriaMagazzino, { color: string; bg: string; border: string }> = {
   alluminio: { color: 'text-blue-700', bg: 'bg-blue-50 hover:bg-blue-100', border: 'border-blue-200 hover:border-blue-400' },
@@ -44,10 +44,11 @@ interface Props {
 
 const emptyForm = (): ProdottoInput => ({
   codice: '',
-  nome: '',
   descrizione: '',
-  categoria_id: undefined,
-  unita_misura: 'pz',
+  um: '',
+  reparto: null,
+  gruppo: null,
+  categoria_id: null,
   prezzo_acquisto: null,
   peso_al_metro: null,
   lunghezza_default: null,
@@ -92,10 +93,11 @@ export default function DialogProdotto({ open, onOpenChange, prodotto, categorie
       setSelectedMacro(macroDaProdotto as TipoCategoriaMagazzino | null)
       setForm({
         codice: prodotto.codice,
-        nome: prodotto.nome,
-        descrizione: prodotto.descrizione ?? '',
-        categoria_id: prodotto.categoria_id ?? undefined,
-        unita_misura: prodotto.unita_misura,
+        descrizione: prodotto.descrizione,
+        um: prodotto.um,
+        reparto: prodotto.reparto ?? null,
+        gruppo: prodotto.gruppo ?? null,
+        categoria_id: prodotto.categoria_id ?? null,
         prezzo_acquisto: prodotto.prezzo_acquisto,
         peso_al_metro: prodotto.peso_al_metro,
         lunghezza_default: prodotto.lunghezza_default,
@@ -153,8 +155,8 @@ export default function DialogProdotto({ open, onOpenChange, prodotto, categorie
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.codice.trim() || !form.nome.trim()) {
-      toast.error('Codice e nome sono obbligatori')
+    if (!form.codice.trim() || !form.descrizione.trim()) {
+      toast.error('Codice e descrizione sono obbligatori')
       return
     }
     setLoading(true)
@@ -238,42 +240,24 @@ export default function DialogProdotto({ open, onOpenChange, prodotto, categorie
                   <Input id="codice" value={form.codice} onChange={(e) => set('codice')(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="nome">Nome *</Label>
-                  <Input id="nome" value={form.nome} onChange={(e) => set('nome')(e.target.value)} />
+                  <Label htmlFor="um">U.M.</Label>
+                  <Input id="um" value={form.um ?? ''} onChange={(e) => set('um')(e.target.value)} placeholder="es. PZ, ML, BR…" />
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="descr">Descrizione</Label>
-                <Input id="descr" value={form.descrizione ?? ''} onChange={(e) => set('descrizione')(e.target.value)} />
+                <Label htmlFor="descr">Descrizione *</Label>
+                <Input id="descr" value={form.descrizione} onChange={(e) => set('descrizione')(e.target.value)} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Sottocategoria</Label>
-                  <ComboboxField
-                    options={categorieFiltrate.map((c) => ({ value: c.id, label: c.nome }))}
-                    value={form.categoria_id ?? ''}
-                    onChange={(v) => set('categoria_id')(v || undefined)}
-                    placeholder="Seleziona sottocategoria"
-                    searchPlaceholder="Cerca sottocategoria..."
-                    emptyText="Nessuna sottocategoria trovata"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Unità di misura *</Label>
-                  <Select
-                    value={form.unita_misura}
-                    onValueChange={(v) => set('unita_misura')(v as UnitaMisura)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(Object.entries(UNITA_MISURA_LABELS) as [UnitaMisura, string][]).map(([k, v]) => (
-                        <SelectItem key={k} value={k}>{v}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-1.5">
+                <Label>Sottocategoria</Label>
+                <ComboboxField
+                  options={categorieFiltrate.map((c) => ({ value: c.id, label: c.nome }))}
+                  value={form.categoria_id ?? ''}
+                  onChange={(v) => set('categoria_id')(v || null)}
+                  placeholder="Seleziona sottocategoria"
+                  searchPlaceholder="Cerca sottocategoria..."
+                  emptyText="Nessuna sottocategoria trovata"
+                />
               </div>
 
               {/* Posizione */}

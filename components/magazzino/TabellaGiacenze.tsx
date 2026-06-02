@@ -13,8 +13,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { GiacenzaConSoglia, GiacenzaBreakdownRow } from '@/actions/magazzino'
 import { getGiacenzaDettaglioProdotto } from '@/actions/magazzino'
-import type { CategoriaMagazzino, UnitaMisura } from '@/types/magazzino'
-import { UNITA_MISURA_LABELS } from '@/types/magazzino'
+import type { CategoriaMagazzino } from '@/types/magazzino'
 import PreviewMiniatura, { prodottoPreviewProps } from './PreviewMiniatura'
 
 type ProdottoFoto = { foto_url: string | null; dxf_url: string | null }
@@ -32,7 +31,7 @@ type GruppoGiacenza = {
   prodotto_id: string
   codice: string
   prodotto_nome: string
-  unita_misura: UnitaMisura
+  unita_misura: string
   giacenza_totale: number
   soglia_minima: number | null
   soglia_abilitata: boolean
@@ -45,8 +44,8 @@ function getStato(g: { giacenza_totale: number; soglia_minima: number | null; so
   return 'ok'
 }
 
-function fmtQty(n: number, udm: UnitaMisura) {
-  return `${Number(n).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 3 })} ${UNITA_MISURA_LABELS[udm]}`
+function fmtQty(n: number, udm: string) {
+  return `${Number(n).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 3 })} ${udm}`
 }
 
 export default function TabellaGiacenze({ giacenze, categorie, categoriaPerProdotto, previewPerProdotto }: Props) {
@@ -262,11 +261,11 @@ export default function TabellaGiacenze({ giacenze, categorie, categoriaPerProdo
                         )}>
                           {Number(g.giacenza_totale).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 3 })}
                         </span>
-                        <span className="text-xs text-gray-400 ml-1">{UNITA_MISURA_LABELS[g.unita_misura]}</span>
+                        <span className="text-xs text-gray-400 ml-1">{g.unita_misura}</span>
                       </TableCell>
                       <TableCell className="text-right text-sm text-gray-500">
                         {g.soglia_abilitata && g.soglia_minima !== null
-                          ? `${Number(g.soglia_minima).toLocaleString('it-IT', { maximumFractionDigits: 3 })} ${UNITA_MISURA_LABELS[g.unita_misura]}`
+                          ? `${Number(g.soglia_minima).toLocaleString('it-IT', { maximumFractionDigits: 3 })} ${g.unita_misura}`
                           : <span className="text-gray-300">—</span>}
                       </TableCell>
                       <TableCell>

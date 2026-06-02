@@ -1,18 +1,5 @@
-export type UnitaMisura = 'pz' | 'ml' | 'cop' | 'kg' | 'pacco' | 'lt' | 'm2' | 'barre' | 'kit'
 export type TipoCategoriaMagazzino = 'alluminio' | 'ferro' | 'accessori' | 'pannelli' | 'chimici' | 'viteria'
 export type TipoMovimento = 'entrata' | 'uscita'
-
-export const UNITA_MISURA_LABELS: Record<UnitaMisura, string> = {
-  pz: 'Pezzo',
-  ml: 'Metro lineare',
-  cop: 'Coppia',
-  kg: 'Kg',
-  pacco: 'Pacco',
-  lt: 'Litro',
-  m2: 'M²',
-  barre: 'Barre',
-  kit: 'Kit',
-}
 
 export const TIPO_CATEGORIA_LABELS: Record<TipoCategoriaMagazzino, string> = {
   alluminio: 'Alluminio',
@@ -87,30 +74,34 @@ export type PosizioneMagazzino = {
   created_at: string
 }
 
-export type AnagraficaProdotto = {
+// Prodotto-master — sostituisce AnagraficaProdotto
+// Corrisponde alla tabella catalogo_articoli su Supabase
+export type CatalogoArticolo = {
   id: string
   organization_id: string
   codice: string
-  nome: string
-  descrizione: string | null
+  descrizione: string           // nome/titolo del prodotto (campo ESP)
+  um: string                    // unità misura raw ESP: 'ACC. PEZZO', 'BR', 'MT', ecc.
+  reparto: number | null        // 1-6: Alluminio, Ferro, Accessori, Macchine Utensili, Acciaio Inox, PVC
+  gruppo: string | null
+  immagine_url: string | null
   categoria_id: string | null
-  unita_misura: UnitaMisura
   prezzo_acquisto: number | null
-  peso_al_metro: number | null
-  lunghezza_default: number | null
-  posizione_id: string | null
   fornitore_principale_id: string | null
+  posizione_id: string | null
   soglia_minima: number | null
   soglia_abilitata: boolean
+  peso_al_metro: number | null
+  lunghezza_default: number | null
   foto_url: string | null
   dxf_url: string | null
   note: string | null
-  tipologia: string | null
-  materiale: string | null
-  origine: string
   created_at: string
   updated_at: string
 }
+
+// Alias per retrocompatibilità nei componenti ancora non aggiornati
+export type AnagraficaProdotto = CatalogoArticolo
 
 export type VarianteProdotto = {
   id: string
@@ -144,7 +135,7 @@ export type Giacenza = {
   prodotto_id: string
   codice: string
   prodotto_nome: string
-  unita_misura: UnitaMisura
+  unita_misura: string          // raw ESP um
   variante_id: string | null
   variante_nome: string | null
   giacenza_attuale: number
@@ -170,8 +161,8 @@ export type ArticoloMagazzino = {
 }
 
 export type ProdottoInventario = Pick<
-  AnagraficaProdotto,
-  'id' | 'codice' | 'nome' | 'descrizione' | 'unita_misura' | 'categoria_id' | 'foto_url' | 'dxf_url'
+  CatalogoArticolo,
+  'id' | 'codice' | 'descrizione' | 'um' | 'categoria_id' | 'foto_url' | 'dxf_url'
 >
 
 export type ArticoloMagazzinoConDettagli = ArticoloMagazzino & {
