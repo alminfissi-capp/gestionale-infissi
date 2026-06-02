@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, RefreshCw, Loader2 } from 'lucide-react'
@@ -41,54 +41,58 @@ function CellSync({
   codice,
   reparto,
   prezzoIniziale,
-  onSync,
+  isSyncLocked,
+  onSyncStart,
+  onSyncDone,
 }: {
   codice: string
   reparto?: number | null
   prezzoIniziale: PrezzoLive | null
-  onSync: (p: PrezzoLive) => void
+  isSyncLocked: boolean
+  onSyncStart: (codice: string) => void
+  onSyncDone: (p: PrezzoLive | null) => void
 }) {
-  const [stato, setStato] = useState<'idle' | 'loading'>('idle')
   const [prezzo, setPrezzo] = useState<PrezzoLive | null>(prezzoIniziale)
+  const [isLoading, setIsLoading] = useState(false)
 
   async function sincronizza(e: React.MouseEvent) {
     e.stopPropagation()
-    if (stato === 'loading') return
-    setStato('loading')
+    if (isSyncLocked) return
+    setIsLoading(true)
+    onSyncStart(codice)
     try {
       const p = await getPrezzoLive(codice, reparto)
       if (p) {
         setPrezzo(p)
-        onSync(p)
         if (p.da_cache) {
-          toast.warning(`${codice}: non aggiornato sul CRM, dati in cache`)
+          toast.warning(`${codice}: non aggiornato, dati in cache`)
         } else {
           toast.success(`${codice} sincronizzato`)
         }
       } else {
         toast.error(`${codice}: articolo non trovato sul CRM`)
       }
+      onSyncDone(p)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Errore'
-      if (msg.includes('in corso')) {
-        toast.warning('Altra sincronizzazione in corso, riprova tra qualche secondo')
-      } else {
-        toast.error(`Errore: ${msg}`)
-      }
+      toast.error(`Errore: ${msg}`)
+      onSyncDone(null)
     } finally {
-      setStato('idle')
+      setIsLoading(false)
     }
   }
+
+  const isDisabled = isSyncLocked && !isLoading
 
   const btn = (
     <button
       onClick={sincronizza}
-      disabled={stato === 'loading'}
-      className="text-muted-foreground hover:text-blue-600 transition-colors disabled:opacity-50"
-      title="Sincronizza da Edilsider CRM"
+      disabled={isDisabled || isLoading}
+      className="text-muted-foreground hover:text-blue-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      title={isDisabled ? 'Sincronizzazione in corso su un altro articolo' : 'Sincronizza da Edilsider CRM'}
     >
-      {stato === 'loading'
-        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      {isLoading
+        ? <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
         : <RefreshCw className="h-3.5 w-3.5" />
       }
     </button>
@@ -138,6 +142,23 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
     Object.fromEntries(prodotti.filter((p) => p.prezzo_cache).map((p) => [p.codice, p.prezzo_cache!]))
   )
 
+  // Lock globale: un solo sync alla volta; isPending=true durante router.refresh()
+  const [syncingCodice, setSyncingCodice] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const isSyncLocked = syncingCodice !== null || isPending
+
+  function handleSyncStart(codice: string) {
+    setSyncingCodice(codice)
+  }
+
+  function handleSyncDone(p: PrezzoLive | null) {
+    if (p && !p.da_cache) {
+      setPrezziMap((prev) => ({ ...prev, [p.codice]: p }))
+    }
+    setSyncingCodice(null)
+    startTransition(() => { router.refresh() })
+  }
+
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<CatalogoArticolo | null>(null)
   const [deleting, setDeleting] = useState<ArticoloConUrl | null>(null)
@@ -171,6 +192,16 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Banner sync in corso */}
+      {isSyncLocked && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-sm">
+          <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+          {isPending
+            ? 'Aggiornamento dati in corso…'
+            : `Sincronizzazione ${syncingCodice} in corso…`}
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">
@@ -277,7 +308,9 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
                       codice={p.codice}
                       reparto={p.reparto}
                       prezzoIniziale={cache}
-                      onSync={(aggiornato) => setPrezziMap((prev) => ({ ...prev, [p.codice]: aggiornato }))}
+                      isSyncLocked={isSyncLocked}
+                      onSyncStart={handleSyncStart}
+                      onSyncDone={handleSyncDone}
                     />
                   </TableCell>
 

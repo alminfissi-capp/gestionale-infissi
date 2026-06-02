@@ -908,8 +908,9 @@ export async function getPrezzoLive(codice: string, reparto?: number | null): Pr
     // Salva prezzo in catalogo_prezzi
     await supabase.from('catalogo_prezzi').upsert(priceRow, { onConflict: 'organization_id,codice' })
 
-    // Aggiorna immagine_url e um in catalogo_articoli — sempre, con i dati freschi dal CRM
+    // Aggiorna descrizione, um e immagine_url in catalogo_articoli con i dati freschi dal CRM
     const campiDaAggiornare: Record<string, string> = {}
+    if (json.descrizione) campiDaAggiornare.descrizione = json.descrizione
     if (json.immagine_url) campiDaAggiornare.immagine_url = json.immagine_url
     if (json.um)           campiDaAggiornare.um           = json.um
 
@@ -922,7 +923,15 @@ export async function getPrezzoLive(codice: string, reparto?: number | null): Pr
         .eq('codice', codice)
     }
 
-    return { ...priceRow, fetched_at: new Date().toISOString(), da_cache: false }
+    revalidatePath('/magazzino/catalogo')
+
+    return {
+      ...priceRow,
+      fetched_at:  new Date().toISOString(),
+      da_cache:    false,
+      descrizione: json.descrizione ?? null,
+      um:          json.um ?? null,
+    }
   } catch {
     if (cached) return { codice, prezzo: cached.prezzo, disponibile_al: cached.disponibile_al, disponibile_ct: cached.disponibile_ct, qty_al: cached.qty_al, qty_ct: cached.qty_ct, fetched_at: cached.fetched_at, da_cache: true }
     return null

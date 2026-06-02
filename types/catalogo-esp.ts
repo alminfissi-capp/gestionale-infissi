@@ -50,5 +50,8 @@ export type PrezzoLive = {
   qty_al: number
   qty_ct: number
   fetched_at: string
-  da_cache: boolean  // true se prezzo < 24h da catalogo_prezzi, false se appena fetchato live
+  da_cache: boolean
+  // Presenti solo quando fetchato live (non dalla cache)
+  descrizione?: string | null
+  um?: string | null
 }
