@@ -836,6 +836,19 @@ export async function getPrezziCache(codici: string[]): Promise<Record<string, P
 
 const PREZZO_TTL_MS = 12 * 60 * 60 * 1000  // 12 ore — lo scraper è lento, non riscrapare troppo spesso
 
+export async function warmupESPBackend(): Promise<void> {
+  const backendUrl = process.env.ESP_BACKEND_URL ?? 'http://localhost:3001'
+  const espApiKey  = process.env.ESP_API_SECRET
+  if (!espApiKey) return
+  try {
+    await fetch(`${backendUrl}/api/warmup`, {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${espApiKey}` },
+      signal:  AbortSignal.timeout(90000),
+    })
+  } catch { /* fire and forget — gli errori non interessano */ }
+}
+
 export async function getPrezzoLive(codice: string, reparto?: number | null): Promise<PrezzoLive | null> {
   const supabase = await createClient()
   const orgId = await getOrgId()

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, RefreshCw, Loader2 } from 'lucide-react'
@@ -14,7 +14,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import DialogProdotto from './DialogProdotto'
-import { deleteProdotto, getPrezzoLive } from '@/actions/magazzino'
+import { deleteProdotto, getPrezzoLive, warmupESPBackend } from '@/actions/magazzino'
 import type { ArticoloCatalogo, PrezzoLive } from '@/types/catalogo-esp'
 import type { CategoriaMagazzino, Fornitore, PosizioneMagazzino, CatalogoArticolo } from '@/types/magazzino'
 import { REPARTI } from '@/types/catalogo-esp'
@@ -147,6 +147,9 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
   const [prezziMap, setPrezziMap] = useState<Record<string, PrezzoLive>>(() =>
     Object.fromEntries(prodotti.filter((p) => p.prezzo_cache).map((p) => [p.codice, p.prezzo_cache!]))
   )
+
+  // Scalda il backend ESP al mount della pagina (fire & forget)
+  useEffect(() => { warmupESPBackend() }, [])
 
   // Lock globale: un solo sync alla volta; isPending=true durante router.refresh()
   const [syncingCodice, setSyncingCodice] = useState<string | null>(null)
