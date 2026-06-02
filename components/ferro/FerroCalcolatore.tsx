@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Pencil, Trash2, Plus, Save, Printer } from 'lucide-react'
+import { Pencil, Trash2, Plus, Save, Printer, Link2, Lock, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /* ── TYPES ────────────────────────────────────────────────────────────────── */
@@ -145,11 +145,12 @@ function OttWidget({ nPezzi, pezzo_m, prezzoPerBarra }: { nPezzi: number; pezzo_
 }
 
 /* ── DB TABLE ─────────────────────────────────────────────────────────────── */
-function DbTable({ items, categories, priceLbl = '€/barra (6m)', onAdd, onUpdate, onDelete }: {
+function DbTable({ items, categories, priceLbl = '€/barra (6m)', onAdd, onUpdate, onDelete, onAddFromMagazzino }: {
   items: DbItem[]; categories: string[]; priceLbl?: string
   onAdd: (i: Omit<DbItem, 'id'>) => Promise<void>
   onUpdate: (i: DbItem) => Promise<void>
   onDelete: (id: string) => Promise<void>
+  onAddFromMagazzino: () => void
 }) {
   const [editId, setEditId] = useState<string | null>(null)
   const [draft, setDraft] = useState<Partial<DbItem>>({})
@@ -202,6 +203,7 @@ function DbTable({ items, categories, priceLbl = '€/barra (6m)', onAdd, onUpda
                 <TableCell>
                   <Input type="number" value={draft.prezzo ?? 0} step={0.1}
                     onChange={e => setDraft(d => ({ ...d, prezzo: parseFloat(e.target.value) || 0 }))}
+                    disabled={!!draft.magazzino_prodotto_id}
                     className="h-7 text-sm font-mono w-24" />
                 </TableCell>
                 <TableCell>
@@ -213,9 +215,19 @@ function DbTable({ items, categories, priceLbl = '€/barra (6m)', onAdd, onUpda
               </TableRow>
             ) : (
               <TableRow key={it.id}>
-                <TableCell className="font-medium">{it.label}</TableCell>
+                <TableCell className="font-medium">
+                  <span className="flex items-center gap-1.5">
+                    {it.magazzino_prodotto_id && <Link2 className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
+                    {it.label}
+                  </span>
+                </TableCell>
                 <TableCell><Badge variant="secondary" className="text-xs">{it.categoria}</Badge></TableCell>
-                <TableCell className="font-mono text-sm">{fmt(it.prezzo)}</TableCell>
+                <TableCell className="font-mono text-sm">
+                  <span className="flex items-center gap-1">
+                    {it.magazzino_prodotto_id && <Lock className="h-3 w-3 text-muted-foreground" />}
+                    {fmt(it.prezzo)}
+                  </span>
+                </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
                     <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => startEdit(it)}><Pencil className="h-3.5 w-3.5" /></Button>
@@ -227,8 +239,14 @@ function DbTable({ items, categories, priceLbl = '€/barra (6m)', onAdd, onUpda
           </TableBody>
         </Table>
       </div>
-      <div className="rounded-md border p-3 bg-muted/20">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Aggiungi nuovo</p>
+      <div className="rounded-md border p-3 bg-muted/20 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Aggiungi nuovo</p>
+          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={onAddFromMagazzino}>
+            <Link2 className="h-3.5 w-3.5" />
+            Da magazzino
+          </Button>
+        </div>
         <div className="grid grid-cols-[2fr_1fr_1fr_auto] gap-2 items-end">
           <div><Label className="text-xs mb-1 block">Descrizione</Label>
             <Input value={newItem.label} onChange={e => setNewItem(n => ({ ...n, label: e.target.value }))} placeholder="es. Quadro 16×16" className="h-8 text-sm" /></div>
