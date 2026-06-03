@@ -84,10 +84,14 @@ export async function POST(request: NextRequest) {
             .from('catalogo_prezzi')
             .upsert(priceRow, { onConflict: 'organization_id,codice' })
 
-          const campi: Record<string, string> = {}
+          const campi: Record<string, unknown> = {}
           if (json.descrizione) campi.descrizione  = json.descrizione
           if (json.immagine_url) campi.immagine_url = json.immagine_url
           if (json.um)           campi.um           = json.um
+          // totale = costo reale per 1 unità di magazzino (barra intera, accessorio, ecc.)
+          // json.totale è il campo nuovo del backend; json.prezzo come fallback per vecchie versioni
+          const prezzoAcquisto = parsePrezzo(json.totale ?? json.prezzo)
+          if (prezzoAcquisto != null) campi.prezzo_acquisto = prezzoAcquisto
 
           if (Object.keys(campi).length > 0) {
             const service = createServiceClient()
