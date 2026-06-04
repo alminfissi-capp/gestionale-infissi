@@ -19,12 +19,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { createClient } from '@/lib/supabase/client'
 import {
-  addDocumentoCommessa,
+  uploadDocumentoCommessa,
   deleteDocumentoCommessa,
   getDocumentoCommessaUrl,
-  getOrgIdPerUpload,
 } from '@/actions/commesse'
 import type { DocumentoCommessa } from '@/types/commessa'
 
@@ -68,37 +66,19 @@ export default function DialogDocumenti({ open, onOpenChange, commessaId, client
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error('File troppo grande (max 20 MB)')
-      return
-    }
     setUploading(true)
     try {
-      const orgId = await getOrgIdPerUpload()
-      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
-      const storagePath = `${orgId}/${commessaId}/${Date.now()}.${ext}`
-      // Su mobile (es. Dropbox) il file può arrivare senza type o come octet-stream
-      const mimeMap: Record<string, string> = {
-        pdf: 'application/pdf',
-        jpg: 'image/jpeg',
-        jpeg: 'image/jpeg',
-        png: 'image/png',
-        webp: 'image/webp',
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('commessaId', commessaId)
+      fd.append('tipo', tipo)
+      const result = await uploadDocumentoCommessa(fd)
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success('Documento caricato')
+        router.refresh()
       }
-      const contentType =
-        file.type && file.type !== 'application/octet-stream'
-          ? file.type
-          : (mimeMap[ext] ?? 'application/pdf')
-      const supabase = createClient()
-      const { error: uploadError } = await supabase.storage
-        .from('commesse-docs')
-        .upload(storagePath, file, { contentType })
-      if (uploadError) throw uploadError
-      await addDocumentoCommessa(commessaId, file.name, storagePath, tipo)
-      toast.success('Documento caricato')
-      router.refresh()
-    } catch {
-      toast.error('Errore nel caricamento')
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''

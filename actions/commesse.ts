@@ -219,6 +219,56 @@ export async function addDocumentoCommessa(
   revalidatePath('/commesse', 'layout')
 }
 
+const MIME_BY_EXT: Record<string, string> = {
+  pdf: 'application/pdf',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+}
+
+export async function uploadDocumentoCommessa(
+  formData: FormData
+): Promise<{ error?: string }> {
+  const file = formData.get('file') as File | null
+  const commessaId = formData.get('commessaId') as string
+  const tipo = formData.get('tipo') as string
+
+  if (!file || file.size === 0) return { error: 'Nessun file selezionato' }
+  if (file.size > 20 * 1024 * 1024) return { error: 'File troppo grande (max 20 MB)' }
+
+  const orgId = await getOrgId()
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
+  const storagePath = `${orgId}/${commessaId}/${Date.now()}.${ext}`
+  const contentType =
+    file.type && file.type !== 'application/octet-stream'
+      ? file.type
+      : (MIME_BY_EXT[ext] ?? 'application/pdf')
+
+  const service = createServiceClient()
+  const { error: uploadError } = await service.storage
+    .from('commesse-docs')
+    .upload(storagePath, file, { contentType })
+
+  if (uploadError) return { error: uploadError.message }
+
+  const supabase = await createClient()
+  const { error: dbError } = await supabase.from('documenti_commessa').insert({
+    commessa_id: commessaId,
+    organization_id: orgId,
+    nome_file: file.name,
+    storage_path: storagePath,
+    tipo_documento: tipo,
+  })
+  if (dbError) {
+    await service.storage.from('commesse-docs').remove([storagePath])
+    return { error: dbError.message }
+  }
+
+  revalidatePath('/commesse', 'layout')
+  return {}
+}
+
 export async function deleteDocumentoCommessa(id: string, storagePath: string): Promise<void> {
   const supabase = await createClient()
   await supabase.storage.from('commesse-docs').remove([storagePath])
