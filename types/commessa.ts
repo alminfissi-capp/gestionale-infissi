@@ -55,6 +55,7 @@ export type AccontoCommessa = {
   data_pagamento: string
   metodo_pagamento: MetodoPagamento
   note: string | null
+  firma_immagine: string | null
   created_at: string
 }
 

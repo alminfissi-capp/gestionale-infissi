@@ -18,6 +18,7 @@ export type Settings = {
   num_contatore: number
   num_anno: number
   num_padding: number
+  firma_default: string | null
   created_at: string
   updated_at: string
 }
