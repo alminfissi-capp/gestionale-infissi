@@ -55,12 +55,13 @@ const s = StyleSheet.create({
   // Box importo
   importoBox: {
     borderWidth: 1.5, borderColor: GRAY_BDR, borderRadius: 6,
-    backgroundColor: GRAY_LIGHT, padding: 16, alignItems: 'center', marginVertical: 10,
+    backgroundColor: GRAY_LIGHT, padding: 20, alignItems: 'center', marginVertical: 10,
   },
-  importoLabel: { color: GRAY_MID, fontSize: 8, fontFamily: 'Helvetica-Bold', letterSpacing: 1, marginBottom: 4 },
-  importoValue: { fontFamily: 'Helvetica-Bold', fontSize: 28, color: TEXT_DARK, marginBottom: 3 },
-  importoMetodo: { color: GRAY_TEXT, fontSize: 9.5 },
-  importoMetodoBold: { fontFamily: 'Helvetica-Bold', color: TEXT_MED },
+  importoLabel: { color: GRAY_MID, fontSize: 8, fontFamily: 'Helvetica-Bold', letterSpacing: 1, marginBottom: 8 },
+  importoValue: { fontFamily: 'Helvetica-Bold', fontSize: 28, color: TEXT_DARK, marginBottom: 10 },
+  importoMetodoRow: { flexDirection: 'row' as const },
+  importoMetodoTxt: { color: GRAY_TEXT, fontSize: 9.5 },
+  importoMetodoBold: { fontFamily: 'Helvetica-Bold', color: TEXT_MED, fontSize: 9.5 },
   // Campi info
   fieldLabel: { color: GRAY_MID, fontSize: 7.5, fontFamily: 'Helvetica-Bold', letterSpacing: 1, marginBottom: 2 },
   fieldValue: { fontSize: 10, color: TEXT_MED, fontFamily: 'Helvetica-Bold' },
@@ -162,12 +163,12 @@ export default function RicevutaPdfDocument({ commessa, acconto, settings, logoU
         <View style={s.importoBox}>
           <Text style={s.importoLabel}>SI DICHIARA DI AVER RICEVUTO LA SOMMA DI</Text>
           <Text style={s.importoValue}>{formatEuro(acconto.importo)}</Text>
-          <Text style={s.importoMetodo}>
-            Metodo di pagamento:{' '}
+          <View style={s.importoMetodoRow}>
+            <Text style={s.importoMetodoTxt}>Metodo di pagamento: </Text>
             <Text style={s.importoMetodoBold}>
               {METODI[acconto.metodo_pagamento] ?? acconto.metodo_pagamento}
             </Text>
-          </Text>
+          </View>
         </View>
 
         {/* Commessa / Preventivo */}
