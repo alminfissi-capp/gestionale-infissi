@@ -75,12 +75,24 @@ export default function DialogDocumenti({ open, onOpenChange, commessaId, client
     setUploading(true)
     try {
       const orgId = await getOrgIdPerUpload()
-      const ext = file.name.split('.').pop() ?? 'bin'
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
       const storagePath = `${orgId}/${commessaId}/${Date.now()}.${ext}`
+      // Su mobile (es. Dropbox) il file può arrivare senza type o come octet-stream
+      const mimeMap: Record<string, string> = {
+        pdf: 'application/pdf',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png',
+        webp: 'image/webp',
+      }
+      const contentType =
+        file.type && file.type !== 'application/octet-stream'
+          ? file.type
+          : (mimeMap[ext] ?? 'application/pdf')
       const supabase = createClient()
       const { error: uploadError } = await supabase.storage
         .from('commesse-docs')
-        .upload(storagePath, file)
+        .upload(storagePath, file, { contentType })
       if (uploadError) throw uploadError
       await addDocumentoCommessa(commessaId, file.name, storagePath, tipo)
       toast.success('Documento caricato')
@@ -210,8 +222,8 @@ export default function DialogDocumenti({ open, onOpenChange, commessaId, client
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.webp"
-            className="hidden"
+            accept=".pdf,application/pdf,.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+            style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden', opacity: 0 }}
             onChange={handleUpload}
           />
           <Button
