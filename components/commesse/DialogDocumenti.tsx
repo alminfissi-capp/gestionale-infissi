@@ -68,8 +68,19 @@ export default function DialogDocumenti({ open, onOpenChange, commessaId, client
     if (!file) return
     setUploading(true)
     try {
+      // Su iOS i file da cloud (Dropbox/iCloud) sono lazy — arrayBuffer() forza la lettura completa
+      const buffer = await file.arrayBuffer()
+      const mimeFromExt: Record<string, string> = {
+        pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+        png: 'image/png', webp: 'image/webp',
+      }
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+      const contentType = (file.type && file.type !== 'application/octet-stream')
+        ? file.type
+        : (mimeFromExt[ext] ?? 'application/octet-stream')
+      const blob = new Blob([buffer], { type: contentType })
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', blob, file.name)
       fd.append('commessaId', commessaId)
       fd.append('tipo', tipo)
       const result = await uploadDocumentoCommessa(fd)
@@ -79,6 +90,9 @@ export default function DialogDocumenti({ open, onOpenChange, commessaId, client
         toast.success('Documento caricato')
         router.refresh()
       }
+    } catch (err) {
+      console.error('Upload error:', err)
+      toast.error('Errore nel caricamento')
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -201,21 +215,25 @@ export default function DialogDocumenti({ open, onOpenChange, commessaId, client
           </div>
           <input
             ref={fileInputRef}
+            id="doc-upload"
             type="file"
             accept=".pdf,application/pdf,.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-            style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden', opacity: 0 }}
+            className="sr-only"
             onChange={handleUpload}
           />
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            {uploading ? 'Caricamento...' : 'Seleziona file (PDF, immagine)'}
-          </Button>
+          {uploading ? (
+            <Button type="button" variant="outline" className="w-full" disabled>
+              <Upload className="h-4 w-4 mr-2" />
+              Caricamento...
+            </Button>
+          ) : (
+            <Button variant="outline" className="w-full" asChild>
+              <label htmlFor="doc-upload" className="cursor-pointer">
+                <Upload className="h-4 w-4 mr-2" />
+                Seleziona file (PDF, immagine)
+              </label>
+            </Button>
+          )}
           <p className="text-xs text-gray-400 text-center">Max 20 MB</p>
         </div>
       </DialogContent>
