@@ -57,6 +57,17 @@ export async function saveLogoUrl(logoUrl: string | null): Promise<void> {
   revalidatePath('/impostazioni')
 }
 
+export async function salvaFirmaDefault(firmaBase64: string | null): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('settings')
+    .upsert({ organization_id: orgId, firma_default: firmaBase64 }, { onConflict: 'organization_id' })
+  if (error) throw new Error(error.message)
+  revalidateTag(`settings-${orgId}`, {})
+  revalidatePath('/impostazioni')
+}
+
 export async function getLogoSignedUrl(path: string): Promise<string | null> {
   const supabase = await createClient()
   const { data } = await supabase.storage

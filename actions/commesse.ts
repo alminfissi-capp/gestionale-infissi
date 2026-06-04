@@ -544,3 +544,18 @@ export async function spostaCommessa(commessaId: string, gruppoId: string): Prom
   if (error) throw new Error(error.message)
   revalidatePath('/commesse', 'layout')
 }
+
+export async function salvaFirmaAcconto(accontoId: string, firmaBase64: string): Promise<void> {
+  if (!firmaBase64.startsWith('data:image/png;base64,')) {
+    throw new Error('Formato firma non valido')
+  }
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('acconti_commessa')
+    .update({ firma_immagine: firmaBase64 })
+    .eq('id', accontoId)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/commesse', 'layout')
+}
