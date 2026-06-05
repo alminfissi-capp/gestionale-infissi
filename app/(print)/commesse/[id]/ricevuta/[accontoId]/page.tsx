@@ -44,6 +44,7 @@ export default async function RicevutaAccontoPage({ params }: Props) {
       acconto={acconto}
       settings={settings}
       logoUrl={logoUrl}
+      firmaDefault={settings?.firma_default ?? null}
     />
   )
 }

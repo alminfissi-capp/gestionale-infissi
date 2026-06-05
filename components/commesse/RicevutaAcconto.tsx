@@ -1,18 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { Printer, ChevronLeft, Share2 } from 'lucide-react'
+import { Printer, ChevronLeft, Share2, PenLine, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { formatEuro } from '@/lib/pricing'
 import type { CommessaCompleta, AccontoCommessa, MetodoPagamento } from '@/types/commessa'
 import type { Settings } from '@/types/impostazioni'
+import DrawerFirmaRicevuta from '@/components/commesse/DrawerFirmaRicevuta'
 
 interface Props {
   commessa: CommessaCompleta
   acconto: AccontoCommessa
   settings: Settings | null
   logoUrl: string | null
+  firmaDefault: string | null
 }
 
 const METODI: Record<MetodoPagamento, string> = {
@@ -29,9 +31,11 @@ function formatData(d: string) {
   })
 }
 
-export default function RicevutaAcconto({ commessa, acconto, settings, logoUrl }: Props) {
+export default function RicevutaAcconto({ commessa, acconto, settings, logoUrl, firmaDefault }: Props) {
   const ricevutaRef = acconto.id.slice(-6).toUpperCase()
   const [sharing, setSharing] = useState(false)
+  const [firmaAperta, setFirmaAperta] = useState(false)
+  const [firmaCorrente, setFirmaCorrente] = useState<string | null>(acconto.firma_immagine)
 
   async function handleShare() {
     setSharing(true)
@@ -47,6 +51,7 @@ export default function RicevutaAcconto({ commessa, acconto, settings, logoUrl }
           acconto={acconto}
           settings={settings}
           logoUrl={logoUrl}
+          firmaImmagine={firmaCorrente}
         />
       ).toBlob()
 
@@ -58,7 +63,6 @@ export default function RicevutaAcconto({ commessa, acconto, settings, logoUrl }
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], title: fileName })
       } else {
-        // Fallback: download diretto
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
@@ -67,7 +71,7 @@ export default function RicevutaAcconto({ commessa, acconto, settings, logoUrl }
         URL.revokeObjectURL(url)
       }
     } catch {
-      // L'utente ha chiuso il pannello di condivisione — nessun errore da mostrare
+      // L'utente ha chiuso il pannello — nessun errore da mostrare
     } finally {
       setSharing(false)
     }
@@ -75,53 +79,91 @@ export default function RicevutaAcconto({ commessa, acconto, settings, logoUrl }
 
   return (
     <>
-      {/* Toolbar — solo schermo */}
-      <div className="print:hidden sticky top-0 z-10 bg-gray-100 border-b border-gray-200 px-6 py-3 flex items-center gap-3">
+      {/* Toolbar */}
+      <div className="print:hidden sticky top-0 z-10 bg-gray-100 border-b border-gray-200 px-4 py-3 flex items-center gap-2 flex-wrap">
         <Button variant="ghost" size="sm" asChild className="-ml-2">
           <Link href="/commesse">
             <ChevronLeft className="h-4 w-4" />
-            Torna alle commesse
+            Commesse
           </Link>
         </Button>
         <div className="flex-1" />
+        {firmaCorrente ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-green-600 border-green-200 hover:border-green-300"
+            onClick={() => setFirmaAperta(true)}
+          >
+            <CheckCircle2 className="h-4 w-4 mr-1.5 text-green-600" />
+            Firmata
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" onClick={() => setFirmaAperta(true)}>
+            <PenLine className="h-4 w-4 mr-1.5" />
+            Firma
+          </Button>
+        )}
         <Button variant="outline" size="sm" onClick={handleShare} disabled={sharing}>
           <Share2 className="h-4 w-4 mr-1.5" />
           {sharing ? 'Generazione...' : 'Condividi PDF'}
         </Button>
         <Button size="sm" onClick={() => window.print()}>
           <Printer className="h-4 w-4 mr-1.5" />
-          Stampa / Salva PDF
+          Stampa
         </Button>
       </div>
 
       {/* Sfondo grigio schermo */}
       <div className="print:hidden bg-gray-100 min-h-screen py-10 px-4 flex items-start justify-center">
         <div className="bg-white shadow-md w-full max-w-[600px] p-10">
-          <Ricevuta commessa={commessa} acconto={acconto} settings={settings} logoUrl={logoUrl} ricevutaRef={ricevutaRef} />
+          <Ricevuta
+            commessa={commessa}
+            acconto={acconto}
+            settings={settings}
+            logoUrl={logoUrl}
+            ricevutaRef={ricevutaRef}
+            firmaCorrente={firmaCorrente}
+          />
         </div>
       </div>
 
       {/* Stampa */}
       <div className="hidden print:block p-10 max-w-[600px] mx-auto">
-        <Ricevuta commessa={commessa} acconto={acconto} settings={settings} logoUrl={logoUrl} ricevutaRef={ricevutaRef} />
+        <Ricevuta
+          commessa={commessa}
+          acconto={acconto}
+          settings={settings}
+          logoUrl={logoUrl}
+          ricevutaRef={ricevutaRef}
+          firmaCorrente={firmaCorrente}
+        />
       </div>
 
       <style>{`
         @page { size: A4; margin: 20mm 25mm; }
         @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
       `}</style>
+
+      <DrawerFirmaRicevuta
+        open={firmaAperta}
+        onOpenChange={setFirmaAperta}
+        accontoId={acconto.id}
+        firmaDefault={firmaDefault}
+        onFirmaSalvata={setFirmaCorrente}
+      />
     </>
   )
 }
 
-function Ricevuta({ commessa, acconto, settings, logoUrl, ricevutaRef }: {
+function Ricevuta({ commessa, acconto, settings, logoUrl, ricevutaRef, firmaCorrente }: {
   commessa: CommessaCompleta
   acconto: AccontoCommessa
   settings: Settings | null
   logoUrl: string | null
   ricevutaRef: string
+  firmaCorrente: string | null
 }) {
-  // Snapshot alla data di emissione: solo acconti creati fino a questo incluso
   const accontinSnapshot = commessa.acconti
     .filter((a) => a.created_at <= acconto.created_at)
     .sort((a, b) => a.created_at.localeCompare(b.created_at))
@@ -173,7 +215,7 @@ function Ricevuta({ commessa, acconto, settings, logoUrl, ricevutaRef }: {
         <p className="text-[16px] font-semibold">{commessa.cliente_nome}</p>
       </div>
 
-      {/* Importo — elemento centrale */}
+      {/* Importo */}
       <div className="border-2 border-gray-200 rounded-lg p-6 text-center space-y-1 bg-gray-50">
         <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
           Si dichiara di aver ricevuto la somma di
@@ -262,7 +304,13 @@ function Ricevuta({ commessa, acconto, settings, logoUrl, ricevutaRef }: {
       {/* Firma */}
       <div className="flex justify-between items-end pt-4">
         <div>
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-6">Firma del ricevente</p>
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Firma del ricevente</p>
+          {firmaCorrente ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={firmaCorrente} alt="Firma" className="h-10 object-contain mb-1" />
+          ) : (
+            <div className="mb-4" />
+          )}
           <div className="w-48 border-b border-gray-400" />
         </div>
         <div className="text-right">

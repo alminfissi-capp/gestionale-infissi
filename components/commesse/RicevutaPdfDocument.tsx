@@ -95,6 +95,7 @@ const s = StyleSheet.create({
   firmaLabel: { color: GRAY_MID, fontSize: 7.5, fontFamily: 'Helvetica-Bold', letterSpacing: 1, marginBottom: 18 },
   firmaLine: { borderBottomWidth: 1, borderBottomColor: '#9CA3AF', width: 140 },
   firmaLineShort: { borderBottomWidth: 1, borderBottomColor: '#9CA3AF', width: 110 },
+  firmaImg: { height: 36, maxWidth: 140 },
 })
 
 interface Props {
@@ -102,9 +103,10 @@ interface Props {
   acconto: AccontoCommessa
   settings: Settings | null
   logoUrl: string | null
+  firmaImmagine?: string | null
 }
 
-export default function RicevutaPdfDocument({ commessa, acconto, settings, logoUrl }: Props) {
+export default function RicevutaPdfDocument({ commessa, acconto, settings, logoUrl, firmaImmagine }: Props) {
   const ricevutaRef = acconto.id.slice(-6).toUpperCase()
 
   const accontiSnapshot = commessa.acconti
@@ -250,6 +252,11 @@ export default function RicevutaPdfDocument({ commessa, acconto, settings, logoU
         <View style={s.firmaRow}>
           <View>
             <Text style={s.firmaLabel}>FIRMA DEL RICEVENTE</Text>
+            {firmaImmagine ? (
+              <Image src={firmaImmagine} style={s.firmaImg} />
+            ) : (
+              <View style={{ marginBottom: 18 }} />
+            )}
             <View style={s.firmaLine} />
           </View>
           <View>
