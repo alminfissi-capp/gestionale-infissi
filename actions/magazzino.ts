@@ -769,7 +769,9 @@ export async function getProdottiCatalogoESP(
     query = query.eq('gruppo', filtri.gruppo)
   }
   if (filtri.cerca) {
-    query = query.or(`codice.ilike.%${filtri.cerca}%,descrizione.ilike.%${filtri.cerca}%`)
+    // Escape delle virgole nel testo di ricerca per non rompere il parser PostgREST
+    const cercaEscaped = filtri.cerca.replace(/,/g, '%2C')
+    query = query.or(`codice.ilike.%${cercaEscaped}%,descrizione.ilike.%${cercaEscaped}%`)
   }
 
   const { data, error, count } = await query
