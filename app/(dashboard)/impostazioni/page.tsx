@@ -10,6 +10,7 @@ import FormAliquoteIva from '@/components/impostazioni/FormAliquoteIva'
 import FormNumerazione from '@/components/impostazioni/FormNumerazione'
 import FormValiditaPreventivo from '@/components/impostazioni/FormValiditaPreventivo'
 import ThemeToggle from '@/components/impostazioni/ThemeToggle'
+import SezioneFirmaDefault from '@/components/impostazioni/SezioneFirmaDefault'
 
 export default async function ImpostazioniPage() {
   await requireAccesso('impostazioni')
@@ -86,6 +87,19 @@ export default async function ImpostazioniPage() {
             currentLogoUrl={logoSignedUrl}
             currentLogoPath={settings?.logo_url ?? null}
           />
+        </CardContent>
+      </Card>
+
+      {/* Firma predefinita */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Firma predefinita ricevute</CardTitle>
+          <CardDescription>
+            Usata come scorciatoia nelle ricevute di pagamento. Puoi sempre tracciare una firma diversa al momento dell&apos;incasso.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SezioneFirmaDefault firmaDefault={settings?.firma_default ?? null} />
         </CardContent>
       </Card>
 
