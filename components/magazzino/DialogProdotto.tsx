@@ -89,7 +89,10 @@ export default function DialogProdotto({ open, onOpenChange, prodotto, categorie
     if (!open) return
     if (prodotto) {
       // Modifica: ricava la macro dalla categoria del prodotto
-      const macroDaProdotto = prodotto.categoria?.tipo ?? null
+      // prodotto.categoria può essere undefined se il dato arriva da CatalogoArticolo (senza join)
+      const catFromJoin = (prodotto as ProdottoConCategoria).categoria
+      const catFromList = categorie.find((c) => c.id === prodotto.categoria_id)
+      const macroDaProdotto = catFromJoin?.tipo ?? catFromList?.tipo ?? null
       setSelectedMacro(macroDaProdotto as TipoCategoriaMagazzino | null)
       setForm({
         codice: prodotto.codice,
@@ -109,7 +112,7 @@ export default function DialogProdotto({ open, onOpenChange, prodotto, categorie
         dxf_url: prodotto.dxf_url,
         note: prodotto.note ?? '',
       })
-      setVarianti(prodotto.varianti.map((v) => ({ id: v.id, nome: v.nome, codice_variante: v.codice_variante ?? '' })))
+      setVarianti(((prodotto as ProdottoConCategoria).varianti ?? []).map((v) => ({ id: v.id, nome: v.nome, codice_variante: v.codice_variante ?? '' })))
       setVariantiToDelete([])
 
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL
