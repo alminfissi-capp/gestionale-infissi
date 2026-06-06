@@ -2,9 +2,11 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
+import { formatEuro } from '@/lib/pricing'
 
 export type ActivityItem = {
-  tipo: 'preventivo' | 'cliente' | 'listino'
+  tipo: 'preventivo' | 'cliente' | 'commessa' | 'acconto'
+  azione: string
   descrizione: string
   href: string
   data: string
@@ -36,6 +38,12 @@ export type DashboardData = {
   graficoPeriodo: GiornoPoint[] // 12 mesi anno corrente
 }
 
+function nomeCliente(snap: unknown): string {
+  if (!snap || typeof snap !== 'object') return 'Sconosciuto'
+  const s = snap as { nome?: string; cognome?: string }
+  return `${s.nome ?? ''} ${s.cognome ?? ''}`.trim() || 'Cliente'
+}
+
 export async function getDashboardData(): Promise<DashboardData> {
   const supabase = await createClient()
   const orgId = await getOrgId()
@@ -43,25 +51,53 @@ export async function getDashboardData(): Promise<DashboardData> {
   const year = new Date().getFullYear()
   const startOfYear = new Date(year, 0, 1).toISOString()
 
-  const [prevResult, clientiResult, listiniResult, prevAnnoResult] = await Promise.all([
+  const [
+    prevCreatiResult,
+    prevStatoResult,
+    prevModificatiResult,
+    clientiResult,
+    commesseResult,
+    accontiResult,
+    prevAnnoResult,
+  ] = await Promise.all([
     supabase
       .from('preventivi')
       .select('id, cliente_snapshot, created_at')
       .eq('organization_id', orgId)
       .order('created_at', { ascending: false })
-      .limit(5),
+      .limit(10),
+    supabase
+      .from('preventivi')
+      .select('id, cliente_snapshot, stato, updated_at, created_at')
+      .eq('organization_id', orgId)
+      .in('stato', ['accettato', 'rifiutato', 'inviato'])
+      .order('updated_at', { ascending: false })
+      .limit(10),
+    supabase
+      .from('preventivi')
+      .select('id, cliente_snapshot, updated_at, created_at')
+      .eq('organization_id', orgId)
+      .eq('stato', 'bozza')
+      .order('updated_at', { ascending: false })
+      .limit(10),
     supabase
       .from('clienti')
       .select('id, nome, cognome, created_at')
       .eq('organization_id', orgId)
       .order('created_at', { ascending: false })
-      .limit(5),
+      .limit(10),
     supabase
-      .from('categorie_listini')
-      .select('id, nome, created_at')
+      .from('commesse')
+      .select('id, cliente_nome, numero_commessa, created_at')
       .eq('organization_id', orgId)
       .order('created_at', { ascending: false })
-      .limit(5),
+      .limit(10),
+    supabase
+      .from('acconti_commessa')
+      .select('id, importo, created_at, commesse(id, cliente_nome)')
+      .eq('organization_id', orgId)
+      .order('created_at', { ascending: false })
+      .limit(10),
     supabase
       .from('preventivi')
       .select('id, stato, totale_articoli, created_at')
@@ -71,20 +107,83 @@ export async function getDashboardData(): Promise<DashboardData> {
   ])
 
   // ── Attività recenti ────────────────────────────────────────────────────────
-  const prevItems: ActivityItem[] = (prevResult.data ?? []).map((p) => {
-    const snap = p.cliente_snapshot as { nome?: string; cognome?: string } | null
-    const nome = snap ? `${snap.nome ?? ''} ${snap.cognome ?? ''}`.trim() : 'Preventivo'
-    return { tipo: 'preventivo', descrizione: nome || 'Preventivo', href: `/preventivi/${p.id}`, data: p.created_at }
-  })
+  const STATO_LABEL: Record<string, string> = {
+    accettato: 'Preventivo accettato',
+    rifiutato: 'Preventivo rifiutato',
+    inviato: 'Preventivo inviato',
+  }
+
+  const prevCreati: ActivityItem[] = (prevCreatiResult.data ?? []).map((p) => ({
+    tipo: 'preventivo',
+    azione: 'Preventivo creato',
+    descrizione: nomeCliente(p.cliente_snapshot),
+    href: `/preventivi/${p.id}`,
+    data: p.created_at,
+  }))
+
+  const prevStato: ActivityItem[] = (prevStatoResult.data ?? [])
+    .filter((p) => p.updated_at > p.created_at)
+    .map((p) => ({
+      tipo: 'preventivo',
+      azione: STATO_LABEL[p.stato] ?? 'Preventivo aggiornato',
+      descrizione: nomeCliente(p.cliente_snapshot),
+      href: `/preventivi/${p.id}`,
+      data: p.updated_at,
+    }))
+
+  const prevModificati: ActivityItem[] = (prevModificatiResult.data ?? [])
+    .filter((p) => p.updated_at > p.created_at)
+    .map((p) => ({
+      tipo: 'preventivo',
+      azione: 'Preventivo modificato',
+      descrizione: nomeCliente(p.cliente_snapshot),
+      href: `/preventivi/${p.id}`,
+      data: p.updated_at,
+    }))
+
   const clientiItems: ActivityItem[] = (clientiResult.data ?? []).map((c) => ({
-    tipo: 'cliente', descrizione: `${c.nome ?? ''} ${c.cognome ?? ''}`.trim() || 'Cliente', href: '/clienti', data: c.created_at,
+    tipo: 'cliente',
+    azione: 'Cliente inserito in anagrafica',
+    descrizione: `${c.nome ?? ''} ${c.cognome ?? ''}`.trim() || 'Cliente',
+    href: '/clienti',
+    data: c.created_at,
   }))
-  const listiniItems: ActivityItem[] = (listiniResult.data ?? []).map((l) => ({
-    tipo: 'listino', descrizione: l.nome ?? 'Listino', href: '/listini', data: l.created_at,
+
+  const commesseItems: ActivityItem[] = (commesseResult.data ?? []).map((c) => ({
+    tipo: 'commessa',
+    azione: c.numero_commessa ? `Commessa ${c.numero_commessa} aggiunta` : 'Commessa aggiunta',
+    descrizione: c.cliente_nome ?? 'Cliente',
+    href: `/commesse/${c.id}`,
+    data: c.created_at,
   }))
-  const attivitaRecenti = [...prevItems, ...clientiItems, ...listiniItems]
+
+  type AccontoRow = {
+    id: string
+    importo: number
+    created_at: string
+    commesse: { id: string; cliente_nome: string }[] | null
+  }
+  const accontiItems: ActivityItem[] = ((accontiResult.data ?? []) as unknown as AccontoRow[]).map((a) => {
+    const c = a.commesse?.[0] ?? null
+    return {
+      tipo: 'acconto',
+      azione: `Acconto ricevuto — € ${formatEuro(a.importo)}`,
+      descrizione: c?.cliente_nome ?? 'Cliente',
+      href: c ? `/commesse/${c.id}` : '/commesse',
+      data: a.created_at,
+    }
+  })
+
+  const attivitaRecenti = [
+    ...prevCreati,
+    ...prevStato,
+    ...prevModificati,
+    ...clientiItems,
+    ...commesseItems,
+    ...accontiItems,
+  ]
     .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
-    .slice(0, 8)
+    .slice(0, 10)
 
   // ── Statistiche preventivi anno ─────────────────────────────────────────────
   const prevAnno = prevAnnoResult.data ?? []

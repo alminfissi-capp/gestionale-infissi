@@ -1,6 +1,6 @@
 'use client'
 
-import { Activity, FileText, User, BookOpen, Ruler, ChevronRight } from 'lucide-react'
+import { Activity, FileText, User, Briefcase, Coins, Ruler, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -27,7 +27,8 @@ function formatData(iso: string): string {
 function TipoIcon({ tipo }: { tipo: ActivityItem['tipo'] }) {
   if (tipo === 'preventivo') return <FileText className="h-4 w-4 text-teal-600 shrink-0" />
   if (tipo === 'cliente') return <User className="h-4 w-4 text-blue-600 shrink-0" />
-  return <BookOpen className="h-4 w-4 text-green-600 shrink-0" />
+  if (tipo === 'commessa') return <Briefcase className="h-4 w-4 text-orange-500 shrink-0" />
+  return <Coins className="h-4 w-4 text-emerald-600 shrink-0" />
 }
 
 // ── Card statistica ───────────────────────────────────────────────────────────
@@ -201,14 +202,15 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
         {data.attivitaRecenti.length === 0 ? (
           <p className="text-sm text-gray-500">Nessuna attività recente</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="divide-y divide-gray-50">
             {data.attivitaRecenti.map((item, i) => (
-              <li key={i} className="flex items-center gap-2 text-sm">
+              <li key={i} className="flex items-center gap-2 py-2 text-sm min-w-0">
                 <TipoIcon tipo={item.tipo} />
-                <Link href={item.href} className="font-medium text-gray-800 hover:underline truncate">
+                <Link href={item.href} className="font-medium text-gray-800 hover:underline truncate shrink min-w-0">
                   {item.descrizione}
                 </Link>
-                <span className="ml-auto text-gray-400 shrink-0 text-xs">{formatData(item.data)}</span>
+                <span className="ml-auto text-gray-400 shrink-0 text-xs pl-2 hidden sm:block">{item.azione}</span>
+                <span className="text-gray-400 shrink-0 text-xs pl-2 sm:pl-3">{formatData(item.data)}</span>
               </li>
             ))}
           </ul>
