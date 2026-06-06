@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Link2 } from 'lucide-react'
+import { Link2, Search } from 'lucide-react'
 
 export type ProdottoMagazzino = {
   id: string
@@ -25,23 +25,45 @@ type Props = {
   onConfirm: (prodotti: ProdottoMagazzino[]) => void
 }
 
+const LIMIT = 60
+
 export default function DialogSelezioneProdottiMagazzino({ open, onClose, linkedIds, onConfirm }: Props) {
   const [prodotti, setProdotti] = useState<ProdottoMagazzino[]>([])
   const [loading, setLoading] = useState(false)
   const [cerca, setCerca] = useState('')
   const [selezionati, setSelezionati] = useState<Set<string>>(new Set())
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Reset state when dialog opens
   useEffect(() => {
     if (!open) return
     setSelezionati(new Set())
     setCerca('')
-    const load = async () => {
+    setProdotti([])
+  }, [open])
+
+  // Server-side search with debounce
+  useEffect(() => {
+    if (!open) return
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    if (cerca.trim().length < 2) {
+      setProdotti([])
+      return
+    }
+
+    debounceRef.current = setTimeout(async () => {
       setLoading(true)
       const db = createClient()
+      const q = cerca.trim()
+
       const { data } = await db
         .from('catalogo_articoli')
         .select('id, codice, descrizione, prezzo_acquisto, categorie_magazzino(nome)')
+        .or(`descrizione.ilike.%${q}%,codice.ilike.%${q}%`)
         .order('descrizione')
+        .limit(LIMIT)
+
       if (data) {
         setProdotti(data.map(p => ({
           id: p.id,
@@ -53,19 +75,10 @@ export default function DialogSelezioneProdottiMagazzino({ open, onClose, linked
         })))
       }
       setLoading(false)
-    }
-    load()
-  }, [open])
+    }, 300)
 
-  const filtrati = useMemo(() => {
-    const q = cerca.toLowerCase()
-    if (!q) return prodotti
-    return prodotti.filter(p =>
-      p.descrizione.toLowerCase().includes(q) ||
-      p.codice.toLowerCase().includes(q) ||
-      (p.categoria_nome ?? '').toLowerCase().includes(q)
-    )
-  }, [prodotti, cerca])
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [cerca, open])
 
   const toggle = (id: string) => {
     if (linkedIds.includes(id)) return
@@ -82,6 +95,9 @@ export default function DialogSelezioneProdottiMagazzino({ open, onClose, linked
     onClose()
   }
 
+  const showEmpty = cerca.trim().length >= 2 && !loading && prodotti.length === 0
+  const showPrompt = cerca.trim().length < 2 && !loading
+
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
@@ -92,17 +108,32 @@ export default function DialogSelezioneProdottiMagazzino({ open, onClose, linked
           </DialogTitle>
         </DialogHeader>
 
-        <Input
-          placeholder="Cerca per codice, descrizione o categoria..."
-          value={cerca}
-          onChange={e => setCerca(e.target.value)}
-          className="mt-2"
-        />
+        <div className="relative mt-2">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Cerca per codice o descrizione (min. 2 caratteri)..."
+            value={cerca}
+            onChange={e => setCerca(e.target.value)}
+            className="pl-9"
+            autoFocus
+          />
+        </div>
 
         <div className="flex-1 overflow-auto mt-2 rounded-md border">
-          {loading ? (
-            <div className="p-8 text-center text-sm text-muted-foreground">Caricamento...</div>
-          ) : (
+          {loading && (
+            <div className="p-8 text-center text-sm text-muted-foreground">Ricerca in corso...</div>
+          )}
+          {showPrompt && (
+            <div className="p-8 text-center text-sm text-muted-foreground">
+              Digita almeno 2 caratteri per cercare nel catalogo
+            </div>
+          )}
+          {showEmpty && (
+            <div className="p-8 text-center text-sm text-muted-foreground">
+              Nessun prodotto trovato per &quot;{cerca}&quot;
+            </div>
+          )}
+          {!loading && prodotti.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -114,7 +145,7 @@ export default function DialogSelezioneProdottiMagazzino({ open, onClose, linked
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtrati.map(p => {
+                {prodotti.map(p => {
                   const giàAggiunto = linkedIds.includes(p.id)
                   const checked = selezionati.has(p.id)
                   return (
@@ -143,19 +174,22 @@ export default function DialogSelezioneProdottiMagazzino({ open, onClose, linked
                     </TableRow>
                   )
                 })}
-                {filtrati.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                      Nessun prodotto trovato
-                    </TableCell>
-                  </TableRow>
-                )}
               </TableBody>
             </Table>
           )}
         </div>
 
-        <DialogFooter className="mt-4">
+        <div className="flex items-center justify-between mt-1 text-xs text-muted-foreground">
+          {prodotti.length === LIMIT && (
+            <span>Mostrati i primi {LIMIT} risultati — affina la ricerca per trovare altri</span>
+          )}
+          {prodotti.length > 0 && prodotti.length < LIMIT && (
+            <span>{prodotti.length} risultati</span>
+          )}
+          {prodotti.length === 0 && <span />}
+        </div>
+
+        <DialogFooter className="mt-2">
           <span className="text-sm text-muted-foreground mr-auto">
             {selezionati.size > 0 ? `${selezionati.size} selezionati` : 'Nessuna selezione'}
           </span>
