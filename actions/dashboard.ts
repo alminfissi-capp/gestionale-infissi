@@ -157,14 +157,11 @@ export async function getDashboardData(): Promise<DashboardData> {
     data: c.created_at,
   }))
 
-  type AccontoRow = {
-    id: string
-    importo: number
-    created_at: string
-    commesse: { id: string; cliente_nome: string }[] | null
-  }
-  const accontiItems: ActivityItem[] = ((accontiResult.data ?? []) as unknown as AccontoRow[]).map((a) => {
-    const c = a.commesse?.[0] ?? null
+  type CommessaRef = { id: string; cliente_nome: string }
+  type AccontoRaw = { id: string; importo: number; created_at: string; commesse: CommessaRef | CommessaRef[] | null }
+  const accontiItems: ActivityItem[] = ((accontiResult.data ?? []) as unknown as AccontoRaw[]).map((a) => {
+    const raw = a.commesse
+    const c: CommessaRef | null = Array.isArray(raw) ? (raw[0] ?? null) : (raw ?? null)
     return {
       tipo: 'acconto',
       azione: `Acconto ricevuto — € ${formatEuro(a.importo)}`,
