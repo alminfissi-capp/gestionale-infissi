@@ -742,6 +742,7 @@ export default function TabellaCommesse({
         clienti={clienti}
         preventivoDaConvertire={preventivoDaConvertire}
         gruppoId={gruppoCorrenteId}
+        gruppi={gruppi}
       />
 
       <DialogSchedaCommessa

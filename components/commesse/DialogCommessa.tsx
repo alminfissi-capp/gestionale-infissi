@@ -49,6 +49,7 @@ import { formatEuro } from '@/lib/pricing'
 import type {
   CommessaCompleta,
   CommessaInput,
+  GruppoCommesse,
   PreventivoPerCommessa,
   PreventivoCommessa,
   Reparto,
@@ -68,6 +69,7 @@ interface Props {
   clienti: Cliente[]
   preventivoDaConvertire?: PreventivoPerCommessa | null
   gruppoId: string
+  gruppi: GruppoCommesse[]
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100
@@ -135,11 +137,15 @@ export default function DialogCommessa({
   clienti,
   preventivoDaConvertire,
   gruppoId,
+  gruppi,
 }: Props) {
   const router = useRouter()
   const { isOnline } = useOnlineStatus()
   const [form, setForm] = useState<CommessaInput>(emptyForm())
   const [loading, setLoading] = useState(false)
+
+  // Blocco di destinazione (solo creazione) — default: blocco corrente
+  const [gruppoSel, setGruppoSel] = useState<string>(gruppoId)
 
   // Lista preventivi collegati
   const [prevItems, setPrevItems] = useState<PrevItem[]>([])
@@ -160,6 +166,7 @@ export default function DialogCommessa({
   // Reset all'apertura
   useEffect(() => {
     if (!open) return
+    setGruppoSel(gruppoId)
     setClienteId(null)
     setSalvaCliente(false)
     setNuovoTipo('privato')
@@ -371,15 +378,19 @@ export default function DialogCommessa({
         onOpenChange(false)
         router.refresh()
       } else if (!isOnline) {
-        await db.pendingCommesse.add({ input: formFinale, createdAt: new Date().toISOString() })
+        await db.pendingCommesse.add({ input: { ...formFinale, gruppo_id: gruppoSel }, createdAt: new Date().toISOString() })
         toast.success('Commessa salvata offline. Verrà sincronizzata al ritorno in rete.')
         onOpenChange(false)
       } else {
-        const { id: newId } = await createCommessa({ ...formFinale, gruppo_id: gruppoId })
+        const { id: newId } = await createCommessa({ ...formFinale, gruppo_id: gruppoSel })
         await uploadAndSavePreventivi(newId)
         toast.success('Commessa creata')
         onOpenChange(false)
-        router.refresh()
+        if (gruppoSel !== gruppoId) {
+          router.push(`/commesse/${gruppoSel}`)
+        } else {
+          router.refresh()
+        }
       }
     } catch {
       toast.error('Errore nel salvataggio')
@@ -435,6 +446,28 @@ export default function DialogCommessa({
           <DialogTitle>{commessa ? 'Modifica commessa' : 'Nuova commessa'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* ── Blocco di destinazione (solo creazione) ── */}
+          {isCreazione && (
+            <div className="space-y-2">
+              <Label>Blocco di destinazione *</Label>
+              <Select value={gruppoSel} onValueChange={setGruppoSel}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleziona blocco..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {gruppi.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>{g.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {gruppoSel !== gruppoId && (
+                <p className="text-xs text-amber-600">
+                  La commessa verrà inserita in &quot;{gruppi.find((g) => g.id === gruppoSel)?.nome}&quot;, non nel blocco corrente.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* ── Preventivi collegati ── */}
           <div className="space-y-2">
