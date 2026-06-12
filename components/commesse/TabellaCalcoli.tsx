@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Star, FolderOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import {
   Table,
   TableBody,
@@ -15,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { toggleCalcoli } from '@/actions/commesse'
+import { toggleCalcoli, setIncassoPrevisto } from '@/actions/commesse'
 import { formatEuro } from '@/lib/pricing'
 import type { CommessaCompleta, GruppoCommesse } from '@/types/commessa'
 
@@ -28,8 +29,33 @@ export default function TabellaCalcoli({ commesse, gruppi }: Props) {
   const router = useRouter()
   const [items, setItems] = useState<CommessaCompleta[]>(commesse)
 
-  // Sincronizza con i dati server dopo router.refresh()
-  useEffect(() => { setItems(commesse) }, [commesse])
+  // Incasso previsto editabile per riga (stringa per l'input, somma immediata)
+  const initPrevisti = (list: CommessaCompleta[]) =>
+    Object.fromEntries(list.map((c) => [c.id, c.incasso_previsto != null ? String(c.incasso_previsto) : '']))
+  const [previsti, setPrevisti] = useState<Record<string, string>>(() => initPrevisti(commesse))
+
+  // Sincronizza con i dati server dopo router.refresh() (adjust-state-during-render)
+  const [prevCommesse, setPrevCommesse] = useState(commesse)
+  if (prevCommesse !== commesse) {
+    setPrevCommesse(commesse)
+    setItems(commesse)
+    setPrevisti(initPrevisti(commesse))
+  }
+
+  // Salva al blur (solo se cambiato rispetto al valore già memorizzato)
+  const handleSalvaPrevisto = async (c: CommessaCompleta) => {
+    const raw = (previsti[c.id] ?? '').trim()
+    const value = raw === '' ? null : parseFloat(raw.replace(',', '.'))
+    if (value !== null && isNaN(value)) return
+    if (value === c.incasso_previsto) return
+    try {
+      await setIncassoPrevisto(c.id, value)
+      setItems((cur) => cur.map((x) => x.id === c.id ? { ...x, incasso_previsto: value } : x))
+      router.refresh()
+    } catch {
+      toast.error('Errore nel salvataggio')
+    }
+  }
 
   const nomeGruppo = (gruppoId: string | null) =>
     gruppi.find((g) => g.id === gruppoId)?.nome ?? '—'
@@ -50,7 +76,11 @@ export default function TabellaCalcoli({ commesse, gruppi }: Props) {
     totale:  items.reduce((s, c) => s + c.totale, 0),
     acconti: items.reduce((s, c) => s + c.totale_acconti, 0),
     saldo:   items.reduce((s, c) => s + c.saldo, 0),
-  }), [items])
+    previsto: items.reduce((s, c) => {
+      const v = parseFloat((previsti[c.id] ?? '').replace(',', '.'))
+      return s + (isNaN(v) ? 0 : v)
+    }, 0),
+  }), [items, previsti])
 
   if (items.length === 0) {
     return (
@@ -74,6 +104,7 @@ export default function TabellaCalcoli({ commesse, gruppi }: Props) {
               <TableHead className="text-right">Totale</TableHead>
               <TableHead className="text-right">Acconti</TableHead>
               <TableHead className="text-right">Saldo da incassare</TableHead>
+              <TableHead className="text-right w-[140px]">Incasso previsto</TableHead>
               <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
@@ -118,6 +149,19 @@ export default function TabellaCalcoli({ commesse, gruppi }: Props) {
                     {formatEuro(c.saldo)}
                   </Badge>
                 </TableCell>
+                <TableCell className="text-right">
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={previsti[c.id] ?? ''}
+                    placeholder="0,00"
+                    onChange={(e) => setPrevisti((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                    onBlur={() => handleSalvaPrevisto(c)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                    className="h-8 w-[120px] ml-auto text-right text-sm"
+                  />
+                </TableCell>
                 <TableCell className="text-right pr-3">
                   <Button
                     variant="ghost"
@@ -148,6 +192,9 @@ export default function TabellaCalcoli({ commesse, gruppi }: Props) {
         </div>
         <div className="text-base text-amber-800">
           Incasso possibile: <span className="font-bold">{formatEuro(totali.saldo)}</span>
+        </div>
+        <div className="text-base text-emerald-800">
+          Incasso previsto: <span className="font-bold">{formatEuro(totali.previsto)}</span>
         </div>
       </div>
     </div>

@@ -59,6 +59,7 @@ export async function getCommesse(gruppoId: string): Promise<CommessaCompleta[]>
       imponibile: Number(c.imponibile),
       iva_totale: Number(c.iva_totale),
       totale: Number(c.totale),
+      incasso_previsto: c.incasso_previsto != null ? Number(c.incasso_previsto) : null,
       acconti: acc.map((a) => ({ ...a, importo: Number(a.importo) })),
       documenti: docs,
       preventivi_collegati: prevs,
@@ -112,6 +113,7 @@ export async function getAllCommesse(): Promise<CommessaCompleta[]> {
       imponibile: Number(c.imponibile),
       iva_totale: Number(c.iva_totale),
       totale: Number(c.totale),
+      incasso_previsto: c.incasso_previsto != null ? Number(c.incasso_previsto) : null,
       acconti: acc.map((a) => ({ ...a, importo: Number(a.importo) })),
       documenti: docs,
       preventivi_collegati: prevs,
@@ -138,6 +140,7 @@ export async function getCommessaById(id: string): Promise<CommessaCompleta | nu
     imponibile: Number(c.imponibile),
     iva_totale: Number(c.iva_totale),
     totale: Number(c.totale),
+    incasso_previsto: c.incasso_previsto != null ? Number(c.incasso_previsto) : null,
     acconti: acc.map((a) => ({ ...a, importo: Number(a.importo) })),
     documenti: documenti ?? [],
     preventivi_collegati: (prevCollegati ?? []) as PreventivoCommessa[],
@@ -565,6 +568,17 @@ export async function toggleCalcoli(commessaId: string, value: boolean): Promise
   const { error } = await supabase
     .from('commesse')
     .update({ in_calcoli: value })
+    .eq('id', commessaId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/commesse', 'layout')
+}
+
+/** Salva l'incasso previsto inserito a mano dall'operatore nello slot Calcoli */
+export async function setIncassoPrevisto(commessaId: string, value: number | null): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('commesse')
+    .update({ incasso_previsto: value })
     .eq('id', commessaId)
   if (error) throw new Error(error.message)
   revalidatePath('/commesse', 'layout')

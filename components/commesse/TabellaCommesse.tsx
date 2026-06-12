@@ -92,6 +92,7 @@ function pendingToCommessa(p: PendingCommessa): CommessaCompleta {
     reparti: p.input.reparti,
     gruppo_id: null,
     in_calcoli: false,
+    incasso_previsto: null,
     created_at: p.createdAt,
     updated_at: p.createdAt,
     acconti: [],

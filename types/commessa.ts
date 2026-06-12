@@ -44,6 +44,7 @@ export type Commessa = {
   reparti: Reparto[]
   gruppo_id: string | null
   in_calcoli: boolean
+  incasso_previsto: number | null
   created_at: string
   updated_at: string
 }
