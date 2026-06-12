@@ -43,6 +43,7 @@ export type Commessa = {
   stato: StatoCommessa
   reparti: Reparto[]
   gruppo_id: string | null
+  in_calcoli: boolean
   created_at: string
   updated_at: string
 }

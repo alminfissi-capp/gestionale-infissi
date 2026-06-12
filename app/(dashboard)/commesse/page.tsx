@@ -23,10 +23,16 @@ export default async function CommessePage({
   // Statistiche aggregate: una sola query, raggruppamento in JS
   const supabase = await createClient()
   const orgId = await getOrgId()
-  const { data: statsRaw } = await supabase
-    .from('commesse')
-    .select('gruppo_id, totale')
-    .eq('organization_id', orgId)
+  const [{ data: statsRaw }, { data: accontiRaw }] = await Promise.all([
+    supabase
+      .from('commesse')
+      .select('id, gruppo_id, totale, in_calcoli')
+      .eq('organization_id', orgId),
+    supabase
+      .from('acconti_commessa')
+      .select('commessa_id, importo')
+      .eq('organization_id', orgId),
+  ])
 
   const statsMap = new Map<string, { count: number; totale: number }>()
   for (const r of statsRaw ?? []) {
@@ -36,6 +42,17 @@ export default async function CommessePage({
       count: prev.count + 1,
       totale: prev.totale + Number(r.totale),
     })
+  }
+
+  // Slot "Calcoli": commesse stellate → incasso possibile = Σ(totale - acconti)
+  const accontiPerCommessa = new Map<string, number>()
+  for (const a of accontiRaw ?? []) {
+    accontiPerCommessa.set(a.commessa_id, (accontiPerCommessa.get(a.commessa_id) ?? 0) + Number(a.importo))
+  }
+  const stellate = (statsRaw ?? []).filter((r) => r.in_calcoli)
+  const calcoli = {
+    count: stellate.length,
+    saldo: stellate.reduce((s, r) => s + Number(r.totale) - (accontiPerCommessa.get(r.id) ?? 0), 0),
   }
 
   const gruppiConStats: GruppoConStats[] = gruppi.map((g) => ({
@@ -52,7 +69,7 @@ export default async function CommessePage({
           Seleziona un blocco per visualizzare le commesse
         </p>
       </div>
-      <GruppiCommesse gruppi={gruppiConStats} />
+      <GruppiCommesse gruppi={gruppiConStats} calcoli={calcoli} />
     </div>
   )
 }

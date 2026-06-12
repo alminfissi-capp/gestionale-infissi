@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { MoreVertical, Plus, FolderOpen } from 'lucide-react'
+import { MoreVertical, Plus, FolderOpen, Star } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,9 +21,10 @@ export type GruppoConStats = GruppoCommesse & { count: number; totale: number }
 
 interface Props {
   gruppi: GruppoConStats[]
+  calcoli?: { count: number; saldo: number }
 }
 
-export default function GruppiCommesse({ gruppi }: Props) {
+export default function GruppiCommesse({ gruppi, calcoli }: Props) {
   const router = useRouter()
   const [dialogMode, setDialogMode] = useState<'create' | 'rename' | null>(null)
   const [gruppoSelezionato, setGruppoSelezionato] = useState<GruppoCommesse | null>(null)
@@ -65,6 +66,31 @@ export default function GruppiCommesse({ gruppi }: Props) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Slot indipendente "Calcoli" — incassi possibili fine mese */}
+        {calcoli && (
+          <Card
+            className="cursor-pointer hover:shadow-md transition-shadow border-amber-300 bg-amber-50/50"
+            onClick={() => router.push('/commesse/calcoli')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
+                Calcoli
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2 text-gray-500">
+                <FolderOpen className="h-4 w-4" />
+                <span className="text-sm">{calcoli.count} commesse selezionate</span>
+              </div>
+              <p className="text-2xl font-bold mt-1 text-amber-700">
+                {formatEuro(calcoli.saldo)}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">Incasso possibile</p>
+            </CardContent>
+          </Card>
+        )}
+
         {gruppi.map((g) => (
           <Card
             key={g.id}

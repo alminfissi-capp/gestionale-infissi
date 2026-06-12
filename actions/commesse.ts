@@ -559,6 +559,23 @@ export async function deleteGruppo(id: string): Promise<void> {
   revalidatePath('/commesse', 'layout')
 }
 
+/** Aggiunge/rimuove una commessa dallo slot "Calcoli" (incassi possibili fine mese) */
+export async function toggleCalcoli(commessaId: string, value: boolean): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('commesse')
+    .update({ in_calcoli: value })
+    .eq('id', commessaId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/commesse', 'layout')
+}
+
+/** Commesse selezionate per i calcoli incassi (tutti i blocchi) */
+export async function getCommesseCalcoli(): Promise<CommessaCompleta[]> {
+  const tutte = await getAllCommesse()
+  return tutte.filter((c) => c.in_calcoli)
+}
+
 export async function spostaCommessa(commessaId: string, gruppoId: string): Promise<void> {
   const supabase = await createClient()
   const { error } = await supabase

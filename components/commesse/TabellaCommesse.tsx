@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import {
   Plus, Search, Trash2, LayoutList, Paperclip, FileText, Link2,
-  GripVertical, MoreVertical, Copy, WifiOff, MoveRight,
+  GripVertical, MoreVertical, Copy, WifiOff, MoveRight, Star,
 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type PendingCommessa } from '@/lib/db'
@@ -55,7 +55,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { deleteCommessa, duplicaCommessa, updateOrdineCommesse, updateStatoCommessa, spostaCommessa } from '@/actions/commesse'
+import { deleteCommessa, duplicaCommessa, updateOrdineCommesse, updateStatoCommessa, spostaCommessa, toggleCalcoli } from '@/actions/commesse'
 import { formatEuro } from '@/lib/pricing'
 import type { CommessaCompleta, PreventivoPerCommessa, StatoCommessa, UtentePerCommessa, GruppoCommesse } from '@/types/commessa'
 import { REPARTI } from '@/types/commessa'
@@ -91,6 +91,7 @@ function pendingToCommessa(p: PendingCommessa): CommessaCompleta {
     stato: 'in_attesa',
     reparti: p.input.reparti,
     gruppo_id: null,
+    in_calcoli: false,
     created_at: p.createdAt,
     updated_at: p.createdAt,
     acconti: [],
@@ -157,6 +158,7 @@ function CommessaColGroup() {
       <col className="w-[56px]" />
       <col className="w-[56px]" />
       <col className="w-[80px]" />
+      <col className="w-9" />
       <col className="w-10" />
       <col className="w-12" />
     </colgroup>
@@ -177,9 +179,10 @@ interface RowProps {
   altriGruppi: GruppoCommesse[]
   onSposta: (gruppoId: string) => void
   highlighted?: boolean
+  onToggleCalcoli: () => void
 }
 
-function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange, altriGruppi, onSposta, highlighted }: RowProps) {
+function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange, altriGruppi, onSposta, highlighted, onToggleCalcoli }: RowProps) {
   const {
     attributes,
     listeners,
@@ -353,6 +356,21 @@ function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti,
         )}
       </TableCell>
 
+      {/* Calcoli (stellina) */}
+      <TableCell className="w-9 px-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          title={c.in_calcoli ? 'Rimuovi dai Calcoli' : 'Aggiungi ai Calcoli (incassi fine mese)'}
+          onClick={onToggleCalcoli}
+        >
+          <Star
+            className={`h-4 w-4 ${c.in_calcoli ? 'text-amber-400 fill-amber-400' : 'text-gray-300 hover:text-amber-400'}`}
+          />
+        </Button>
+      </TableCell>
+
       {/* Documenti */}
       <TableCell className="w-10 px-1">
         <Button
@@ -455,6 +473,7 @@ function PendingCommessaRow({ c }: { c: CommessaCompleta }) {
       <TableCell />
       <TableCell />
       <TableCell />
+      <TableCell />
     </TableRow>
   )
 }
@@ -512,6 +531,18 @@ export default function TabellaCommesse({
       setDialogCommessa(true)
     }
   }, [preventivoDaConvertire])
+
+  // Toggle stellina "Calcoli" — aggiornamento ottimistico con revert in caso di errore
+  const handleToggleCalcoli = async (id: string, value: boolean) => {
+    setItems((prev) => prev.map((c) => c.id === id ? { ...c, in_calcoli: value } : c))
+    try {
+      await toggleCalcoli(id, value)
+      router.refresh()
+    } catch {
+      setItems((prev) => prev.map((c) => c.id === id ? { ...c, in_calcoli: !value } : c))
+      toast.error('Errore nel salvataggio')
+    }
+  }
 
   // Evidenzia la commessa indicata da ?highlight= e scrolla fino a lei, poi dissolve
   const [highlighted, setHighlighted] = useState<string | null>(highlightId ?? null)
@@ -686,6 +717,7 @@ export default function TabellaCommesse({
                   <TableHead>Mese</TableHead>
                   <TableHead>Op.</TableHead>
                   <TableHead>Reparto</TableHead>
+                  <TableHead className="w-9" />
                   <TableHead className="w-10" />
                   <TableHead className="w-12" />
                 </TableRow>
@@ -706,6 +738,7 @@ export default function TabellaCommesse({
                       altriGruppi={altriGruppi}
                       onSposta={(gId) => handleSposta(c.id, gId)}
                       highlighted={highlighted === c.id}
+                      onToggleCalcoli={() => handleToggleCalcoli(c.id, !c.in_calcoli)}
                     />
                   ))}
                 </SortableContext>
@@ -741,6 +774,7 @@ export default function TabellaCommesse({
               <TableCell className={`py-2 text-right text-sm font-bold whitespace-nowrap ${totali.saldo > 0.005 ? 'text-orange-600' : 'text-green-600'}`}>
                 {formatEuro(totali.saldo)}
               </TableCell>
+              <TableCell className="py-2" />
               <TableCell className="py-2" />
               <TableCell className="py-2" />
               <TableCell className="py-2" />
