@@ -37,7 +37,7 @@ export default function FormArticoloLibero({ listini, aliquote, onAdd }: Props) 
   const [categoriaId, setCategoriaId] = useState<string>('')
   const [listinoId, setListinoId] = useState<string>('')
   const [prodottoId, setProdottoId] = useState<string>('')
-  const [finituraId, setFinituraId] = useState<string>('')
+  const [finituraId, setFinituraId] = useState<string>('__none__')
   const [accessoriQty, setAccessoriQty] = useState<Record<string, number>>({})
   const [quantita, setQuantita] = useState<string>('1')
   const [scontoArticolo, setScontoArticolo] = useState(0)
@@ -117,7 +117,7 @@ export default function FormArticoloLibero({ listini, aliquote, onAdd }: Props) 
     setCategoriaId(id)
     setListinoId('')
     setProdottoId('')
-    setFinituraId('')
+    setFinituraId('__none__')
     setAccessoriQty({})
     setScontoArticolo(0)
   }
@@ -263,7 +263,7 @@ export default function FormArticoloLibero({ listini, aliquote, onAdd }: Props) 
 
     // Reset mantenendo categoria e listino
     setProdottoId('')
-    setFinituraId('')
+    setFinituraId('__none__')
     setAccessoriQty({})
     setQuantita('1')
     setScontoArticolo(0)
@@ -387,7 +387,7 @@ export default function FormArticoloLibero({ listini, aliquote, onAdd }: Props) 
                   <SelectValue placeholder="Nessuna finitura" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nessuna finitura</SelectItem>
+                  <SelectItem value="__none__">Nessuna finitura</SelectItem>
                   {finitureDisponibili.map((f) => (
                     <SelectItem key={f.id} value={f.id}>
                       {f.nome}

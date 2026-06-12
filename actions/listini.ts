@@ -72,20 +72,24 @@ const getCategorieByOrg = (orgId: string) =>
         listini_su_misura: (cat.listini_su_misura ?? [])
           .sort((a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine)
           .map((lsm: {
-            finiture_su_misura: { ordine: number }[]
-            gruppi_accessori_su_misura: { ordine: number; accessori_su_misura: { ordine: number }[] }[]
+            prezzo_mq: unknown; prezzo_acquisto_mq: unknown; mq_minimo: unknown
+            finiture_su_misura: { ordine: number; valore: unknown; prezzo_acquisto: unknown }[]
+            gruppi_accessori_su_misura: { ordine: number; accessori_su_misura: { ordine: number; qty_default: unknown; prezzo: unknown; prezzo_acquisto: unknown }[] }[]
           }) => ({
             ...lsm,
-            finiture: (lsm.finiture_su_misura ?? []).sort(
-              (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
-            ),
+            prezzo_mq: Number(lsm.prezzo_mq),
+            prezzo_acquisto_mq: Number(lsm.prezzo_acquisto_mq),
+            mq_minimo: Number(lsm.mq_minimo),
+            finiture: (lsm.finiture_su_misura ?? [])
+              .sort((a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine)
+              .map((f) => ({ ...f, valore: Number(f.valore), prezzo_acquisto: Number(f.prezzo_acquisto) })),
             gruppi_accessori: (lsm.gruppi_accessori_su_misura ?? [])
               .sort((a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine)
-              .map((g: { ordine: number; accessori_su_misura: { ordine: number }[] }) => ({
+              .map((g: { ordine: number; accessori_su_misura: { ordine: number; qty_default: unknown; prezzo: unknown; prezzo_acquisto: unknown }[] }) => ({
                 ...g,
-                accessori: (g.accessori_su_misura ?? []).sort(
-                  (a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine
-                ),
+                accessori: (g.accessori_su_misura ?? [])
+                  .sort((a: { ordine: number }, b: { ordine: number }) => a.ordine - b.ordine)
+                  .map((a) => ({ ...a, qty_default: Number(a.qty_default), prezzo: Number(a.prezzo), prezzo_acquisto: Number(a.prezzo_acquisto) })),
               })),
           })),
       }))

@@ -52,7 +52,7 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
 
   // ── Finitura ──────────────────────────────────────────────────────────────
   const [finituraId, setFinituraId] = useState<string>(
-    initialValues?.config_su_misura?.finitura_id ?? ''
+    initialValues?.config_su_misura?.finitura_id ?? '__none__'
   )
 
   // ── Accessori selezionati: { [accessorio_id]: qty } ───────────────────────
@@ -96,7 +96,7 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
   useEffect(() => {
     if (!initialValues) {
       setAccessoriSel({})
-      setFinituraId('')
+      setFinituraId('__none__')
       setLarghezza('')
       setAltezza('')
     }
@@ -391,7 +391,7 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
               <Select value={finituraId} onValueChange={setFinituraId}>
                 <SelectTrigger><SelectValue placeholder="Nessuna finitura" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nessuna finitura</SelectItem>
+                  <SelectItem value="__none__">Nessuna finitura</SelectItem>
                   {listino.finiture.map((f) => (
                     <SelectItem key={f.id} value={f.id}>{getFinituraLabel(f)}</SelectItem>
                   ))}
