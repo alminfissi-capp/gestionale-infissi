@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown, RotateCcw, SlidersHorizontal, MailCheck, MessageCircle, Briefcase } from 'lucide-react'
+import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown, RotateCcw, SlidersHorizontal, MailCheck, MessageCircle, Briefcase, Banknote } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
 import { usePermissions } from '@/contexts/PermissionsContext'
@@ -61,9 +61,10 @@ function nomeCliente(p: Preventivo): string {
 
 interface Props {
   preventivi: Preventivo[]
+  commessePerPreventivo?: Record<string, { commessa_id: string; gruppo_id: string | null }>
 }
 
-export default function TabellaPreventivi({ preventivi }: Props) {
+export default function TabellaPreventivi({ preventivi, commessePerPreventivo = {} }: Props) {
   const router = useRouter()
   const { canEdit } = usePermissions()
   const editEnabled = canEdit('preventivi')
@@ -377,7 +378,25 @@ export default function TabellaPreventivi({ preventivi }: Props) {
                             <BarChart2 className="h-3.5 w-3.5" />
                           </Link>
                         </Button>
-                        {p.stato === 'accettato' && (
+                        {commessePerPreventivo[p.id] ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-emerald-600 hover:text-emerald-800"
+                            asChild
+                            title="Già in commessa — apri"
+                          >
+                            <Link
+                              href={
+                                commessePerPreventivo[p.id].gruppo_id
+                                  ? `/commesse/${commessePerPreventivo[p.id].gruppo_id}?highlight=${commessePerPreventivo[p.id].commessa_id}`
+                                  : '/commesse'
+                              }
+                            >
+                              <Banknote className="h-3.5 w-3.5" />
+                            </Link>
+                          </Button>
+                        ) : p.stato === 'accettato' && (
                           <Button
                             variant="ghost"
                             size="icon"

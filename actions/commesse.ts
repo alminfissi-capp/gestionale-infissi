@@ -163,6 +163,7 @@ export async function createCommessa(input: CommessaInput): Promise<{ id: string
     .single()
   if (error) throw new Error(error.message)
   revalidatePath('/commesse', 'layout')
+  revalidatePath('/preventivi')
   return { id: data.id }
 }
 
@@ -181,6 +182,7 @@ export async function deleteCommessa(id: string): Promise<void> {
   const { error } = await supabase.from('commesse').delete().eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/commesse', 'layout')
+  revalidatePath('/preventivi')
 }
 
 export async function addAcconto(commessaId: string, input: AccontoInput): Promise<void> {
@@ -314,6 +316,7 @@ export async function setPreventiviCommessa(
   }
 
   revalidatePath('/commesse', 'layout')
+  revalidatePath('/preventivi')
 }
 
 export async function getDocumentoCommessaUrl(storagePath: string): Promise<string> {
@@ -464,6 +467,27 @@ export async function getUtentiPerCommessa(): Promise<UtentePerCommessa[]> {
     id: p.id as string,
     nome: (p.operatore as string | null) || (p.full_name as string | null) || '—',
   }))
+}
+
+export type CommessaPerPreventivo = { commessa_id: string; gruppo_id: string | null }
+
+/** Mappa preventivo_id → commessa collegata (link diretto o via preventivi_commessa) */
+export async function getCommessePerPreventivi(): Promise<Record<string, CommessaPerPreventivo>> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data, error } = await supabase
+    .from('commesse')
+    .select('id, gruppo_id, preventivo_id, preventivi_commessa(preventivo_id)')
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+  const map: Record<string, CommessaPerPreventivo> = {}
+  for (const c of data ?? []) {
+    if (c.preventivo_id) map[c.preventivo_id] = { commessa_id: c.id, gruppo_id: c.gruppo_id }
+    for (const pc of (c.preventivi_commessa ?? []) as { preventivo_id: string | null }[]) {
+      if (pc.preventivo_id) map[pc.preventivo_id] = { commessa_id: c.id, gruppo_id: c.gruppo_id }
+    }
+  }
+  return map
 }
 
 export async function getGruppiCommesse(): Promise<GruppoCommesse[]> {

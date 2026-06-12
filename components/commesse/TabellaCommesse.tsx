@@ -130,6 +130,7 @@ interface Props {
   preventivoDaConvertire?: PreventivoPerCommessa | null
   gruppi: GruppoCommesse[]
   gruppoCorrenteId: string
+  highlightId?: string | null
 }
 
 function formatMese(data: string): string {
@@ -175,9 +176,10 @@ interface RowProps {
   onStatoChange: (s: StatoCommessa) => void
   altriGruppi: GruppoCommesse[]
   onSposta: (gruppoId: string) => void
+  highlighted?: boolean
 }
 
-function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange, altriGruppi, onSposta }: RowProps) {
+function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange, altriGruppi, onSposta, highlighted }: RowProps) {
   const {
     attributes,
     listeners,
@@ -199,8 +201,15 @@ function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti,
   return (
     <TableRow
       ref={setNodeRef}
+      id={`commessa-${c.id}`}
       style={style}
-      className={isDragging ? 'opacity-40 bg-blue-50' : statoRowClass(c.stato)}
+      className={
+        isDragging
+          ? 'opacity-40 bg-blue-50'
+          : highlighted
+            ? 'bg-amber-100 ring-2 ring-inset ring-amber-400 transition-colors duration-1000'
+            : `${statoRowClass(c.stato)} transition-colors duration-1000`
+      }
       {...attributes}
     >
       {/* Drag handle */}
@@ -460,6 +469,7 @@ export default function TabellaCommesse({
   preventivoDaConvertire,
   gruppi,
   gruppoCorrenteId,
+  highlightId,
 }: Props) {
   const router = useRouter()
   const { isOnline } = useOnlineStatus()
@@ -502,6 +512,16 @@ export default function TabellaCommesse({
       setDialogCommessa(true)
     }
   }, [preventivoDaConvertire])
+
+  // Evidenzia la commessa indicata da ?highlight= e scrolla fino a lei, poi dissolve
+  const [highlighted, setHighlighted] = useState<string | null>(highlightId ?? null)
+  useEffect(() => {
+    if (!highlightId) return
+    setHighlighted(highlightId)
+    document.getElementById(`commessa-${highlightId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const t = setTimeout(() => setHighlighted(null), 5000)
+    return () => clearTimeout(t)
+  }, [highlightId])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -685,6 +705,7 @@ export default function TabellaCommesse({
                       onStatoChange={(s) => handleStatoChange(c.id, s)}
                       altriGruppi={altriGruppi}
                       onSposta={(gId) => handleSposta(c.id, gId)}
+                      highlighted={highlighted === c.id}
                     />
                   ))}
                 </SortableContext>

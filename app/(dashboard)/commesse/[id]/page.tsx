@@ -16,7 +16,7 @@ export default async function CommesseGruppoPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ from?: string }>
+  searchParams: Promise<{ from?: string; highlight?: string }>
 }) {
   const { id: gruppoId } = await params
   const sp = await searchParams
@@ -58,6 +58,7 @@ export default async function CommesseGruppoPage({
         preventivoDaConvertire={preventivoDaConvertire}
         gruppi={gruppi}
         gruppoCorrenteId={gruppoId}
+        highlightId={sp.highlight ?? null}
       />
     </div>
   )

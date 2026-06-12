@@ -1,10 +1,14 @@
 import { getPreventivi } from '@/actions/preventivi'
+import { getCommessePerPreventivi } from '@/actions/commesse'
 import { requireAccesso } from '@/lib/permessi'
 import TabellaPreventivi from '@/components/preventivi/TabellaPreventivi'
 
 export default async function PreventiviPage() {
   await requireAccesso('preventivi')
-  const preventivi = await getPreventivi()
+  const [preventivi, commessePerPreventivo] = await Promise.all([
+    getPreventivi(),
+    getCommessePerPreventivi(),
+  ])
 
   return (
     <div>
@@ -16,7 +20,7 @@ export default async function PreventiviPage() {
             : `${preventivi.length} preventiv${preventivi.length === 1 ? 'o' : 'i'}`}
         </p>
       </div>
-      <TabellaPreventivi preventivi={preventivi} />
+      <TabellaPreventivi preventivi={preventivi} commessePerPreventivo={commessePerPreventivo} />
     </div>
   )
 }
