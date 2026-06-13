@@ -118,13 +118,6 @@ export default function GruppiCommesse({ gruppi, calcoli }: Props) {
 
   return (
     <div className="space-y-5">
-      <div className="flex justify-end">
-        <Button onClick={() => openCreate('commesse')}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nuovo blocco
-        </Button>
-      </div>
-
       {/* Slot Calcoli — sempre in cima, tutta larghezza */}
       {calcoli && (
         <Card
