@@ -63,44 +63,20 @@ export default function DialogGruppo({ open, mode, gruppo, initialTipo, onClose 
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>
-            {mode === 'create' ? 'Nuovo blocco' : 'Rinomina blocco'}
+          <DialogTitle className="flex items-center gap-2">
+            {mode === 'create' ? (
+              tipo === 'scadenze' ? (
+                <><CalendarClock className="h-5 w-5 text-rose-600" /> Nuovo blocco Scadenze</>
+              ) : (
+                <><Briefcase className="h-5 w-5 text-teal-600" /> Nuovo blocco Commesse</>
+              )
+            ) : (
+              'Rinomina blocco'
+            )}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="py-4 space-y-4">
-            {mode === 'create' && (
-              <div className="space-y-2">
-                <Label>Tipo di blocco</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setTipo('commesse')}
-                    className={`flex flex-col items-center gap-1 rounded-lg border p-3 text-sm font-medium transition-colors ${
-                      tipo === 'commesse'
-                        ? 'bg-teal-50 border-teal-400 text-teal-700'
-                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                    }`}
-                  >
-                    <Briefcase className="h-5 w-5" />
-                    Commesse
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTipo('scadenze')}
-                    className={`flex flex-col items-center gap-1 rounded-lg border p-3 text-sm font-medium transition-colors ${
-                      tipo === 'scadenze'
-                        ? 'bg-rose-50 border-rose-400 text-rose-700'
-                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                    }`}
-                  >
-                    <CalendarClock className="h-5 w-5" />
-                    Scadenze
-                  </button>
-                </div>
-              </div>
-            )}
-
             <div className="space-y-1">
               <Label htmlFor="nome-gruppo">Nome</Label>
               <Input
