@@ -27,12 +27,14 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import {
   updateCommessa,
+  setPreventiviCommessa,
   addAcconto,
   deleteAcconto,
   addDocumentoCommessa,
   deleteDocumentoCommessa,
   getDocumentoCommessaUrl,
   getOrgIdPerUpload,
+  type PreventivoCommessaItemInput,
 } from '@/actions/commesse'
 import { formatEuro } from '@/lib/pricing'
 import type {
@@ -219,11 +221,46 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
 
   // ── Salvataggio ───────────────────────────────────────────
 
+  // Sincronizza il numero preventivo digitato nella scheda dentro `preventivi_commessa`,
+  // così compare (e diventa cliccabile) nella riga della tabella commesse.
+  // Non viene chiamato quando c'è un preventivo di sistema collegato (campo non editabile).
+  const buildPreventiviItems = (): PreventivoCommessaItemInput[] => {
+    const collegati = commessa.preventivi_collegati ?? []
+    const base: PreventivoCommessaItemInput[] = collegati.map((pc, i) => ({
+      preventivo_id: pc.preventivo_id,
+      numero_preventivo: pc.numero_preventivo,
+      storage_path: pc.storage_path,
+      nome_file: pc.nome_file,
+      ordine: i,
+    }))
+
+    const nuovoNumero = form.numero_preventivo?.trim() || null
+    if (!nuovoNumero) return base
+
+    // Aggiorna la voce manuale esistente, oppure creane una nuova
+    const idx = base.findIndex((b) => b.preventivo_id === null)
+    if (idx >= 0) {
+      base[idx] = { ...base[idx], numero_preventivo: nuovoNumero }
+      return base
+    }
+    return [...base, {
+      preventivo_id: null,
+      numero_preventivo: nuovoNumero,
+      storage_path: null,
+      nome_file: null,
+      ordine: base.length,
+    }]
+  }
+
   const handleSave = async () => {
     if (!form.cliente_nome?.trim()) { toast.error('Il nome cliente è obbligatorio'); return }
     setSaving(true)
     try {
       await updateCommessa(commessa.id, form)
+      // Solo per preventivi non di sistema (manuali): mantieni allineata la tabella preventivi_commessa
+      if (!commessa.preventivo_id) {
+        await setPreventiviCommessa(commessa.id, buildPreventiviItems())
+      }
       toast.success('Commessa aggiornata')
       setEditMode(false)
       router.refresh()
