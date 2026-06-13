@@ -9,6 +9,8 @@ export type GruppoCommesse = {
   created_at: string
 }
 
+export type CategoriaScadenza = 'finanziamento' | 'assegno' | 'altro'
+
 // Scadenza fornitore / rateizzazione (blocco anno, raggruppata per mese da data_scadenza)
 export type Scadenza = {
   id: string
@@ -19,6 +21,9 @@ export type Scadenza = {
   fornitore: string
   importo: number
   pagato: boolean
+  categoria: CategoriaScadenza
+  numero_rata: number | null
+  totale_rate: number | null
   foto_path: string | null
   ordine: number
   created_at: string
@@ -32,6 +37,9 @@ export type ScadenzaInput = {
   fornitore: string
   importo: number
   pagato: boolean
+  categoria: CategoriaScadenza
+  numero_rata: number | null
+  totale_rate: number | null
 }
 
 export type MetodoPagamento = 'contanti' | 'bonifico' | 'riba' | 'altro'
