@@ -1,9 +1,37 @@
+export type TipoBlocco = 'commesse' | 'scadenze'
+
 export type GruppoCommesse = {
   id: string
   organization_id: string
   nome: string
   ordine: number
+  tipo: TipoBlocco
   created_at: string
+}
+
+// Scadenza fornitore / rateizzazione (blocco anno, raggruppata per mese da data_scadenza)
+export type Scadenza = {
+  id: string
+  organization_id: string
+  gruppo_id: string
+  data_scadenza: string
+  descrizione: string
+  fornitore: string
+  importo: number
+  pagato: boolean
+  foto_path: string | null
+  ordine: number
+  created_at: string
+  updated_at: string
+}
+
+export type ScadenzaInput = {
+  gruppo_id: string
+  data_scadenza: string
+  descrizione: string
+  fornitore: string
+  importo: number
+  pagato: boolean
 }
 
 export type MetodoPagamento = 'contanti' | 'bonifico' | 'riba' | 'altro'

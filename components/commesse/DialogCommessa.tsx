@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   ChevronsUpDown, X, UserPlus, Building2, User,
-  Upload, FileText, Link2, Plus, FilePlus2,
+  Upload, FileText, Link2, FilePlus2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -456,7 +456,7 @@ export default function DialogCommessa({
                   <SelectValue placeholder="Seleziona blocco..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {gruppi.map((g) => (
+                  {gruppi.filter((g) => g.tipo !== 'scadenze').map((g) => (
                     <SelectItem key={g.id} value={g.id}>{g.nome}</SelectItem>
                   ))}
                 </SelectContent>

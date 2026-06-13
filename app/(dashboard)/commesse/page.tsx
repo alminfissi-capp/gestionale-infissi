@@ -23,7 +23,7 @@ export default async function CommessePage({
   // Statistiche aggregate: una sola query, raggruppamento in JS
   const supabase = await createClient()
   const orgId = await getOrgId()
-  const [{ data: statsRaw }, { data: accontiRaw }] = await Promise.all([
+  const [{ data: statsRaw }, { data: accontiRaw }, { data: scadenzeRaw }] = await Promise.all([
     supabase
       .from('commesse')
       .select('id, gruppo_id, totale, in_calcoli')
@@ -31,6 +31,10 @@ export default async function CommessePage({
     supabase
       .from('acconti_commessa')
       .select('commessa_id, importo')
+      .eq('organization_id', orgId),
+    supabase
+      .from('scadenze')
+      .select('gruppo_id, importo, pagato')
       .eq('organization_id', orgId),
   ])
 
@@ -41,6 +45,17 @@ export default async function CommessePage({
     statsMap.set(r.gruppo_id, {
       count: prev.count + 1,
       totale: prev.totale + Number(r.totale),
+    })
+  }
+
+  // Statistiche scadenze per blocco: count + totale da pagare (non pagato)
+  const scadMap = new Map<string, { count: number; daPagare: number }>()
+  for (const r of scadenzeRaw ?? []) {
+    if (!r.gruppo_id) continue
+    const prev = scadMap.get(r.gruppo_id) ?? { count: 0, daPagare: 0 }
+    scadMap.set(r.gruppo_id, {
+      count: prev.count + 1,
+      daPagare: prev.daPagare + (r.pagato ? 0 : Number(r.importo)),
     })
   }
 
@@ -57,16 +72,16 @@ export default async function CommessePage({
 
   const gruppiConStats: GruppoConStats[] = gruppi.map((g) => ({
     ...g,
-    count: statsMap.get(g.id)?.count ?? 0,
-    totale: statsMap.get(g.id)?.totale ?? 0,
+    count: g.tipo === 'scadenze' ? (scadMap.get(g.id)?.count ?? 0) : (statsMap.get(g.id)?.count ?? 0),
+    totale: g.tipo === 'scadenze' ? (scadMap.get(g.id)?.daPagare ?? 0) : (statsMap.get(g.id)?.totale ?? 0),
   }))
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Commesse</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Commesse / Scadenze</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Seleziona un blocco per visualizzare le commesse
+          Seleziona un blocco per visualizzare commesse o scadenze
         </p>
       </div>
       <GruppiCommesse gruppi={gruppiConStats} calcoli={calcoli} />

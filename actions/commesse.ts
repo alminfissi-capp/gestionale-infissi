@@ -13,6 +13,7 @@ import type {
   PreventivoCommessa,
   GruppoCommesse,
   RigaCalcolo,
+  TipoBlocco,
 } from '@/types/commessa'
 
 export async function getCommesse(gruppoId: string): Promise<CommessaCompleta[]> {
@@ -513,13 +514,14 @@ export async function getGruppoCorrente(): Promise<GruppoCommesse | null> {
     .from('gruppi_commesse')
     .select('*')
     .eq('organization_id', orgId)
+    .eq('tipo', 'commesse')
     .order('ordine', { ascending: false })
     .limit(1)
     .maybeSingle()
   return data ?? null
 }
 
-export async function createGruppo(nome: string): Promise<void> {
+export async function createGruppo(nome: string, tipo: TipoBlocco = 'commesse'): Promise<void> {
   const supabase = await createClient()
   const orgId = await getOrgId()
   const { data: maxRow } = await supabase
@@ -532,7 +534,7 @@ export async function createGruppo(nome: string): Promise<void> {
   const nextOrdine = (maxRow?.ordine ?? -1) + 1
   const { error } = await supabase
     .from('gruppi_commesse')
-    .insert({ nome, organization_id: orgId, ordine: nextOrdine })
+    .insert({ nome, organization_id: orgId, ordine: nextOrdine, tipo })
   if (error) throw new Error(error.message)
   revalidatePath('/commesse', 'layout')
 }
@@ -549,12 +551,14 @@ export async function renameGruppo(id: string, nome: string): Promise<void> {
 
 export async function deleteGruppo(id: string): Promise<void> {
   const supabase = await createClient()
-  const { count } = await supabase
-    .from('commesse')
-    .select('*', { count: 'exact', head: true })
-    .eq('gruppo_id', id)
-  if ((count ?? 0) > 0)
+  const [{ count: nComm }, { count: nScad }] = await Promise.all([
+    supabase.from('commesse').select('*', { count: 'exact', head: true }).eq('gruppo_id', id),
+    supabase.from('scadenze').select('*', { count: 'exact', head: true }).eq('gruppo_id', id),
+  ])
+  if ((nComm ?? 0) > 0)
     throw new Error('Il blocco contiene commesse. Spostale prima di eliminarlo.')
+  if ((nScad ?? 0) > 0)
+    throw new Error('Il blocco contiene scadenze. Eliminale prima di eliminare il blocco.')
   const { error } = await supabase
     .from('gruppi_commesse')
     .delete()

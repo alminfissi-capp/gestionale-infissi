@@ -504,7 +504,7 @@ export default function TabellaCommesse({
   const [dialogPrevManuale, setDialogPrevManuale] = useState<{ commessaId: string; numeroPrev: string | null } | null>(null)
   const autoOpenDone = useRef(false)
 
-  const altriGruppi = gruppi.filter((g) => g.id !== gruppoCorrenteId)
+  const altriGruppi = gruppi.filter((g) => g.id !== gruppoCorrenteId && g.tipo !== 'scadenze')
 
   const dialogPrevManualeCommessa = dialogPrevManuale
     ? items.find((c) => c.id === dialogPrevManuale.commessaId) ?? null
