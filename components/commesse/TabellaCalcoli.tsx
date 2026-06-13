@@ -12,6 +12,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -176,26 +177,35 @@ export default function TabellaCalcoli({ commesse, gruppi }: Props) {
               </TableRow>
             ))}
           </TableBody>
+          <TableFooter className="bg-amber-50/60 border-t-2 border-amber-200">
+            <TableRow className="hover:bg-transparent">
+              <TableCell className="text-sm text-gray-500 font-medium">
+                {items.length} {items.length === 1 ? 'commessa' : 'commesse'}
+              </TableCell>
+              <TableCell />
+              <TableCell />
+              <TableCell className="text-right text-sm font-bold text-gray-900">
+                {formatEuro(totali.totale)}
+              </TableCell>
+              <TableCell className="text-right text-sm font-semibold text-gray-700">
+                {formatEuro(totali.acconti)}
+              </TableCell>
+              <TableCell className="text-right text-sm font-bold text-amber-800">
+                {formatEuro(totali.saldo)}
+              </TableCell>
+              <TableCell className="text-right text-sm font-bold text-emerald-800">
+                {formatEuro(totali.previsto)}
+              </TableCell>
+              <TableCell />
+            </TableRow>
+          </TableFooter>
         </Table>
       </div>
 
-      {/* Riepilogo incassi */}
-      <div className="rounded-md border bg-amber-50/50 border-amber-200 p-4 flex flex-wrap items-center justify-end gap-x-8 gap-y-2">
-        <div className="text-sm text-gray-500">
-          {items.length} {items.length === 1 ? 'commessa' : 'commesse'}
-        </div>
-        <div className="text-sm text-gray-600">
-          Totale: <span className="font-semibold text-gray-900">{formatEuro(totali.totale)}</span>
-        </div>
-        <div className="text-sm text-gray-600">
-          Acconti: <span className="font-semibold text-gray-900">{formatEuro(totali.acconti)}</span>
-        </div>
-        <div className="text-base text-amber-800">
-          Incasso possibile: <span className="font-bold">{formatEuro(totali.saldo)}</span>
-        </div>
-        <div className="text-base text-emerald-800">
-          Incasso previsto: <span className="font-bold">{formatEuro(totali.previsto)}</span>
-        </div>
+      {/* Legenda totali */}
+      <div className="flex flex-wrap justify-end gap-x-6 gap-y-1 px-1 text-xs text-gray-500">
+        <span><span className="inline-block h-2 w-2 rounded-sm bg-amber-400 mr-1.5 align-middle" />Saldo da incassare = incasso possibile</span>
+        <span><span className="inline-block h-2 w-2 rounded-sm bg-emerald-400 mr-1.5 align-middle" />Incasso previsto (inserito a mano)</span>
       </div>
     </div>
   )
