@@ -12,6 +12,7 @@ import type {
   UtentePerCommessa,
   PreventivoCommessa,
   GruppoCommesse,
+  RigaCalcolo,
 } from '@/types/commessa'
 
 export async function getCommesse(gruppoId: string): Promise<CommessaCompleta[]> {
@@ -613,4 +614,65 @@ export async function salvaFirmaAcconto(accontoId: string, firmaBase64: string):
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
   revalidatePath('/commesse', 'layout')
+}
+
+// ── Righe Calcoli (giacenze banca / contanti / liquidità) ─────────────
+
+export async function getRigheCalcoli(): Promise<RigaCalcolo[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data, error } = await supabase
+    .from('calcoli_righe')
+    .select('*')
+    .eq('organization_id', orgId)
+    .order('ordine', { ascending: true })
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((r) => ({ ...r, importo: Number(r.importo) })) as RigaCalcolo[]
+}
+
+export async function addRigaCalcolo(): Promise<RigaCalcolo> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data: maxRow } = await supabase
+    .from('calcoli_righe')
+    .select('ordine')
+    .eq('organization_id', orgId)
+    .order('ordine', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const nextOrdine = (maxRow?.ordine ?? -1) + 1
+  const { data, error } = await supabase
+    .from('calcoli_righe')
+    .insert({ organization_id: orgId, descrizione: '', importo: 0, ordine: nextOrdine })
+    .select('*')
+    .single()
+  if (error) throw new Error(error.message)
+  return { ...data, importo: Number(data.importo) } as RigaCalcolo
+}
+
+export async function updateRigaCalcolo(
+  id: string,
+  descrizione: string,
+  importo: number
+): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('calcoli_righe')
+    .update({ descrizione, importo, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteRigaCalcolo(id: string): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('calcoli_righe')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
 }

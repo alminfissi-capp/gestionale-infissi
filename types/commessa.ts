@@ -127,3 +127,14 @@ export type UtentePerCommessa = {
   id: string
   nome: string
 }
+
+// Riga libera dei Calcoli: giacenze banca / contanti / liquidità corrente
+export type RigaCalcolo = {
+  id: string
+  organization_id: string
+  descrizione: string
+  importo: number
+  ordine: number
+  created_at: string
+  updated_at: string
+}
