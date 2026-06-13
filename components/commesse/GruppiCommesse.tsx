@@ -110,7 +110,7 @@ export default function GruppiCommesse({ gruppi, calcoli }: Props) {
           <p className={`text-2xl font-bold mt-1 ${isScad ? 'text-rose-600' : 'text-gray-900'}`}>
             {formatEuro(g.totale)}
           </p>
-          {isScad && <p className="text-xs text-gray-400 mt-0.5">Da pagare</p>}
+          <p className="text-xs text-gray-400 mt-0.5">{isScad ? 'Da pagare' : 'Totale'}</p>
         </CardContent>
       </Card>
     )
