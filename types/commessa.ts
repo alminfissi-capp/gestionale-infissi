@@ -25,6 +25,7 @@ export type Scadenza = {
   numero_rata: number | null
   totale_rate: number | null
   foto_path: string | null
+  in_calcoli: boolean
   ordine: number
   created_at: string
   updated_at: string

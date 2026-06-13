@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  Plus, Pencil, Trash2, Camera, Check, ChevronDown, Loader2,
+  Plus, Pencil, Trash2, Camera, Check, ChevronDown, Loader2, Star,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +20,7 @@ import {
   uploadFotoScadenza,
   removeFotoScadenza,
   getFotoScadenzaUrl,
+  toggleCalcoliScadenza,
 } from '@/actions/scadenze'
 import { formatEuro } from '@/lib/pricing'
 import DialogScadenza from './DialogScadenza'
@@ -127,6 +128,17 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
       await setPagatoScadenza(s.id, nuovo)
     } catch {
       setItems((cur) => cur.map((x) => (x.id === s.id ? { ...x, pagato: !nuovo } : x)))
+      toast.error('Errore nel salvataggio')
+    }
+  }
+
+  const handleToggleCalcoli = async (s: Scadenza) => {
+    const nuovo = !s.in_calcoli
+    setItems((cur) => cur.map((x) => (x.id === s.id ? { ...x, in_calcoli: nuovo } : x)))
+    try {
+      await toggleCalcoliScadenza(s.id, nuovo)
+    } catch {
+      setItems((cur) => cur.map((x) => (x.id === s.id ? { ...x, in_calcoli: !nuovo } : x)))
       toast.error('Errore nel salvataggio')
     }
   }
@@ -315,7 +327,7 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                           onChange={(e) => handleFotoSelected(s, e.target.files?.[0] ?? null)}
                         />
                         {uploadingId === s.id ? (
-                          <div className="h-10 w-10 shrink-0 rounded border bg-gray-50 flex items-center justify-center">
+                          <div className="h-12 w-20 shrink-0 rounded border bg-gray-50 flex items-center justify-center">
                             <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
                           </div>
                         ) : s.foto_path ? (
@@ -323,13 +335,13 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                             <button
                               type="button"
                               onClick={() => setLightbox({ url: fotoUrls[s.id], scadenza: s })}
-                              className="h-10 w-10 shrink-0 rounded border overflow-hidden hover:ring-2 hover:ring-rose-300"
+                              className="h-12 w-20 shrink-0 rounded border overflow-hidden bg-gray-50 hover:ring-2 hover:ring-rose-300"
                               title="Apri foto"
                             >
-                              <img src={fotoUrls[s.id]} alt="foto scadenza" className="h-full w-full object-cover" />
+                              <img src={fotoUrls[s.id]} alt="foto scadenza" className="h-full w-full object-contain" />
                             </button>
                           ) : (
-                            <div className="h-10 w-10 shrink-0 rounded border bg-gray-100 animate-pulse" />
+                            <div className="h-12 w-20 shrink-0 rounded border bg-gray-100 animate-pulse" />
                           )
                         ) : (
                           <Button
@@ -349,6 +361,17 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                             {formatEuro(s.importo)}
                           </span>
                         </div>
+
+                        {/* Stella Calcoli */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          title={s.in_calcoli ? 'Rimuovi dai Calcoli' : 'Aggiungi ai Calcoli'}
+                          onClick={() => handleToggleCalcoli(s)}
+                        >
+                          <Star className={`h-4 w-4 ${s.in_calcoli ? 'text-amber-400 fill-amber-400' : 'text-gray-300 hover:text-amber-400'}`} />
+                        </Button>
 
                         {/* Azioni */}
                         <Button

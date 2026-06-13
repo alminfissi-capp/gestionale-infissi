@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Star, FolderOpen, Plus, Trash2, Wallet } from 'lucide-react'
+import { Star, FolderOpen, Plus, Trash2, Wallet, CalendarClock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -24,13 +24,15 @@ import {
   updateRigaCalcolo,
   deleteRigaCalcolo,
 } from '@/actions/commesse'
+import { toggleCalcoliScadenza } from '@/actions/scadenze'
 import { formatEuro } from '@/lib/pricing'
-import type { CommessaCompleta, GruppoCommesse, RigaCalcolo } from '@/types/commessa'
+import type { CommessaCompleta, GruppoCommesse, RigaCalcolo, Scadenza } from '@/types/commessa'
 
 interface Props {
   commesse: CommessaCompleta[]
   gruppi: GruppoCommesse[]
   righe: RigaCalcolo[]
+  scadenze: Scadenza[]
 }
 
 // Riga con snapshot dell'ultima descrizione salvata (per evitare salvataggi inutili al blur)
@@ -43,7 +45,7 @@ const parseImporto = (s: string) => {
   return isNaN(v) ? 0 : v
 }
 
-export default function TabellaCalcoli({ commesse, gruppi, righe }: Props) {
+export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze }: Props) {
   const router = useRouter()
   const [items, setItems] = useState<CommessaCompleta[]>(commesse)
 
@@ -70,6 +72,36 @@ export default function TabellaCalcoli({ commesse, gruppi, righe }: Props) {
     setPrevRighe(righe)
     setRigheItems(righe.map(toRow))
     setImportiStr(Object.fromEntries(righe.map((r) => [r.id, r.importo ? String(r.importo) : ''])))
+  }
+
+  // ── Scadenze selezionate (stellate) ─────────────────────────
+  const [scadItems, setScadItems] = useState<Scadenza[]>(scadenze)
+  const [prevScad, setPrevScad] = useState(scadenze)
+  if (prevScad !== scadenze) {
+    setPrevScad(scadenze)
+    setScadItems(scadenze)
+  }
+
+  const handleRimuoviScadenza = async (id: string) => {
+    const prev = scadItems
+    setScadItems((cur) => cur.filter((s) => s.id !== id))
+    try {
+      await toggleCalcoliScadenza(id, false)
+      router.refresh()
+    } catch {
+      setScadItems(prev)
+      toast.error('Errore nel salvataggio')
+    }
+  }
+
+  const totaleScadenze = useMemo(
+    () => scadItems.reduce((s, x) => s + x.importo, 0),
+    [scadItems]
+  )
+
+  const formatData = (d: string) => {
+    const [y, m, day] = d.split('-').map(Number)
+    return new Date(y, m - 1, day).toLocaleDateString('it-IT')
   }
 
   // Salva al blur (solo se cambiato rispetto al valore già memorizzato)
@@ -276,6 +308,51 @@ export default function TabellaCalcoli({ commesse, gruppi, righe }: Props) {
           <div className="flex flex-wrap justify-end gap-x-6 gap-y-1 px-1 text-xs text-gray-500">
             <span><span className="inline-block h-2 w-2 rounded-sm bg-amber-400 mr-1.5 align-middle" />Saldo da incassare = incasso possibile</span>
             <span><span className="inline-block h-2 w-2 rounded-sm bg-emerald-400 mr-1.5 align-middle" />Incasso previsto (inserito a mano)</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Scadenze selezionate ── */}
+      {scadItems.length > 0 && (
+        <div className="rounded-md border bg-white overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 border-b bg-rose-50/60">
+            <CalendarClock className="h-4 w-4 text-rose-600" />
+            <h3 className="text-sm font-semibold text-gray-700">Scadenze selezionate</h3>
+            <span className="text-xs text-gray-400">(uscite previste)</span>
+          </div>
+          <div className="divide-y">
+            {scadItems.map((s) => (
+              <div key={s.id} className="flex items-center gap-3 px-4 py-2.5">
+                <span className="w-20 shrink-0 text-xs text-gray-500">{formatData(s.data_scadenza)}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">
+                    {s.fornitore || <span className="text-gray-400">—</span>}
+                  </p>
+                  {s.descrizione && <p className="text-xs text-gray-500 truncate">{s.descrizione}</p>}
+                </div>
+                {s.pagato && (
+                  <span className="text-[10px] rounded border border-emerald-200 bg-emerald-50 text-emerald-700 px-1 py-0">
+                    Pagata
+                  </span>
+                )}
+                <span className="w-24 shrink-0 text-right text-sm font-semibold text-rose-700">
+                  {formatEuro(s.importo)}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  title="Rimuovi dai Calcoli"
+                  onClick={() => handleRimuoviScadenza(s.id)}
+                >
+                  <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between px-4 py-3 border-t-2 border-rose-200 bg-rose-50/60">
+            <span className="text-sm font-semibold text-rose-900">Totale scadenze (da pagare)</span>
+            <span className="text-lg font-bold text-rose-800 pr-12">{formatEuro(totaleScadenze)}</span>
           </div>
         </div>
       )}

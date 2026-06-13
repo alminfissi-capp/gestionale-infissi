@@ -154,3 +154,30 @@ export async function getFotoScadenzaUrl(path: string): Promise<string> {
   if (error) throw new Error(error.message)
   return data.signedUrl
 }
+
+/** Aggiunge/rimuove una scadenza dallo slot "Calcoli" */
+export async function toggleCalcoliScadenza(id: string, value: boolean): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('scadenze')
+    .update({ in_calcoli: value })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/commesse', 'layout')
+}
+
+/** Scadenze selezionate per i Calcoli (tutti i blocchi) */
+export async function getScadenzeCalcoli(): Promise<Scadenza[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data, error } = await supabase
+    .from('scadenze')
+    .select('*')
+    .eq('organization_id', orgId)
+    .eq('in_calcoli', true)
+    .order('data_scadenza', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((s) => ({ ...s, importo: Number(s.importo) })) as Scadenza[]
+}
