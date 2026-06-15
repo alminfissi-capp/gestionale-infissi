@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+/* eslint-disable @next/next/no-img-element */
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Landmark, ReceiptText, CircleDashed } from 'lucide-react'
+import { Landmark, ReceiptText, CircleDashed, Camera, Upload, Loader2, X } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -14,7 +15,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { createScadenza, updateScadenza } from '@/actions/scadenze'
+import { createScadenza, updateScadenza, uploadFotoScadenza } from '@/actions/scadenze'
+import { ocrAssegno } from '@/lib/ocrAssegno'
 import type { Scadenza, CategoriaScadenza } from '@/types/commessa'
 
 interface Props {
@@ -57,6 +59,13 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
   })
   const [loading, setLoading] = useState(false)
 
+  // Foto allegata in fase di inserimento (caricata solo al salvataggio)
+  const [fotoFile, setFotoFile] = useState<File | null>(null)
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null)
+  const [ocrLoading, setOcrLoading] = useState(false)
+  const cameraRef = useRef<HTMLInputElement | null>(null)
+  const fileRef = useRef<HTMLInputElement | null>(null)
+
   useEffect(() => {
     if (!open) return
     if (scadenza) {
@@ -76,10 +85,51 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
         pagato: false, categoria: 'altro', numero_rata: '', totale_rate: '',
       })
     }
+    // Reset foto a ogni apertura
+    setFotoFile(null)
+    setFotoPreview(null)
+    setOcrLoading(false)
   }, [open, scadenza, defaultData])
+
+  // Revoca l'object URL di anteprima quando cambia/si smonta
+  useEffect(() => {
+    return () => { if (fotoPreview) URL.revokeObjectURL(fotoPreview) }
+  }, [fotoPreview])
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }))
+
+  const handleFotoSelected = async (file: File | null) => {
+    if (!file) return
+    if (file.size > 20 * 1024 * 1024) { toast.error('Foto troppo grande (max 20 MB)'); return }
+    setFotoFile(file)
+    setFotoPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(file) })
+
+    setOcrLoading(true)
+    try {
+      const { numero, importo, data } = await ocrAssegno(file)
+      setForm((f) => ({
+        ...f,
+        importo: importo != null ? String(importo) : f.importo,
+        data_scadenza: data ?? f.data_scadenza,
+        descrizione: numero ? `Assegno n. ${numero}` : f.descrizione,
+      }))
+      if (numero || importo != null || data) {
+        toast.success('Dati letti dalla foto · controlla e correggi se serve')
+      } else {
+        toast.info('Foto allegata · nessun dato riconosciuto, inserisci a mano')
+      }
+    } finally {
+      setOcrLoading(false)
+    }
+  }
+
+  const removeFoto = () => {
+    setFotoFile(null)
+    setFotoPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null })
+    if (cameraRef.current) cameraRef.current.value = ''
+    if (fileRef.current) fileRef.current.value = ''
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -100,13 +150,23 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
         numero_rata,
         totale_rate,
       }
+      let id: string
       if (scadenza) {
         await updateScadenza(scadenza.id, payload)
-        toast.success('Scadenza aggiornata')
+        id = scadenza.id
       } else {
-        await createScadenza(payload)
-        toast.success('Scadenza aggiunta')
+        const res = await createScadenza(payload)
+        id = res.id
       }
+      // Carica la foto (se allegata) dopo aver ottenuto l'id
+      if (fotoFile) {
+        const fd = new FormData()
+        fd.append('file', fotoFile)
+        fd.append('scadenzaId', id)
+        const up = await uploadFotoScadenza(fd)
+        if (up.error) toast.error(`Foto non caricata: ${up.error}`)
+      }
+      toast.success(scadenza ? 'Scadenza aggiornata' : 'Scadenza aggiunta')
       onOpenChange(false)
       router.refresh()
     } catch {
@@ -147,6 +207,73 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
               ))}
             </div>
           </div>
+
+          {/* Foto assegno + OCR (solo categoria assegno) */}
+          {isAssegno && (
+            <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50/40 p-3">
+              <Label className="text-blue-800">Foto assegno</Label>
+              <input
+                ref={cameraRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => handleFotoSelected(e.target.files?.[0] ?? null)}
+              />
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleFotoSelected(e.target.files?.[0] ?? null)}
+              />
+
+              {fotoPreview ? (
+                <div className="relative">
+                  <img
+                    src={fotoPreview}
+                    alt="anteprima assegno"
+                    className="w-full max-h-44 object-contain rounded border bg-white"
+                  />
+                  {ocrLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center gap-2 rounded bg-white/70 text-sm text-blue-700">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Lettura assegno…
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={removeFoto}
+                    className="absolute top-1 right-1 rounded-full bg-white/90 p-1 text-gray-500 hover:text-red-600 shadow"
+                    title="Rimuovi foto"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 border-blue-200 text-blue-700 hover:bg-blue-100"
+                    onClick={() => cameraRef.current?.click()}
+                  >
+                    <Camera className="h-4 w-4 mr-1.5" /> Scatta foto
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 border-blue-200 text-blue-700 hover:bg-blue-100"
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-1.5" /> Carica file
+                  </Button>
+                </div>
+              )}
+              <p className="text-[11px] text-blue-700/70">
+                Numero, importo e data vengono letti dalla foto: controllali e correggili qui sotto.
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -217,7 +344,7 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="descrizione">Descrizione</Label>
+            <Label htmlFor="descrizione">{isAssegno ? 'Numero assegno / descrizione' : 'Descrizione'}</Label>
             <textarea
               id="descrizione"
               value={form.descrizione}
@@ -238,18 +365,11 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
             Già pagata
           </label>
 
-          {!scadenza && isAssegno && (
-            <p className="text-xs text-gray-400">
-              Dopo aver salvato, allega la foto dell&apos;assegno dal pulsante fotocamera sulla riga:
-              il numero verrà letto e inserito in descrizione.
-            </p>
-          )}
-
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Annulla
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || ocrLoading}>
               {loading ? 'Salvataggio...' : scadenza ? 'Salva' : 'Aggiungi'}
             </Button>
           </DialogFooter>

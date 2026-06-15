@@ -23,6 +23,7 @@ import {
   toggleCalcoliScadenza,
 } from '@/actions/scadenze'
 import { formatEuro } from '@/lib/pricing'
+import { ocrAssegno } from '@/lib/ocrAssegno'
 import DialogScadenza from './DialogScadenza'
 import type { Scadenza, CategoriaScadenza } from '@/types/commessa'
 
@@ -41,18 +42,11 @@ const CAT_BADGE: Record<CategoriaScadenza, { label: string; cls: string } | null
   altro: null,
 }
 
-// OCR best-effort del numero assegno (Tesseract nel browser)
-async function ocrNumeroAssegno(file: File): Promise<string | null> {
-  try {
-    const Tesseract = (await import('tesseract.js')).default
-    const { data } = await Tesseract.recognize(file, 'eng')
-    const matches = (data.text || '').match(/\d{6,}/g)
-    if (!matches || matches.length === 0) return null
-    matches.sort((a, b) => b.length - a.length)
-    return matches[0]
-  } catch {
-    return null
-  }
+// Bordo sinistro colorato per distinguere a colpo d'occhio assegni e rate
+const CAT_BORDER: Record<CategoriaScadenza, string> = {
+  finanziamento: 'border-l-purple-400',
+  assegno: 'border-l-blue-400',
+  altro: 'border-l-transparent',
 }
 
 interface Props {
@@ -160,19 +154,28 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
     if (!file) return
     if (file.size > 20 * 1024 * 1024) { toast.error('Foto troppo grande (max 20 MB)'); return }
     setUploadingId(s.id)
-    if (s.categoria === 'assegno') toast.info('Lettura numero assegno in corso…')
+    if (s.categoria === 'assegno') toast.info('Lettura assegno in corso…')
     try {
       const fd = new FormData()
       fd.append('file', file)
       fd.append('scadenzaId', s.id)
-      const ocrPromise = s.categoria === 'assegno' ? ocrNumeroAssegno(file) : Promise.resolve(null)
-      const [res, numero] = await Promise.all([uploadFotoScadenza(fd), ocrPromise])
+      const ocrPromise = s.categoria === 'assegno'
+        ? ocrAssegno(file)
+        : Promise.resolve({ numero: null, importo: null, data: null })
+      const [res, ocr] = await Promise.all([uploadFotoScadenza(fd), ocrPromise])
       if (res.error) throw new Error(res.error)
-      if (numero) {
-        await updateScadenza(s.id, { descrizione: `Assegno n. ${numero}` })
-        toast.success(`Foto allegata · numero ${numero}`)
+      // Aggiorna i campi letti: numero in descrizione, importo solo se ancora a 0
+      const patch: { descrizione?: string; importo?: number } = {}
+      if (ocr.numero) patch.descrizione = `Assegno n. ${ocr.numero}`
+      if (ocr.importo != null && !s.importo) patch.importo = ocr.importo
+      if (Object.keys(patch).length > 0) {
+        await updateScadenza(s.id, patch)
+        setItems((cur) => cur.map((x) => (x.id === s.id ? { ...x, ...patch } : x)))
+      }
+      if (s.categoria === 'assegno') {
+        toast.success(ocr.numero || ocr.importo != null ? 'Foto allegata · dati letti' : 'Foto allegata (nessun dato riconosciuto)')
       } else {
-        toast.success(s.categoria === 'assegno' ? 'Foto allegata (numero non riconosciuto)' : 'Foto allegata')
+        toast.success('Foto allegata')
       }
       router.refresh()
     } catch {
@@ -275,7 +278,7 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                       ? `Rata ${s.numero_rata}${s.totale_rate ? `/${s.totale_rate}` : ''}`
                       : null
                     return (
-                      <div key={s.id} className={`flex items-center gap-3 px-3 sm:px-4 py-2.5 ${s.pagato ? 'bg-emerald-50/40' : ''}`}>
+                      <div key={s.id} className={`flex items-center gap-3 px-3 sm:px-4 py-2.5 border-l-4 ${CAT_BORDER[s.categoria]} ${s.pagato ? 'bg-emerald-50/40' : ''}`}>
                         {/* Pagato toggle */}
                         <button
                           type="button"
