@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  Plus, Pencil, Trash2, Camera, Check, ChevronDown, ChevronUp, Loader2, Star, Landmark, GripVertical,
+  Plus, Pencil, Trash2, Camera, Check, ChevronDown, Loader2, Star, Landmark, GripVertical,
 } from 'lucide-react'
 import {
   DndContext,
@@ -66,11 +66,15 @@ const CAT_BORDER: Record<CategoriaScadenza, string> = {
   altro: 'border-l-transparent',
 }
 
+// Sfondo riga sbiadito per categoria (lo stato "pagato" ha la precedenza col verde)
+const CAT_BG: Record<CategoriaScadenza, string> = {
+  finanziamento: 'bg-purple-50/60',
+  assegno: 'bg-blue-50/60',
+  altro: 'bg-white',
+}
+
 type RowProps = {
   s: Scadenza
-  idx: number
-  total: number
-  mese: number
   contoNome: Record<string, string>
   fotoUrl?: string
   uploading: boolean
@@ -82,12 +86,11 @@ type RowProps = {
   onFotoSelected: (s: Scadenza, file: File | null) => void
   onOpenFoto: (url: string, s: Scadenza) => void
   onEdit: (s: Scadenza) => void
-  onMove: (mese: number, idx: number, dir: -1 | 1) => void
 }
 
 function SortableScadenzaRow({
-  s, idx, total, mese, contoNome, fotoUrl, uploading, setFileRef, onClickCamera,
-  onTogglePagato, onToggleCalcoli, onDelete, onFotoSelected, onOpenFoto, onEdit, onMove,
+  s, contoNome, fotoUrl, uploading, setFileRef, onClickCamera,
+  onTogglePagato, onToggleCalcoli, onDelete, onFotoSelected, onOpenFoto, onEdit,
 }: RowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: s.id })
@@ -103,7 +106,7 @@ function SortableScadenzaRow({
       style={style}
       {...attributes}
       className={`flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2.5 border-l-4 ${CAT_BORDER[s.categoria]} ${
-        isDragging ? 'opacity-50 bg-rose-50 relative z-10' : s.pagato ? 'bg-emerald-50/40' : 'bg-white'
+        isDragging ? 'opacity-50 bg-rose-50 relative z-10' : s.pagato ? 'bg-emerald-50' : CAT_BG[s.categoria]
       }`}
     >
       {/* Maniglia trascinamento */}
@@ -164,12 +167,12 @@ function SortableScadenzaRow({
         )}
       </div>
 
-      {/* Conto corrente (colonna allineata e centrata, da tablet in su) */}
-      <div className="hidden sm:flex w-32 shrink-0 items-center justify-center gap-1 text-xs">
+      {/* Conto corrente (colonna allineata a sinistra, va a capo se lunga, da tablet in su) */}
+      <div className="hidden sm:flex w-28 shrink-0 items-start gap-1 text-xs">
         {s.conto_id && contoNome[s.conto_id] ? (
           <>
-            <Landmark className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-            <span className="truncate text-slate-700 font-medium">{contoNome[s.conto_id]}</span>
+            <Landmark className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
+            <span className="text-slate-700 font-medium leading-tight break-words">{contoNome[s.conto_id]}</span>
           </>
         ) : (
           <span className="text-gray-300">—</span>
@@ -251,28 +254,6 @@ function SortableScadenzaRow({
       >
         <Trash2 className="h-3.5 w-3.5" />
       </Button>
-
-      {/* Riordino su/giù (alternativa al trascinamento) */}
-      <div className="flex flex-col shrink-0">
-        <button
-          type="button"
-          disabled={idx === 0}
-          onClick={() => onMove(mese, idx, -1)}
-          title="Sposta su"
-          className="text-gray-300 hover:text-gray-600 disabled:opacity-30 disabled:hover:text-gray-300"
-        >
-          <ChevronUp className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          disabled={idx === total - 1}
-          onClick={() => onMove(mese, idx, 1)}
-          title="Sposta giù"
-          className="text-gray-300 hover:text-gray-600 disabled:opacity-30 disabled:hover:text-gray-300"
-        >
-          <ChevronDown className="h-4 w-4" />
-        </button>
-      </div>
     </div>
   )
 }
@@ -446,27 +427,6 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
     return map
   }, [items])
 
-  const handleMove = async (mese: number, idx: number, dir: -1 | 1) => {
-    const righe = perMese.get(mese) ?? []
-    const target = idx + dir
-    if (target < 0 || target >= righe.length) return
-    const reordered = [...righe]
-    const [moved] = reordered.splice(idx, 1)
-    reordered.splice(target, 0, moved)
-    const ids = reordered.map((r) => r.id)
-    // Update ottimistico: assegna ordine = posizione nel mese
-    setItems((cur) => cur.map((x) => {
-      const pos = ids.indexOf(x.id)
-      return pos === -1 ? x : { ...x, ordine: pos }
-    }))
-    try {
-      await riordinaScadenze(ids)
-    } catch {
-      toast.error('Errore nel riordino')
-      router.refresh()
-    }
-  }
-
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
@@ -554,13 +514,10 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
               {aperto && righe.length > 0 && (
                 <SortableContext items={righe.map((r) => r.id)} strategy={verticalListSortingStrategy}>
                   <div className="divide-y">
-                    {righe.map((s, idx) => (
+                    {righe.map((s) => (
                       <SortableScadenzaRow
                         key={s.id}
                         s={s}
-                        idx={idx}
-                        total={righe.length}
-                        mese={mese}
                         contoNome={contoNome}
                         fotoUrl={fotoUrls[s.id]}
                         uploading={uploadingId === s.id}
@@ -572,7 +529,6 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                         onFotoSelected={handleFotoSelected}
                         onOpenFoto={(url, sc) => setLightbox({ url, scadenza: sc })}
                         onEdit={(sc) => setDialog({ scadenza: sc, defaultData: sc.data_scadenza })}
-                        onMove={handleMove}
                       />
                     ))}
                   </div>
