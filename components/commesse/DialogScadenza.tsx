@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createScadenza, updateScadenza, uploadFotoScadenza } from '@/actions/scadenze'
 import { ocrAssegno } from '@/lib/ocrAssegno'
-import type { Scadenza, CategoriaScadenza } from '@/types/commessa'
+import type { Scadenza, CategoriaScadenza, ContoCorrente } from '@/types/commessa'
 
 interface Props {
   open: boolean
@@ -26,6 +26,7 @@ interface Props {
   scadenza: Scadenza | null
   defaultData: string // data_scadenza precompilata in creazione (YYYY-MM-DD)
   fornitori: string[]
+  conti: ContoCorrente[]
 }
 
 type FormState = {
@@ -37,6 +38,7 @@ type FormState = {
   categoria: CategoriaScadenza
   numero_rata: string
   totale_rate: string
+  conto_id: string
 }
 
 const CATEGORIE: { value: CategoriaScadenza; label: string; icon: typeof Landmark }[] = [
@@ -45,7 +47,7 @@ const CATEGORIE: { value: CategoriaScadenza; label: string; icon: typeof Landmar
   { value: 'altro', label: 'Altro', icon: CircleDashed },
 ]
 
-export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza, defaultData, fornitori }: Props) {
+export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza, defaultData, fornitori, conti }: Props) {
   const router = useRouter()
   const [form, setForm] = useState<FormState>({
     data_scadenza: defaultData,
@@ -56,6 +58,7 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
     categoria: 'altro',
     numero_rata: '',
     totale_rate: '',
+    conto_id: '',
   })
   const [loading, setLoading] = useState(false)
 
@@ -78,11 +81,12 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
         categoria: scadenza.categoria,
         numero_rata: scadenza.numero_rata != null ? String(scadenza.numero_rata) : '',
         totale_rate: scadenza.totale_rate != null ? String(scadenza.totale_rate) : '',
+        conto_id: scadenza.conto_id ?? '',
       })
     } else {
       setForm({
         data_scadenza: defaultData, fornitore: '', descrizione: '', importo: '',
-        pagato: false, categoria: 'altro', numero_rata: '', totale_rate: '',
+        pagato: false, categoria: 'altro', numero_rata: '', totale_rate: '', conto_id: '',
       })
     }
     // Reset foto a ogni apertura
@@ -149,6 +153,7 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
         categoria: form.categoria,
         numero_rata,
         totale_rate,
+        conto_id: form.conto_id || null,
       }
       let id: string
       if (scadenza) {
@@ -314,6 +319,26 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
                 <option key={nome} value={nome} />
               ))}
             </datalist>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="conto_id">Conto corrente</Label>
+            <select
+              id="conto_id"
+              value={form.conto_id}
+              onChange={(e) => set('conto_id', e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <option value="">— nessuno —</option>
+              {conti.map((c) => (
+                <option key={c.id} value={c.id}>{c.nome}</option>
+              ))}
+            </select>
+            {conti.length === 0 && (
+              <p className="text-[11px] text-gray-400">
+                Nessun conto: aggiungili in Impostazioni → Conti correnti.
+              </p>
+            )}
           </div>
 
           {isFin && (

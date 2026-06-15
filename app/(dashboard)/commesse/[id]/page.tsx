@@ -6,6 +6,7 @@ import {
   getGruppiCommesse,
 } from '@/actions/commesse'
 import { getScadenze } from '@/actions/scadenze'
+import { getConti } from '@/actions/conti'
 import { getFornitori } from '@/actions/magazzino'
 import { getClienti } from '@/actions/clienti'
 import TabellaCommesse from '@/components/commesse/TabellaCommesse'
@@ -56,13 +57,14 @@ export default async function CommesseGruppoPage({
 }
 
 async function ScadenzeViewLoader({ gruppoId, gruppoNome }: { gruppoId: string; gruppoNome: string }) {
-  const [scadenze, fornitori] = await Promise.all([getScadenze(gruppoId), getFornitori()])
+  const [scadenze, fornitori, conti] = await Promise.all([getScadenze(gruppoId), getFornitori(), getConti()])
   return (
     <ScadenzeView
       gruppoId={gruppoId}
       gruppoNome={gruppoNome}
       scadenze={scadenze}
       fornitori={fornitori.map((f) => f.nome)}
+      conti={conti}
     />
   )
 }

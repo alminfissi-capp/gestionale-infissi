@@ -9,6 +9,22 @@ export type GruppoCommesse = {
   created_at: string
 }
 
+// Conto corrente (anagrafica): banca dove vengono addebitate le scadenze
+export type ContoCorrente = {
+  id: string
+  organization_id: string
+  nome: string
+  saldo_attuale: number
+  ordine: number
+  created_at: string
+  updated_at: string
+}
+
+export type ContoCorrenteInput = {
+  nome: string
+  saldo_attuale: number
+}
+
 export type CategoriaScadenza = 'finanziamento' | 'assegno' | 'altro'
 
 // Scadenza fornitore / rateizzazione (blocco anno, raggruppata per mese da data_scadenza)
@@ -24,6 +40,7 @@ export type Scadenza = {
   categoria: CategoriaScadenza
   numero_rata: number | null
   totale_rate: number | null
+  conto_id: string | null
   foto_path: string | null
   in_calcoli: boolean
   ordine: number
@@ -41,6 +58,7 @@ export type ScadenzaInput = {
   categoria: CategoriaScadenza
   numero_rata: number | null
   totale_rate: number | null
+  conto_id: string | null
 }
 
 export type MetodoPagamento = 'contanti' | 'bonifico' | 'riba' | 'altro'

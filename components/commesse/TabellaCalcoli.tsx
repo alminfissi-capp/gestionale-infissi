@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Star, FolderOpen, Plus, Trash2, Wallet, CalendarClock } from 'lucide-react'
+import { Star, FolderOpen, Plus, Trash2, Wallet, CalendarClock, Landmark } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -25,14 +25,16 @@ import {
   deleteRigaCalcolo,
 } from '@/actions/commesse'
 import { toggleCalcoliScadenza } from '@/actions/scadenze'
+import { updateSaldoConto } from '@/actions/conti'
 import { formatEuro } from '@/lib/pricing'
-import type { CommessaCompleta, GruppoCommesse, RigaCalcolo, Scadenza } from '@/types/commessa'
+import type { CommessaCompleta, GruppoCommesse, RigaCalcolo, Scadenza, ContoCorrente } from '@/types/commessa'
 
 interface Props {
   commesse: CommessaCompleta[]
   gruppi: GruppoCommesse[]
   righe: RigaCalcolo[]
   scadenze: Scadenza[]
+  conti: ContoCorrente[]
 }
 
 // Riga con snapshot dell'ultima descrizione salvata (per evitare salvataggi inutili al blur)
@@ -45,9 +47,14 @@ const parseImporto = (s: string) => {
   return isNaN(v) ? 0 : v
 }
 
-export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze }: Props) {
+export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, conti }: Props) {
   const router = useRouter()
   const [items, setItems] = useState<CommessaCompleta[]>(commesse)
+
+  const contoNome = useMemo(
+    () => Object.fromEntries(conti.map((c) => [c.id, c.nome])) as Record<string, string>,
+    [conti]
+  )
 
   // Incasso previsto editabile per riga (stringa per l'input, somma immediata)
   const initPrevisti = (list: CommessaCompleta[]) =>
@@ -80,6 +87,29 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze }: Pr
   if (prevScad !== scadenze) {
     setPrevScad(scadenze)
     setScadItems(scadenze)
+  }
+
+  // ── Conti correnti (saldo modificabile inline) ──────────────
+  const initSaldi = (list: ContoCorrente[]) =>
+    Object.fromEntries(list.map((c) => [c.id, c.saldo_attuale ? String(c.saldo_attuale) : '']))
+  const [contiItems, setContiItems] = useState<ContoCorrente[]>(conti)
+  const [contiSaldiStr, setContiSaldiStr] = useState<Record<string, string>>(() => initSaldi(conti))
+  const [prevConti, setPrevConti] = useState(conti)
+  if (prevConti !== conti) {
+    setPrevConti(conti)
+    setContiItems(conti)
+    setContiSaldiStr(initSaldi(conti))
+  }
+
+  const handleSalvaSaldoConto = async (c: ContoCorrente) => {
+    const saldo = parseImporto(contiSaldiStr[c.id] ?? '')
+    if (saldo === c.saldo_attuale) return
+    try {
+      await updateSaldoConto(c.id, saldo)
+      setContiItems((cur) => cur.map((x) => (x.id === c.id ? { ...x, saldo_attuale: saldo } : x)))
+    } catch {
+      toast.error('Errore nel salvataggio')
+    }
   }
 
   const handleRimuoviScadenza = async (id: string) => {
@@ -182,8 +212,10 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze }: Pr
   }), [items, previsti])
 
   const liquidita = useMemo(
-    () => righeItems.reduce((s, r) => s + parseImporto(importiStr[r.id] ?? ''), 0),
-    [righeItems, importiStr]
+    () =>
+      righeItems.reduce((s, r) => s + parseImporto(importiStr[r.id] ?? ''), 0) +
+      contiItems.reduce((s, c) => s + parseImporto(contiSaldiStr[c.id] ?? ''), 0),
+    [righeItems, importiStr, contiItems, contiSaldiStr]
   )
 
   return (
@@ -325,9 +357,17 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze }: Pr
               <div key={s.id} className="flex items-center gap-3 px-4 py-2.5">
                 <span className="w-20 shrink-0 text-xs text-gray-500">{formatData(s.data_scadenza)}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate">
-                    {s.fornitore || <span className="text-gray-400">—</span>}
-                  </p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-sm font-medium text-gray-800 truncate max-w-full">
+                      {s.fornitore || <span className="text-gray-400">—</span>}
+                    </p>
+                    {s.conto_id && contoNome[s.conto_id] && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] rounded border border-slate-200 bg-slate-50 text-slate-600 px-1 py-0">
+                        <Landmark className="h-2.5 w-2.5" />
+                        {contoNome[s.conto_id]}
+                      </span>
+                    )}
+                  </div>
                   {s.descrizione && <p className="text-xs text-gray-500 truncate">{s.descrizione}</p>}
                 </div>
                 {s.pagato && (
@@ -370,7 +410,35 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze }: Pr
           </Button>
         </div>
 
-        {righeItems.length === 0 ? (
+        {/* Conti correnti (dall'anagrafica, saldo modificabile inline) */}
+        {contiItems.length > 0 && (
+          <div className="divide-y">
+            {contiItems.map((c) => (
+              <div key={c.id} className="flex items-center gap-2 sm:gap-3 px-4 py-2 bg-slate-50/40">
+                <span className="flex-1 min-w-0 flex items-center gap-1.5 text-sm font-medium text-gray-700 truncate">
+                  <Landmark className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                  {c.nome}
+                </span>
+                <div className="relative w-[140px] shrink-0">
+                  <Input
+                    type="number"
+                    step={0.01}
+                    value={contiSaldiStr[c.id] ?? ''}
+                    placeholder="0,00"
+                    onChange={(e) => setContiSaldiStr((cur) => ({ ...cur, [c.id]: e.target.value }))}
+                    onBlur={() => handleSalvaSaldoConto(c)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                    className="h-9 text-right text-sm pr-7"
+                  />
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">€</span>
+                </div>
+                <span className="w-9 shrink-0" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {righeItems.length === 0 && contiItems.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-gray-400">
             Nessuna voce. Usa &quot;Aggiungi riga&quot; per inserire le giacenze in banca, contanti, ecc.
           </p>

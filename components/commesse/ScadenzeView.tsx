@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  Plus, Pencil, Trash2, Camera, Check, ChevronDown, Loader2, Star,
+  Plus, Pencil, Trash2, Camera, Check, ChevronDown, Loader2, Star, Landmark,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -25,7 +25,7 @@ import {
 import { formatEuro } from '@/lib/pricing'
 import { ocrAssegno } from '@/lib/ocrAssegno'
 import DialogScadenza from './DialogScadenza'
-import type { Scadenza, CategoriaScadenza } from '@/types/commessa'
+import type { Scadenza, CategoriaScadenza, ContoCorrente } from '@/types/commessa'
 
 const MESI = [
   'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
@@ -54,10 +54,15 @@ interface Props {
   gruppoNome: string
   scadenze: Scadenza[]
   fornitori: string[]
+  conti: ContoCorrente[]
 }
 
-export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori }: Props) {
+export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori, conti }: Props) {
   const router = useRouter()
+  const contoNome = useMemo(
+    () => Object.fromEntries(conti.map((c) => [c.id, c.nome])) as Record<string, string>,
+    [conti]
+  )
 
   const anno = useMemo(() => {
     const n = parseInt(gruppoNome, 10)
@@ -314,6 +319,12 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                                 {rata}
                               </span>
                             )}
+                            {s.conto_id && contoNome[s.conto_id] && (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] rounded border border-slate-200 bg-slate-50 text-slate-600 px-1 py-0">
+                                <Landmark className="h-2.5 w-2.5" />
+                                {contoNome[s.conto_id]}
+                              </span>
+                            )}
                           </div>
                           {s.descrizione && (
                             <p className="text-xs text-gray-500 truncate">{s.descrizione}</p>
@@ -414,6 +425,7 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
           scadenza={dialog.scadenza}
           defaultData={dialog.defaultData}
           fornitori={fornitori}
+          conti={conti}
         />
       )}
 

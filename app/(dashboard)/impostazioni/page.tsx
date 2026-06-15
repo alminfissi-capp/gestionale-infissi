@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSettings, getNoteTemplates, getLogoSignedUrl } from '@/actions/impostazioni'
+import { getConti } from '@/actions/conti'
 import { requireAccesso } from '@/lib/permessi'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
@@ -11,6 +12,7 @@ import FormNumerazione from '@/components/impostazioni/FormNumerazione'
 import FormValiditaPreventivo from '@/components/impostazioni/FormValiditaPreventivo'
 import ThemeToggle from '@/components/impostazioni/ThemeToggle'
 import SezioneFirmaDefault from '@/components/impostazioni/SezioneFirmaDefault'
+import FormConti from '@/components/impostazioni/FormConti'
 
 export default async function ImpostazioniPage() {
   await requireAccesso('impostazioni')
@@ -23,9 +25,10 @@ export default async function ImpostazioniPage() {
     .eq('id', user!.id)
     .single()
 
-  const [settings, templates] = await Promise.all([
+  const [settings, templates, conti] = await Promise.all([
     getSettings(),
     getNoteTemplates(),
+    getConti(),
   ])
 
   // Genera URL firmato per il logo se presente
@@ -57,6 +60,19 @@ export default async function ImpostazioniPage() {
         </CardHeader>
         <CardContent>
           <ThemeToggle />
+        </CardContent>
+      </Card>
+
+      {/* Conti correnti */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Conti correnti</CardTitle>
+          <CardDescription>
+            Banche/conti su cui vengono addebitate le scadenze. Il saldo concorre alla liquidità nei Calcoli.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FormConti initialConti={conti} />
         </CardContent>
       </Card>
 

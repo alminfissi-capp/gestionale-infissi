@@ -2,14 +2,16 @@ import Link from 'next/link'
 import { ChevronRight, Star } from 'lucide-react'
 import { getCommesseCalcoli, getGruppiCommesse, getRigheCalcoli } from '@/actions/commesse'
 import { getScadenzeCalcoli } from '@/actions/scadenze'
+import { getConti } from '@/actions/conti'
 import TabellaCalcoli from '@/components/commesse/TabellaCalcoli'
 
 export default async function CalcoliPage() {
-  const [commesse, gruppi, righe, scadenze] = await Promise.all([
+  const [commesse, gruppi, righe, scadenze, conti] = await Promise.all([
     getCommesseCalcoli(),
     getGruppiCommesse(),
     getRigheCalcoli(),
     getScadenzeCalcoli(),
+    getConti(),
   ])
 
   return (
@@ -28,7 +30,7 @@ export default async function CalcoliPage() {
           Commesse selezionate per il calcolo degli incassi possibili a fine mese
         </p>
       </div>
-      <TabellaCalcoli commesse={commesse} gruppi={gruppi} righe={righe} scadenze={scadenze} />
+      <TabellaCalcoli commesse={commesse} gruppi={gruppi} righe={righe} scadenze={scadenze} conti={conti} />
     </div>
   )
 }
