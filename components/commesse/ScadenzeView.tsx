@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  Plus, Pencil, Trash2, Camera, Check, ChevronDown, Loader2, Star, Landmark,
+  Plus, Pencil, Trash2, Camera, Check, ChevronDown, ChevronUp, Loader2, Star, Landmark,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -21,6 +21,7 @@ import {
   removeFotoScadenza,
   getFotoScadenzaUrl,
   toggleCalcoliScadenza,
+  riordinaScadenze,
 } from '@/actions/scadenze'
 import { formatEuro } from '@/lib/pricing'
 import { ocrAssegno } from '@/lib/ocrAssegno'
@@ -212,10 +213,32 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
       map.get(m)!.push(s)
     }
     for (const arr of map.values()) {
-      arr.sort((a, b) => giornoDi(a.data_scadenza) - giornoDi(b.data_scadenza))
+      // Ordine manuale (su/giù); a parità ripiega sul giorno del mese
+      arr.sort((a, b) => (a.ordine - b.ordine) || (giornoDi(a.data_scadenza) - giornoDi(b.data_scadenza)))
     }
     return map
   }, [items])
+
+  const handleMove = async (mese: number, idx: number, dir: -1 | 1) => {
+    const righe = perMese.get(mese) ?? []
+    const target = idx + dir
+    if (target < 0 || target >= righe.length) return
+    const reordered = [...righe]
+    const [moved] = reordered.splice(idx, 1)
+    reordered.splice(target, 0, moved)
+    const ids = reordered.map((r) => r.id)
+    // Update ottimistico: assegna ordine = posizione nel mese
+    setItems((cur) => cur.map((x) => {
+      const pos = ids.indexOf(x.id)
+      return pos === -1 ? x : { ...x, ordine: pos }
+    }))
+    try {
+      await riordinaScadenze(ids)
+    } catch {
+      toast.error('Errore nel riordino')
+      router.refresh()
+    }
+  }
 
   const totali = useMemo(() => {
     const daPagare = items.reduce((s, x) => s + (x.pagato ? 0 : x.importo), 0)
@@ -277,7 +300,7 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
 
               {aperto && righe.length > 0 && (
                 <div className="divide-y">
-                  {righe.map((s) => {
+                  {righe.map((s, idx) => {
                     const badge = CAT_BADGE[s.categoria]
                     const rata = s.numero_rata != null
                       ? `Rata ${s.numero_rata}${s.totale_rate ? `/${s.totale_rate}` : ''}`
@@ -320,7 +343,7 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                               </span>
                             )}
                             {s.conto_id && contoNome[s.conto_id] && (
-                              <span className="inline-flex items-center gap-0.5 text-[10px] rounded border border-slate-200 bg-slate-50 text-slate-600 px-1 py-0">
+                              <span className="sm:hidden inline-flex items-center gap-0.5 text-[10px] rounded border border-slate-200 bg-slate-50 text-slate-600 px-1 py-0">
                                 <Landmark className="h-2.5 w-2.5" />
                                 {contoNome[s.conto_id]}
                               </span>
@@ -328,6 +351,18 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                           </div>
                           {s.descrizione && (
                             <p className="text-xs text-gray-500 truncate">{s.descrizione}</p>
+                          )}
+                        </div>
+
+                        {/* Conto corrente (colonna allineata, da tablet in su) */}
+                        <div className="hidden sm:flex w-32 shrink-0 items-center gap-1 text-xs">
+                          {s.conto_id && contoNome[s.conto_id] ? (
+                            <>
+                              <Landmark className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                              <span className="truncate text-slate-700 font-medium">{contoNome[s.conto_id]}</span>
+                            </>
+                          ) : (
+                            <span className="text-gray-300">—</span>
                           )}
                         </div>
 
@@ -406,6 +441,28 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
+
+                        {/* Riordino su/giù */}
+                        <div className="flex flex-col shrink-0">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => handleMove(mese, idx, -1)}
+                            title="Sposta su"
+                            className="text-gray-300 hover:text-gray-600 disabled:opacity-30 disabled:hover:text-gray-300"
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === righe.length - 1}
+                            onClick={() => handleMove(mese, idx, 1)}
+                            title="Sposta giù"
+                            className="text-gray-300 hover:text-gray-600 disabled:opacity-30 disabled:hover:text-gray-300"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
                     )
                   })}

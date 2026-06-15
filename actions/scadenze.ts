@@ -34,14 +34,40 @@ export async function getScadenze(gruppoId: string): Promise<Scadenza[]> {
 export async function createScadenza(input: ScadenzaInput): Promise<{ id: string }> {
   const supabase = await createClient()
   const orgId = await getOrgId()
+  // Le nuove scadenze vanno in fondo: ordine = max(ordine)+1 nel blocco
+  const { data: maxRow } = await supabase
+    .from('scadenze')
+    .select('ordine')
+    .eq('organization_id', orgId)
+    .eq('gruppo_id', input.gruppo_id)
+    .order('ordine', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const ordine = (maxRow?.ordine ?? 0) + 1
   const { data, error } = await supabase
     .from('scadenze')
-    .insert({ ...input, organization_id: orgId })
+    .insert({ ...input, ordine, organization_id: orgId })
     .select('id')
     .single()
   if (error) throw new Error(error.message)
   revalidatePath('/commesse', 'layout')
   return { id: data.id }
+}
+
+/** Riassegna l'ordine alle scadenze nell'ordine dato (riordino manuale su/giù) */
+export async function riordinaScadenze(ids: string[]): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  await Promise.all(
+    ids.map((id, i) =>
+      supabase
+        .from('scadenze')
+        .update({ ordine: i })
+        .eq('id', id)
+        .eq('organization_id', orgId)
+    )
+  )
+  revalidatePath('/commesse', 'layout')
 }
 
 export async function updateScadenza(id: string, input: Partial<ScadenzaInput>): Promise<void> {
