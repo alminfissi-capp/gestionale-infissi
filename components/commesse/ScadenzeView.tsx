@@ -5,8 +5,24 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  Plus, Pencil, Trash2, Camera, Check, ChevronDown, ChevronUp, Loader2, Star, Landmark,
+  Plus, Pencil, Trash2, Camera, Check, ChevronDown, ChevronUp, Loader2, Star, Landmark, GripVertical,
 } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -48,6 +64,217 @@ const CAT_BORDER: Record<CategoriaScadenza, string> = {
   finanziamento: 'border-l-purple-400',
   assegno: 'border-l-blue-400',
   altro: 'border-l-transparent',
+}
+
+type RowProps = {
+  s: Scadenza
+  idx: number
+  total: number
+  mese: number
+  contoNome: Record<string, string>
+  fotoUrl?: string
+  uploading: boolean
+  setFileRef: (el: HTMLInputElement | null) => void
+  onClickCamera: () => void
+  onTogglePagato: (s: Scadenza) => void
+  onToggleCalcoli: (s: Scadenza) => void
+  onDelete: (s: Scadenza) => void
+  onFotoSelected: (s: Scadenza, file: File | null) => void
+  onOpenFoto: (url: string, s: Scadenza) => void
+  onEdit: (s: Scadenza) => void
+  onMove: (mese: number, idx: number, dir: -1 | 1) => void
+}
+
+function SortableScadenzaRow({
+  s, idx, total, mese, contoNome, fotoUrl, uploading, setFileRef, onClickCamera,
+  onTogglePagato, onToggleCalcoli, onDelete, onFotoSelected, onOpenFoto, onEdit, onMove,
+}: RowProps) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id: s.id })
+  const style = { transform: CSS.Transform.toString(transform), transition }
+  const badge = CAT_BADGE[s.categoria]
+  const rata = s.numero_rata != null
+    ? `Rata ${s.numero_rata}${s.totale_rate ? `/${s.totale_rate}` : ''}`
+    : null
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      className={`flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2.5 border-l-4 ${CAT_BORDER[s.categoria]} ${
+        isDragging ? 'opacity-50 bg-rose-50 relative z-10' : s.pagato ? 'bg-emerald-50/40' : 'bg-white'
+      }`}
+    >
+      {/* Maniglia trascinamento */}
+      <button
+        ref={setActivatorNodeRef}
+        {...listeners}
+        type="button"
+        title="Trascina per riordinare"
+        className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 touch-none shrink-0"
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+
+      {/* Pagato toggle */}
+      <button
+        type="button"
+        onClick={() => onTogglePagato(s)}
+        title={s.pagato ? 'Segna come da pagare' : 'Segna come pagata'}
+        className={`h-6 w-6 shrink-0 rounded-full border flex items-center justify-center transition-colors ${
+          s.pagato
+            ? 'bg-emerald-500 border-emerald-500 text-white'
+            : 'border-gray-300 text-transparent hover:border-emerald-400'
+        }`}
+      >
+        <Check className="h-3.5 w-3.5" />
+      </button>
+
+      {/* Giorno */}
+      <div className="w-8 shrink-0 text-center">
+        <span className="text-sm font-semibold text-gray-700">{giornoDi(s.data_scadenza)}</span>
+      </div>
+
+      {/* Fornitore + descrizione */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <p className="text-sm font-medium text-gray-800 truncate max-w-full">
+            {s.fornitore || <span className="text-gray-400">—</span>}
+          </p>
+          {badge && (
+            <span className={`text-[10px] rounded border px-1 py-0 font-medium ${badge.cls}`}>
+              {badge.label}
+            </span>
+          )}
+          {rata && (
+            <span className="text-[10px] rounded border border-gray-200 bg-gray-50 text-gray-500 px-1 py-0">
+              {rata}
+            </span>
+          )}
+          {s.conto_id && contoNome[s.conto_id] && (
+            <span className="sm:hidden inline-flex items-center gap-0.5 text-[10px] rounded border border-slate-200 bg-slate-50 text-slate-600 px-1 py-0">
+              <Landmark className="h-2.5 w-2.5" />
+              {contoNome[s.conto_id]}
+            </span>
+          )}
+        </div>
+        {s.descrizione && (
+          <p className="text-xs text-gray-500 truncate">{s.descrizione}</p>
+        )}
+      </div>
+
+      {/* Conto corrente (colonna allineata e centrata, da tablet in su) */}
+      <div className="hidden sm:flex w-32 shrink-0 items-center justify-center gap-1 text-xs">
+        {s.conto_id && contoNome[s.conto_id] ? (
+          <>
+            <Landmark className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+            <span className="truncate text-slate-700 font-medium">{contoNome[s.conto_id]}</span>
+          </>
+        ) : (
+          <span className="text-gray-300">—</span>
+        )}
+      </div>
+
+      {/* Foto */}
+      <input
+        ref={setFileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => onFotoSelected(s, e.target.files?.[0] ?? null)}
+      />
+      {uploading ? (
+        <div className="h-12 w-20 shrink-0 rounded border bg-gray-50 flex items-center justify-center">
+          <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+        </div>
+      ) : s.foto_path ? (
+        fotoUrl ? (
+          <button
+            type="button"
+            onClick={() => onOpenFoto(fotoUrl, s)}
+            className="h-12 w-20 shrink-0 rounded border overflow-hidden bg-gray-50 hover:ring-2 hover:ring-rose-300"
+            title="Apri foto"
+          >
+            <img src={fotoUrl} alt="foto scadenza" className="h-full w-full object-contain" />
+          </button>
+        ) : (
+          <div className="h-12 w-20 shrink-0 rounded border bg-gray-100 animate-pulse" />
+        )
+      ) : (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 shrink-0 text-gray-400 hover:text-rose-600"
+          title={s.categoria === 'assegno' ? 'Allega foto assegno (legge il numero)' : 'Allega foto'}
+          onClick={onClickCamera}
+        >
+          <Camera className="h-4 w-4" />
+        </Button>
+      )}
+
+      {/* Importo */}
+      <div className="w-24 shrink-0 text-right">
+        <span className={`text-sm font-semibold ${s.pagato ? 'text-emerald-700 line-through' : 'text-gray-900'}`}>
+          {formatEuro(s.importo)}
+        </span>
+      </div>
+
+      {/* Stella Calcoli */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 shrink-0"
+        title={s.in_calcoli ? 'Rimuovi dai Calcoli' : 'Aggiungi ai Calcoli'}
+        onClick={() => onToggleCalcoli(s)}
+      >
+        <Star className={`h-4 w-4 ${s.in_calcoli ? 'text-amber-400 fill-amber-400' : 'text-gray-300 hover:text-amber-400'}`} />
+      </Button>
+
+      {/* Azioni */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 shrink-0 text-gray-400 hover:text-gray-700"
+        title="Modifica"
+        onClick={() => onEdit(s)}
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 shrink-0 text-gray-400 hover:text-red-500"
+        title="Elimina"
+        onClick={() => onDelete(s)}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </Button>
+
+      {/* Riordino su/giù (alternativa al trascinamento) */}
+      <div className="flex flex-col shrink-0">
+        <button
+          type="button"
+          disabled={idx === 0}
+          onClick={() => onMove(mese, idx, -1)}
+          title="Sposta su"
+          className="text-gray-300 hover:text-gray-600 disabled:opacity-30 disabled:hover:text-gray-300"
+        >
+          <ChevronUp className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          disabled={idx === total - 1}
+          onClick={() => onMove(mese, idx, 1)}
+          title="Sposta giù"
+          className="text-gray-300 hover:text-gray-600 disabled:opacity-30 disabled:hover:text-gray-300"
+        >
+          <ChevronDown className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  )
 }
 
 interface Props {
@@ -240,6 +467,31 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
     }
   }
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+  )
+
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return
+    const activeId = String(active.id)
+    const overId = String(over.id)
+    // Riordino vincolato allo stesso mese
+    for (const [, righe] of perMese.entries()) {
+      const oldIndex = righe.findIndex((r) => r.id === activeId)
+      if (oldIndex === -1) continue
+      const newIndex = righe.findIndex((r) => r.id === overId)
+      if (newIndex === -1) return // trascinata su un altro mese → ignora
+      const ids = arrayMove(righe, oldIndex, newIndex).map((r) => r.id)
+      setItems((cur) => cur.map((x) => {
+        const pos = ids.indexOf(x.id)
+        return pos === -1 ? x : { ...x, ordine: pos }
+      }))
+      riordinaScadenze(ids).catch(() => { toast.error('Errore nel riordino'); router.refresh() })
+      return
+    }
+  }
+
   const totali = useMemo(() => {
     const daPagare = items.reduce((s, x) => s + (x.pagato ? 0 : x.importo), 0)
     const pagato = items.reduce((s, x) => s + (x.pagato ? x.importo : 0), 0)
@@ -260,6 +512,7 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
       </div>
 
       {/* 12 mesi a fisarmonica */}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <div className="space-y-2">
         {MESI.map((nomeMese, i) => {
           const mese = i + 1
@@ -299,179 +552,37 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
               </div>
 
               {aperto && righe.length > 0 && (
-                <div className="divide-y">
-                  {righe.map((s, idx) => {
-                    const badge = CAT_BADGE[s.categoria]
-                    const rata = s.numero_rata != null
-                      ? `Rata ${s.numero_rata}${s.totale_rate ? `/${s.totale_rate}` : ''}`
-                      : null
-                    return (
-                      <div key={s.id} className={`flex items-center gap-3 px-3 sm:px-4 py-2.5 border-l-4 ${CAT_BORDER[s.categoria]} ${s.pagato ? 'bg-emerald-50/40' : ''}`}>
-                        {/* Pagato toggle */}
-                        <button
-                          type="button"
-                          onClick={() => handleTogglePagato(s)}
-                          title={s.pagato ? 'Segna come da pagare' : 'Segna come pagata'}
-                          className={`h-6 w-6 shrink-0 rounded-full border flex items-center justify-center transition-colors ${
-                            s.pagato
-                              ? 'bg-emerald-500 border-emerald-500 text-white'
-                              : 'border-gray-300 text-transparent hover:border-emerald-400'
-                          }`}
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                        </button>
-
-                        {/* Giorno */}
-                        <div className="w-8 shrink-0 text-center">
-                          <span className="text-sm font-semibold text-gray-700">{giornoDi(s.data_scadenza)}</span>
-                        </div>
-
-                        {/* Fornitore + descrizione */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="text-sm font-medium text-gray-800 truncate max-w-full">
-                              {s.fornitore || <span className="text-gray-400">—</span>}
-                            </p>
-                            {badge && (
-                              <span className={`text-[10px] rounded border px-1 py-0 font-medium ${badge.cls}`}>
-                                {badge.label}
-                              </span>
-                            )}
-                            {rata && (
-                              <span className="text-[10px] rounded border border-gray-200 bg-gray-50 text-gray-500 px-1 py-0">
-                                {rata}
-                              </span>
-                            )}
-                            {s.conto_id && contoNome[s.conto_id] && (
-                              <span className="sm:hidden inline-flex items-center gap-0.5 text-[10px] rounded border border-slate-200 bg-slate-50 text-slate-600 px-1 py-0">
-                                <Landmark className="h-2.5 w-2.5" />
-                                {contoNome[s.conto_id]}
-                              </span>
-                            )}
-                          </div>
-                          {s.descrizione && (
-                            <p className="text-xs text-gray-500 truncate">{s.descrizione}</p>
-                          )}
-                        </div>
-
-                        {/* Conto corrente (colonna allineata, da tablet in su) */}
-                        <div className="hidden sm:flex w-32 shrink-0 items-center gap-1 text-xs">
-                          {s.conto_id && contoNome[s.conto_id] ? (
-                            <>
-                              <Landmark className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                              <span className="truncate text-slate-700 font-medium">{contoNome[s.conto_id]}</span>
-                            </>
-                          ) : (
-                            <span className="text-gray-300">—</span>
-                          )}
-                        </div>
-
-                        {/* Foto */}
-                        <input
-                          ref={(el) => { fileRefs.current[s.id] = el }}
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          className="hidden"
-                          onChange={(e) => handleFotoSelected(s, e.target.files?.[0] ?? null)}
-                        />
-                        {uploadingId === s.id ? (
-                          <div className="h-12 w-20 shrink-0 rounded border bg-gray-50 flex items-center justify-center">
-                            <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                          </div>
-                        ) : s.foto_path ? (
-                          fotoUrls[s.id] ? (
-                            <button
-                              type="button"
-                              onClick={() => setLightbox({ url: fotoUrls[s.id], scadenza: s })}
-                              className="h-12 w-20 shrink-0 rounded border overflow-hidden bg-gray-50 hover:ring-2 hover:ring-rose-300"
-                              title="Apri foto"
-                            >
-                              <img src={fotoUrls[s.id]} alt="foto scadenza" className="h-full w-full object-contain" />
-                            </button>
-                          ) : (
-                            <div className="h-12 w-20 shrink-0 rounded border bg-gray-100 animate-pulse" />
-                          )
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9 shrink-0 text-gray-400 hover:text-rose-600"
-                            title={s.categoria === 'assegno' ? 'Allega foto assegno (legge il numero)' : 'Allega foto'}
-                            onClick={() => fileRefs.current[s.id]?.click()}
-                          >
-                            <Camera className="h-4 w-4" />
-                          </Button>
-                        )}
-
-                        {/* Importo */}
-                        <div className="w-24 shrink-0 text-right">
-                          <span className={`text-sm font-semibold ${s.pagato ? 'text-emerald-700 line-through' : 'text-gray-900'}`}>
-                            {formatEuro(s.importo)}
-                          </span>
-                        </div>
-
-                        {/* Stella Calcoli */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 shrink-0"
-                          title={s.in_calcoli ? 'Rimuovi dai Calcoli' : 'Aggiungi ai Calcoli'}
-                          onClick={() => handleToggleCalcoli(s)}
-                        >
-                          <Star className={`h-4 w-4 ${s.in_calcoli ? 'text-amber-400 fill-amber-400' : 'text-gray-300 hover:text-amber-400'}`} />
-                        </Button>
-
-                        {/* Azioni */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 shrink-0 text-gray-400 hover:text-gray-700"
-                          title="Modifica"
-                          onClick={() => setDialog({ scadenza: s, defaultData: s.data_scadenza })}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 shrink-0 text-gray-400 hover:text-red-500"
-                          title="Elimina"
-                          onClick={() => handleDelete(s)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-
-                        {/* Riordino su/giù */}
-                        <div className="flex flex-col shrink-0">
-                          <button
-                            type="button"
-                            disabled={idx === 0}
-                            onClick={() => handleMove(mese, idx, -1)}
-                            title="Sposta su"
-                            className="text-gray-300 hover:text-gray-600 disabled:opacity-30 disabled:hover:text-gray-300"
-                          >
-                            <ChevronUp className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            disabled={idx === righe.length - 1}
-                            onClick={() => handleMove(mese, idx, 1)}
-                            title="Sposta giù"
-                            className="text-gray-300 hover:text-gray-600 disabled:opacity-30 disabled:hover:text-gray-300"
-                          >
-                            <ChevronDown className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
+                <SortableContext items={righe.map((r) => r.id)} strategy={verticalListSortingStrategy}>
+                  <div className="divide-y">
+                    {righe.map((s, idx) => (
+                      <SortableScadenzaRow
+                        key={s.id}
+                        s={s}
+                        idx={idx}
+                        total={righe.length}
+                        mese={mese}
+                        contoNome={contoNome}
+                        fotoUrl={fotoUrls[s.id]}
+                        uploading={uploadingId === s.id}
+                        setFileRef={(el) => { fileRefs.current[s.id] = el }}
+                        onClickCamera={() => fileRefs.current[s.id]?.click()}
+                        onTogglePagato={handleTogglePagato}
+                        onToggleCalcoli={handleToggleCalcoli}
+                        onDelete={handleDelete}
+                        onFotoSelected={handleFotoSelected}
+                        onOpenFoto={(url, sc) => setLightbox({ url, scadenza: sc })}
+                        onEdit={(sc) => setDialog({ scadenza: sc, defaultData: sc.data_scadenza })}
+                        onMove={handleMove}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
               )}
             </div>
           )
         })}
       </div>
+      </DndContext>
 
       {/* Dialog add/edit */}
       {dialog && (
