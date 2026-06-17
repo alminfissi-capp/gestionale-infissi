@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  Plus, Pencil, Trash2, Camera, Check, ChevronDown, Loader2, Star, Landmark, GripVertical,
+  Plus, Pencil, Trash2, Camera, Check, ChevronDown, Loader2, Star, Landmark, GripVertical, Copy, CalendarPlus,
 } from 'lucide-react'
 import {
   DndContext,
@@ -25,10 +25,22 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 import {
   setPagatoScadenza,
   deleteScadenza,
@@ -38,6 +50,7 @@ import {
   getFotoScadenzaUrl,
   toggleCalcoliScadenza,
   riordinaScadenze,
+  copiaScadenzaRate,
 } from '@/actions/scadenze'
 import { formatEuro } from '@/lib/pricing'
 import { ocrAssegno } from '@/lib/ocrAssegno'
@@ -86,11 +99,15 @@ type RowProps = {
   onFotoSelected: (s: Scadenza, file: File | null) => void
   onOpenFoto: (url: string, s: Scadenza) => void
   onEdit: (s: Scadenza) => void
+  onCopia: (s: Scadenza, cadenzaMesi: number) => void
+  onApriPiano: (s: Scadenza) => void
+  copying: boolean
 }
 
 function SortableScadenzaRow({
   s, contoNome, fotoUrl, uploading, setFileRef, onClickCamera,
   onTogglePagato, onToggleCalcoli, onDelete, onFotoSelected, onOpenFoto, onEdit,
+  onCopia, onApriPiano, copying,
 }: RowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: s.id })
@@ -188,34 +205,36 @@ function SortableScadenzaRow({
         className="hidden"
         onChange={(e) => onFotoSelected(s, e.target.files?.[0] ?? null)}
       />
-      {uploading ? (
-        <div className="h-12 w-20 shrink-0 rounded border bg-gray-50 flex items-center justify-center">
-          <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-        </div>
-      ) : s.foto_path ? (
-        fotoUrl ? (
-          <button
-            type="button"
-            onClick={() => onOpenFoto(fotoUrl, s)}
-            className="h-12 w-20 shrink-0 rounded border overflow-hidden bg-gray-50 hover:ring-2 hover:ring-rose-300"
-            title="Apri foto"
-          >
-            <img src={fotoUrl} alt="foto scadenza" className="h-full w-full object-contain" />
-          </button>
+      <div className="w-20 shrink-0 flex items-center justify-center">
+        {uploading ? (
+          <div className="h-12 w-20 rounded border bg-gray-50 flex items-center justify-center">
+            <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+          </div>
+        ) : s.foto_path ? (
+          fotoUrl ? (
+            <button
+              type="button"
+              onClick={() => onOpenFoto(fotoUrl, s)}
+              className="h-12 w-20 rounded border overflow-hidden bg-gray-50 hover:ring-2 hover:ring-rose-300"
+              title="Apri foto"
+            >
+              <img src={fotoUrl} alt="foto scadenza" className="h-full w-full object-contain" />
+            </button>
+          ) : (
+            <div className="h-12 w-20 rounded border bg-gray-100 animate-pulse" />
+          )
         ) : (
-          <div className="h-12 w-20 shrink-0 rounded border bg-gray-100 animate-pulse" />
-        )
-      ) : (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 shrink-0 text-gray-400 hover:text-rose-600"
-          title={s.categoria === 'assegno' ? 'Allega foto assegno (legge il numero)' : 'Allega foto'}
-          onClick={onClickCamera}
-        >
-          <Camera className="h-4 w-4" />
-        </Button>
-      )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 text-gray-400 hover:text-rose-600"
+            title={s.categoria === 'assegno' ? 'Allega foto assegno (legge il numero)' : 'Allega foto'}
+            onClick={onClickCamera}
+          >
+            <Camera className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
 
       {/* Importo */}
       <div className="w-24 shrink-0 text-right">
@@ -234,6 +253,38 @@ function SortableScadenzaRow({
       >
         <Star className={`h-4 w-4 ${s.in_calcoli ? 'text-amber-400 fill-amber-400' : 'text-gray-300 hover:text-amber-400'}`} />
       </Button>
+
+      {/* Copia rata (solo finanziamenti) */}
+      {s.categoria === 'finanziamento' && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0 text-gray-400 hover:text-purple-600"
+              title="Copia rata nei mesi successivi"
+              disabled={copying}
+            >
+              {copying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onCopia(s, 1)}>
+              <CalendarPlus className="h-4 w-4 mr-2" />
+              Copia al mese successivo
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onCopia(s, 3)}>
+              <CalendarPlus className="h-4 w-4 mr-2" />
+              Copia +3 mesi (trimestrale)
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onApriPiano(s)}>
+              <Copy className="h-4 w-4 mr-2" />
+              Genera piano rate…
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       {/* Azioni */}
       <Button
@@ -255,6 +306,96 @@ function SortableScadenzaRow({
         <Trash2 className="h-3.5 w-3.5" />
       </Button>
     </div>
+  )
+}
+
+function DialogPianoRate({ scadenza, onClose }: { scadenza: Scadenza; onClose: () => void }) {
+  const router = useRouter()
+  const [totale, setTotale] = useState(scadenza.totale_rate != null ? String(scadenza.totale_rate) : '')
+  const [cadenza, setCadenza] = useState<'1' | '3'>('1')
+  const [loading, setLoading] = useState(false)
+
+  const rataCorrente = scadenza.numero_rata ?? 1
+  const totaleNum = parseInt(totale, 10)
+  const count = Number.isFinite(totaleNum) ? totaleNum - rataCorrente : 0
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!Number.isFinite(totaleNum) || totaleNum < 1) { toast.error('Inserisci il numero totale di rate'); return }
+    if (count < 1) { toast.error('Il totale deve essere maggiore della rata attuale'); return }
+    setLoading(true)
+    try {
+      // Allinea il totale rate anche sulla rata di partenza
+      if (scadenza.totale_rate !== totaleNum) {
+        await updateScadenza(scadenza.id, { totale_rate: totaleNum })
+      }
+      const { creati } = await copiaScadenzaRate({
+        origineId: scadenza.id,
+        cadenzaMesi: Number(cadenza),
+        count,
+        totaleRate: totaleNum,
+      })
+      toast.success(`${creati} rate generate`)
+      onClose()
+      router.refresh()
+    } catch {
+      toast.error('Errore nella generazione del piano')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(v) => { if (!v) onClose() }}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Genera piano rate</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Partendo dalla rata {rataCorrente}
+            {scadenza.fornitore ? ` di ${scadenza.fornitore}` : ''}, crea le rate successive con lo stesso importo
+            ({formatEuro(scadenza.importo)}) fino al totale indicato.
+          </p>
+          <div className="space-y-1.5">
+            <Label htmlFor="piano-totale">Numero totale di rate</Label>
+            <Input
+              id="piano-totale"
+              type="number"
+              min={rataCorrente + 1}
+              placeholder="es. 12"
+              value={totale}
+              onChange={(e) => setTotale(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="piano-cadenza">Cadenza</Label>
+            <select
+              id="piano-cadenza"
+              value={cadenza}
+              onChange={(e) => setCadenza(e.target.value as '1' | '3')}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <option value="1">Mensile</option>
+              <option value="3">Trimestrale (ogni 3 mesi)</option>
+            </select>
+          </div>
+          {count > 0 && (
+            <p className="text-xs text-gray-500">
+              Verranno create <span className="font-semibold text-gray-700">{count}</span> nuove rate
+              (dalla {rataCorrente + 1} alla {totaleNum}).
+            </p>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Annulla</Button>
+            <Button type="submit" disabled={loading || count < 1}>
+              {loading ? 'Generazione…' : 'Genera'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -305,6 +446,10 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
 
   // Lightbox foto
   const [lightbox, setLightbox] = useState<{ url: string; scadenza: Scadenza } | null>(null)
+
+  // Copia rate: spinner sulla riga in copia + dialog "genera piano"
+  const [copyingId, setCopyingId] = useState<string | null>(null)
+  const [piano, setPiano] = useState<Scadenza | null>(null)
 
   // URL firmati delle foto + upload/OCR in corso
   const [fotoUrls, setFotoUrls] = useState<Record<string, string>>({})
@@ -409,6 +554,19 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
       router.refresh()
     } catch {
       toast.error("Errore nell'eliminazione")
+    }
+  }
+
+  const handleCopia = async (s: Scadenza, cadenzaMesi: number) => {
+    setCopyingId(s.id)
+    try {
+      await copiaScadenzaRate({ origineId: s.id, cadenzaMesi, count: 1 })
+      toast.success(cadenzaMesi === 3 ? 'Rata copiata (+3 mesi)' : 'Rata copiata al mese successivo')
+      router.refresh()
+    } catch {
+      toast.error('Errore nella copia della rata')
+    } finally {
+      setCopyingId(null)
     }
   }
 
@@ -529,6 +687,9 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                         onFotoSelected={handleFotoSelected}
                         onOpenFoto={(url, sc) => setLightbox({ url, scadenza: sc })}
                         onEdit={(sc) => setDialog({ scadenza: sc, defaultData: sc.data_scadenza })}
+                        onCopia={handleCopia}
+                        onApriPiano={(sc) => setPiano(sc)}
+                        copying={copyingId === s.id}
                       />
                     ))}
                   </div>
@@ -552,6 +713,9 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
           conti={conti}
         />
       )}
+
+      {/* Dialog genera piano rate */}
+      {piano && <DialogPianoRate scadenza={piano} onClose={() => setPiano(null)} />}
 
       {/* Lightbox foto */}
       <Dialog open={!!lightbox} onOpenChange={(v) => { if (!v) setLightbox(null) }}>

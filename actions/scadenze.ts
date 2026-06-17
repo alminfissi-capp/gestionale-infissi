@@ -8,6 +8,19 @@ import type { Scadenza, ScadenzaInput } from '@/types/commessa'
 
 const BUCKET = 'commesse-docs'
 
+const pad2 = (n: number) => String(n).padStart(2, '0')
+
+/** Aggiunge `months` mesi a una data ISO (YYYY-MM-DD), troncando il giorno all'ultimo del mese target */
+function addMonths(iso: string, months: number): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const base = new Date(Date.UTC(y, m - 1, 1))
+  base.setUTCMonth(base.getUTCMonth() + months)
+  const ty = base.getUTCFullYear()
+  const tm = base.getUTCMonth() // 0-based
+  const ultimoGiorno = new Date(Date.UTC(ty, tm + 1, 0)).getUTCDate()
+  return `${ty}-${pad2(tm + 1)}-${pad2(Math.min(d, ultimoGiorno))}`
+}
+
 const MIME_BY_EXT: Record<string, string> = {
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
@@ -192,6 +205,126 @@ export async function toggleCalcoliScadenza(id: string, value: boolean): Promise
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
   revalidatePath('/commesse', 'layout')
+}
+
+/** Trova il blocco scadenze dell'anno indicato (per nome), creandolo se non esiste. Ritorna il gruppo_id. */
+async function resolveGruppoScadenzeAnno(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+  anno: number,
+): Promise<string> {
+  const nome = String(anno)
+  const { data: existing } = await supabase
+    .from('gruppi_commesse')
+    .select('id')
+    .eq('organization_id', orgId)
+    .eq('tipo', 'scadenze')
+    .eq('nome', nome)
+    .maybeSingle()
+  if (existing) return existing.id
+
+  const { data: maxRow } = await supabase
+    .from('gruppi_commesse')
+    .select('ordine')
+    .eq('organization_id', orgId)
+    .order('ordine', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const nextOrdine = (maxRow?.ordine ?? -1) + 1
+  const { data: created, error } = await supabase
+    .from('gruppi_commesse')
+    .insert({ nome, organization_id: orgId, ordine: nextOrdine, tipo: 'scadenze' })
+    .select('id')
+    .single()
+  if (error) throw new Error(error.message)
+  return created.id
+}
+
+/**
+ * Copia una scadenza rateale nei periodi successivi.
+ * - `cadenzaMesi`: 1 = mensile, 3 = trimestrale
+ * - `count`: quante nuove rate creare (1 = copia singola; N = genera piano)
+ * - `totaleRate`: opzionale, sovrascrive il totale rate su tutte le nuove righe
+ * Le rate che cadono in un anno diverso finiscono nel blocco di quell'anno (creato se manca).
+ */
+export async function copiaScadenzaRate(params: {
+  origineId: string
+  cadenzaMesi: number
+  count: number
+  totaleRate?: number | null
+}): Promise<{ creati: number }> {
+  const { origineId, cadenzaMesi, count } = params
+  if (count < 1) return { creati: 0 }
+
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { data: orig, error: e1 } = await supabase
+    .from('scadenze')
+    .select('*')
+    .eq('id', origineId)
+    .eq('organization_id', orgId)
+    .single()
+  if (e1 || !orig) throw new Error(e1?.message ?? 'Scadenza non trovata')
+
+  const baseRata = orig.numero_rata != null ? Number(orig.numero_rata) : null
+  const totaleRate = params.totaleRate !== undefined ? params.totaleRate : orig.totale_rate
+
+  // Date e numeri di rata delle nuove scadenze
+  const nuove = Array.from({ length: count }, (_, i) => {
+    const k = i + 1
+    return {
+      data_scadenza: addMonths(orig.data_scadenza, cadenzaMesi * k),
+      numero_rata: baseRata != null ? baseRata + k : null,
+    }
+  })
+
+  // Risolvi i blocchi per anno e inizializza l'ordine corrente di ognuno
+  const gruppoPerAnno = new Map<number, string>()
+  const ordineCorrente = new Map<string, number>()
+  for (const n of nuove) {
+    const anno = Number(n.data_scadenza.slice(0, 4))
+    if (gruppoPerAnno.has(anno)) continue
+    const gid = await resolveGruppoScadenzeAnno(supabase, orgId, anno)
+    gruppoPerAnno.set(anno, gid)
+    const { data: maxRow } = await supabase
+      .from('scadenze')
+      .select('ordine')
+      .eq('organization_id', orgId)
+      .eq('gruppo_id', gid)
+      .order('ordine', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    ordineCorrente.set(gid, maxRow?.ordine ?? 0)
+  }
+
+  const inserts = nuove.map((n) => {
+    const anno = Number(n.data_scadenza.slice(0, 4))
+    const gid = gruppoPerAnno.get(anno)!
+    const ord = (ordineCorrente.get(gid) ?? 0) + 1
+    ordineCorrente.set(gid, ord)
+    return {
+      organization_id: orgId,
+      gruppo_id: gid,
+      data_scadenza: n.data_scadenza,
+      descrizione: orig.descrizione,
+      fornitore: orig.fornitore,
+      importo: orig.importo,
+      pagato: false,
+      categoria: orig.categoria,
+      numero_rata: n.numero_rata,
+      totale_rate: totaleRate ?? null,
+      conto_id: orig.conto_id,
+      foto_path: null,
+      in_calcoli: false,
+      ordine: ord,
+    }
+  })
+
+  const { error: e2 } = await supabase.from('scadenze').insert(inserts)
+  if (e2) throw new Error(e2.message)
+  revalidatePath('/commesse', 'layout')
+  return { creati: inserts.length }
 }
 
 /** Scadenze selezionate per i Calcoli (tutti i blocchi) */
