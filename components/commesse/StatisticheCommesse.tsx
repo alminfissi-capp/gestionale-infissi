@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, BarChart3, Search } from 'lucide-react'
 import {
   ResponsiveContainer, ComposedChart, BarChart, Bar, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
 } from 'recharts'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,8 +21,20 @@ import {
 
 const COLORS = {
   valore: '#0d9488',  // teal-600
-  numero: '#f59e0b',  // amber-500
+  numero: '#b45309',  // amber-700 (testo leggibile su sfondo chiaro)
   incasso: '#0ea5e9', // sky-500
+}
+
+// Etichette compatte sui grafici (es. "12,5K"), vuote per i valori a zero.
+const compactEuro = new Intl.NumberFormat('it-IT', { notation: 'compact', maximumFractionDigits: 1 })
+type LabelVal = string | number | boolean | null | undefined
+function labelEuro(v: LabelVal): string {
+  const n = Number(v)
+  return n > 0 ? compactEuro.format(n) : ''
+}
+function labelNumero(v: LabelVal): string {
+  const n = Number(v)
+  return n > 0 ? String(n) : ''
 }
 
 interface Props {
@@ -98,7 +110,7 @@ export default function StatisticheCommesse({ dati }: Props) {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <ComposedChart data={datiMese} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                <ComposedChart data={datiMese} margin={{ top: 24, right: 8, left: -12, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="mese" tick={{ fontSize: 11, fill: '#9ca3af' }} />
                   <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#9ca3af' }} width={56}
@@ -113,9 +125,15 @@ export default function StatisticheCommesse({ dati }: Props) {
                     }
                   />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar yAxisId="left" dataKey="valore" name="Valore" fill={COLORS.valore} radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="left" dataKey="valore" name="Valore" fill={COLORS.valore} radius={[4, 4, 0, 0]}>
+                    <LabelList dataKey="valore" position="insideTop" fill="#ffffff"
+                      fontSize={10} fontWeight={600} formatter={labelEuro} />
+                  </Bar>
                   <Line yAxisId="right" type="monotone" dataKey="numero" name="Numero"
-                    stroke={COLORS.numero} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                    stroke={COLORS.numero} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }}>
+                    <LabelList dataKey="numero" position="top" fill={COLORS.numero}
+                      fontSize={11} fontWeight={700} formatter={labelNumero} />
+                  </Line>
                 </ComposedChart>
               </ResponsiveContainer>
               <div className="flex flex-wrap gap-x-8 gap-y-1 mt-3 text-sm">
@@ -132,7 +150,7 @@ export default function StatisticheCommesse({ dati }: Props) {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={datiIncassi} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                <BarChart data={datiIncassi} margin={{ top: 24, right: 8, left: -12, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="mese" tick={{ fontSize: 11, fill: '#9ca3af' }} />
                   <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} width={56}
@@ -142,7 +160,10 @@ export default function StatisticheCommesse({ dati }: Props) {
                     labelStyle={{ fontWeight: 600 }}
                     formatter={(value) => [formatEuro(Number(value)), 'Incasso']}
                   />
-                  <Bar dataKey="incasso" name="Incasso" fill={COLORS.incasso} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="incasso" name="Incasso" fill={COLORS.incasso} radius={[4, 4, 0, 0]}>
+                    <LabelList dataKey="incasso" position="top" fill="#0369a1"
+                      fontSize={10} fontWeight={600} formatter={labelEuro} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
               <div className="mt-3 text-sm text-gray-500">
