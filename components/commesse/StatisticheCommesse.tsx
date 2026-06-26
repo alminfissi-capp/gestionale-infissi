@@ -45,9 +45,9 @@ export default function StatisticheCommesse({ dati }: Props) {
   const router = useRouter()
   const { commesse, acconti, anni } = dati
 
-  const annoCorrente = new Date().getFullYear()
+  const annoCorrente = String(new Date().getFullYear())
   const annoDefault = anni.includes(annoCorrente) ? annoCorrente : (anni[0] ?? annoCorrente)
-  const [anno, setAnno] = useState<number>(annoDefault)
+  const [anno, setAnno] = useState<string>(annoDefault)
   const [cliente, setCliente] = useState('')
 
   const datiMese = useMemo(() => aggregaMese(commesse, anno), [commesse, anno])
@@ -84,13 +84,13 @@ export default function StatisticheCommesse({ dati }: Props) {
           </div>
         </div>
         {haDati && (
-          <Select value={String(anno)} onValueChange={(v) => setAnno(Number(v))}>
+          <Select value={anno} onValueChange={setAnno}>
             <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {anni.map((a) => (
-                <SelectItem key={a} value={String(a)}>{a}</SelectItem>
+                <SelectItem key={a} value={a}>{a}</SelectItem>
               ))}
             </SelectContent>
           </Select>

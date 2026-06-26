@@ -1,10 +1,18 @@
 // Logica pura per i grafici/statistiche commesse. Nessuna dipendenza React o Supabase.
+//
+// Definizione di "anno":
+// - Andamento commesse e Resoconto cliente → l'anno è il BLOCCO di appartenenza
+//   (i blocchi commesse sono nominati per anno: "2025", "2026"). I 12 mesi del
+//   grafico vengono dalla data di conferma.
+// - Incassi → l'anno è quello della DATA DI PAGAMENTO dell'acconto, a prescindere
+//   dal blocco della commessa collegata.
 
 export type StatRow = {
   id: string
   cliente_nome: string
   totale: number
   data_conferma: string | null
+  blocco: string | null // nome del blocco/gruppo commesse di appartenenza
 }
 
 export type AccontoRow = {
@@ -16,13 +24,13 @@ export type AccontoRow = {
 export type DatiStatistiche = {
   commesse: StatRow[]
   acconti: AccontoRow[]
-  anni: number[]
+  anni: string[] // valori del selettore (nomi blocco + anni di pagamento), desc
 }
 
 export type PuntoMese = { mese: string; valore: number; numero: number }
 export type PuntoIncasso = { mese: string; incasso: number }
 export type RigaResoconto = {
-  anno: number
+  anno: string // nome del blocco (o etichetta totale)
   numero: number
   fatturato: number
   incassato: number
@@ -34,11 +42,11 @@ export const MESI_LABEL = [
   'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic',
 ]
 
-// Estrae l'anno da una data ISO ('2026-06-26' o full timestamp). null se non valida.
-function annoDi(data: string | null): number | null {
-  if (!data) return null
-  const y = Number(data.slice(0, 4))
-  return Number.isFinite(y) && y > 1900 ? y : null
+// Estrae l'anno (stringa "YYYY") da una data ISO. '' se non valida.
+function annoStr(data: string | null): string {
+  if (!data || data.length < 4) return ''
+  const y = data.slice(0, 4)
+  return /^\d{4}$/.test(y) ? y : ''
 }
 
 // Estrae l'indice mese 0-11 da una data ISO. null se non valida.
@@ -48,11 +56,12 @@ function meseDi(data: string | null): number | null {
   return Number.isFinite(m) && m >= 1 && m <= 12 ? m - 1 : null
 }
 
-// Andamento commesse per mese dell'anno selezionato (12 righe gen-dic).
-export function aggregaMese(commesse: StatRow[], anno: number): PuntoMese[] {
+// Andamento commesse del blocco selezionato (12 righe gen-dic), distribuite per
+// mese di data_conferma.
+export function aggregaMese(commesse: StatRow[], anno: string): PuntoMese[] {
   const out: PuntoMese[] = MESI_LABEL.map((mese) => ({ mese, valore: 0, numero: 0 }))
   for (const c of commesse) {
-    if (annoDi(c.data_conferma) !== anno) continue
+    if (c.blocco !== anno) continue
     const m = meseDi(c.data_conferma)
     if (m === null) continue
     out[m].valore += Number(c.totale) || 0
@@ -61,11 +70,11 @@ export function aggregaMese(commesse: StatRow[], anno: number): PuntoMese[] {
   return out
 }
 
-// Incassi (acconti) per mese dell'anno selezionato (12 righe gen-dic).
-export function aggregaIncassiMese(acconti: AccontoRow[], anno: number): PuntoIncasso[] {
+// Incassi (acconti) per mese dell'anno di PAGAMENTO selezionato (12 righe gen-dic).
+export function aggregaIncassiMese(acconti: AccontoRow[], anno: string): PuntoIncasso[] {
   const out: PuntoIncasso[] = MESI_LABEL.map((mese) => ({ mese, incasso: 0 }))
   for (const a of acconti) {
-    if (annoDi(a.data_pagamento) !== anno) continue
+    if (annoStr(a.data_pagamento) !== anno) continue
     const m = meseDi(a.data_pagamento)
     if (m === null) continue
     out[m].incasso += Number(a.importo) || 0
@@ -85,60 +94,66 @@ export function clientiUnici(commesse: StatRow[]): string[] {
   return [...map.values()].sort((a, b) => a.localeCompare(b, 'it'))
 }
 
-// Resoconto per cliente, diviso per anno: fatturato, incassato, saldo residuo.
-// Ignora il selettore anno: include tutti gli anni del cliente.
+// Ordina valori "anno" (nomi blocco numerici) in modo decrescente.
+function ordinaAnniDesc(a: string, b: string): number {
+  const na = Number(a)
+  const nb = Number(b)
+  if (Number.isFinite(na) && Number.isFinite(nb)) return nb - na
+  return b.localeCompare(a)
+}
+
+// Resoconto per cliente, diviso per BLOCCO: fatturato, incassato, saldo residuo.
+// Indipendente dal selettore: include tutti i blocchi del cliente.
 export function resocontoCliente(
   commesse: StatRow[],
   acconti: AccontoRow[],
   cliente: string,
 ): { righe: RigaResoconto[]; totale: RigaResoconto } {
   const target = cliente.trim().toLowerCase()
-  // Commesse del cliente + mappa id → anno per attribuire gli acconti.
   const commesseCliente = commesse.filter(
     (c) => (c.cliente_nome ?? '').trim().toLowerCase() === target,
   )
-  const annoPerCommessa = new Map<string, number>()
-  const perAnno = new Map<number, RigaResoconto>()
+  const bloccoPerCommessa = new Map<string, string>()
+  const perBlocco = new Map<string, RigaResoconto>()
 
-  function riga(anno: number): RigaResoconto {
-    let r = perAnno.get(anno)
+  function riga(blocco: string): RigaResoconto {
+    let r = perBlocco.get(blocco)
     if (!r) {
-      r = { anno, numero: 0, fatturato: 0, incassato: 0, saldo: 0 }
-      perAnno.set(anno, r)
+      r = { anno: blocco, numero: 0, fatturato: 0, incassato: 0, saldo: 0 }
+      perBlocco.set(blocco, r)
     }
     return r
   }
 
   for (const c of commesseCliente) {
-    const anno = annoDi(c.data_conferma)
-    if (anno === null) continue
-    annoPerCommessa.set(c.id, anno)
-    const r = riga(anno)
+    const blocco = c.blocco ?? '(senza blocco)'
+    bloccoPerCommessa.set(c.id, blocco)
+    const r = riga(blocco)
     r.numero += 1
     r.fatturato += Number(c.totale) || 0
   }
 
-  // Acconti: attribuiti all'anno della commessa collegata (coerente con fatturato/saldo).
+  // Acconti: attribuiti al blocco della commessa collegata (coerente con fatturato/saldo).
   const idsCliente = new Set(commesseCliente.map((c) => c.id))
   for (const a of acconti) {
     if (!idsCliente.has(a.commessa_id)) continue
-    const anno = annoPerCommessa.get(a.commessa_id)
-    if (anno === undefined) continue
-    riga(anno).incassato += Number(a.importo) || 0
+    const blocco = bloccoPerCommessa.get(a.commessa_id)
+    if (blocco === undefined) continue
+    riga(blocco).incassato += Number(a.importo) || 0
   }
 
-  const righe = [...perAnno.values()].sort((a, b) => b.anno - a.anno)
+  const righe = [...perBlocco.values()].sort((a, b) => ordinaAnniDesc(a.anno, b.anno))
   for (const r of righe) r.saldo = r.fatturato - r.incassato
 
   const totale: RigaResoconto = righe.reduce(
     (acc, r) => ({
-      anno: 0,
+      anno: '',
       numero: acc.numero + r.numero,
       fatturato: acc.fatturato + r.fatturato,
       incassato: acc.incassato + r.incassato,
       saldo: acc.saldo + r.saldo,
     }),
-    { anno: 0, numero: 0, fatturato: 0, incassato: 0, saldo: 0 },
+    { anno: '', numero: 0, fatturato: 0, incassato: 0, saldo: 0 },
   )
 
   return { righe, totale }
