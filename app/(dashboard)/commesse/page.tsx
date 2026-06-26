@@ -1,4 +1,6 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { BarChart3 } from 'lucide-react'
 import { getGruppiCommesse, getGruppoCorrente } from '@/actions/commesse'
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
@@ -78,11 +80,20 @@ export default async function CommessePage({
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Commesse / Scadenze</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          Seleziona un blocco per visualizzare commesse o scadenze
-        </p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Commesse / Scadenze</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Seleziona un blocco per visualizzare commesse o scadenze
+          </p>
+        </div>
+        <Link
+          href="/commesse/statistiche"
+          className="inline-flex items-center gap-2 rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-medium text-teal-700 hover:bg-teal-100 transition-colors"
+        >
+          <BarChart3 className="h-4 w-4" />
+          Grafici e statistiche
+        </Link>
       </div>
       <GruppiCommesse gruppi={gruppiConStats} calcoli={calcoli} />
     </div>
