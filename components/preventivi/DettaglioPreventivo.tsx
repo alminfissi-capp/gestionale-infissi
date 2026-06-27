@@ -14,6 +14,7 @@ import DialogAllegatiCalcoli from '@/components/preventivi/DialogAllegatiCalcoli
 import DialogInvioEmail from '@/components/preventivi/DialogInvioEmail'
 import { generaShareToken, revokaShareToken } from '@/actions/condivisione'
 import { formatEuro } from '@/lib/pricing'
+import { costiArticolo, calcolaCostiPreventivo } from '@/lib/preventivo-costi'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -736,21 +737,11 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
 
       {/* Report Interno — solo uso gestionale, non compare in stampa */}
       {(() => {
-        // Per su_misura/scorrevole: usa config come fonte attendibile (funziona anche su articoli già salvati)
-        const getCosti = (a: typeof p.articoli[number]) => {
-          if (a.tipo === 'su_misura' && a.config_su_misura)
-            return { acq: a.config_su_misura.totale_prodotto + a.config_su_misura.totale_accessori, posa: a.config_su_misura.mano_dopera }
-          if (a.tipo === 'scorrevole' && a.config_scorrevole)
-            return { acq: a.config_scorrevole.dettaglio.totale_riga, posa: a.config_scorrevole.posa ?? a.costo_posa }
-          if (a.tipo === 'winconfig' && a.config_winconfig)
-            return { acq: a.config_winconfig.costo_totale, posa: a.costo_posa }
-          return { acq: a.costo_acquisto_unitario, posa: a.costo_posa }
-        }
-        const totaleCostiAcquisto = p.articoli.reduce((sum, a) => sum + getCosti(a).acq * a.quantita, 0)
-        const totalePosa = p.articoli.reduce((sum, a) => sum + getCosti(a).posa * a.quantita, 0)
+        // Costi/utile via funzione condivisa (lib/preventivo-costi) — stessa formula delle statistiche
+        const getCosti = costiArticolo
+        const { materiali: totaleCostiAcquisto, posa: totalePosa, costoTotale, utile } =
+          calcolaCostiPreventivo(p.articoli, p.totale_articoli, p.spese_trasporto)
         if (totaleCostiAcquisto === 0 && totalePosa === 0 && p.spese_trasporto === 0) return null
-        const costoTotale = totaleCostiAcquisto + totalePosa + p.spese_trasporto
-        const utile = p.totale_articoli - costoTotale
         const percUtile = costoTotale > 0 ? (utile / costoTotale) * 100 : null
         return (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-4">

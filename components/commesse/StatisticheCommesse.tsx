@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, BarChart3, Search } from 'lucide-react'
+import { ArrowLeft, BarChart3, Search, TrendingUp } from 'lucide-react'
 import {
   ResponsiveContainer, ComposedChart, BarChart, Bar, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
@@ -15,15 +15,21 @@ import {
 } from '@/components/ui/select'
 import { formatEuro } from '@/lib/pricing'
 import {
-  aggregaMese, aggregaIncassiMese, resocontoCliente, clientiUnici,
+  aggregaMese, aggregaIncassiMese, aggregaCostiUtiliMese, contaCommesseSenzaPreventivo,
+  resocontoCliente, clientiUnici,
   type DatiStatistiche,
 } from '@/lib/statistiche-commesse'
 
 const COLORS = {
-  valore: '#0d9488',  // teal-600
-  numero: '#b45309',  // amber-700 (testo leggibile su sfondo chiaro)
-  incasso: '#0ea5e9', // sky-500
+  valore: '#0d9488',   // teal-600
+  numero: '#b45309',   // amber-700 (testo leggibile su sfondo chiaro)
+  incasso: '#0ea5e9',  // sky-500
+  materiali: '#64748b', // slate-500
+  posa: '#f59e0b',     // amber-500
+  utile: '#16a34a',    // green-600
 }
+
+type VistaCosti = 'impilato' | 'costi_utile' | 'solo_utile'
 
 // Etichette compatte sui grafici (es. "12,5K"), vuote per i valori a zero.
 const compactEuro = new Intl.NumberFormat('it-IT', { notation: 'compact', maximumFractionDigits: 1 })
@@ -43,20 +49,33 @@ interface Props {
 
 export default function StatisticheCommesse({ dati }: Props) {
   const router = useRouter()
-  const { commesse, acconti, anni } = dati
+  const { commesse, acconti, anni, costiCommesse } = dati
 
   const annoCorrente = String(new Date().getFullYear())
   const annoDefault = anni.includes(annoCorrente) ? annoCorrente : (anni[0] ?? annoCorrente)
   const [anno, setAnno] = useState<string>(annoDefault)
   const [cliente, setCliente] = useState('')
+  const [vistaCosti, setVistaCosti] = useState<VistaCosti>('impilato')
 
   const datiMese = useMemo(() => aggregaMese(commesse, anno), [commesse, anno])
   const datiIncassi = useMemo(() => aggregaIncassiMese(acconti, anno), [acconti, anno])
+  const datiCostiUtili = useMemo(() => aggregaCostiUtiliMese(costiCommesse, anno), [costiCommesse, anno])
+  const senzaPreventivo = useMemo(
+    () => contaCommesseSenzaPreventivo(commesse, costiCommesse, anno),
+    [commesse, costiCommesse, anno],
+  )
   const clienti = useMemo(() => clientiUnici(commesse), [commesse])
 
   const totaleAnnoNumero = datiMese.reduce((s, r) => s + r.numero, 0)
   const totaleAnnoValore = datiMese.reduce((s, r) => s + r.valore, 0)
   const totaleAnnoIncassi = datiIncassi.reduce((s, r) => s + r.incasso, 0)
+
+  const totMateriali = datiCostiUtili.reduce((s, r) => s + r.materiali, 0)
+  const totPosa = datiCostiUtili.reduce((s, r) => s + r.posa, 0)
+  const totUtile = datiCostiUtili.reduce((s, r) => s + r.utile, 0)
+  const totCosti = totMateriali + totPosa
+  const percMargine = totCosti > 0 ? (totUtile / totCosti) * 100 : null
+  const haCostiUtili = totMateriali !== 0 || totPosa !== 0 || totUtile !== 0
 
   const clienteValido = cliente.trim().length > 0
   const resoconto = useMemo(
@@ -169,6 +188,98 @@ export default function StatisticheCommesse({ dati }: Props) {
               <div className="mt-3 text-sm text-gray-500">
                 Totale incassato {anno}: <strong className="text-sky-700">{formatEuro(totaleAnnoIncassi)}</strong>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* B2) Costi e utili stimati (da preventivi interni) */}
+          <Card>
+            <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2 flex-wrap">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-green-600" />
+                Costi e utili stimati — {anno}
+              </CardTitle>
+              <div className="flex rounded-md border border-gray-200 overflow-hidden text-xs">
+                {([
+                  ['impilato', 'Impilato'],
+                  ['costi_utile', 'Costi + utile'],
+                  ['solo_utile', 'Solo utile'],
+                ] as [VistaCosti, string][]).map(([v, label]) => (
+                  <button
+                    key={v}
+                    onClick={() => setVistaCosti(v)}
+                    className={`px-3 py-1.5 transition-colors ${
+                      vistaCosti === v ? 'bg-green-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!haCostiUtili ? (
+                <p className="text-sm text-gray-400 text-center py-12">
+                  Nessun preventivo interno per questo blocco.
+                </p>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={300}>
+                    {vistaCosti === 'costi_utile' ? (
+                      <ComposedChart data={datiCostiUtili} margin={{ top: 24, right: 8, left: -12, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="mese" tick={{ fontSize: 11, fill: '#9ca3af' }} />
+                        <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} width={56}
+                          tickFormatter={(v) => formatEuro(Number(v))} />
+                        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} labelStyle={{ fontWeight: 600 }}
+                          formatter={(value, name) => [formatEuro(Number(value)), name]} />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        <Bar dataKey="costi" name="Costi" fill={COLORS.materiali} radius={[4, 4, 0, 0]} />
+                        <Line type="monotone" dataKey="utile" name="Utile" stroke={COLORS.utile}
+                          strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                      </ComposedChart>
+                    ) : vistaCosti === 'solo_utile' ? (
+                      <BarChart data={datiCostiUtili} margin={{ top: 24, right: 8, left: -12, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="mese" tick={{ fontSize: 11, fill: '#9ca3af' }} />
+                        <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} width={56}
+                          tickFormatter={(v) => formatEuro(Number(v))} />
+                        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} labelStyle={{ fontWeight: 600 }}
+                          formatter={(value) => [formatEuro(Number(value)), 'Utile']} />
+                        <Bar dataKey="utile" name="Utile" fill={COLORS.utile} radius={[4, 4, 0, 0]}>
+                          <LabelList dataKey="utile" position="top" fill="#15803d"
+                            fontSize={10} fontWeight={600} formatter={labelEuro} />
+                        </Bar>
+                      </BarChart>
+                    ) : (
+                      <BarChart data={datiCostiUtili} margin={{ top: 24, right: 8, left: -12, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="mese" tick={{ fontSize: 11, fill: '#9ca3af' }} />
+                        <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} width={56}
+                          tickFormatter={(v) => formatEuro(Number(v))} />
+                        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} labelStyle={{ fontWeight: 600 }}
+                          formatter={(value, name) => [formatEuro(Number(value)), name]} />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        <Bar dataKey="materiali" name="Materiali" stackId="cu" fill={COLORS.materiali} />
+                        <Bar dataKey="posa" name="Posa" stackId="cu" fill={COLORS.posa} />
+                        <Bar dataKey="utile" name="Utile" stackId="cu" fill={COLORS.utile} radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    )}
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap gap-x-6 gap-y-1 mt-3 text-sm">
+                    <span className="text-gray-500">Materiali: <strong className="text-slate-700">{formatEuro(totMateriali)}</strong></span>
+                    <span className="text-gray-500">Posa: <strong className="text-amber-700">{formatEuro(totPosa)}</strong></span>
+                    <span className="text-gray-500">Utile: <strong className="text-green-700">{formatEuro(totUtile)}</strong></span>
+                    {percMargine !== null && (
+                      <span className="text-gray-500">Margine: <strong className="text-green-700">{percMargine.toFixed(1).replace('.', ',')}%</strong> sul costo</span>
+                    )}
+                  </div>
+                </>
+              )}
+              {senzaPreventivo > 0 && (
+                <p className="text-xs text-gray-400 mt-2">
+                  {senzaPreventivo} {senzaPreventivo === 1 ? 'commessa' : 'commesse'} del blocco senza preventivo interno — escluse dalla stima.
+                </p>
+              )}
             </CardContent>
           </Card>
 

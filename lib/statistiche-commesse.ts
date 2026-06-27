@@ -21,14 +21,26 @@ export type AccontoRow = {
   data_pagamento: string | null
 }
 
+// Contributo costi/utile di una commessa, sommato dai suoi preventivi INTERNI.
+export type CostoCommessaRow = {
+  commessa_id: string
+  blocco: string | null
+  data_conferma: string | null
+  materiali: number
+  posa: number
+  utile: number
+}
+
 export type DatiStatistiche = {
   commesse: StatRow[]
   acconti: AccontoRow[]
   anni: string[] // valori del selettore (nomi blocco + anni di pagamento), desc
+  costiCommesse: CostoCommessaRow[] // commesse con ≥1 preventivo interno collegato
 }
 
 export type PuntoMese = { mese: string; valore: number; numero: number }
 export type PuntoIncasso = { mese: string; incasso: number }
+export type PuntoCostiUtili = { mese: string; materiali: number; posa: number; costi: number; utile: number }
 export type RigaResoconto = {
   anno: string // nome del blocco (o etichetta totale)
   numero: number
@@ -80,6 +92,33 @@ export function aggregaIncassiMese(acconti: AccontoRow[], anno: string): PuntoIn
     out[m].incasso += Number(a.importo) || 0
   }
   return out
+}
+
+// Costi/utili stimati per mese del blocco selezionato (12 righe gen-dic),
+// distribuiti per mese di data_conferma della commessa.
+export function aggregaCostiUtiliMese(costi: CostoCommessaRow[], anno: string): PuntoCostiUtili[] {
+  const out: PuntoCostiUtili[] = MESI_LABEL.map((mese) => ({ mese, materiali: 0, posa: 0, costi: 0, utile: 0 }))
+  for (const c of costi) {
+    if (c.blocco !== anno) continue
+    const m = meseDi(c.data_conferma)
+    if (m === null) continue
+    out[m].materiali += Number(c.materiali) || 0
+    out[m].posa += Number(c.posa) || 0
+    out[m].utile += Number(c.utile) || 0
+  }
+  for (const p of out) p.costi = p.materiali + p.posa
+  return out
+}
+
+// Quante commesse del blocco selezionato NON hanno un preventivo interno (escluse dalla stima).
+export function contaCommesseSenzaPreventivo(
+  commesse: StatRow[],
+  costi: CostoCommessaRow[],
+  anno: string,
+): number {
+  const conPreventivo = new Set(costi.filter((c) => c.blocco === anno).map((c) => c.commessa_id))
+  const totBlocco = commesse.filter((c) => c.blocco === anno).length
+  return Math.max(0, totBlocco - conPreventivo.size)
 }
 
 // Lista clienti unici (case-insensitive sul confronto, label originale), ordinati.
