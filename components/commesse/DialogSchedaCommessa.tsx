@@ -104,6 +104,9 @@ function commessaToForm(c: CommessaCompleta): CommessaInput {
     operatore_nome: c.operatore_nome,
     note: c.note,
     reparti: c.reparti ?? [],
+    costo_materiali_manuale: c.costo_materiali_manuale,
+    costo_manodopera_manuale: c.costo_manodopera_manuale,
+    utile_manuale: c.utile_manuale,
   }
 }
 
@@ -182,6 +185,13 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
   const saldoPositivo = commessa.saldo > 0.005
   const saldoZero = !saldoPositivo && commessa.saldo >= -0.005
 
+  // La commessa ha un preventivo caricato a mano (riga junction senza preventivo_id)?
+  const haPrevManuale = (commessa.preventivi_collegati ?? []).some((pc) => !pc.preventivo_id)
+  const haCostiManualiSalvati =
+    commessa.costo_materiali_manuale != null ||
+    commessa.costo_manodopera_manuale != null ||
+    commessa.utile_manuale != null
+
   // ── Helpers form ──────────────────────────────────────────
 
   const setFieldF = (k: keyof CommessaInput) =>
@@ -197,6 +207,12 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
         n.totale = n.imponibile + n.iva_totale
         return n
       })
+    }
+
+  const setManuale = (k: 'costo_materiali_manuale' | 'costo_manodopera_manuale' | 'utile_manuale') =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const raw = e.target.value
+      setForm((f) => f ? { ...f, [k]: raw === '' ? null : (parseFloat(raw) || 0) } : f)
     }
 
   const setOperatore = (uid: string) => {
@@ -698,6 +714,54 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                 </div>
               )}
             </section>
+
+            {/* Costi preventivo manuale (per statistiche) */}
+            {haPrevManuale && (editMode || haCostiManualiSalvati) && (
+              <section className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+                <p className="text-[11px] font-semibold text-amber-600 uppercase tracking-wide">
+                  Costi preventivo manuale (per statistiche)
+                </p>
+                {editMode ? (
+                  <>
+                    <p className="text-xs text-amber-600/80 -mt-1">
+                      Opzionali. Se compilati, confluiscono nel grafico costi/utili.
+                    </p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-normal text-gray-600">Materiale (€)</Label>
+                        <Input
+                          type="number" step="0.01" min="0" placeholder="0,00"
+                          value={form.costo_materiali_manuale ?? ''}
+                          onChange={setManuale('costo_materiali_manuale')}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-normal text-gray-600">M. opera (€)</Label>
+                        <Input
+                          type="number" step="0.01" min="0" placeholder="0,00"
+                          value={form.costo_manodopera_manuale ?? ''}
+                          onChange={setManuale('costo_manodopera_manuale')}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-normal text-gray-600">Utile (€)</Label>
+                        <Input
+                          type="number" step="0.01" placeholder="0,00"
+                          value={form.utile_manuale ?? ''}
+                          onChange={setManuale('utile_manuale')}
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex gap-6 flex-wrap text-sm">
+                    <span className="text-gray-500">Materiale: <strong className="text-gray-800">{formatEuro(commessa.costo_materiali_manuale ?? 0)}</strong></span>
+                    <span className="text-gray-500">M. opera: <strong className="text-gray-800">{formatEuro(commessa.costo_manodopera_manuale ?? 0)}</strong></span>
+                    <span className="text-gray-500">Utile: <strong className="text-green-700">{formatEuro(commessa.utile_manuale ?? 0)}</strong></span>
+                  </div>
+                )}
+              </section>
+            )}
 
             {/* Acconti / Pagamenti */}
             <section className="space-y-2">
