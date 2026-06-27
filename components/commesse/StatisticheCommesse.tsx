@@ -217,6 +217,7 @@ export default function StatisticheCommesse({ dati }: Props) {
               </div>
             </CardHeader>
             <CardContent>
+              <p className="text-xs text-gray-400 mb-3">Valori al netto dell&apos;IVA (imponibile)</p>
               {!haCostiUtili ? (
                 <p className="text-sm text-gray-400 text-center py-12">
                   Nessun preventivo interno per questo blocco.

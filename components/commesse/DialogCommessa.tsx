@@ -620,7 +620,7 @@ export default function DialogCommessa({
             <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
               <Label className="text-amber-800">Costi preventivo manuale (per statistiche)</Label>
               <p className="text-xs text-amber-600/80 -mt-1">
-                Opzionali. Se compilati, confluiscono nel grafico costi/utili.
+                Opzionali, al netto dell&apos;IVA (imponibile). Se compilati, confluiscono nel grafico costi/utili.
               </p>
               <div className="grid grid-cols-3 gap-2">
                 <div className="space-y-1">

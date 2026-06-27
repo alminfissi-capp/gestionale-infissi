@@ -724,7 +724,7 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                 {editMode ? (
                   <>
                     <p className="text-xs text-amber-600/80 -mt-1">
-                      Opzionali. Se compilati, confluiscono nel grafico costi/utili.
+                      Opzionali, al netto dell&apos;IVA (imponibile). Se compilati, confluiscono nel grafico costi/utili.
                     </p>
                     <div className="grid grid-cols-3 gap-3">
                       <div className="space-y-1">
