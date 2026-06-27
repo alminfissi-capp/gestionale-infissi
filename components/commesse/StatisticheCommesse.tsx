@@ -261,14 +261,14 @@ export default function StatisticheCommesse({ dati }: Props) {
                           formatter={(value, name) => [formatEuro(Number(value)), name]} />
                         <Legend wrapperStyle={{ fontSize: 12 }} />
                         <Bar dataKey="materiali" name="Materiali" stackId="cu" fill={COLORS.materiali} />
-                        <Bar dataKey="posa" name="Posa" stackId="cu" fill={COLORS.posa} />
+                        <Bar dataKey="posa" name="M. D'opera/Posa" stackId="cu" fill={COLORS.posa} />
                         <Bar dataKey="utile" name="Utile" stackId="cu" fill={COLORS.utile} radius={[4, 4, 0, 0]} />
                       </BarChart>
                     )}
                   </ResponsiveContainer>
                   <div className="flex flex-wrap gap-x-6 gap-y-1 mt-3 text-sm">
                     <span className="text-gray-500">Materiali: <strong className="text-slate-700">{formatEuro(totMateriali)}</strong></span>
-                    <span className="text-gray-500">Posa: <strong className="text-amber-700">{formatEuro(totPosa)}</strong></span>
+                    <span className="text-gray-500">M. D&apos;opera/Posa: <strong className="text-amber-700">{formatEuro(totPosa)}</strong></span>
                     <span className="text-gray-500">Utile: <strong className="text-green-700">{formatEuro(totUtile)}</strong></span>
                     {percMargine !== null && (
                       <span className="text-gray-500">Margine: <strong className="text-green-700">{percMargine.toFixed(1).replace('.', ',')}%</strong> sul costo</span>
