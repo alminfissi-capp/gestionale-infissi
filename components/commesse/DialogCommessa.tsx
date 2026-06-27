@@ -103,6 +103,9 @@ const emptyForm = (): CommessaInput => ({
   operatore_nome: null,
   note: null,
   reparti: [],
+  costo_materiali_manuale: null,
+  costo_manodopera_manuale: null,
+  utile_manuale: null,
 })
 
 function nomeCliente(c: Cliente): string {
@@ -189,6 +192,9 @@ export default function DialogCommessa({
         operatore_nome: commessa.operatore_nome,
         note: commessa.note,
         reparti: commessa.reparti ?? [],
+        costo_materiali_manuale: commessa.costo_materiali_manuale,
+        costo_manodopera_manuale: commessa.costo_manodopera_manuale,
+        utile_manuale: commessa.utile_manuale,
       })
       setPrevItems((commessa.preventivi_collegati ?? []).map((pc) => pcToItem(pc, preventivi)))
     } else if (preventivoDaConvertire) {
@@ -318,6 +324,15 @@ export default function DialogCommessa({
       return next
     })
   }
+
+  // Campi costi manuali (vuoto → null, così "non compilato" resta distinguibile)
+  const setManuale = (k: 'costo_materiali_manuale' | 'costo_manodopera_manuale' | 'utile_manuale') =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const raw = e.target.value
+      setForm((f) => ({ ...f, [k]: raw === '' ? null : (parseFloat(raw) || 0) }))
+    }
+
+  const haPreventivoManuale = prevItems.some((i) => i.tipo === 'manuale')
 
   // ── Submit ──────────────────────────────────────────────────────
 
@@ -599,6 +614,53 @@ export default function DialogCommessa({
               </p>
             )}
           </div>
+
+          {/* ── Costi preventivo manuale (per statistiche) ── */}
+          {haPreventivoManuale && (
+            <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+              <Label className="text-amber-800">Costi preventivo manuale (per statistiche)</Label>
+              <p className="text-xs text-amber-600/80 -mt-1">
+                Opzionali. Se compilati, confluiscono nel grafico costi/utili.
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="cm_materiali" className="text-xs font-normal text-gray-600">Materiale (€)</Label>
+                  <Input
+                    id="cm_materiali"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0,00"
+                    value={form.costo_materiali_manuale ?? ''}
+                    onChange={setManuale('costo_materiali_manuale')}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="cm_posa" className="text-xs font-normal text-gray-600">M. opera (€)</Label>
+                  <Input
+                    id="cm_posa"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0,00"
+                    value={form.costo_manodopera_manuale ?? ''}
+                    onChange={setManuale('costo_manodopera_manuale')}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="cm_utile" className="text-xs font-normal text-gray-600">Utile (€)</Label>
+                  <Input
+                    id="cm_utile"
+                    type="number"
+                    step="0.01"
+                    placeholder="0,00"
+                    value={form.utile_manuale ?? ''}
+                    onChange={setManuale('utile_manuale')}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ── Cliente ── */}
           <div className="space-y-2">

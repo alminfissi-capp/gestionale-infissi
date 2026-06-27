@@ -277,7 +277,7 @@ export default function StatisticheCommesse({ dati }: Props) {
               )}
               {senzaPreventivo > 0 && (
                 <p className="text-xs text-gray-400 mt-2">
-                  {senzaPreventivo} {senzaPreventivo === 1 ? 'commessa' : 'commesse'} del blocco senza preventivo interno — escluse dalla stima.
+                  {senzaPreventivo} {senzaPreventivo === 1 ? 'commessa' : 'commesse'} del blocco senza preventivo interno né costi manuali — escluse dalla stima.
                 </p>
               )}
             </CardContent>

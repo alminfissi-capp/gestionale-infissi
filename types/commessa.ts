@@ -100,6 +100,9 @@ export type Commessa = {
   gruppo_id: string | null
   in_calcoli: boolean
   incasso_previsto: number | null
+  costo_materiali_manuale: number | null
+  costo_manodopera_manuale: number | null
+  utile_manuale: number | null
   created_at: string
   updated_at: string
 }
@@ -160,6 +163,9 @@ export type CommessaInput = {
   note: string | null
   reparti: Reparto[]
   gruppo_id?: string
+  costo_materiali_manuale?: number | null
+  costo_manodopera_manuale?: number | null
+  utile_manuale?: number | null
 }
 
 export type AccontoInput = {
