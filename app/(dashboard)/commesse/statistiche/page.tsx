@@ -12,7 +12,7 @@ export default async function StatisticheCommessePage() {
     await Promise.all([
       supabase
         .from('commesse')
-        .select('id, cliente_nome, totale, data_conferma, gruppo_id, preventivo_id, costo_materiali_manuale, costo_manodopera_manuale, utile_manuale')
+        .select('id, cliente_nome, totale, data_conferma, gruppo_id, preventivo_id, stato, costo_materiali_manuale, costo_manodopera_manuale, utile_manuale')
         .eq('organization_id', orgId),
       supabase
         .from('acconti_commessa')
@@ -32,7 +32,12 @@ export default async function StatisticheCommessePage() {
   const nomeBlocco = new Map<string, string>()
   for (const g of gruppiRaw ?? []) nomeBlocco.set(g.id, g.nome)
 
-  const commesse: StatRow[] = (commesseRaw ?? []).map((c) => ({
+  // Le commesse "in attesa" sono solo promemoria (accettate ma non formalizzate):
+  // vanno escluse da TUTTE le statistiche finché non passano a un altro stato.
+  const commesseValide = (commesseRaw ?? []).filter((c) => c.stato !== 'in_attesa')
+  const idsValide = new Set(commesseValide.map((c) => c.id))
+
+  const commesse: StatRow[] = commesseValide.map((c) => ({
     id: c.id,
     cliente_nome: c.cliente_nome ?? '',
     totale: Number(c.totale) || 0,
@@ -40,11 +45,14 @@ export default async function StatisticheCommessePage() {
     blocco: c.gruppo_id ? (nomeBlocco.get(c.gruppo_id) ?? null) : null,
   }))
 
-  const acconti: AccontoRow[] = (accontiRaw ?? []).map((a) => ({
-    commessa_id: a.commessa_id,
-    importo: Number(a.importo) || 0,
-    data_pagamento: a.data_pagamento,
-  }))
+  // Acconti esclusi se la commessa collegata è "in attesa".
+  const acconti: AccontoRow[] = (accontiRaw ?? [])
+    .filter((a) => idsValide.has(a.commessa_id))
+    .map((a) => ({
+      commessa_id: a.commessa_id,
+      importo: Number(a.importo) || 0,
+      data_pagamento: a.data_pagamento,
+    }))
 
   // ── Preventivi INTERNI collegati per commessa (preventivo_id non null) ──
   // Link diretto (commesse.preventivo_id) + junction (preventivi_commessa).
@@ -55,8 +63,10 @@ export default async function StatisticheCommessePage() {
     s.add(prevId)
     preventiviPerCommessa.set(commessaId, s)
   }
-  for (const c of commesseRaw ?? []) addLink(c.id, c.preventivo_id)
-  for (const j of junctionRaw ?? []) addLink(j.commessa_id, j.preventivo_id)
+  for (const c of commesseValide) addLink(c.id, c.preventivo_id)
+  for (const j of junctionRaw ?? []) {
+    if (idsValide.has(j.commessa_id)) addLink(j.commessa_id, j.preventivo_id)
+  }
 
   const tuttiPrevIds = [...new Set([...preventiviPerCommessa.values()].flatMap((s) => [...s]))]
 
@@ -105,7 +115,7 @@ export default async function StatisticheCommessePage() {
 
   // Valori manuali per commessa (dai 3 campi sulla scheda).
   const manualePerCommessa = new Map<string, { materiali: number; posa: number; utile: number }>()
-  for (const c of commesseRaw ?? []) {
+  for (const c of commesseValide) {
     const materiali = Number(c.costo_materiali_manuale) || 0
     const posa = Number(c.costo_manodopera_manuale) || 0
     const utile = Number(c.utile_manuale) || 0

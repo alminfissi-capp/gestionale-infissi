@@ -592,7 +592,9 @@ export default function TabellaCommesse({
   }, [pendingItems, search])
 
   const totali = useMemo(() => {
-    const all = [...filtered, ...filteredPending]
+    // Le commesse "in attesa" sono solo promemoria (accettate ma non formalizzate):
+    // non vanno sommate ai totali finché non passano a un altro stato.
+    const all = [...filtered, ...filteredPending].filter((c) => c.stato !== 'in_attesa')
     return {
       totale:  all.reduce((s, c) => s + c.totale, 0),
       iva:     all.reduce((s, c) => s + c.iva_totale, 0),
