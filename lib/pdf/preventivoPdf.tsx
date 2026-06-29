@@ -294,7 +294,12 @@ export default function PreventivoPdf({ preventivo: p, settings, logoUrl }: Prop
               <Text style={s.cA}>{a.tipo === 'libera' ? '—' : (a.altezza_mm ?? '—')}</Text>
 
               <View style={s.cPrice}>
-                {mostraSconto && a.sconto_articolo > 0 ? (
+                {a.omaggio ? (
+                  <>
+                    <Text style={s.artStrike}>€ {formatEuro(a.prezzo_unitario + quotaUnitaria)}</Text>
+                    <Text style={s.artGreen}>Omaggio</Text>
+                  </>
+                ) : mostraSconto && a.sconto_articolo > 0 ? (
                   <>
                     <Text style={s.artStrike}>€ {formatEuro(a.prezzo_unitario + quotaUnitaria)}</Text>
                     <Text>€ {formatEuro(prezzoNetUnit + quotaUnitaria)}</Text>
@@ -306,7 +311,7 @@ export default function PreventivoPdf({ preventivo: p, settings, logoUrl }: Prop
               </View>
 
               <Text style={s.cQty}>{a.quantita}</Text>
-              <Text style={s.cTot}>€ {formatEuro(prezzoTotDisplay)}</Text>
+              <Text style={s.cTot}>{a.omaggio ? 'Omaggio' : `€ ${formatEuro(prezzoTotDisplay)}`}</Text>
             </View>
           )
         })}

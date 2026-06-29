@@ -60,12 +60,14 @@ export function applicaFinitura(prezzoBase: number, percentuale: number, euro = 
   return prezzoBase * (1 + percentuale / 100) + euro
 }
 
-/** Prezzo totale di una riga: unitario × qty × (1 - sconto%) */
+/** Prezzo totale di una riga: unitario × qty × (1 - sconto%). In omaggio = 0. */
 export function calcolaTotaleRiga(
   prezzoUnitario: number,
   quantita: number,
-  scontoArticolo: number
+  scontoArticolo: number,
+  omaggio = false
 ): number {
+  if (omaggio) return 0
   return prezzoUnitario * quantita * (1 - scontoArticolo / 100)
 }
 

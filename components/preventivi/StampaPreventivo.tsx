@@ -479,7 +479,14 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
 
             {/* P. Unit. */}
             <div style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', paddingTop: '2px' }}>
-              {mostraSconto && a.sconto_articolo > 0 ? (
+              {a.omaggio ? (
+                <>
+                  <div style={{ textDecoration: 'line-through', color: '#9ca3af', fontSize: '9px' }}>
+                    € {formatEuro(a.prezzo_unitario + quotaUnitaria)}
+                  </div>
+                  <div style={{ color: '#16a34a', fontWeight: 600 }}>Omaggio</div>
+                </>
+              ) : mostraSconto && a.sconto_articolo > 0 ? (
                 <>
                   <div style={{ textDecoration: 'line-through', color: '#9ca3af', fontSize: '9px' }}>
                     € {formatEuro(a.prezzo_unitario + quotaUnitaria)}
@@ -499,7 +506,11 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
 
             {/* P. Totale */}
             <div style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums', paddingTop: '2px' }}>
-              € {formatEuro(prezzoTotaleDisplay)}
+              {a.omaggio ? (
+                <span style={{ color: '#16a34a' }}>Omaggio</span>
+              ) : (
+                <>€ {formatEuro(prezzoTotaleDisplay)}</>
+              )}
             </div>
           </div>
           )

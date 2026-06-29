@@ -96,6 +96,8 @@ export type ArticoloPreventivoRow = {
   prezzo_base: number | null
   prezzo_unitario: number
   sconto_articolo: number
+  /** Riga in omaggio: prezzo cliente = 0, ma i costi (materiale/posa) restano tracciati */
+  omaggio?: boolean
   prezzo_totale_riga: number
   costo_acquisto_unitario: number
   costo_posa: number

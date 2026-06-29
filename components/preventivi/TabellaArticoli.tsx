@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Gift } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -50,7 +50,7 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
         return {
           ...a,
           quantita: newQty,
-          prezzo_totale_riga: calcolaTotaleRiga(a.prezzo_unitario, newQty, a.sconto_articolo),
+          prezzo_totale_riga: calcolaTotaleRiga(a.prezzo_unitario, newQty, a.sconto_articolo, a.omaggio),
         }
       })
     )
@@ -63,7 +63,23 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
         return {
           ...a,
           sconto_articolo: sconto,
-          prezzo_totale_riga: calcolaTotaleRiga(a.prezzo_unitario, a.quantita, sconto),
+          prezzo_totale_riga: calcolaTotaleRiga(a.prezzo_unitario, a.quantita, sconto, a.omaggio),
+        }
+      })
+    )
+  }
+
+  const toggleOmaggio = (tempId: string) => {
+    onChange(
+      articoli.map((a) => {
+        if (a.tempId !== tempId) return a
+        const omaggio = !a.omaggio
+        return {
+          ...a,
+          omaggio,
+          // azzera lo sconto quando si attiva l'omaggio (il select è disabilitato)
+          sconto_articolo: omaggio ? 0 : a.sconto_articolo,
+          prezzo_totale_riga: calcolaTotaleRiga(a.prezzo_unitario, a.quantita, omaggio ? 0 : a.sconto_articolo, omaggio),
         }
       })
     )
@@ -76,7 +92,7 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
         return {
           ...a,
           prezzo_unitario: prezzo,
-          prezzo_totale_riga: calcolaTotaleRiga(prezzo, a.quantita, a.sconto_articolo),
+          prezzo_totale_riga: calcolaTotaleRiga(prezzo, a.quantita, a.sconto_articolo, a.omaggio),
         }
       })
     )
@@ -258,12 +274,25 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
               </TableCell>
 
               <TableCell>
-                <ScontoSelect
-                  value={a.sconto_articolo}
-                  onChange={(v) => updateSconto(a.tempId, v)}
-                  max={50}
-                  className="h-8 text-xs"
-                />
+                <div className="flex items-center gap-1">
+                  <ScontoSelect
+                    value={a.sconto_articolo}
+                    onChange={(v) => updateSconto(a.tempId, v)}
+                    max={50}
+                    className="h-8 text-xs"
+                    disabled={a.omaggio}
+                  />
+                  <Button
+                    type="button"
+                    variant={a.omaggio ? 'default' : 'ghost'}
+                    size="icon"
+                    title={a.omaggio ? 'Annulla omaggio' : 'Imposta come omaggio (sconto 100%)'}
+                    className={`h-8 w-8 shrink-0 ${a.omaggio ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'text-gray-400 hover:text-emerald-600'}`}
+                    onClick={() => toggleOmaggio(a.tempId)}
+                  >
+                    <Gift className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </TableCell>
               {aliquote.length > 0 && (
                 <TableCell>
@@ -284,7 +313,11 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
                 </TableCell>
               )}
               <TableCell className="text-right font-medium text-sm whitespace-nowrap">
-                € {formatEuro(a.prezzo_totale_riga)}
+                {a.omaggio ? (
+                  <span className="text-emerald-600 font-semibold">Omaggio</span>
+                ) : (
+                  <>€ {formatEuro(a.prezzo_totale_riga)}</>
+                )}
               </TableCell>
               <TableCell>
                 <Button

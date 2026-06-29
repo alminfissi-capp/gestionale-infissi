@@ -625,10 +625,16 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                     € {formatEuro(a.prezzo_unitario + (a.quota_trasporto ?? 0) / a.quantita)}
                   </TableCell>
                   <TableCell className="text-right text-sm text-gray-500">
-                    {a.sconto_articolo > 0 ? `${a.sconto_articolo}%` : '—'}
+                    {a.omaggio ? (
+                      <span className="text-emerald-600 font-medium">Omaggio</span>
+                    ) : a.sconto_articolo > 0 ? `${a.sconto_articolo}%` : '—'}
                   </TableCell>
                   <TableCell className="text-right font-medium text-sm whitespace-nowrap">
-                    € {formatEuro(a.prezzo_totale_riga + (a.quota_trasporto ?? 0))}
+                    {a.omaggio ? (
+                      <span className="text-emerald-600">Omaggio</span>
+                    ) : (
+                      <>€ {formatEuro(a.prezzo_totale_riga + (a.quota_trasporto ?? 0))}</>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

@@ -12,14 +12,15 @@ interface Props {
   onChange: (value: number) => void
   max?: number
   className?: string
+  disabled?: boolean
 }
 
-export default function ScontoSelect({ value, onChange, max = 50, className }: Props) {
+export default function ScontoSelect({ value, onChange, max = 50, className, disabled }: Props) {
   const options = Array.from({ length: Math.floor(max / 5) + 1 }, (_, i) => i * 5)
   const displayValue = Number.isInteger(value) ? `${value}%` : `${value.toFixed(2)}%`
 
   return (
-    <Select value={value.toString()} onValueChange={(v) => onChange(parseInt(v))}>
+    <Select value={value.toString()} onValueChange={(v) => onChange(parseInt(v))} disabled={disabled}>
       <SelectTrigger className={className ?? 'w-24'}>
         <span className="mr-auto">{displayValue}</span>
       </SelectTrigger>
