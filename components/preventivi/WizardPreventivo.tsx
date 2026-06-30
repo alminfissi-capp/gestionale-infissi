@@ -288,7 +288,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
       setScontoImportoFisso(null)
       return
     }
-    const capped = Math.min(val, 50)
+    const capped = Math.min(val, 100)
     setScontoGlobale(capped)
     setScontoGlobaleStr(formatPct(capped))
     setScontoImportoFisso(null)  // % manuale: nessun importo fisso
@@ -309,7 +309,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
       setScontoImportoFisso(null)
       return
     }
-    const capped = Math.min(val, grosso * 0.5)
+    const capped = Math.min(val, grosso)
     // Salva l'importo esatto in € — non si rideriverà mai dalla percentuale
     setScontoImportoFisso(capped)
     const derivedPct = (capped / grosso) * 100
