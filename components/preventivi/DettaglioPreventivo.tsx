@@ -111,10 +111,15 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const handleDownloadFirmato = async () => {
     if (!firmaPdfPath) return
     setIsDownloadingPdf(true)
+    // Apri la scheda SINCRONA mentre il gesto di click è ancora "attivo":
+    // chiamare window.open dopo l'await farebbe scattare il blocco popup del browser.
+    const win = window.open('', '_blank')
     try {
       const url = await getFirmaSignedUrl(firmaPdfPath)
-      window.open(url, '_blank')
+      if (win) win.location.href = url
+      else window.location.href = url // fallback se la scheda è stata bloccata comunque
     } catch {
+      if (win) win.close()
       toast.error('Errore nel download del PDF firmato')
     } finally {
       setIsDownloadingPdf(false)
