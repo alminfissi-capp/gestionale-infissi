@@ -107,8 +107,19 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ shareToken: token, telefono, pdfBase64, pdfName }),
         })
-        const apiJson = await apiRes.json()
-        if (!apiRes.ok) throw new Error(apiJson.error ?? `Errore ${apiRes.status}`)
+        // Leggi prima il testo: se la piattaforma intercetta la richiesta (413 body
+        // troppo grande, 504 timeout) il corpo è vuoto/HTML e .json() esploderebbe
+        // con un messaggio fuorviante ("Unexpected end of JSON input").
+        const rawText = await apiRes.text()
+        let apiJson: { error?: string; signingUrl?: string } | null = null
+        try { apiJson = rawText ? JSON.parse(rawText) : null } catch { /* risposta non-JSON */ }
+
+        if (!apiRes.ok) {
+          if (apiJson?.error) throw new Error(apiJson.error)
+          if (apiRes.status === 413) throw new Error('PDF troppo grande per l’invio (errore 413). Contatta A.L.M. Infissi: procederemo con la firma manualmente.')
+          throw new Error(`Errore ${apiRes.status}${rawText ? ': ' + rawText.slice(0, 200) : ' (risposta vuota dal server)'}`)
+        }
+        if (!apiJson?.signingUrl) throw new Error('Risposta del server non valida (nessun link di firma).')
         window.location.href = apiJson.signingUrl
       } catch (err) {
         setFirmaError(err instanceof Error ? err.message : 'Errore nella richiesta firma')
