@@ -9,6 +9,7 @@ import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, Shopp
 import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
 import { getFirmaSignedUrl, recuperaPdfFirmato, verificaERecuperaFirma } from '@/actions/firma'
 import DialogAllegaCatalogo from '@/components/preventivi/DialogAllegaCatalogo'
+import DialogCopiaArticolo from '@/components/preventivi/DialogCopiaArticolo'
 import DialogFirma from '@/components/preventivi/DialogFirma'
 import DialogAllegatiCalcoli from '@/components/preventivi/DialogAllegatiCalcoli'
 import DialogInvioEmail from '@/components/preventivi/DialogInvioEmail'
@@ -80,6 +81,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
   const [firmaPdfPath, setFirmaPdfPath] = useState<string | null>(p.firma_pdf_path ?? null)
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
   const [isRecuperandoPdf, setIsRecuperandoPdf] = useState(false)
+  const [copiaArticolo, setCopiaArticolo] = useState<{ id: string; nome: string } | null>(null)
 
   useEffect(() => { setOrigin(window.location.origin) }, [])
 
@@ -528,6 +530,7 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                 <TableHead className="text-right whitespace-nowrap">€ Unit.</TableHead>
                 <TableHead className="text-right whitespace-nowrap">Sconto</TableHead>
                 <TableHead className="text-right whitespace-nowrap">€ Totale</TableHead>
+                <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -635,6 +638,17 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
                     ) : (
                       <>€ {formatEuro(a.prezzo_totale_riga + (a.quota_trasporto ?? 0))}</>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Copia in un altro preventivo"
+                      className="h-8 w-8 text-gray-400 hover:text-blue-600"
+                      onClick={() => setCopiaArticolo({ id: a.id, nome: a.tipologia })}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -911,6 +925,15 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
         onClose={() => setAllegaOpen(false)}
         preventivoId={p.id}
         correnti={p.cataloghi_allegati ?? []}
+      />
+
+      <DialogCopiaArticolo
+        key={copiaArticolo?.id ?? 'closed'}
+        open={copiaArticolo !== null}
+        onClose={() => setCopiaArticolo(null)}
+        articoloId={copiaArticolo?.id ?? null}
+        articoloNome={copiaArticolo?.nome ?? ''}
+        currentPreventivoId={p.id}
       />
 
       <DialogAllegatiCalcoli

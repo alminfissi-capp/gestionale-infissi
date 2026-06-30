@@ -681,6 +681,119 @@ export async function duplicaPreventivo(id: string): Promise<{ id: string }> {
   return { id: newPrev.id }
 }
 
+/** Lista leggera di preventivi per il dialog "Copia in" (senza il side-effect di marcatura scaduti) */
+export async function getPreventiviPerCopia(): Promise<
+  Pick<Preventivo, 'id' | 'numero' | 'cliente_snapshot' | 'totale_finale' | 'created_at' | 'stato' | 'firma_stato'>[]
+> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('preventivi')
+    .select('id, numero, cliente_snapshot, totale_finale, created_at, stato, firma_stato')
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
+/**
+ * Ricalcola e risalva i totali di un preventivo leggendo le righe articolo dal DB.
+ * Preserva i costi di acquisto memorizzati (non li ri-deriva dal listino):
+ * dedicato alla copia voce. updatePreventivo usa la propria logica (ri-deriva i costi).
+ */
+async function ricalcolaTotaliPreventivo(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  preventivoId: string
+): Promise<void> {
+  const [{ data: prev }, { data: articoli }] = await Promise.all([
+    supabase.from('preventivi').select('sconto_globale, sconto_importo_fisso').eq('id', preventivoId).single(),
+    supabase.from('articoli_preventivo').select('*').eq('preventivo_id', preventivoId),
+  ])
+  if (!prev) throw new Error('Preventivo non trovato')
+  const righe = (articoli ?? []) as ArticoloPreventivoRow[]
+
+  const listinoIds = [...new Set(righe.map((a) => a.listino_id).filter((id): id is string => !!id))]
+  const listinoLiberoIds = [...new Set(righe.map((a) => a.listino_libero_id).filter((id): id is string => !!id))]
+  const [regole, regoleLiberi] = await Promise.all([
+    getRegoleTrasporto(listinoIds),
+    getRegoleTrasportoLiberi(listinoLiberoIds),
+  ])
+
+  const scontoGlobale = prev.sconto_globale ?? 0
+  const scontoImportoFisso = prev.sconto_importo_fisso ?? null
+  const totalePezzi = calcolaTotalePezzi(righe)
+  const subtotale = calcolaSubtotale(righe)
+  const speseTrasporto = calcolaSpeseTrasportoInput(righe, regole, regoleLiberi)
+  const quoteTrasporto = calcolaQuoteTrasportoPerArticolo(righe, regole, regoleLiberi)
+  const righeConQuota = righe.map((a, i) => ({ ...a, quota_trasporto: quoteTrasporto[i] }))
+  const riepilogoIva = calcolaRiepilogoIva(righeConQuota, scontoGlobale, scontoImportoFisso)
+  const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
+  const totaleCostiAcquisto = righe.reduce((sum, a) => sum + (a.costo_acquisto_unitario ?? 0) * a.quantita, 0)
+  const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
+    subtotale, scontoGlobale, speseTrasporto, ivaTotale, scontoImportoFisso
+  )
+
+  const { error } = await supabase
+    .from('preventivi')
+    .update({
+      subtotale,
+      importo_sconto: importoSconto,
+      totale_articoli: totaleArticoli,
+      spese_trasporto: speseTrasporto,
+      totale_costi_acquisto: totaleCostiAcquisto,
+      iva_totale: ivaTotale,
+      riepilogo_iva: riepilogoIva,
+      totale_finale: totaleFinale,
+      totale_pezzi: totalePezzi,
+    })
+    .eq('id', preventivoId)
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Copia una voce articolo da un preventivo in un altro preventivo esistente.
+ * L'articolo sorgente resta intatto (duplicazione); i totali del target vengono ricalcolati.
+ */
+export async function copiaArticoloInPreventivo(
+  articoloId: string,
+  targetPreventivoId: string
+): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const [{ data: articolo, error: artErr }, { data: target, error: tgtErr }] = await Promise.all([
+    supabase.from('articoli_preventivo').select('*').eq('id', articoloId).eq('organization_id', orgId).single(),
+    supabase.from('preventivi').select('id, firma_stato').eq('id', targetPreventivoId).eq('organization_id', orgId).single(),
+  ])
+  if (artErr || !articolo) throw new Error('Articolo non trovato')
+  if (tgtErr || !target) throw new Error('Preventivo di destinazione non trovato')
+  if (target.firma_stato === 'in_attesa' || target.firma_stato === 'firmato') {
+    throw new Error('Impossibile copiare in un preventivo con firma in corso o firmato')
+  }
+
+  // ordine = max + 1 fra gli articoli del target
+  const { data: maxRow } = await supabase
+    .from('articoli_preventivo')
+    .select('ordine')
+    .eq('preventivo_id', targetPreventivoId)
+    .order('ordine', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const nuovoOrdine = (maxRow?.ordine ?? -1) + 1
+
+  const { id: _id, preventivo_id: _pid, created_at: _ca, ordine: _ord, ...rest } = articolo as ArticoloPreventivoRow
+  const { error: insErr } = await supabase.from('articoli_preventivo').insert({
+    ...rest,
+    preventivo_id: targetPreventivoId,
+    organization_id: orgId,
+    ordine: nuovoOrdine,
+  })
+  if (insErr) throw new Error(insErr.message)
+
+  await ricalcolaTotaliPreventivo(supabase, targetPreventivoId)
+
+  revalidatePath('/preventivi')
+  revalidatePath(`/preventivi/${targetPreventivoId}`)
+}
+
 export async function deletePreventivo(id: string): Promise<void> {
   const supabase = await createClient()
 
