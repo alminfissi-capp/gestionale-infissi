@@ -31,27 +31,14 @@ export async function POST(req: NextRequest) {
     const body = await req.json() as {
       shareToken: string
       telefono: string
-      pdfBase64: string
-      pdfName: string
+      firmaToken: string
     }
-    const { shareToken, telefono, pdfBase64, pdfName } = body
+    const { shareToken, telefono, firmaToken } = body
 
-    console.log('[avvia-firma] shareToken:', shareToken?.slice(0, 8), 'pdfBase64 length:', pdfBase64?.length)
+    console.log('[avvia-firma] shareToken:', shareToken?.slice(0, 8), 'firmaToken:', firmaToken?.slice(0, 8))
 
     if (!shareToken) return NextResponse.json({ error: 'shareToken mancante' }, { status: 400 })
-    if (!pdfBase64)  return NextResponse.json({ error: 'PDF mancante' }, { status: 400 })
-
-    const pdfBuffer = Buffer.from(pdfBase64, 'base64')
-    console.log('[avvia-firma] Buffer length:', pdfBuffer.length)
-    if (pdfBuffer.length === 0) {
-      return NextResponse.json({ error: 'PDF ricevuto vuoto (0 byte dopo decodifica base64)' }, { status: 400 })
-    }
-
-    const header = pdfBuffer.slice(0, 5).toString('ascii')
-    console.log('[avvia-firma] Header PDF:', JSON.stringify(header))
-    if (!header.startsWith('%PDF')) {
-      return NextResponse.json({ error: 'PDF non valido: header errato — ' + JSON.stringify(header) }, { status: 400 })
-    }
+    if (!firmaToken) return NextResponse.json({ error: 'firmaToken mancante' }, { status: 400 })
 
     const service = createServiceClient()
     const { data: prev } = await service
@@ -63,6 +50,23 @@ export async function POST(req: NextRequest) {
     if (!prev) return NextResponse.json({ error: 'Preventivo non trovato' }, { status: 404 })
     if (prev.firma_stato === 'firmato')   return NextResponse.json({ error: 'Preventivo già firmato' }, { status: 400 })
     if (prev.firma_stato === 'in_attesa') return NextResponse.json({ error: 'Firma già in corso' }, { status: 400 })
+
+    // Il PDF è già stato caricato dal client su Storage (signed upload URL): lo
+    // leggiamo lato server, evitando di farlo transitare nel body (limite 4,5 MB → 413).
+    const storagePath = `firma-temp/${prev.id}/${firmaToken}.pdf`
+    const { data: fileBlob, error: dlError } = await service.storage
+      .from('commesse-docs')
+      .download(storagePath)
+    if (dlError || !fileBlob) {
+      return NextResponse.json({ error: 'PDF di firma non trovato nello storage' }, { status: 400 })
+    }
+    const pdfBuffer = Buffer.from(await fileBlob.arrayBuffer())
+    const header = pdfBuffer.slice(0, 5).toString('ascii')
+    console.log('[avvia-firma] PDF da storage — length:', pdfBuffer.length, 'header:', JSON.stringify(header))
+    if (pdfBuffer.length === 0 || !header.startsWith('%PDF')) {
+      return NextResponse.json({ error: 'PDF di firma non valido — ' + JSON.stringify(header) }, { status: 400 })
+    }
+    const pdfBase64 = pdfBuffer.toString('base64')
 
     const snap = prev.cliente_snapshot as {
       tipo?: string; ragione_sociale?: string | null
@@ -81,26 +85,10 @@ export async function POST(req: NextRequest) {
     if (!telefono) return NextResponse.json({ error: 'Numero di cellulare obbligatorio per ricevere il codice OTP' }, { status: 400 })
     const signerMobile = normalizzaTelefono(telefono)
 
-    const firmaToken = crypto.randomUUID()
     const appUrl = process.env.NEXT_PUBLIC_APP_URL!
 
-    // 1. Carica PDF su Supabase storage
-    const storagePath = `firma-temp/${prev.id}/${firmaToken}.pdf`
-    const { error: uploadError } = await service.storage
-      .from('commesse-docs')
-      .upload(storagePath, pdfBuffer, {
-        contentType: 'application/pdf',
-        upsert: false,
-      })
-
-    if (uploadError) {
-      console.error('[avvia-firma] Upload Supabase error:', uploadError.message)
-      return NextResponse.json({ error: 'Errore upload PDF: ' + uploadError.message }, { status: 500 })
-    }
-    console.log('[avvia-firma] PDF caricato su Supabase:', storagePath)
-
-    // 2. Salva token_conferma in DB prima di chiamare openapi.it
-    //    (così /api/firma-pdf/[token] può trovare il file)
+    // Salva token_conferma in DB prima di chiamare openapi.it
+    // (così /api/firma-pdf/[token] può trovare il file già caricato dal client)
     await service.from('preventivi').update({
       token_conferma: firmaToken,
       firma_stato: 'in_attesa',

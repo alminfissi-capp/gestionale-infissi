@@ -11,6 +11,8 @@ import type { Settings } from '@/types/impostazioni'
 import AllegatoCatalogoPdf from '@/components/preventivi/AllegatoCatalogoPdf'
 import ScaleToFit from '@/components/preventivi/ScaleToFit'
 import { rispondiPreventivo } from '@/actions/condivisione'
+import { creaUploadFirma } from '@/actions/firma-pubblica'
+import { createClient } from '@/lib/supabase/client'
 
 interface Props {
   preventivo: PreventivoCompleto
@@ -92,20 +94,21 @@ export default function StampaPreventivo({ preventivo: p, settings, logoUrl, sho
         console.log('[firma] Header PDF (atteso "%PDF-"):', JSON.stringify(headerBytes))
         if (!headerBytes.startsWith('%PDF')) throw new Error('Generazione PDF fallita: header non valido — ' + JSON.stringify(headerBytes))
 
-        // Converte blob → base64 string (evita problemi binari di FormData nei Server Actions)
-        const pdfBase64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve((reader.result as string).split(',')[1])
-          reader.onerror = () => reject(new Error('Errore lettura blob PDF'))
-          reader.readAsDataURL(blob)
-        })
-        console.log('[firma] base64 length:', pdfBase64.length, '— invio a /api/avvia-firma')
+        // Carica il PDF DIRETTAMENTE su Supabase Storage tramite signed upload URL:
+        // non transita nel body delle nostre funzioni (limite ~4,5 MB di Vercel → 413
+        // sui PDF grandi). La route poi lo legge dallo Storage lato server.
+        const { firmaToken, path, uploadToken } = await creaUploadFirma(token)
+        const supabase = createClient()
+        const { error: uploadErr } = await supabase.storage
+          .from('commesse-docs')
+          .uploadToSignedUrl(path, uploadToken, blob, { contentType: 'application/pdf' })
+        if (uploadErr) throw new Error('Errore caricamento PDF: ' + uploadErr.message)
+        console.log('[firma] PDF caricato su Storage — invio a /api/avvia-firma')
 
-        // API route invece di server action: nessun limite 1MB sugli argomenti
         const apiRes = await fetch('/api/avvia-firma', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shareToken: token, telefono, pdfBase64, pdfName }),
+          body: JSON.stringify({ shareToken: token, telefono, firmaToken, pdfName }),
         })
         // Leggi prima il testo: se la piattaforma intercetta la richiesta (413 body
         // troppo grande, 504 timeout) il corpo è vuoto/HTML e .json() esploderebbe

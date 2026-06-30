@@ -17,6 +17,40 @@ function normalizzaTelefono(raw: string): string {
 }
 
 /**
+ * Prepara l'upload del PDF di firma: genera un firmaToken e un signed upload URL
+ * di Supabase Storage, così il client carica il PDF DIRETTAMENTE su Storage senza
+ * farlo passare nel body della richiesta verso le nostre funzioni (limite ~4,5 MB
+ * di Vercel → causava errore 413 sui PDF grandi). La route /api/avvia-firma poi
+ * legge il PDF dallo Storage lato server.
+ */
+export async function creaUploadFirma(
+  shareToken: string
+): Promise<{ firmaToken: string; path: string; uploadToken: string }> {
+  const service = createServiceClient()
+
+  const { data: prev } = await service
+    .from('preventivi')
+    .select('id, firma_stato')
+    .eq('share_token', shareToken)
+    .single()
+
+  if (!prev) throw new Error('Preventivo non trovato')
+  if (prev.firma_stato === 'firmato') throw new Error('Preventivo già firmato')
+  if (prev.firma_stato === 'in_attesa') throw new Error('Firma già in corso')
+
+  const firmaToken = crypto.randomUUID()
+  const path = `firma-temp/${prev.id}/${firmaToken}.pdf`
+
+  const { data, error } = await service.storage
+    .from('commesse-docs')
+    .createSignedUploadUrl(path)
+
+  if (error || !data) throw new Error('Errore preparazione upload: ' + (error?.message ?? 'sconosciuto'))
+
+  return { firmaToken, path, uploadToken: data.token }
+}
+
+/**
  * Avvia il processo di firma EU-SES quando il cliente clicca "Accetta".
  * Il PDF è generato lato client e inviato come base64 string.
  * Viene passato direttamente a openapi.it come data URI (evita problemi
