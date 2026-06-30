@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown, RotateCcw, SlidersHorizontal, MailCheck, MessageCircle, Briefcase, Banknote, FileSignature } from 'lucide-react'
+import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown, RotateCcw, MailCheck, MessageCircle, Briefcase, Banknote, FileSignature } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
 import { usePermissions } from '@/contexts/PermissionsContext'
@@ -149,12 +149,6 @@ export default function TabellaPreventivi({ preventivi, commessePerPreventivo = 
             className="pl-8"
           />
         </div>
-        <Button variant="outline" asChild>
-          <Link href="/preventivi/scorrevoli">
-            <SlidersHorizontal className="h-4 w-4 mr-1" />
-            Scorrevoli
-          </Link>
-        </Button>
         {editEnabled && (
           <Button asChild>
             <Link href="/preventivi/nuovo">
