@@ -3,7 +3,6 @@
 import { useState, useEffect, useTransition } from 'react'
 import { Camera, FileText, Trash2, ExternalLink, Loader2, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import {
   prepareUpload,
