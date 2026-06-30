@@ -95,10 +95,16 @@ export default function AllegatiVoce({ voceId }: Props) {
 
   const handleOpen = async (allegato: AllegatoVoce) => {
     setOpeningId(allegato.id)
+    // Apri la scheda SINCRONA mentre il gesto di click è ancora "attivo":
+    // chiamare window.open dopo l'await farebbe scattare il blocco popup del browser.
+    const win = window.open('', '_blank')
+    if (win) win.opener = null
     try {
       const url = await getSignedUrlAllegato(allegato.storage_path)
-      window.open(url, '_blank', 'noopener,noreferrer')
+      if (win) win.location.href = url
+      else window.location.href = url // fallback se la scheda è stata bloccata comunque
     } catch {
+      if (win) win.close()
       toast.error('Impossibile aprire il file')
     } finally {
       setOpeningId(null)
