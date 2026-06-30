@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown, RotateCcw, SlidersHorizontal, MailCheck, MessageCircle, Briefcase, Banknote } from 'lucide-react'
+import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown, RotateCcw, SlidersHorizontal, MailCheck, MessageCircle, Briefcase, Banknote, FileSignature } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
 import { usePermissions } from '@/contexts/PermissionsContext'
@@ -314,6 +314,11 @@ export default function TabellaPreventivi({ preventivi, commessePerPreventivo = 
                                 : p.visualizzato_via === 'whatsapp'
                                 ? <MessageCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
                                 : <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />}
+                            </span>
+                          )}
+                          {p.firma_stato === 'firmato' && (
+                            <span title={`Firmato${p.firma_completata_at ? ' il ' + new Date(p.firma_completata_at).toLocaleDateString('it-IT') : ''}`}>
+                              <FileSignature className="h-3.5 w-3.5 text-green-600 shrink-0" />
                             </span>
                           )}
                         </div>
