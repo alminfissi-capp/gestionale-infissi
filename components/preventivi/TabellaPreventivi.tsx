@@ -321,6 +321,25 @@ export default function TabellaPreventivi({ preventivi, commessePerPreventivo = 
                               <FileSignature className="h-3.5 w-3.5 text-green-600 shrink-0" />
                             </span>
                           )}
+                          {p.firma_stato === 'in_attesa' && (
+                            <button
+                              type="button"
+                              title="Firma in attesa — clicca per copiare il link da inviare al cliente"
+                              className="shrink-0"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                e.preventDefault()
+                                if (p.firma_signing_url) {
+                                  navigator.clipboard.writeText(p.firma_signing_url)
+                                  toast.success('Link firma copiato')
+                                } else {
+                                  toast.error('Link non disponibile — riapri il preventivo')
+                                }
+                              }}
+                            >
+                              <FileSignature className="h-3.5 w-3.5 text-amber-500 hover:text-amber-600" />
+                            </button>
+                          )}
                         </div>
                         {p.cliente_snapshot.cantiere && (
                           <p className="text-xs text-gray-400">{p.cliente_snapshot.cantiere}</p>
