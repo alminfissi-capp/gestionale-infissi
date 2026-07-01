@@ -40,8 +40,19 @@ export type DashboardData = {
 
 function nomeCliente(snap: unknown): string {
   if (!snap || typeof snap !== 'object') return 'Sconosciuto'
-  const s = snap as { nome?: string; cognome?: string }
-  return `${s.nome ?? ''} ${s.cognome ?? ''}`.trim() || 'Cliente'
+  const s = snap as {
+    tipo?: string
+    ragione_sociale?: string | null
+    nome?: string | null
+    cognome?: string | null
+    email?: string | null
+    telefono?: string | null
+  }
+  if (s.tipo === 'azienda') {
+    return s.ragione_sociale || s.email || s.telefono || 'Cliente'
+  }
+  const nomeCompleto = [s.cognome, s.nome].filter(Boolean).join(' ')
+  return nomeCompleto || s.email || s.telefono || 'Cliente'
 }
 
 export async function getDashboardData(): Promise<DashboardData> {

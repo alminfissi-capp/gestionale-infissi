@@ -3,7 +3,6 @@
 import { Activity, FileText, User, Briefcase, Coins, Ruler, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
@@ -209,7 +208,7 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
                 <Link href={item.href} className="font-medium text-gray-800 hover:underline truncate shrink min-w-0">
                   {item.descrizione}
                 </Link>
-                <span className="ml-auto text-gray-400 shrink-0 text-xs pl-2 hidden sm:block">{item.azione}</span>
+                <span className="ml-auto text-gray-400 shrink-0 text-xs pl-2">{item.azione}</span>
                 <span className="text-gray-400 shrink-0 text-xs pl-2 sm:pl-3">{formatData(item.data)}</span>
               </li>
             ))}
