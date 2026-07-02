@@ -622,6 +622,9 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
       <div className="rounded-md border bg-white p-4 flex flex-wrap items-center justify-end gap-x-8 gap-y-2">
         <div className="mr-auto text-sm text-gray-500">{items.length} scadenze nel {anno}</div>
         <div className="text-sm text-gray-600">
+          Totale: <span className="font-semibold text-gray-900">{formatEuro(totali.totale)}</span>
+        </div>
+        <div className="text-sm text-gray-600">
           Pagato: <span className="font-semibold text-emerald-700">{formatEuro(totali.pagato)}</span>
         </div>
         <div className="text-base text-rose-800">
@@ -635,6 +638,7 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
         {MESI.map((nomeMese, i) => {
           const mese = i + 1
           const righe = perMese.get(mese) ?? []
+          const totaleMese = righe.reduce((s, x) => s + x.importo, 0)
           const daPagareMese = righe.reduce((s, x) => s + (x.pagato ? 0 : x.importo), 0)
           const defaultData = `${anno}-${pad2(mese)}-01`
           const aperto = openMonths.has(mese)
@@ -652,9 +656,14 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                   {righe.length > 0 && (
                     <Badge variant="secondary" className="text-[10px]">{righe.length}</Badge>
                   )}
-                  {daPagareMese > 0 && (
-                    <span className="text-xs text-rose-600 font-medium truncate">
-                      {formatEuro(daPagareMese)} da pagare
+                  {righe.length > 0 && (
+                    <span className="text-xs truncate">
+                      <span className="text-gray-600 font-medium">{formatEuro(totaleMese)}</span>
+                      {daPagareMese > 0 ? (
+                        <span className="text-rose-600 font-medium"> · {formatEuro(daPagareMese)} da pagare</span>
+                      ) : (
+                        <span className="text-emerald-600 font-medium"> · saldato</span>
+                      )}
                     </span>
                   )}
                 </button>
