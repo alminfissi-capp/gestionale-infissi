@@ -619,14 +619,13 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
       {/* Riepilogo anno */}
       <div className="rounded-md border bg-white p-4 flex flex-wrap items-center justify-end gap-x-8 gap-y-2">
         <div className="mr-auto text-sm text-gray-500">{items.length} scadenze nel {anno}</div>
-        <div className="text-sm text-gray-600">
-          Totale: <span className="font-semibold text-gray-900">{formatEuro(totali.totale)}</span>
-        </div>
-        <div className="text-sm text-gray-600">
-          Pagato: <span className="font-semibold text-emerald-700">{formatEuro(totali.pagato)}</span>
-        </div>
-        <div className="text-base text-rose-800">
-          Da pagare: <span className="font-bold">{formatEuro(totali.daPagare)}</span>
+        <div className="text-base">
+          <span className="text-gray-700 font-semibold">Totale: {formatEuro(totali.totale)}</span>
+          {totali.daPagare > 0 ? (
+            <span className="text-rose-700 font-bold"> · {formatEuro(totali.daPagare)} da pagare</span>
+          ) : (
+            <span className="text-emerald-600 font-semibold"> · saldato</span>
+          )}
         </div>
       </div>
 
