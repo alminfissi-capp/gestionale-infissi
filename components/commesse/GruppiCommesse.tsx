@@ -17,7 +17,7 @@ import { formatEuro } from '@/lib/pricing'
 import DialogGruppo from './DialogGruppo'
 import type { GruppoCommesse, TipoBlocco } from '@/types/commessa'
 
-export type GruppoConStats = GruppoCommesse & { count: number; totale: number }
+export type GruppoConStats = GruppoCommesse & { count: number; totale: number; daPagare?: number }
 
 interface Props {
   gruppi: GruppoConStats[]
@@ -107,10 +107,20 @@ export default function GruppiCommesse({ gruppi, calcoli }: Props) {
               {g.count} {isScad ? (g.count === 1 ? 'scadenza' : 'scadenze') : 'commesse'}
             </span>
           </div>
-          <p className={`text-2xl font-bold mt-1 ${isScad ? 'text-rose-600' : 'text-gray-900'}`}>
+          <p className="text-2xl font-bold mt-1 text-gray-900">
             {formatEuro(g.totale)}
           </p>
-          <p className="text-xs text-gray-400 mt-0.5">{isScad ? 'Da pagare' : 'Totale'}</p>
+          {isScad ? (
+            (g.daPagare ?? 0) > 0 ? (
+              <p className="text-xs text-rose-600 font-medium mt-0.5">
+                {formatEuro(g.daPagare ?? 0)} da pagare
+              </p>
+            ) : (
+              <p className="text-xs text-emerald-600 font-medium mt-0.5">Saldato</p>
+            )
+          ) : (
+            <p className="text-xs text-gray-400 mt-0.5">Totale</p>
+          )}
         </CardContent>
       </Card>
     )

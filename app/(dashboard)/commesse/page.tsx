@@ -50,13 +50,14 @@ export default async function CommessePage({
     })
   }
 
-  // Statistiche scadenze per blocco: count + totale da pagare (non pagato)
-  const scadMap = new Map<string, { count: number; daPagare: number }>()
+  // Statistiche scadenze per blocco: count + totale complessivo + residuo da pagare
+  const scadMap = new Map<string, { count: number; totale: number; daPagare: number }>()
   for (const r of scadenzeRaw ?? []) {
     if (!r.gruppo_id) continue
-    const prev = scadMap.get(r.gruppo_id) ?? { count: 0, daPagare: 0 }
+    const prev = scadMap.get(r.gruppo_id) ?? { count: 0, totale: 0, daPagare: 0 }
     scadMap.set(r.gruppo_id, {
       count: prev.count + 1,
+      totale: prev.totale + Number(r.importo),
       daPagare: prev.daPagare + (r.pagato ? 0 : Number(r.importo)),
     })
   }
@@ -75,7 +76,8 @@ export default async function CommessePage({
   const gruppiConStats: GruppoConStats[] = gruppi.map((g) => ({
     ...g,
     count: g.tipo === 'scadenze' ? (scadMap.get(g.id)?.count ?? 0) : (statsMap.get(g.id)?.count ?? 0),
-    totale: g.tipo === 'scadenze' ? (scadMap.get(g.id)?.daPagare ?? 0) : (statsMap.get(g.id)?.totale ?? 0),
+    totale: g.tipo === 'scadenze' ? (scadMap.get(g.id)?.totale ?? 0) : (statsMap.get(g.id)?.totale ?? 0),
+    daPagare: g.tipo === 'scadenze' ? (scadMap.get(g.id)?.daPagare ?? 0) : undefined,
   }))
 
   return (
