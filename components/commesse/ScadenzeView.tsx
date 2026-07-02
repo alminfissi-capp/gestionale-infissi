@@ -424,13 +424,11 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
   // Stato locale sincronizzato con i dati server (adjust-state-during-render)
   const [items, setItems] = useState<Scadenza[]>(scadenze)
   const [prevScad, setPrevScad] = useState(scadenze)
-  // Mesi aperti (fisarmonica): di default i mesi che hanno scadenze
-  const mesiConRighe = (list: Scadenza[]) => new Set(list.map((s) => meseDi(s.data_scadenza)))
-  const [openMonths, setOpenMonths] = useState<Set<number>>(() => mesiConRighe(scadenze))
+  // Mesi aperti (fisarmonica): di default tutti collassati, per vedere i 12 mesi a colpo d'occhio
+  const [openMonths, setOpenMonths] = useState<Set<number>>(() => new Set())
   if (prevScad !== scadenze) {
     setPrevScad(scadenze)
     setItems(scadenze)
-    setOpenMonths((cur) => new Set([...cur, ...mesiConRighe(scadenze)]))
   }
 
   const toggleMonth = (m: number) =>
