@@ -317,6 +317,14 @@ export async function getPreventivo(id: string): Promise<PreventivoCompleto | nu
   const quoteTrasporto = calcolaQuoteTrasportoPerArticolo(articoli ?? [], regoleForQuote, regoleLiberiForQuote)
   const articoliConQuota = (articoli ?? []).map((a, i) => ({ ...a, quota_trasporto: quoteTrasporto[i] ?? 0 }))
 
+  // Allegati PDF caricati dal dispositivo (bucket pubblico → getPublicUrl, come i cataloghi)
+  const allegatiPdf: { id: string; nome: string; storage_path: string }[] = prev.allegati_pdf ?? []
+  const allegati_pdf_data = allegatiPdf.map((a) => ({
+    id: a.id,
+    nome: a.nome,
+    url: supabase.storage.from('preventivi-allegati').getPublicUrl(a.storage_path).data.publicUrl,
+  }))
+
   // Allegati calcoli (PDF interni, bucket privato → URL firmati)
   let allegati_calcoli_data: { id: string; nome: string; storage_path: string; url: string }[] = []
   const { data: allegati } = await supabase
@@ -336,7 +344,7 @@ export async function getPreventivo(id: string): Promise<PreventivoCompleto | nu
     allegati_calcoli_data = signed
   }
 
-  return { ...prev, articoli: articoliConQuota, cataloghi_allegati_data, allegati_calcoli_data }
+  return { ...prev, articoli: articoliConQuota, cataloghi_allegati_data, allegati_pdf_data, allegati_calcoli_data }
 }
 
 export async function setCataloghiAllegati(
@@ -349,6 +357,61 @@ export async function setCataloghiAllegati(
     .update({ cataloghi_allegati: catalogoIds })
     .eq('id', preventivoId)
   if (error) throw new Error(error.message)
+  revalidatePath(`/preventivi/${preventivoId}`)
+}
+
+/** Aggiunge un PDF (caricato dal dispositivo) all'elenco allegati_pdf del preventivo */
+export async function addAllegatoPdf(
+  preventivoId: string,
+  nome: string,
+  storagePath: string
+): Promise<void> {
+  const supabase = await createClient()
+  const { data: prev, error: readErr } = await supabase
+    .from('preventivi')
+    .select('allegati_pdf')
+    .eq('id', preventivoId)
+    .single()
+  if (readErr || !prev) throw new Error('Preventivo non trovato')
+
+  const correnti: { id: string; nome: string; storage_path: string }[] = prev.allegati_pdf ?? []
+  const nuovi = [...correnti, { id: crypto.randomUUID(), nome, storage_path: storagePath }]
+
+  const { error } = await supabase
+    .from('preventivi')
+    .update({ allegati_pdf: nuovi })
+    .eq('id', preventivoId)
+  if (error) throw new Error(error.message)
+  revalidatePath(`/preventivi/${preventivoId}`)
+}
+
+/** Rimuove un PDF allegato dall'elenco e cancella il file da Storage */
+export async function removeAllegatoPdf(
+  preventivoId: string,
+  allegatoId: string
+): Promise<void> {
+  const supabase = await createClient()
+  const { data: prev, error: readErr } = await supabase
+    .from('preventivi')
+    .select('allegati_pdf')
+    .eq('id', preventivoId)
+    .single()
+  if (readErr || !prev) throw new Error('Preventivo non trovato')
+
+  const correnti: { id: string; nome: string; storage_path: string }[] = prev.allegati_pdf ?? []
+  const daRimuovere = correnti.find((a) => a.id === allegatoId)
+  const nuovi = correnti.filter((a) => a.id !== allegatoId)
+
+  const { error } = await supabase
+    .from('preventivi')
+    .update({ allegati_pdf: nuovi })
+    .eq('id', preventivoId)
+  if (error) throw new Error(error.message)
+
+  // Cancella il file da Storage (best-effort)
+  if (daRimuovere) {
+    await supabase.storage.from('preventivi-allegati').remove([daRimuovere.storage_path])
+  }
   revalidatePath(`/preventivi/${preventivoId}`)
 }
 
@@ -818,6 +881,19 @@ export async function deletePreventivo(id: string): Promise<void> {
     if (paths.length > 0) {
       await supabase.storage.from(bucket).remove(paths)
     }
+  }
+
+  // Cleanup PDF allegati dal dispositivo (bucket pubblico preventivi-allegati)
+  const { data: prevAllegati } = await supabase
+    .from('preventivi')
+    .select('allegati_pdf')
+    .eq('id', id)
+    .single()
+  const allegatiPdf: { storage_path: string }[] = prevAllegati?.allegati_pdf ?? []
+  if (allegatiPdf.length > 0) {
+    await supabase.storage
+      .from('preventivi-allegati')
+      .remove(allegatiPdf.map((a) => a.storage_path))
   }
 
   const { error } = await supabase.from('preventivi').delete().eq('id', id)

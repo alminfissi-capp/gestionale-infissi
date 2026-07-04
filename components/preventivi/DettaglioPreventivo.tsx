@@ -6,12 +6,13 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Pencil, Printer, Trash2, ChevronLeft, Loader2, TrendingUp, Truck, ShoppingCart, BarChart2, Mail, MessageCircle, Link2, Copy, Eye, X, Share2, ChevronDown, ChevronUp, Paperclip, FileText, FileSignature, CheckCircle, Clock, XCircle, Download } from 'lucide-react'
-import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
+import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo, removeAllegatoPdf } from '@/actions/preventivi'
 import { getFirmaSignedUrl, recuperaPdfFirmato, verificaERecuperaFirma } from '@/actions/firma'
 import DialogAllegaCatalogo from '@/components/preventivi/DialogAllegaCatalogo'
 import DialogCopiaArticolo from '@/components/preventivi/DialogCopiaArticolo'
 import DialogFirma from '@/components/preventivi/DialogFirma'
 import DialogAllegatiCalcoli from '@/components/preventivi/DialogAllegatiCalcoli'
+import AllegaPdfButton from '@/components/preventivi/AllegaPdfButton'
 import DialogInvioEmail from '@/components/preventivi/DialogInvioEmail'
 import { generaShareToken, revokaShareToken } from '@/actions/condivisione'
 import { formatEuro } from '@/lib/pricing'
@@ -143,6 +144,18 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
     if (stato !== 'bozza') return
     setStato('inviato')
     aggiornaStatoPreventivo(p.id, 'inviato').catch(() => setStato('bozza'))
+  }
+
+  const handleRimuoviAllegatoPdf = (allegatoId: string) => {
+    startTransition(async () => {
+      try {
+        await removeAllegatoPdf(p.id, allegatoId)
+        toast.success('PDF rimosso')
+        router.refresh()
+      } catch {
+        toast.error('Errore durante la rimozione del PDF')
+      }
+    })
   }
 
   const cfg = STATO_CONFIG[stato]
@@ -736,21 +749,38 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
 
         {/* Allegati cataloghi */}
         <div className="bg-white rounded-lg border p-4">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-2 gap-1">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Allegati</p>
-            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setAllegaOpen(true)}>
-              <Paperclip className="h-3.5 w-3.5 mr-1" />
-              {p.cataloghi_allegati_data.length > 0 ? 'Modifica' : 'Allega catalogo'}
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setAllegaOpen(true)}>
+                <Paperclip className="h-3.5 w-3.5 mr-1" />
+                {p.cataloghi_allegati_data.length > 0 ? 'Modifica' : 'Allega catalogo'}
+              </Button>
+              <AllegaPdfButton preventivoId={p.id} />
+            </div>
           </div>
-          {p.cataloghi_allegati_data.length === 0 ? (
-            <p className="text-xs text-gray-400 italic">Nessun catalogo allegato</p>
+          {p.cataloghi_allegati_data.length === 0 && p.allegati_pdf_data.length === 0 ? (
+            <p className="text-xs text-gray-400 italic">Nessun allegato</p>
           ) : (
             <ul className="space-y-1">
               {p.cataloghi_allegati_data.map((c) => (
                 <li key={c.id} className="flex items-center gap-1.5 text-xs text-gray-600">
                   <Paperclip className="h-3 w-3 text-gray-400 shrink-0" />
                   {c.nome}
+                </li>
+              ))}
+              {p.allegati_pdf_data.map((a) => (
+                <li key={a.id} className="flex items-center gap-1.5 text-xs text-gray-600 group">
+                  <FileText className="h-3 w-3 text-gray-400 shrink-0" />
+                  <span className="truncate">{a.nome}</span>
+                  <button
+                    type="button"
+                    title="Rimuovi PDF"
+                    onClick={() => handleRimuoviAllegatoPdf(a.id)}
+                    className="ml-auto text-gray-300 hover:text-red-600 shrink-0"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </li>
               ))}
             </ul>

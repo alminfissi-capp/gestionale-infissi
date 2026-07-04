@@ -81,6 +81,7 @@ export async function POST(
       ...prev,
       articoli:                articoliConImg,
       cataloghi_allegati_data: [],
+      allegati_pdf_data:       [],
       allegati_calcoli_data:   [],
     }
 

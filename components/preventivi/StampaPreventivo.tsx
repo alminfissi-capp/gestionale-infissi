@@ -601,6 +601,11 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
         <AllegatoCatalogoPdf key={c.id} url={c.url} nome={c.nome} />
       ))}
 
+      {/* ── PDF allegati dal dispositivo ── */}
+      {p.allegati_pdf_data.map((a) => (
+        <AllegatoCatalogoPdf key={a.id} url={a.url} nome={a.nome} />
+      ))}
+
       {/* ── Piè di pagina fisso (stampa) ── */}
       <style>{`
         @page {

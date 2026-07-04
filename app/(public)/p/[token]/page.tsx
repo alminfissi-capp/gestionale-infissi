@@ -63,7 +63,15 @@ async function getPreventivoByToken(token: string): Promise<PreventivoCompleto |
     }
   }
 
-  return { ...prev, articoli: articoli ?? [], cataloghi_allegati_data, allegati_calcoli_data: [] }
+  // PDF allegati dal dispositivo: salvati nel JSONB del preventivo, bucket pubblico → getPublicUrl
+  const allegatiPdf: { id: string; nome: string; storage_path: string }[] = prev.allegati_pdf ?? []
+  const allegati_pdf_data = allegatiPdf.map((a) => ({
+    id: a.id,
+    nome: a.nome,
+    url: supabase.storage.from('preventivi-allegati').getPublicUrl(a.storage_path).data.publicUrl,
+  }))
+
+  return { ...prev, articoli: articoli ?? [], cataloghi_allegati_data, allegati_pdf_data, allegati_calcoli_data: [] }
 }
 
 async function getSettingsPubblici(orgId: string): Promise<Settings | null> {

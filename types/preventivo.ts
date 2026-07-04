@@ -151,6 +151,7 @@ export type Preventivo = {
   visualizzato_via: 'email' | 'whatsapp' | 'link' | null
   email_aperta_at: string | null
   cataloghi_allegati: string[]
+  allegati_pdf: { id: string; nome: string; storage_path: string }[]
   token_conferma: string | null
   firma_documento_id: string | null
   firma_signing_url: string | null
@@ -165,6 +166,7 @@ export type Preventivo = {
 export type PreventivoCompleto = Preventivo & {
   articoli: ArticoloPreventivoRow[]
   cataloghi_allegati_data: { id: string; nome: string; url: string }[]
+  allegati_pdf_data: { id: string; nome: string; url: string }[]
   allegati_calcoli_data: { id: string; nome: string; storage_path: string; url: string }[]
 }
 
