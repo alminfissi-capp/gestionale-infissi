@@ -42,10 +42,20 @@ type RigaCalcoloRow = RigaCalcolo & { descrizioneSalvata: string }
 
 const toRow = (r: RigaCalcolo): RigaCalcoloRow => ({ ...r, descrizioneSalvata: r.descrizione })
 
+// Accetta importi in formato italiano ("1.234,56") o con punto decimale ("1234.56")
 const parseImporto = (s: string) => {
-  const v = parseFloat((s ?? '').replace(',', '.'))
+  let t = (s ?? '').trim().replace(/[\s€]/g, '')
+  if (t.includes(',')) {
+    t = t.replace(/\./g, '').replace(',', '.')
+  } else if (/\.\d{3}(\.|$)/.test(t)) {
+    t = t.replace(/\./g, '')
+  }
+  const v = parseFloat(t)
   return isNaN(v) ? 0 : v
 }
+
+const formatImporto = (v: number) =>
+  v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, conti }: Props) {
   const router = useRouter()
@@ -58,7 +68,7 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
 
   // Incasso previsto editabile per riga (stringa per l'input, somma immediata)
   const initPrevisti = (list: CommessaCompleta[]) =>
-    Object.fromEntries(list.map((c) => [c.id, c.incasso_previsto != null ? String(c.incasso_previsto) : '']))
+    Object.fromEntries(list.map((c) => [c.id, c.incasso_previsto != null ? formatImporto(c.incasso_previsto) : '']))
   const [previsti, setPrevisti] = useState<Record<string, string>>(() => initPrevisti(commesse))
 
   // Sincronizza con i dati server dopo router.refresh() (adjust-state-during-render)
@@ -72,13 +82,13 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
   // ── Righe giacenze / liquidità ──────────────────────────────
   const [righeItems, setRigheItems] = useState<RigaCalcoloRow[]>(() => righe.map(toRow))
   const [importiStr, setImportiStr] = useState<Record<string, string>>(() =>
-    Object.fromEntries(righe.map((r) => [r.id, r.importo ? String(r.importo) : '']))
+    Object.fromEntries(righe.map((r) => [r.id, r.importo ? formatImporto(r.importo) : '']))
   )
   const [prevRighe, setPrevRighe] = useState(righe)
   if (prevRighe !== righe) {
     setPrevRighe(righe)
     setRigheItems(righe.map(toRow))
-    setImportiStr(Object.fromEntries(righe.map((r) => [r.id, r.importo ? String(r.importo) : ''])))
+    setImportiStr(Object.fromEntries(righe.map((r) => [r.id, r.importo ? formatImporto(r.importo) : ''])))
   }
 
   // ── Scadenze selezionate (stellate) ─────────────────────────
@@ -91,7 +101,7 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
 
   // ── Conti correnti (saldo modificabile inline) ──────────────
   const initSaldi = (list: ContoCorrente[]) =>
-    Object.fromEntries(list.map((c) => [c.id, c.saldo_attuale ? String(c.saldo_attuale) : '']))
+    Object.fromEntries(list.map((c) => [c.id, c.saldo_attuale ? formatImporto(c.saldo_attuale) : '']))
   const [contiItems, setContiItems] = useState<ContoCorrente[]>(conti)
   const [contiSaldiStr, setContiSaldiStr] = useState<Record<string, string>>(() => initSaldi(conti))
   const [prevConti, setPrevConti] = useState(conti)
@@ -102,7 +112,9 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
   }
 
   const handleSalvaSaldoConto = async (c: ContoCorrente) => {
-    const saldo = parseImporto(contiSaldiStr[c.id] ?? '')
+    const raw = (contiSaldiStr[c.id] ?? '').trim()
+    const saldo = parseImporto(raw)
+    if (raw !== '') setContiSaldiStr((cur) => ({ ...cur, [c.id]: formatImporto(saldo) }))
     if (saldo === c.saldo_attuale) return
     try {
       await updateSaldoConto(c.id, saldo)
@@ -137,8 +149,8 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
   // Salva al blur (solo se cambiato rispetto al valore già memorizzato)
   const handleSalvaPrevisto = async (c: CommessaCompleta) => {
     const raw = (previsti[c.id] ?? '').trim()
-    const value = raw === '' ? null : parseFloat(raw.replace(',', '.'))
-    if (value !== null && isNaN(value)) return
+    const value = raw === '' ? null : parseImporto(raw)
+    if (value !== null) setPrevisti((prev) => ({ ...prev, [c.id]: formatImporto(value) }))
     if (value === c.incasso_previsto) return
     try {
       await setIncassoPrevisto(c.id, value)
@@ -181,7 +193,9 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
   const handleSalvaRiga = async (id: string) => {
     const riga = righeItems.find((r) => r.id === id)
     if (!riga) return
-    const importo = parseImporto(importiStr[id] ?? '')
+    const raw = (importiStr[id] ?? '').trim()
+    const importo = parseImporto(raw)
+    if (raw !== '') setImportiStr((cur) => ({ ...cur, [id]: formatImporto(importo) }))
     if (riga.descrizione === riga.descrizioneSalvata && importo === riga.importo) return
     try {
       await updateRigaCalcolo(id, riga.descrizione, importo)
@@ -205,8 +219,6 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
   }
 
   const totali = useMemo(() => ({
-    totale:  items.reduce((s, c) => s + c.totale, 0),
-    acconti: items.reduce((s, c) => s + c.totale_acconti, 0),
     saldo:   items.reduce((s, c) => s + c.saldo, 0),
     previsto: items.reduce((s, c) => s + parseImporto(previsti[c.id] ?? ''), 0),
   }), [items, previsti])
@@ -236,8 +248,6 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
                   <TableHead>Cliente</TableHead>
                   <TableHead>N. Comm.</TableHead>
                   <TableHead>Blocco</TableHead>
-                  <TableHead className="text-right">Totale</TableHead>
-                  <TableHead className="text-right">Acconti</TableHead>
                   <TableHead className="text-right">Saldo da incassare</TableHead>
                   <TableHead className="text-right w-[140px]">Incasso previsto</TableHead>
                   <TableHead className="w-12" />
@@ -245,7 +255,7 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
               </TableHeader>
               <TableBody>
                 {items.map((c) => (
-                  <TableRow key={c.id}>
+                  <TableRow key={c.id} className="even:bg-gray-50/70">
                     <TableCell>
                       <p className="font-medium text-sm">{c.cliente_nome}</p>
                       {c.note && <p className="text-xs text-gray-400 truncate max-w-[260px]">{c.note}</p>}
@@ -267,12 +277,6 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
                         <span className="text-gray-300 text-xs">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right text-sm font-semibold">
-                      {formatEuro(c.totale)}
-                    </TableCell>
-                    <TableCell className="text-right text-sm text-gray-500">
-                      {c.totale_acconti > 0 ? formatEuro(c.totale_acconti) : '—'}
-                    </TableCell>
                     <TableCell className="text-right">
                       <Badge
                         className={
@@ -286,9 +290,8 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
                     </TableCell>
                     <TableCell className="text-right">
                       <Input
-                        type="number"
-                        min={0}
-                        step={0.01}
+                        type="text"
+                        inputMode="decimal"
                         value={previsti[c.id] ?? ''}
                         placeholder="0,00"
                         onChange={(e) => setPrevisti((prev) => ({ ...prev, [c.id]: e.target.value }))}
@@ -318,12 +321,6 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
                   </TableCell>
                   <TableCell />
                   <TableCell />
-                  <TableCell className="text-right text-sm font-bold text-gray-900">
-                    {formatEuro(totali.totale)}
-                  </TableCell>
-                  <TableCell className="text-right text-sm font-semibold text-gray-700">
-                    {formatEuro(totali.acconti)}
-                  </TableCell>
                   <TableCell className="text-right text-sm font-bold text-amber-800">
                     {formatEuro(totali.saldo)}
                   </TableCell>
@@ -421,8 +418,8 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
                 </span>
                 <div className="relative w-[140px] shrink-0">
                   <Input
-                    type="number"
-                    step={0.01}
+                    type="text"
+                    inputMode="decimal"
                     value={contiSaldiStr[c.id] ?? ''}
                     placeholder="0,00"
                     onChange={(e) => setContiSaldiStr((cur) => ({ ...cur, [c.id]: e.target.value }))}
@@ -455,8 +452,8 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
                 />
                 <div className="relative w-[140px] shrink-0">
                   <Input
-                    type="number"
-                    step={0.01}
+                    type="text"
+                    inputMode="decimal"
                     value={importiStr[r.id] ?? ''}
                     placeholder="0,00"
                     onChange={(e) => setImportiStr((cur) => ({ ...cur, [r.id]: e.target.value }))}
