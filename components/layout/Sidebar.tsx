@@ -21,6 +21,7 @@ import {
   Warehouse,
   UserCog,
   Briefcase,
+  IdCard,
   Sparkles,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -48,6 +49,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/winconfig',           label: 'WinConfig',           icon: Wrench,          modulo: 'winconfig' },
   { href: '/magazzino',           label: 'Magazzino',           icon: Warehouse,       modulo: 'magazzino' },
   { href: '/commesse',            label: 'Commesse / Scadenze', icon: Briefcase,       modulo: 'commesse' },
+  { href: '/dipendenti',          label: 'Dipendenti',          icon: IdCard,          modulo: 'dipendenti' },
   { href: '/import-export',       label: 'Import / Export',     icon: Database,        modulo: 'impostazioni' },
   { href: '/impostazioni',        label: 'Impostazioni',        icon: Settings,        modulo: 'impostazioni' },
   { href: '/impostazioni/utenti', label: 'Gestione Utenti',     icon: UserCog,         modulo: 'impostazioni', adminOnly: true },

@@ -9,6 +9,7 @@ export const MODULI_APP = [
   'winconfig',
   'magazzino',
   'commesse',
+  'dipendenti',
   'impostazioni',
 ] as const
 
@@ -23,6 +24,7 @@ export const MODULO_LABELS: Record<ModuloApp, string> = {
   winconfig:    'WinConfig',
   magazzino:    'Magazzino',
   commesse:     'Commesse',
+  dipendenti:   'Dipendenti',
   impostazioni: 'Impostazioni',
 }
 
@@ -37,6 +39,7 @@ export const PERMESSI_ADMIN: PermessiUtente = {
   winconfig:    'scrittura',
   magazzino:    'scrittura',
   commesse:     'scrittura',
+  dipendenti:   'scrittura',
   impostazioni: 'scrittura',
 }
 
@@ -49,6 +52,7 @@ export const PERMESSI_VUOTI: PermessiUtente = {
   winconfig:    'nessuno',
   magazzino:    'nessuno',
   commesse:     'nessuno',
+  dipendenti:   'nessuno',
   impostazioni: 'nessuno',
 }
 
