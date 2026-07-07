@@ -68,6 +68,8 @@ export async function getDipendentiConSaldi(): Promise<DipendenteConSaldo[]> {
     supabase.from('pagamenti_dipendente').select('*').eq('organization_id', orgId),
   ])
   if (dipRes.error) throw new Error(dipRes.error.message)
+  if (busteRes.error) throw new Error(busteRes.error.message)
+  if (pagRes.error) throw new Error(pagRes.error.message)
   const buste = (busteRes.data ?? []) as BustaPaga[]
   const pagamenti = (pagRes.data ?? []) as PagamentoDipendente[]
   return (dipRes.data as Dipendente[]).map((d) => ({
@@ -89,9 +91,11 @@ export async function getDipendenteCompleto(id: string): Promise<DipendenteCompl
     .maybeSingle()
   if (!dipendente) return null
   const [busteRes, pagRes] = await Promise.all([
-    supabase.from('buste_paga').select('*').eq('dipendente_id', id).order('periodo', { ascending: false }),
-    supabase.from('pagamenti_dipendente').select('*').eq('dipendente_id', id).order('data_pagamento', { ascending: false }),
+    supabase.from('buste_paga').select('*').eq('organization_id', orgId).eq('dipendente_id', id).order('periodo', { ascending: false }),
+    supabase.from('pagamenti_dipendente').select('*').eq('organization_id', orgId).eq('dipendente_id', id).order('data_pagamento', { ascending: false }),
   ])
+  if (busteRes.error) throw new Error(busteRes.error.message)
+  if (pagRes.error) throw new Error(pagRes.error.message)
   return {
     dipendente: dipendente as Dipendente,
     buste: (busteRes.data ?? []) as BustaPaga[],
@@ -125,8 +129,8 @@ export async function updateDipendente(id: string, input: DipendenteInput): Prom
 export async function deleteDipendente(id: string): Promise<void> {
   const { supabase, orgId } = await assertAccessoDipendenti(true)
   const [busteRes, pagRes] = await Promise.all([
-    supabase.from('buste_paga').select('file_path').eq('dipendente_id', id),
-    supabase.from('pagamenti_dipendente').select('file_path').eq('dipendente_id', id),
+    supabase.from('buste_paga').select('file_path').eq('organization_id', orgId).eq('dipendente_id', id),
+    supabase.from('pagamenti_dipendente').select('file_path').eq('organization_id', orgId).eq('dipendente_id', id),
   ])
   const paths = [...(busteRes.data ?? []), ...(pagRes.data ?? [])]
     .map((r) => r.file_path)
