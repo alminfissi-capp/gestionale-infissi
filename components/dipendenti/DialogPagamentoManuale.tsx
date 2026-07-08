@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -39,6 +39,17 @@ export default function DialogPagamentoManuale({ open, onOpenChange, dipendenteI
   const [note, setNote] = useState('')
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    if (open) {
+      setImporto('')
+      setData(today())
+      setMetodo('contanti')
+      setPeriodo((periodoDefault ?? today()).slice(0, 7))
+      setMensilita('mensile')
+      setNote('')
+    }
+  }, [open, periodoDefault])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const imp = parseFloat(importo.replace(',', '.'))
@@ -62,8 +73,6 @@ export default function DialogPagamentoManuale({ open, onOpenChange, dipendenteI
         note: note || null,
       })
       toast.success('Pagamento registrato')
-      setImporto('')
-      setNote('')
       onOpenChange(false)
       router.refresh()
     } catch {

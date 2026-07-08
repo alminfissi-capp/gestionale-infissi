@@ -46,6 +46,7 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
   const [editOpen, setEditOpen] = useState(false)
   const [pagamentoOpen, setPagamentoOpen] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const righe = calcolaRigheMensilita(buste, pagamenti)
   const saldo = calcolaSaldoDipendente(buste, pagamenti)
@@ -53,7 +54,7 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
   const apriFile = async (path: string) => {
     try {
       const url = await getDipendenteFileUrl(path)
-      window.open(url, '_blank')
+      window.open(url, '_blank', 'noopener,noreferrer')
     } catch {
       toast.error('File non disponibile')
     }
@@ -89,12 +90,15 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
 
   const rimuoviDipendente = async () => {
     if (!window.confirm(`Eliminare ${dipendente.nome} ${dipendente.cognome} con tutte le buste e i pagamenti?`)) return
+    setDeleting(true)
     try {
       await deleteDipendente(dipendente.id)
       toast.success('Dipendente eliminato')
       router.push('/dipendenti')
     } catch {
       toast.error("Errore nell'eliminazione")
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -128,7 +132,7 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
           <Button variant="outline" onClick={() => setEditOpen(true)}>
             <Pencil className="h-4 w-4 mr-2" /> Modifica
           </Button>
-          <Button variant="ghost" className="text-red-500 hover:text-red-700" onClick={rimuoviDipendente}>
+          <Button variant="ghost" className="text-red-500 hover:text-red-700" disabled={deleting} onClick={rimuoviDipendente}>
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
