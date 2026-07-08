@@ -24,7 +24,7 @@ const arrotonda = (n: number) => Math.round(n * 100) / 100
 export interface RigaMensilita {
   periodo: string // 'YYYY-MM-01'
   mensilita: Mensilita
-  busta: BustaPaga | null
+  buste: BustaPaga[]
   pagamenti: PagamentoDipendente[]
   dovuto: number
   pagato: number
@@ -46,7 +46,7 @@ export function calcolaRigheMensilita(
     const key = `${mese}|${mensilita}`
     let riga = mappa.get(key)
     if (!riga) {
-      riga = { periodo: `${mese}-01`, mensilita, busta: null, pagamenti: [], dovuto: 0, pagato: 0, residuo: 0 }
+      riga = { periodo: `${mese}-01`, mensilita, buste: [], pagamenti: [], dovuto: 0, pagato: 0, residuo: 0 }
       mappa.set(key, riga)
     }
     return riga
@@ -54,7 +54,7 @@ export function calcolaRigheMensilita(
 
   for (const b of buste) {
     const riga = getRiga(b.periodo, b.mensilita)
-    riga.busta = b
+    riga.buste.push(b)
     riga.dovuto += Number(b.netto)
   }
   for (const p of pagamenti) {
@@ -69,6 +69,7 @@ export function calcolaRigheMensilita(
     r.pagato = arrotonda(r.pagato)
     r.residuo = arrotonda(r.dovuto - r.pagato)
     r.pagamenti.sort((a, b) => a.data_pagamento.localeCompare(b.data_pagamento))
+    r.buste.sort((a, b) => a.created_at.localeCompare(b.created_at))
   }
   righe.sort(
     (a, b) =>

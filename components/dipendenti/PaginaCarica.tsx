@@ -174,7 +174,7 @@ export default function PaginaCarica({ dipendenti: iniziali }: { dipendenti: Dip
     }
     setSalvando(true)
     try {
-      for (const p of buste) {
+      for (const p of [...buste]) {
         const periodo = `${p.periodo}-01`
         const duplicata = await esisteBusta(p.dipendenteId!, periodo, p.mensilita)
         if (duplicata) {
@@ -182,7 +182,10 @@ export default function PaginaCarica({ dipendenti: iniziali }: { dipendenti: Dip
           const ok = window.confirm(
             `Esiste già una busta ${MENSILITA_LABELS[p.mensilita].toLowerCase()} di ${dip?.cognome ?? ''} per questo mese. Aggiungere comunque?`,
           )
-          if (!ok) continue
+          if (!ok) {
+            setBuste((prev) => prev.filter((x) => x.uid !== p.uid))
+            continue
+          }
         }
         const fd = new FormData()
         fd.set('file', p.file)
@@ -198,8 +201,9 @@ export default function PaginaCarica({ dipendenti: iniziali }: { dipendenti: Dip
           },
           fd,
         )
+        setBuste((prev) => prev.filter((x) => x.uid !== p.uid))
       }
-      for (const p of bonifici) {
+      for (const p of [...bonifici]) {
         const fd = new FormData()
         fd.set('file', p.file)
         await addPagamento(
@@ -215,6 +219,7 @@ export default function PaginaCarica({ dipendenti: iniziali }: { dipendenti: Dip
           },
           fd,
         )
+        setBonifici((prev) => prev.filter((x) => x.uid !== p.uid))
       }
       toast.success('Documenti registrati')
       router.push('/dipendenti')

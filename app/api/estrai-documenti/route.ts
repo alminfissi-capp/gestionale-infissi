@@ -1,7 +1,7 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { generateObject } from 'ai'
 import { z } from 'zod'
-import { getOrgId } from '@/lib/auth'
+import { assertAccessoDipendenti } from '@/lib/permessi-dipendenti'
 
 export const maxDuration = 60
 
@@ -40,9 +40,9 @@ const bonificoSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    await getOrgId()
+    await assertAccessoDipendenti()
   } catch {
-    return Response.json({ error: 'Non autenticato' }, { status: 401 })
+    return Response.json({ error: 'Accesso non consentito' }, { status: 401 })
   }
 
   let tipo: 'busta' | 'bonifico'

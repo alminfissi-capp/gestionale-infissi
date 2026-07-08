@@ -178,7 +178,7 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
                   )}
                 </p>
                 <p className="text-sm">
-                  Netto: <span className="font-semibold">{r.busta ? formatEuro(r.dovuto) : '—'}</span>
+                  Netto: <span className="font-semibold">{r.buste.length > 0 ? formatEuro(r.dovuto) : '—'}</span>
                   {' · '}Pagato: <span className="font-semibold">{formatEuro(r.pagato)}</span>
                   {' · '}Residuo:{' '}
                   <span className={cn('font-bold', r.residuo > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400')}>
@@ -187,21 +187,21 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
                 </p>
               </div>
 
-              {!r.busta && (
+              {r.buste.length === 0 && (
                 <p className="text-xs text-amber-600">
                   Busta paga non ancora caricata per questo mese (pagamenti registrati senza busta).
                 </p>
               )}
 
-              {r.busta && (
-                <div className="flex items-center justify-between text-sm bg-gray-50 dark:bg-gray-900 rounded p-2">
+              {r.buste.map((busta) => (
+                <div key={busta.id} className="flex items-center justify-between text-sm bg-gray-50 dark:bg-gray-900 rounded p-2">
                   <span>
-                    Busta paga · netto {formatEuro(Number(r.busta.netto))}
-                    {r.busta.lordo ? ` · lordo ${formatEuro(Number(r.busta.lordo))}` : ''}
+                    Busta paga · netto {formatEuro(Number(busta.netto))}
+                    {busta.lordo ? ` · lordo ${formatEuro(Number(busta.lordo))}` : ''}
                   </span>
                   <span className="flex gap-1">
-                    {r.busta.file_path && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => apriFile(r.busta!.file_path!)}>
+                    {busta.file_path && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => apriFile(busta.file_path!)}>
                         <FileText className="h-3.5 w-3.5" />
                       </Button>
                     )}
@@ -209,14 +209,14 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 text-red-400 hover:text-red-600"
-                      disabled={busyId === r.busta.id}
-                      onClick={() => rimuoviBusta(r.busta!.id)}
+                      disabled={busyId === busta.id}
+                      onClick={() => rimuoviBusta(busta.id)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </span>
                 </div>
-              )}
+              ))}
 
               {r.pagamenti.map((p) => (
                 <div key={p.id} className="flex items-center justify-between text-sm rounded p-2 border border-dashed">
