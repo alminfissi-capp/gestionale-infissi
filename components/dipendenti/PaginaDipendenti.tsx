@@ -73,7 +73,7 @@ export default function PaginaDipendenti({ dipendenti }: Props) {
                   <td
                     className={cn(
                       'px-3 py-2.5 text-right font-semibold',
-                      d.residuo > 0 ? 'text-red-600' : 'text-green-700',
+                      d.residuo > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400',
                     )}
                   >
                     {formatEuro(d.residuo)}
