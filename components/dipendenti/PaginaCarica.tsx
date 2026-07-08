@@ -25,6 +25,7 @@ import DialogDipendente from './DialogDipendente'
 type TipoDoc = 'busta' | 'bonifico'
 
 interface PropostaBusta {
+  uid: string
   file: File
   dipendenteId: string | null
   periodo: string // 'YYYY-MM'
@@ -36,6 +37,7 @@ interface PropostaBusta {
 }
 
 interface PropostaBonifico {
+  uid: string
   file: File
   dipendenteId: string | null
   dataPagamento: string // 'YYYY-MM-DD'
@@ -71,21 +73,28 @@ export default function PaginaCarica({ dipendenti: iniziali }: { dipendenti: Dip
           continue
         }
         let pagine: string[] = []
+        let leggibile = true
         try {
           pagine = await estraiTestoPagine(file)
         } catch {
+          leggibile = false
           toast.error(`${file.name}: PDF non leggibile`)
         }
         let estratto: unknown = null
         if (pagine.some((p) => p)) {
-          const res = await fetch('/api/estrai-documenti', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tipo, pagine }),
-          })
-          if (res.ok) estratto = await res.json()
-          else toast.warning(`${file.name}: estrazione automatica fallita, compila i campi a mano`)
-        } else {
+          try {
+            const res = await fetch('/api/estrai-documenti', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ tipo, pagine }),
+            })
+            if (res.ok) estratto = await res.json()
+            else toast.warning(`${file.name}: estrazione automatica fallita, compila i campi a mano`)
+          } catch {
+            estratto = null
+            toast.warning(`${file.name}: estrazione automatica fallita, compila i campi a mano`)
+          }
+        } else if (leggibile) {
           toast.warning(`${file.name}: nessun testo nel PDF (scansione?), compila i campi a mano`)
         }
 
@@ -94,6 +103,7 @@ export default function PaginaCarica({ dipendenti: iniziali }: { dipendenti: Dip
           const proposte: PropostaBusta[] =
             trovate.length > 0
               ? trovate.map((b) => ({
+                  uid: crypto.randomUUID(),
                   file,
                   dipendenteId: matchDipendente(dipendenti, b)?.id ?? null,
                   periodo: b.periodo || meseCorrente(),
@@ -104,6 +114,7 @@ export default function PaginaCarica({ dipendenti: iniziali }: { dipendenti: Dip
                   raw: b,
                 }))
               : [{
+                  uid: crypto.randomUUID(),
                   file,
                   dipendenteId: null,
                   periodo: meseCorrente(),
@@ -119,6 +130,7 @@ export default function PaginaCarica({ dipendenti: iniziali }: { dipendenti: Dip
           setBonifici((prev) => [
             ...prev,
             {
+              uid: crypto.randomUUID(),
               file,
               dipendenteId: b ? matchBeneficiario(dipendenti, b)?.id ?? null : null,
               dataPagamento: b?.data_pagamento ?? oggi(),
@@ -152,10 +164,13 @@ export default function PaginaCarica({ dipendenti: iniziali }: { dipendenti: Dip
     for (const [i, p] of buste.entries()) {
       if (!p.dipendenteId) { toast.error(`Busta ${i + 1}: seleziona il dipendente`); return }
       if (!parseFloat(p.netto.replace(',', '.'))) { toast.error(`Busta ${i + 1}: netto mancante`); return }
+      if (!p.periodo) { toast.error(`Busta ${i + 1}: mese di competenza mancante`); return }
     }
     for (const [i, p] of bonifici.entries()) {
       if (!p.dipendenteId) { toast.error(`Bonifico ${i + 1}: seleziona il dipendente`); return }
       if (!parseFloat(p.importo.replace(',', '.'))) { toast.error(`Bonifico ${i + 1}: importo mancante`); return }
+      if (!p.periodo) { toast.error(`Bonifico ${i + 1}: mese di competenza mancante`); return }
+      if (!p.dataPagamento) { toast.error(`Bonifico ${i + 1}: data pagamento mancante`); return }
     }
     setSalvando(true)
     try {
@@ -279,14 +294,14 @@ export default function PaginaCarica({ dipendenti: iniziali }: { dipendenti: Dip
       </div>
 
       {/* Revisione buste */}
-      {buste.map((p, i) => (
-        <div key={`b-${i}`} className="rounded-md border p-4 space-y-3">
+      {buste.map((p) => (
+        <div key={p.uid} className="rounded-md border p-4 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold">
               Busta paga · {p.file.name}{p.pagina ? ` · pag. ${p.pagina}` : ''}
               {p.raw && <span className="ml-2 text-xs text-teal-600 dark:text-teal-400">letta automaticamente — verifica i dati</span>}
             </p>
-            <Button variant="ghost" size="sm" onClick={() => setBuste((prev) => prev.filter((_, j) => j !== i))}>
+            <Button variant="ghost" size="sm" onClick={() => setBuste((prev) => prev.filter((x) => x.uid !== p.uid))}>
               Rimuovi
             </Button>
           </div>
@@ -296,18 +311,18 @@ export default function PaginaCarica({ dipendenti: iniziali }: { dipendenti: Dip
             </p>
           )}
           {selettoreDipendente(p.dipendenteId, (id) =>
-            setBuste((prev) => prev.map((x, j) => (j === i ? { ...x, dipendenteId: id } : x))),
+            setBuste((prev) => prev.map((x) => (x.uid === p.uid ? { ...x, dipendenteId: id } : x))),
           )}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="space-y-1">
               <Label>Mese</Label>
               <Input type="month" value={p.periodo}
-                onChange={(e) => setBuste((prev) => prev.map((x, j) => (j === i ? { ...x, periodo: e.target.value } : x)))} />
+                onChange={(e) => setBuste((prev) => prev.map((x) => (x.uid === p.uid ? { ...x, periodo: e.target.value } : x)))} />
             </div>
             <div className="space-y-1">
               <Label>Mensilità</Label>
               <Select value={p.mensilita}
-                onValueChange={(v) => setBuste((prev) => prev.map((x, j) => (j === i ? { ...x, mensilita: v as Mensilita } : x)))}>
+                onValueChange={(v) => setBuste((prev) => prev.map((x) => (x.uid === p.uid ? { ...x, mensilita: v as Mensilita } : x)))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(MENSILITA_LABELS).map(([value, label]) => (
@@ -319,26 +334,26 @@ export default function PaginaCarica({ dipendenti: iniziali }: { dipendenti: Dip
             <div className="space-y-1">
               <Label>Netto (€) *</Label>
               <Input inputMode="decimal" value={p.netto}
-                onChange={(e) => setBuste((prev) => prev.map((x, j) => (j === i ? { ...x, netto: e.target.value } : x)))} />
+                onChange={(e) => setBuste((prev) => prev.map((x) => (x.uid === p.uid ? { ...x, netto: e.target.value } : x)))} />
             </div>
             <div className="space-y-1">
               <Label>Lordo (€)</Label>
               <Input inputMode="decimal" value={p.lordo}
-                onChange={(e) => setBuste((prev) => prev.map((x, j) => (j === i ? { ...x, lordo: e.target.value } : x)))} />
+                onChange={(e) => setBuste((prev) => prev.map((x) => (x.uid === p.uid ? { ...x, lordo: e.target.value } : x)))} />
             </div>
           </div>
         </div>
       ))}
 
       {/* Revisione bonifici */}
-      {bonifici.map((p, i) => (
-        <div key={`p-${i}`} className="rounded-md border p-4 space-y-3">
+      {bonifici.map((p) => (
+        <div key={p.uid} className="rounded-md border p-4 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold">
               Bonifico · {p.file.name}
               {p.raw && <span className="ml-2 text-xs text-teal-600 dark:text-teal-400">letto automaticamente — verifica i dati</span>}
             </p>
-            <Button variant="ghost" size="sm" onClick={() => setBonifici((prev) => prev.filter((_, j) => j !== i))}>
+            <Button variant="ghost" size="sm" onClick={() => setBonifici((prev) => prev.filter((x) => x.uid !== p.uid))}>
               Rimuovi
             </Button>
           </div>
@@ -346,28 +361,28 @@ export default function PaginaCarica({ dipendenti: iniziali }: { dipendenti: Dip
             <p className="text-xs text-gray-500">Beneficiario letto: {p.raw.beneficiario}</p>
           )}
           {selettoreDipendente(p.dipendenteId, (id) =>
-            setBonifici((prev) => prev.map((x, j) => (j === i ? { ...x, dipendenteId: id } : x))),
+            setBonifici((prev) => prev.map((x) => (x.uid === p.uid ? { ...x, dipendenteId: id } : x))),
           )}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="space-y-1">
               <Label>Importo (€) *</Label>
               <Input inputMode="decimal" value={p.importo}
-                onChange={(e) => setBonifici((prev) => prev.map((x, j) => (j === i ? { ...x, importo: e.target.value } : x)))} />
+                onChange={(e) => setBonifici((prev) => prev.map((x) => (x.uid === p.uid ? { ...x, importo: e.target.value } : x)))} />
             </div>
             <div className="space-y-1">
               <Label>Data</Label>
               <Input type="date" value={p.dataPagamento}
-                onChange={(e) => setBonifici((prev) => prev.map((x, j) => (j === i ? { ...x, dataPagamento: e.target.value } : x)))} />
+                onChange={(e) => setBonifici((prev) => prev.map((x) => (x.uid === p.uid ? { ...x, dataPagamento: e.target.value } : x)))} />
             </div>
             <div className="space-y-1">
               <Label>Mese di competenza</Label>
               <Input type="month" value={p.periodo}
-                onChange={(e) => setBonifici((prev) => prev.map((x, j) => (j === i ? { ...x, periodo: e.target.value } : x)))} />
+                onChange={(e) => setBonifici((prev) => prev.map((x) => (x.uid === p.uid ? { ...x, periodo: e.target.value } : x)))} />
             </div>
             <div className="space-y-1">
               <Label>Mensilità</Label>
               <Select value={p.mensilita}
-                onValueChange={(v) => setBonifici((prev) => prev.map((x, j) => (j === i ? { ...x, mensilita: v as Mensilita } : x)))}>
+                onValueChange={(v) => setBonifici((prev) => prev.map((x) => (x.uid === p.uid ? { ...x, mensilita: v as Mensilita } : x)))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(MENSILITA_LABELS).map(([value, label]) => (
@@ -380,7 +395,7 @@ export default function PaginaCarica({ dipendenti: iniziali }: { dipendenti: Dip
           <div className="space-y-1">
             <Label>Causale / note</Label>
             <Input value={p.causale}
-              onChange={(e) => setBonifici((prev) => prev.map((x, j) => (j === i ? { ...x, causale: e.target.value } : x)))} />
+              onChange={(e) => setBonifici((prev) => prev.map((x) => (x.uid === p.uid ? { ...x, causale: e.target.value } : x)))} />
           </div>
         </div>
       ))}
