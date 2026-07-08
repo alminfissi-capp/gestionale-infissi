@@ -45,11 +45,20 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Non autenticato' }, { status: 401 })
   }
 
-  const { tipo, pagine } = (await req.json()) as {
-    tipo: 'busta' | 'bonifico'
-    pagine: string[]
+  let tipo: 'busta' | 'bonifico'
+  let pagine: string[]
+  try {
+    const body = (await req.json()) as { tipo?: unknown; pagine?: unknown }
+    if (body.tipo !== 'busta' && body.tipo !== 'bonifico') throw new Error('tipo non valido')
+    if (!Array.isArray(body.pagine) || !body.pagine.every((p) => typeof p === 'string')) {
+      throw new Error('pagine non valide')
+    }
+    tipo = body.tipo
+    pagine = body.pagine
+  } catch {
+    return Response.json({ error: 'Richiesta non valida' }, { status: 400 })
   }
-  if (!Array.isArray(pagine) || pagine.length === 0 || pagine.every((p) => !p)) {
+  if (pagine.length === 0 || pagine.every((p) => !p)) {
     return Response.json({ error: 'Il PDF non contiene testo leggibile' }, { status: 400 })
   }
 
