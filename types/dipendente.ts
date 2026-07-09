@@ -78,7 +78,7 @@ export interface DipendenteCompleto {
   pagamenti: PagamentoDipendente[]
 }
 
-/** Risultato estrazione AI di una busta paga (route /api/estrai-documenti) */
+/** Risultato lettura automatica di una busta paga (lib/parseBustaPaga.ts) */
 export interface BustaEstratta {
   nome: string
   cognome: string
@@ -90,7 +90,7 @@ export interface BustaEstratta {
   pagina: number
 }
 
-/** Risultato estrazione AI di una contabile bonifico */
+/** Risultato lettura automatica di una contabile bonifico (lib/parseBonifico.ts) */
 export interface BonificoEstratto {
   beneficiario: string | null
   iban_beneficiario: string | null

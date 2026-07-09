@@ -12,7 +12,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { addBustaPaga, addPagamento, esisteBusta } from '@/actions/dipendenti'
-import { estraiTestoPagine } from '@/lib/pdf-testo'
+import { parseBustePaga } from '@/lib/parseBustaPaga'
+import { parseBonifico } from '@/lib/parseBonifico'
 import { matchBeneficiario, matchDipendente, MENSILITA_LABELS } from '@/lib/dipendenti'
 import type {
   BonificoEstratto,
@@ -51,10 +52,18 @@ interface PropostaBonifico {
 const meseCorrente = () => new Date().toISOString().slice(0, 7)
 const oggi = () => new Date().toISOString().slice(0, 10)
 
-export default function PaginaCarica({ dipendenti: iniziali }: { dipendenti: Dipendente[] }) {
+export default function PaginaCarica({
+  dipendenti: iniziali,
+  tipoIniziale = 'busta',
+  dipendenteIniziale = null,
+}: {
+  dipendenti: Dipendente[]
+  tipoIniziale?: TipoDoc
+  dipendenteIniziale?: string | null
+}) {
   const router = useRouter()
   const [dipendenti, setDipendenti] = useState(iniziali)
-  const [tipo, setTipo] = useState<TipoDoc>('busta')
+  const [tipo, setTipo] = useState<TipoDoc>(tipoIniziale)
   const [buste, setBuste] = useState<PropostaBusta[]>([])
   const [bonifici, setBonifici] = useState<PropostaBonifico[]>([])
   const [estraendo, setEstraendo] = useState(false)
@@ -72,67 +81,60 @@ export default function PaginaCarica({ dipendenti: iniziali }: { dipendenti: Dip
           toast.error(`${file.name}: solo file PDF`)
           continue
         }
-        let pagine: string[] = []
-        let leggibile = true
-        try {
-          pagine = await estraiTestoPagine(file)
-        } catch {
-          leggibile = false
-          toast.error(`${file.name}: PDF non leggibile`)
-        }
-        let estratto: unknown = null
-        if (pagine.some((p) => p)) {
-          try {
-            const res = await fetch('/api/estrai-documenti', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ tipo, pagine }),
-            })
-            if (res.ok) estratto = await res.json()
-            else toast.warning(`${file.name}: estrazione automatica fallita, compila i campi a mano`)
-          } catch {
-            estratto = null
-            toast.warning(`${file.name}: estrazione automatica fallita, compila i campi a mano`)
-          }
-        } else if (leggibile) {
-          toast.warning(`${file.name}: nessun testo nel PDF (scansione?), compila i campi a mano`)
-        }
 
         if (tipo === 'busta') {
-          const trovate = (estratto as { buste?: BustaEstratta[] } | null)?.buste ?? []
-          const proposte: PropostaBusta[] =
-            trovate.length > 0
-              ? trovate.map((b) => ({
-                  uid: crypto.randomUUID(),
-                  file,
-                  dipendenteId: matchDipendente(dipendenti, b)?.id ?? null,
-                  periodo: b.periodo || meseCorrente(),
-                  mensilita: b.mensilita,
-                  netto: b.netto ? String(b.netto) : '',
-                  lordo: b.lordo ? String(b.lordo) : '',
-                  pagina: b.pagina,
-                  raw: b,
-                }))
-              : [{
-                  uid: crypto.randomUUID(),
-                  file,
-                  dipendenteId: null,
-                  periodo: meseCorrente(),
-                  mensilita: 'mensile',
-                  netto: '',
-                  lordo: '',
-                  pagina: null,
-                  raw: null,
-                }]
-          setBuste((prev) => [...prev, ...proposte])
+          let trovate: BustaEstratta[] = []
+          try {
+            trovate = await parseBustePaga(file)
+          } catch {
+            toast.error(`${file.name}: PDF non leggibile`)
+          }
+          if (trovate.length === 0) {
+            toast.warning(`${file.name}: nessuna busta riconosciuta, compila i campi a mano`)
+            setBuste((prev) => [
+              ...prev,
+              {
+                uid: crypto.randomUUID(),
+                file,
+                dipendenteId: null,
+                periodo: meseCorrente(),
+                mensilita: 'mensile',
+                netto: '',
+                lordo: '',
+                pagina: null,
+                raw: null,
+              },
+            ])
+          } else {
+            const proposte: PropostaBusta[] = trovate.map((b) => ({
+              uid: crypto.randomUUID(),
+              file,
+              dipendenteId: matchDipendente(dipendenti, b)?.id ?? null,
+              periodo: b.periodo || meseCorrente(),
+              mensilita: b.mensilita,
+              netto: b.netto ? String(b.netto) : '',
+              lordo: b.lordo ? String(b.lordo) : '',
+              pagina: b.pagina,
+              raw: b,
+            }))
+            setBuste((prev) => [...prev, ...proposte])
+          }
         } else {
-          const b = estratto as BonificoEstratto | null
+          let b: BonificoEstratto | null = null
+          try {
+            b = await parseBonifico(file)
+          } catch {
+            toast.error(`${file.name}: PDF non leggibile`)
+          }
+          if (b && !b.importo && !b.iban_beneficiario) {
+            toast.warning(`${file.name}: dati bonifico non riconosciuti, compila i campi a mano`)
+          }
           setBonifici((prev) => [
             ...prev,
             {
               uid: crypto.randomUUID(),
               file,
-              dipendenteId: b ? matchBeneficiario(dipendenti, b)?.id ?? null : null,
+              dipendenteId: (b ? matchBeneficiario(dipendenti, b)?.id ?? null : null) ?? dipendenteIniziale,
               dataPagamento: b?.data_pagamento ?? oggi(),
               importo: b?.importo ? String(b.importo) : '',
               periodo: b?.periodo_competenza ?? meseCorrente(),

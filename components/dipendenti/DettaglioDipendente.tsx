@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowLeft, FileText, Pencil, Plus, Trash2, Upload } from 'lucide-react'
+import { ArrowLeft, Banknote, FileText, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatEuro } from '@/lib/pricing'
@@ -123,11 +123,16 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" asChild>
             <Link href="/dipendenti/carica">
-              <Upload className="h-4 w-4 mr-2" /> Carica documenti
+              <Upload className="h-4 w-4 mr-2" /> Carica busta
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href={`/dipendenti/carica?tipo=bonifico&dip=${dipendente.id}`}>
+              <Banknote className="h-4 w-4 mr-2" /> Carica bonifico
             </Link>
           </Button>
           <Button variant="outline" onClick={() => setPagamentoOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" /> Pagamento
+            <Plus className="h-4 w-4 mr-2" /> Pagamento manuale
           </Button>
           <Button variant="outline" onClick={() => setEditOpen(true)}>
             <Pencil className="h-4 w-4 mr-2" /> Modifica
