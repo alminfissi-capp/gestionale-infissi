@@ -39,7 +39,7 @@ export default function LayoutShell({ children, logoUrl, denominazione, permessi
   return (
     <PermissionsProvider permessi={permessi} isAdmin={isAdmin}>
       <div
-        className="flex min-h-screen bg-gray-50 dark:bg-gray-950"
+        className="flex min-h-screen lg:h-screen lg:overflow-hidden bg-gray-50 dark:bg-gray-950 print:h-auto print:overflow-visible"
         style={{ ['--sidebar-w' as string]: collapsed ? '4rem' : '16rem' }}
       >
         <div
@@ -64,7 +64,7 @@ export default function LayoutShell({ children, logoUrl, denominazione, permessi
           />
         </div>
 
-        <div className="flex-1 min-w-0 flex flex-col overflow-hidden print:ml-0">
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden min-h-0 print:ml-0 print:overflow-visible">
           <header className="lg:hidden print:hidden flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shrink-0">
             <button
               onClick={() => setMobileOpen(true)}
@@ -87,7 +87,7 @@ export default function LayoutShell({ children, logoUrl, denominazione, permessi
           </header>
           <DataSync />
 
-          <main className="flex-1 overflow-y-auto overflow-x-hidden">
+          <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden print:overflow-visible">
             <div className="p-2 sm:p-4 lg:p-6">{children}</div>
           </main>
         </div>

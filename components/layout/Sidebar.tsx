@@ -114,8 +114,8 @@ export default function Sidebar({
       {/* Header */}
       <div
         className={cn(
-          'relative flex items-center border-b border-gray-200 dark:border-gray-800 shrink-0 p-4',
-          collapsed && 'lg:justify-center lg:p-3',
+          'relative flex items-start gap-2 border-b border-gray-200 dark:border-gray-800 shrink-0 p-4',
+          collapsed && 'lg:flex-col lg:items-center lg:gap-2 lg:p-3',
         )}
       >
         <button
@@ -145,6 +145,43 @@ export default function Sidebar({
             {denominazione || 'A.L.M. Infissi'}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Gestionale</p>
+        </div>
+
+        {/* Controlli desktop: Esci (in alto) + Comprimi (sotto) */}
+        <div
+          className={cn(
+            'hidden lg:flex flex-col items-end gap-1 shrink-0',
+            collapsed && 'lg:items-center',
+          )}
+        >
+          <Button
+            variant="ghost"
+            size="sm"
+            title={collapsed ? 'Esci' : undefined}
+            className={cn(
+              'h-8 gap-2 px-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100',
+              collapsed && 'w-8 px-0 justify-center',
+            )}
+            onClick={handleLogout}
+          >
+            <LogOut className="h-4 w-4 shrink-0" />
+            <span className={cn('text-sm', collapsed && 'lg:hidden')}>Esci</span>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            title={collapsed ? 'Espandi menu' : 'Comprimi menu'}
+            aria-label={collapsed ? 'Espandi menu' : 'Comprimi menu'}
+            className="h-8 w-8 px-0 justify-center text-gray-400 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-300"
+            onClick={onToggleCollapse}
+          >
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4 shrink-0" />
+            ) : (
+              <ChevronLeft className="h-4 w-4 shrink-0" />
+            )}
+          </Button>
         </div>
       </div>
 
@@ -195,38 +232,15 @@ export default function Sidebar({
           <span className={cn(collapsed && 'lg:hidden')}>Assistente AI</span>
         </Button>
 
+        {/* Esci — solo mobile (su desktop è nell'header) */}
         <Button
           variant="ghost"
           size="sm"
-          title={collapsed ? 'Esci' : undefined}
-          className={cn(
-            'w-full gap-3 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 justify-start px-3',
-            collapsed && 'lg:justify-center lg:px-0',
-          )}
+          className="lg:hidden w-full gap-3 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 justify-start px-3"
           onClick={handleLogout}
         >
           <LogOut className="h-4 w-4 shrink-0" />
-          <span className={cn(collapsed && 'lg:hidden')}>Esci</span>
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          title={collapsed ? 'Espandi menu' : 'Comprimi menu'}
-          className={cn(
-            'hidden lg:flex w-full gap-3 text-gray-400 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-300 justify-start px-3',
-            collapsed && 'justify-center px-0',
-          )}
-          onClick={onToggleCollapse}
-        >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4 shrink-0" />
-          ) : (
-            <>
-              <ChevronLeft className="h-4 w-4 shrink-0" />
-              <span>Comprimi menu</span>
-            </>
-          )}
+          <span>Esci</span>
         </Button>
       </div>
     </aside>
