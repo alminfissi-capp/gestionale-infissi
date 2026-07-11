@@ -122,7 +122,7 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" asChild>
-            <Link href="/dipendenti/carica">
+            <Link href={`/dipendenti/carica?dip=${dipendente.id}`}>
               <Upload className="h-4 w-4 mr-2" /> Carica busta
             </Link>
           </Button>

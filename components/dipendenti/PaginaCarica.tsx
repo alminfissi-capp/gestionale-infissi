@@ -111,7 +111,7 @@ export default function PaginaCarica({
               {
                 uid: crypto.randomUUID(),
                 file,
-                dipendenteId: null,
+                dipendenteId: dipendenteIniziale,
                 periodo: meseCorrente(),
                 mensilita: 'mensile',
                 netto: '',
@@ -126,7 +126,7 @@ export default function PaginaCarica({
             const proposte: PropostaBusta[] = trovate.map((b) => ({
               uid: crypto.randomUUID(),
               file,
-              dipendenteId: matchDipendente(dipendenti, b)?.id ?? null,
+              dipendenteId: matchDipendente(dipendenti, b)?.id ?? dipendenteIniziale,
               periodo: b.periodo || meseCorrente(),
               mensilita: b.mensilita,
               netto: b.netto ? String(b.netto) : '',
@@ -397,7 +397,7 @@ export default function PaginaCarica({
                   const nuova: PropostaBusta = {
                     uid: crypto.randomUUID(),
                     file: p.file,
-                    dipendenteId: null,
+                    dipendenteId: dipendenteIniziale,
                     periodo: p.periodo,
                     mensilita: 'mensile',
                     netto: '',
