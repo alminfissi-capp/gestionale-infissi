@@ -12,7 +12,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { addBustaPaga, addPagamento, esisteBusta } from '@/actions/dipendenti'
-import { parseBustePaga } from '@/lib/parseBustaPaga'
+import { leggiBustePaga } from '@/lib/parseBustaPaga'
+import { renderPaginePdf } from '@/lib/pdf-items'
 import { parseBonifico } from '@/lib/parseBonifico'
 import { matchBeneficiario, matchDipendente, MENSILITA_LABELS } from '@/lib/dipendenti'
 import type {
@@ -35,6 +36,8 @@ interface PropostaBusta {
   lordo: string
   pagina: number | null
   raw: BustaEstratta | null
+  scansione: boolean // PDF-immagine: mostra anteprima e chiedi inserimento manuale
+  previews: string[] // data URL delle pagine renderizzate (solo per scansioni)
 }
 
 interface PropostaBonifico {
@@ -84,13 +87,25 @@ export default function PaginaCarica({
 
         if (tipo === 'busta') {
           let trovate: BustaEstratta[] = []
+          let scansione = false
           try {
-            trovate = await parseBustePaga(file)
+            const esito = await leggiBustePaga(file)
+            trovate = esito.buste
+            scansione = esito.scansione
           } catch {
             toast.error(`${file.name}: PDF non leggibile`)
           }
           if (trovate.length === 0) {
-            toast.warning(`${file.name}: nessuna busta riconosciuta, compila i campi a mano`)
+            // PDF-immagine (scansione): renderizzo un'anteprima leggibile e chiedo l'inserimento a mano.
+            let previews: string[] = []
+            if (scansione) {
+              try {
+                previews = await renderPaginePdf(file)
+              } catch { /* anteprima non disponibile: si compila comunque a mano */ }
+              toast.info(`${file.name}: busta scansionata — leggi dall'anteprima e inserisci i dati a mano`)
+            } else {
+              toast.warning(`${file.name}: nessuna busta riconosciuta, compila i campi a mano`)
+            }
             setBuste((prev) => [
               ...prev,
               {
@@ -103,6 +118,8 @@ export default function PaginaCarica({
                 lordo: '',
                 pagina: null,
                 raw: null,
+                scansione,
+                previews,
               },
             ])
           } else {
@@ -116,6 +133,8 @@ export default function PaginaCarica({
               lordo: b.lordo ? String(b.lordo) : '',
               pagina: b.pagina,
               raw: b,
+              scansione: false,
+              previews: [],
             }))
             setBuste((prev) => [...prev, ...proposte])
           }
@@ -307,6 +326,7 @@ export default function PaginaCarica({
             <p className="text-sm font-semibold">
               Busta paga · {p.file.name}{p.pagina ? ` · pag. ${p.pagina}` : ''}
               {p.raw && <span className="ml-2 text-xs text-teal-600 dark:text-teal-400">letta automaticamente — verifica i dati</span>}
+              {p.scansione && <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">scansione — inserisci i dati a mano</span>}
             </p>
             <Button variant="ghost" size="sm" onClick={() => setBuste((prev) => prev.filter((x) => x.uid !== p.uid))}>
               Rimuovi
@@ -316,6 +336,24 @@ export default function PaginaCarica({
             <p className="text-xs text-gray-500">
               Letto: {p.raw.nome} {p.raw.cognome}{p.raw.codice_fiscale ? ` · ${p.raw.codice_fiscale}` : ''}
             </p>
+          )}
+          {p.previews.length > 0 && (
+            <details className="rounded-md border bg-muted/30" open>
+              <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-muted-foreground">
+                Anteprima busta scansionata ({p.previews.length} {p.previews.length === 1 ? 'pagina' : 'pagine'}) — leggi netto e mese qui e inseriscili sotto
+              </summary>
+              <div className="max-h-[28rem] overflow-y-auto px-3 pb-3 space-y-2">
+                {p.previews.map((src, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={i}
+                    src={src}
+                    alt={`Pagina ${i + 1} di ${p.file.name}`}
+                    className="w-full rounded border bg-white"
+                  />
+                ))}
+              </div>
+            </details>
           )}
           {selettoreDipendente(p.dipendenteId, (id) =>
             setBuste((prev) => prev.map((x) => (x.uid === p.uid ? { ...x, dipendenteId: id } : x))),
@@ -349,6 +387,33 @@ export default function PaginaCarica({
                 onChange={(e) => setBuste((prev) => prev.map((x) => (x.uid === p.uid ? { ...x, lordo: e.target.value } : x)))} />
             </div>
           </div>
+          {p.scansione && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                setBuste((prev) => {
+                  const idx = prev.findIndex((x) => x.uid === p.uid)
+                  const nuova: PropostaBusta = {
+                    uid: crypto.randomUUID(),
+                    file: p.file,
+                    dipendenteId: null,
+                    periodo: p.periodo,
+                    mensilita: 'mensile',
+                    netto: '',
+                    lordo: '',
+                    pagina: null,
+                    raw: null,
+                    scansione: true,
+                    previews: p.previews,
+                  }
+                  return [...prev.slice(0, idx + 1), nuova, ...prev.slice(idx + 1)]
+                })
+              }
+            >
+              + Aggiungi un&apos;altra busta da questo file
+            </Button>
+          )}
         </div>
       ))}
 

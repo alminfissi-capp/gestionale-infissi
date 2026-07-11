@@ -3,7 +3,7 @@
 // Gestisce sia il PDF di una singola busta sia il cedolino mensile completo
 // (un dipendente per pagina + pagine F24/riepiloghi, che vengono ignorate).
 import type { BustaEstratta } from '@/types/dipendente'
-import { estraiItemsPagine, type PdfItem } from './pdf-items'
+import { estraiItemsPagine, type PdfItem, type PdfPage } from './pdf-items'
 
 const MESI = [
   'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
@@ -33,9 +33,37 @@ function numeroSottoLabel(items: PdfItem[], label: string): number | null {
   return cand.length ? parseNum(cand[0].str) : null
 }
 
+/** Esito della lettura: buste trovate + se il PDF è una scansione senza testo. */
+export interface EsitoBustePaga {
+  buste: BustaEstratta[]
+  /** true quando il PDF non contiene testo estraibile (immagine/scansione) → serve inserimento manuale */
+  scansione: boolean
+  numPagine: number
+}
+
+/**
+ * Legge un PDF di buste paga e distingue i due casi di "nessuna busta trovata":
+ * - `scansione: true`  → PDF-immagine senza testo (va inserito a mano, con anteprima)
+ * - `scansione: false` → PDF con testo ma layout non riconosciuto
+ */
+export async function leggiBustePaga(file: File): Promise<EsitoBustePaga> {
+  const pagine = await estraiItemsPagine(file)
+  const totItems = pagine.reduce((s, p) => s + p.items.length, 0)
+  const buste = estraiBusteDaPagine(pagine)
+  return {
+    buste,
+    scansione: buste.length === 0 && totItems === 0,
+    numPagine: pagine.length,
+  }
+}
+
 /** Estrae tutte le buste presenti nel PDF (una per pagina-cedolino). */
 export async function parseBustePaga(file: File): Promise<BustaEstratta[]> {
   const pagine = await estraiItemsPagine(file)
+  return estraiBusteDaPagine(pagine)
+}
+
+function estraiBusteDaPagine(pagine: PdfPage[]): BustaEstratta[] {
   const risultati: BustaEstratta[] = []
 
   pagine.forEach((pg, idx) => {
