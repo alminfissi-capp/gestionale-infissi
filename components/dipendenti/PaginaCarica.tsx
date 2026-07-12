@@ -55,6 +55,19 @@ interface PropostaBonifico {
 const meseCorrente = () => new Date().toISOString().slice(0, 7)
 const oggi = () => new Date().toISOString().slice(0, 10)
 
+/**
+ * Prepara il FormData con il PDF materializzato in memoria.
+ * Su iOS/iCloud/Dropbox il File è lazy-loaded: se passato direttamente al FormData
+ * arriva vuoto/illeggibile al server. Forzando arrayBuffer()+Blob evitiamo il bug.
+ */
+async function formDataConFile(file: File): Promise<FormData> {
+  const buffer = await file.arrayBuffer()
+  const blob = new Blob([buffer], { type: 'application/pdf' })
+  const fd = new FormData()
+  fd.set('file', blob, file.name || 'documento.pdf')
+  return fd
+}
+
 export default function PaginaCarica({
   dipendenti: iniziali,
   tipoIniziale = 'busta',
@@ -208,8 +221,7 @@ export default function PaginaCarica({
             continue
           }
         }
-        const fd = new FormData()
-        fd.set('file', p.file)
+        const fd = await formDataConFile(p.file)
         await addBustaPaga(
           {
             dipendente_id: p.dipendenteId!,
@@ -225,8 +237,7 @@ export default function PaginaCarica({
         setBuste((prev) => prev.filter((x) => x.uid !== p.uid))
       }
       for (const p of [...bonifici]) {
-        const fd = new FormData()
-        fd.set('file', p.file)
+        const fd = await formDataConFile(p.file)
         await addPagamento(
           {
             dipendente_id: p.dipendenteId!,
@@ -244,8 +255,8 @@ export default function PaginaCarica({
       }
       toast.success('Documenti registrati')
       router.push('/dipendenti')
-    } catch {
-      toast.error('Errore nel salvataggio')
+    } catch (e) {
+      toast.error(e instanceof Error ? `Errore nel salvataggio: ${e.message}` : 'Errore nel salvataggio')
     } finally {
       setSalvando(false)
     }
