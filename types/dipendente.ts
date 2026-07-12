@@ -100,3 +100,55 @@ export interface BonificoEstratto {
   periodo_competenza: string | null // 'YYYY-MM'
   mensilita: Mensilita
 }
+
+// ---- Altri Dipendenti (stipendi/pagamenti manuali) ----
+
+export type CadenzaAltro = 'settimanale' | 'mensile'
+export type TipoMovimentoAltro = 'stipendio' | 'pagamento'
+
+export interface AltroDipendente {
+  id: string
+  organization_id: string
+  nome: string
+  cognome: string
+  cadenza: CadenzaAltro
+  attivo: boolean
+  note: string | null
+  created_at: string
+}
+
+export interface AltroDipendenteInput {
+  nome: string
+  cognome: string
+  cadenza: CadenzaAltro
+  attivo: boolean
+  note: string | null
+}
+
+export interface MovimentoAltroDipendente {
+  id: string
+  organization_id: string
+  altro_dipendente_id: string
+  tipo: TipoMovimentoAltro
+  periodo: string // 'YYYY-MM-DD' canonico (lunedì della settimana o primo del mese)
+  importo: number
+  data_pagamento: string | null // 'YYYY-MM-DD', solo per i pagamenti
+  metodo: MetodoPagamentoDipendente | null // solo per i pagamenti
+  note: string | null
+  created_at: string
+}
+
+export interface MovimentoAltroInput {
+  altro_dipendente_id: string
+  tipo: TipoMovimentoAltro
+  data_periodo: string // 'YYYY-MM-DD' scelta dall'utente; il server la normalizza in `periodo`
+  importo: number
+  data_pagamento: string | null // solo pagamenti
+  metodo: MetodoPagamentoDipendente | null // solo pagamenti
+  note: string | null
+}
+
+export interface AltroDipendenteCompleto {
+  dipendente: AltroDipendente
+  movimenti: MovimentoAltroDipendente[]
+}
