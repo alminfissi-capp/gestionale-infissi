@@ -57,7 +57,7 @@ Gestire i lavoratori per cui **non** si caricano buste paga né contabili bonifi
 - **`calcolaSaldoAltro(movimenti)`** → `{ dovuto, pagato, residuo, periodi_aperti }` (periodi con residuo > 0). Arrotondamento a 2 decimali come in `lib/dipendenti.ts`.
 - **Etichette periodo**:
   - mensile → `formatPeriodo` esistente ("luglio 2026").
-  - settimanale → "Settimana dal lun 07/07 al dom 13/07".
+  - settimanale → "Settimana dal lun 06/07 al dom 12/07".
 
 ## Server Actions (`actions/altri-dipendenti.ts`)
 
