@@ -23,6 +23,7 @@ import type {
   Mensilita,
 } from '@/types/dipendente'
 import DialogDipendente from './DialogDipendente'
+import VisualizzatoreDocumento from './VisualizzatoreDocumento'
 
 type TipoDoc = 'busta' | 'bonifico'
 
@@ -85,6 +86,7 @@ export default function PaginaCarica({
   const [estraendo, setEstraendo] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [nuovoDipOpen, setNuovoDipOpen] = useState(false)
+  const [viewer, setViewer] = useState<{ immagini: string[]; indice: number } | null>(null)
   const assegnaANuovo = useRef<((id: string) => void) | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -351,17 +353,24 @@ export default function PaginaCarica({
           {p.previews.length > 0 && (
             <details className="rounded-md border bg-muted/30" open>
               <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-muted-foreground">
-                Anteprima busta scansionata ({p.previews.length} {p.previews.length === 1 ? 'pagina' : 'pagine'}) — leggi netto e mese qui e inseriscili sotto
+                Anteprima busta scansionata ({p.previews.length} {p.previews.length === 1 ? 'pagina' : 'pagine'}) — tocca per ingrandire, poi inserisci netto e mese sotto
               </summary>
               <div className="max-h-[28rem] overflow-y-auto px-3 pb-3 space-y-2">
                 {p.previews.map((src, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <button
                     key={i}
-                    src={src}
-                    alt={`Pagina ${i + 1} di ${p.file.name}`}
-                    className="w-full rounded border bg-white"
-                  />
+                    type="button"
+                    onClick={() => setViewer({ immagini: p.previews, indice: i })}
+                    className="block w-full cursor-zoom-in overflow-hidden rounded border bg-white"
+                    aria-label={`Ingrandisci pagina ${i + 1}`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={src}
+                      alt={`Pagina ${i + 1} di ${p.file.name}`}
+                      className="w-full"
+                    />
+                  </button>
                 ))}
               </div>
             </details>
@@ -497,6 +506,14 @@ export default function PaginaCarica({
         dipendente={null}
         onSaved={onDipendenteCreato}
       />
+
+      {viewer && (
+        <VisualizzatoreDocumento
+          immagini={viewer.immagini}
+          indiceIniziale={viewer.indice}
+          onClose={() => setViewer(null)}
+        />
+      )}
     </div>
   )
 }
