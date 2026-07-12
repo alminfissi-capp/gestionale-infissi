@@ -119,9 +119,13 @@ export default function DettaglioAltroDipendente({ dipendente, movimenti }: Prop
                 <span className="text-sm font-semibold">
                   {formatPeriodoAltro(r.periodo, dipendente.cadenza)}
                 </span>
-                <span className={cn('text-sm font-semibold',
-                  r.residuo > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400')}>
-                  Residuo {formatEuro(r.residuo)}
+                <span className="flex items-center gap-3 text-sm">
+                  <span className="text-gray-500">Dovuto {formatEuro(r.dovuto)}</span>
+                  <span className="text-gray-500">Pagato {formatEuro(r.pagato)}</span>
+                  <span className={cn('font-semibold',
+                    r.residuo > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400')}>
+                    Residuo {formatEuro(r.residuo)}
+                  </span>
                 </span>
               </div>
               <div className="divide-y">
