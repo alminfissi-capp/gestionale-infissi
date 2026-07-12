@@ -69,7 +69,7 @@ Gestire i lavoratori per cui **non** si caricano buste paga né contabili bonifi
 
 ## UI
 
-- **`/dipendenti`**: pulsante nero **"Altri Dipendenti"** (`bg-black text-white`, icona `Users`) → `/dipendenti/altri`.
+- **`/dipendenti`**: nella riga azioni in alto, **accanto al pulsante "+ Nuovo dipendente"**, un pulsante nero **"Altri Dipendenti"** (`bg-black text-white`, icona `Users`) → `/dipendenti/altri`.
 - **`/dipendenti/altri`** (`PaginaAltriDipendenti`): tabella `Dipendente · Cadenza · Dovuto · Pagato · Da pagare` (stile identico a `PaginaDipendenti`, `formatEuro`, colore residuo rosso/verde); pulsante "Nuovo altro dipendente" apre `DialogAltroDipendente` (nome, cognome, cadenza, attivo, note). Riga → `/dipendenti/altri/[id]`.
 - **`/dipendenti/altri/[id]`** (`DettaglioAltroDipendente`): intestazione con nome, badge cadenza, saldo (dovuto/pagato/residuo); pulsanti **"Aggiungi stipendio"** e **"Aggiungi pagamento"** (aprono `DialogMovimento`); tabella dei periodi (settimana o mese) con dovuto/pagato/residuo, espandibile per vedere le singole voci ed eliminarle; pulsanti Modifica/Elimina dipendente.
 - **`DialogMovimento`** campi:
@@ -93,9 +93,13 @@ Gestire i lavoratori per cui **non** si caricano buste paga né contabili bonifi
 - `app/(dashboard)/dipendenti/altri/page.tsx`, `app/(dashboard)/dipendenti/altri/[id]/page.tsx`
 - `components/dipendenti/PaginaAltriDipendenti.tsx`, `DettaglioAltroDipendente.tsx`, `DialogAltroDipendente.tsx`, `DialogMovimento.tsx`
 
-## Fuori scope
+## Statistiche (futuro)
+
+Questi lavoratori **entreranno** nelle statistiche/calcoli aziendali futuri. Per **questa** implementazione ci concentriamo solo sulla creazione (CRUD + saldo), ma il modello dati è pensato per essere aggregabile in seguito (importi, periodi e cadenza già normalizzati). L'implementazione delle statistiche è un lavoro separato successivo.
+
+## Fuori scope (per ora)
 
 - Nessun PDF, upload o anteprima.
 - Nessuna cadenza mista sullo stesso dipendente.
-- Nessuna inclusione nelle statistiche aggregate esistenti (`/dipendenti` classico e statistiche commesse restano invariati).
+- Nessuna implementazione di statistiche/aggregati in questa fase (solo predisposizione dati).
 - Nessun matching automatico (non esistono buste/bonifici da abbinare).
