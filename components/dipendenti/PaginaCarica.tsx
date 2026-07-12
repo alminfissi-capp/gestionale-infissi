@@ -51,6 +51,7 @@ interface PropostaBonifico {
   mensilita: Mensilita
   causale: string
   raw: BonificoEstratto | null
+  previews: string[] // pagine renderizzate per l'anteprima
 }
 
 const meseCorrente = () => new Date().toISOString().slice(0, 7)
@@ -163,6 +164,10 @@ export default function PaginaCarica({
           if (b && !b.importo && !b.iban_beneficiario) {
             toast.warning(`${file.name}: dati bonifico non riconosciuti, compila i campi a mano`)
           }
+          let previews: string[] = []
+          try {
+            previews = await renderPaginePdf(file)
+          } catch { /* anteprima non disponibile */ }
           setBonifici((prev) => [
             ...prev,
             {
@@ -175,6 +180,7 @@ export default function PaginaCarica({
               mensilita: b?.mensilita ?? 'mensile',
               causale: b?.causale ?? '',
               raw: b,
+              previews,
             },
           ])
         }
@@ -451,6 +457,27 @@ export default function PaginaCarica({
           </div>
           {p.raw?.beneficiario && (
             <p className="text-xs text-gray-500">Beneficiario letto: {p.raw.beneficiario}</p>
+          )}
+          {p.previews.length > 0 && (
+            <details className="rounded-md border bg-muted/30">
+              <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-muted-foreground">
+                Anteprima contabile ({p.previews.length} {p.previews.length === 1 ? 'pagina' : 'pagine'}) — tocca per ingrandire
+              </summary>
+              <div className="max-h-[28rem] overflow-y-auto px-3 pb-3 space-y-2">
+                {p.previews.map((src, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setViewer({ immagini: p.previews, indice: i })}
+                    className="block w-full cursor-zoom-in overflow-hidden rounded border bg-white"
+                    aria-label={`Ingrandisci pagina ${i + 1}`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt={`Pagina ${i + 1} di ${p.file.name}`} className="w-full" />
+                  </button>
+                ))}
+              </div>
+            </details>
           )}
           {selettoreDipendente(p.dipendenteId, (id) =>
             setBonifici((prev) => prev.map((x) => (x.uid === p.uid ? { ...x, dipendenteId: id } : x))),
