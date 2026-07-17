@@ -1562,7 +1562,7 @@ git commit -m "feat: produzione - cruscotto con da fare e filtro stato commesse"
 - Consumes: `documenti_commessa`, bucket `commesse-docs`, `TIPI_DOCUMENTO_PRODUZIONE` Task 1.
 - Produces: `getDocumentiProduzione(commessaId)`, `uploadDocumentoProduzione(formData)`, `deleteDocumentoProduzione(id, storagePath)`, `getDocumentoSignedUrl(storagePath)`.
 
-- [ ] **Step 1: Action documenti**
+- [x] **Step 1: Action documenti**
 
 Create `actions/produzione-documenti.ts`. Ricalca `uploadDocumentoCommessa` in `actions/commesse.ts:243-283` — stesso bucket, stesso schema path, stesso limite:
 
@@ -1657,7 +1657,7 @@ export async function deleteDocumentoProduzione(id: string, storagePath: string)
 }
 ```
 
-- [ ] **Step 2: Componente documenti**
+- [x] **Step 2: Componente documenti**
 
 Create `components/produzione/DocumentiProduzione.tsx`. L'input file è nascosto e attivato da una `<label htmlFor>`: è ciò che fa funzionare l'upload da iOS/Android dentro un Dialog.
 
@@ -1799,7 +1799,7 @@ export default function DocumentiProduzione({ commessaId, documenti }: Props) {
 }
 ```
 
-- [ ] **Step 3: Agganciare al dettaglio**
+- [x] **Step 3: Agganciare al dettaglio**
 
 Modify `components/produzione/ProduzioneCommessa.tsx`:
 
@@ -1843,7 +1843,7 @@ estendere il `Promise.all` a quattro elementi e passare la prop:
       documenti={documenti}
 ```
 
-- [ ] **Step 4: Verificare**
+- [x] **Step 4: Verificare**
 
 ```bash
 npx tsc --noEmit
@@ -1854,7 +1854,7 @@ npx eslint "app/(dashboard)/produzione" components/produzione actions/produzione
 
 Caricare un PDF e una foto come `disegno`. Verificare che si aprano cliccando il nome e che **non** compaiano nel dialog Documenti di Commesse (che mostra solo i tipi amministrativi). Provare il caricamento da telefono: è il caso che si è già rotto in passato.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add actions/produzione-documenti.ts components/produzione "app/(dashboard)/produzione"

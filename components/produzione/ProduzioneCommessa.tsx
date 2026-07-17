@@ -10,20 +10,22 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import DialogOrdine from './DialogOrdine'
+import DocumentiProduzione from './DocumentiProduzione'
 import { formatEuro } from '@/lib/pricing'
 import { deleteOrdine, setStatoOrdine } from '@/actions/produzione'
 import { STATI_ORDINE } from '@/types/produzione'
 import type { OrdineCompleto, StatoOrdine } from '@/types/produzione'
-import type { StatoCommessa } from '@/types/commessa'
+import type { StatoCommessa, DocumentoCommessa } from '@/types/commessa'
 
 interface Props {
   commessa: { id: string; numero_commessa: string; cliente_nome: string; stato: StatoCommessa }
   ordini: OrdineCompleto[]
   fornitori: { id: string; nome: string; email: string | null }[]
   numeroProposto: string
+  documenti: DocumentoCommessa[]
 }
 
-export default function ProduzioneCommessa({ commessa, ordini, fornitori, numeroProposto }: Props) {
+export default function ProduzioneCommessa({ commessa, ordini, fornitori, numeroProposto, documenti }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [inModifica, setInModifica] = useState<OrdineCompleto | null>(null)
@@ -129,6 +131,8 @@ export default function ProduzioneCommessa({ commessa, ordini, fornitori, numero
           </div>
         )}
       </section>
+
+      <DocumentiProduzione commessaId={commessa.id} documenti={documenti} />
 
       <DialogOrdine
         open={open}
