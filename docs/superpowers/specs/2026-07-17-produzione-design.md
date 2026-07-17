@@ -23,6 +23,9 @@ Numeri reali, non ipotesi — condizionano il disegno:
 | `varianti_prodotto` | 0 | idem |
 | `movimenti_magazzino` | 0 | il modulo Magazzino è costruito ma non usato |
 
+Distribuzione degli stati commessa: `concluso` 55, `consegnato` 14, `in_lavorazione` 11,
+`parzialmente_consegnato` 10, `da_iniziare` 5, `in_attesa` 4, `da_consegnare` 2.
+
 I 124 documenti esistenti hanno 5 tipi, tutti amministrativi:
 `preventivo` (63), `fattura` (54), `documento` (4), `altro` (2), `contratto` (1).
 
@@ -38,7 +41,10 @@ I 124 documenti esistenti hanno 5 tipi, tutti amministrativi:
 3. **PDF generato dall'app**, scaricabile da subito; invio via email in fase
    successiva, visibile solo per i fornitori che hanno l'indirizzo.
 4. **Schermata principale a cruscotto**: prima ciò che richiede azione, poi le
-   commesse in lavorazione.
+   commesse aperte, con filtro per stato.
+5. **Vitest introdotto nel progetto** per la logica pura di `lib/produzione.ts`. Il
+   progetto oggi non ha alcun test: totali e date sono ciò che si rompe in silenzio, e
+   la rete resta riutilizzabile (`lib/pricing.ts` oggi non è coperto).
 
 ## Modello dati
 
@@ -108,8 +114,19 @@ Due fasce verticali:
    come `data_consegna_prevista < oggi AND stato IN ('da_ordinare','ordinato')`.
    Un ordine `arrivato` non è mai in ritardo. Se non c'è nulla, la fascia sparisce
    invece di mostrare una lista vuota.
-2. **Commesse in lavorazione** — le commesse con `stato = 'in_lavorazione'`, ognuna con
-   il conteggio di ordini aperti e documenti. Click → dettaglio.
+2. **Commesse aperte** — ognuna con il conteggio di ordini aperti e documenti.
+   Click → dettaglio.
+
+   `StatoCommessa` ha **nove** valori (`in_attesa`, `da_iniziare`, `in_lavorazione`,
+   `da_consegnare`, `consegnato`, `parzialmente_consegnato`, `concluso`, `bloccato`,
+   `annullato`) — non i tre della migration `058_commesse.sql`, superata dal tipo in
+   `types/commessa.ts`. Filtrare sul solo `in_lavorazione` mostrerebbe 11 commesse su
+   101 e nasconderebbe le `da_iniziare`, che sono quelle da ordinare.
+
+   Default del cruscotto: le **non chiuse**, cioè `in_attesa`, `da_iniziare`,
+   `in_lavorazione`, `da_consegnare`, `parzialmente_consegnato` (32 commesse su 101 al
+   2026-07-17). Escluse `concluso` (55) e `consegnato` (14). In cima un filtro per stato
+   permette di cambiare la selezione.
 
 ### `/produzione/[commessaId]` — spazio di produzione della commessa
 
