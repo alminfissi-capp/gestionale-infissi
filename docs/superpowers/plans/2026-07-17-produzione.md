@@ -2326,7 +2326,7 @@ git commit -m "feat: produzione - invio ordine al fornitore via email"
 
 ## Chiusura
 
-- [ ] `npm test` verde, `npx tsc --noEmit` pulito, `npm run lint` pulito
-- [ ] `npm run build` completo (con `RESEND_API_KEY` fittizia se serve)
-- [ ] Aggiornare `MEMORY.md` e il PRD con la sezione Produzione
+- [x] `npm test` verde, `npx tsc --noEmit` pulito, `npm run lint` pulito
+- [x] `npm run build` completo (con `RESEND_API_KEY` fittizia se serve)
+- [x] Aggiornare `MEMORY.md` e il PRD con la sezione Produzione
 - [ ] Usare `superpowers:finishing-a-development-branch` per decidere merge o PR
