@@ -1343,7 +1343,7 @@ git commit -m "feat: produzione - dettaglio commessa e dialog ordine fornitore"
 - Consumes: `getCruscottoProduzione(stati?)` Task 3, tipi Task 1.
 - Produces: `/produzione` funzionante.
 
-- [ ] **Step 1: Componente cruscotto**
+- [x] **Step 1: Componente cruscotto**
 
 Create `components/produzione/CruscottoProduzione.tsx`:
 
@@ -1488,7 +1488,7 @@ export default function CruscottoProduzione({ daFare, commesse, statoFiltro }: P
 export { STATI_COMMESSA_APERTI }
 ```
 
-- [ ] **Step 2: Pagina cruscotto**
+- [x] **Step 2: Pagina cruscotto**
 
 Modify `app/(dashboard)/produzione/page.tsx` — sostituire **tutto** il contenuto del placeholder:
 
@@ -1528,7 +1528,7 @@ export default async function ProduzionePage({
 }
 ```
 
-- [ ] **Step 3: Verificare**
+- [x] **Step 3: Verificare**
 
 ```bash
 npx tsc --noEmit
@@ -1541,7 +1541,7 @@ Se eslint segnala `STATI_COMMESSA_APERTI` re-esportato ma inutilizzato in `Crusc
 
 `npm run dev` → `/produzione`. Verificare: il filtro cambia l'elenco, "Aperte" mostra 32 commesse, "Tutte" 101, e che i contatori sulle card siano coerenti con gli ordini creati nel Task 4.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "app/(dashboard)/produzione/page.tsx" components/produzione/CruscottoProduzione.tsx
