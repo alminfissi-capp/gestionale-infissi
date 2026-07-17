@@ -489,7 +489,7 @@ git commit -m "feat: produzione - vitest e logica pura (totali, ritardo, numeraz
   - `setStatoOrdine(id: string, stato: StatoOrdine): Promise<void>`
   - `deleteOrdine(id: string): Promise<void>`
 
-- [ ] **Step 1: Scrivere le action**
+- [x] **Step 1: Scrivere le action**
 
 Create `actions/produzione.ts`:
 
@@ -786,7 +786,7 @@ export async function deleteOrdine(id: string): Promise<void> {
 }
 ```
 
-- [ ] **Step 2: Verificare tipi e lint**
+- [x] **Step 2: Verificare tipi e lint**
 
 ```bash
 npx tsc --noEmit
@@ -799,7 +799,7 @@ Atteso: nessun errore. Se il join `ordini_fornitore!inner(fornitore_id)` in `get
 SELECT conname FROM pg_constraint WHERE conrelid = 'righe_ordine_fornitore'::regclass;
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add actions/produzione.ts
