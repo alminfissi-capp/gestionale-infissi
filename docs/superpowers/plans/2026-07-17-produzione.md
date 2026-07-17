@@ -2159,7 +2159,7 @@ git commit -m "feat: produzione - generazione PDF ordine fornitore"
 - Consumes: Resend, `RESEND_API_KEY`, `pdf_path` Task 7.
 - Produces: `POST /api/produzione/invia-ordine` con body `{ ordineId: string }`.
 
-- [ ] **Step 1: Verificare il mittente Resend già usato**
+- [x] **Step 1: Verificare il mittente Resend già usato**
 
 ```bash
 grep -rn "from:" app/api --include=*.ts | head -5
@@ -2168,7 +2168,7 @@ grep -rn "new Resend" app/api actions --include=*.ts | head -3
 
 Usare lo **stesso** dominio mittente verificato delle altre mail: un mittente nuovo non verificato fa fallire l'invio.
 
-- [ ] **Step 2: Route di invio**
+- [x] **Step 2: Route di invio**
 
 Create `app/api/produzione/invia-ordine/route.ts`. Sostituire `MITTENTE` con il valore reale trovato allo Step 1:
 
@@ -2257,7 +2257,7 @@ export async function POST(request: Request) {
 }
 ```
 
-- [ ] **Step 3: Pulsante invio**
+- [x] **Step 3: Pulsante invio**
 
 Modify `components/produzione/ProduzioneCommessa.tsx`.
 
@@ -2303,7 +2303,7 @@ e poi nella colonna azioni:
                       ) : null}
 ```
 
-- [ ] **Step 4: Verificare**
+- [x] **Step 4: Verificare**
 
 ```bash
 npx tsc --noEmit
@@ -2315,7 +2315,7 @@ npm test
 
 L'invio va provato **in produzione** dopo il deploy: in locale serve `RESEND_API_KEY` valida. Verificare che il pulsante compaia solo sugli ordini con fornitore dotato di email (7 su 16) e PDF già generato, e che dopo l'invio lo stato diventi "Ordinato" con `inviato_at` valorizzato.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "app/api/produzione" components/produzione
