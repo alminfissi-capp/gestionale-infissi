@@ -108,7 +108,7 @@ export default function Sidebar({
         'fixed inset-y-0 left-0 z-30 flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800',
         'transition-all duration-300 ease-in-out',
         mobileOpen ? 'translate-x-0' : '-translate-x-full',
-        'lg:relative lg:translate-x-0 lg:z-auto lg:shrink-0',
+        'lg:relative lg:translate-x-0 lg:z-auto lg:shrink-0 lg:h-screen',
         'w-64',
         collapsed && 'lg:w-16',
       )}
