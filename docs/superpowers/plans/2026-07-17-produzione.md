@@ -820,7 +820,7 @@ git commit -m "feat: produzione - server actions ordini fornitore"
 - Consumes: action Task 3, tipi Task 1, `calcolaTotaleOrdine` Task 2.
 - Produces: `<ProduzioneCommessa commessa ordini fornitori />`, rotta `/produzione/[commessaId]`.
 
-- [ ] **Step 1: Righe editabili**
+- [x] **Step 1: Righe editabili**
 
 Create `components/produzione/RigheOrdine.tsx`. `datalist` dà l'autocomplete nativo, senza dipendenze:
 
@@ -920,7 +920,7 @@ export default function RigheOrdine({ righe, suggerimenti, onChange }: Props) {
 }
 ```
 
-- [ ] **Step 2: Verificare la firma di formatEuro**
+- [x] **Step 2: Verificare la firma di formatEuro**
 
 ```bash
 npx eslint components/produzione/RigheOrdine.tsx
@@ -933,7 +933,7 @@ Se `formatEuro` non è esportato da `@/lib/pricing` con questa firma, controllar
 grep -n "export function formatEuro" lib/pricing.ts
 ```
 
-- [ ] **Step 3: Dialog ordine**
+- [x] **Step 3: Dialog ordine**
 
 Create `components/produzione/DialogOrdine.tsx`:
 
@@ -1109,7 +1109,7 @@ export default function DialogOrdine({
 }
 ```
 
-- [ ] **Step 4: Verificare che Textarea e sonner esistano**
+- [x] **Step 4: Verificare che Textarea e sonner esistano**
 
 ```bash
 ls components/ui/textarea.tsx components/ui/select.tsx components/ui/dialog.tsx components/ui/label.tsx
@@ -1118,7 +1118,7 @@ grep -rn "from 'sonner'" --include=*.tsx components | head -3
 
 Textarea non è installata di default da shadcn. Se manca: `npx shadcn@latest add textarea`. Se il progetto non usa `sonner`, usare lo stesso import toast degli altri dialog (verificare in `components/commesse/DialogAcconto.tsx`).
 
-- [ ] **Step 5: Pagina dettaglio**
+- [x] **Step 5: Pagina dettaglio**
 
 Create `components/produzione/ProduzioneCommessa.tsx`:
 
@@ -1268,7 +1268,7 @@ export default function ProduzioneCommessa({ commessa, ordini, fornitori, numero
 }
 ```
 
-- [ ] **Step 6: Rotta dettaglio**
+- [x] **Step 6: Rotta dettaglio**
 
 Create `app/(dashboard)/produzione/[commessaId]/page.tsx`:
 
@@ -1310,7 +1310,7 @@ export default async function ProduzioneCommessaPage({
 }
 ```
 
-- [ ] **Step 7: Verificare**
+- [x] **Step 7: Verificare**
 
 ```bash
 npx tsc --noEmit
@@ -1324,7 +1324,7 @@ Atteso: tutto pulito, 18 test verdi.
 
 Avviare `npm run dev`, aprire `/produzione/<id di una commessa reale>`, creare un ordine con due righe, verificare che il totale a schermo corrisponda e che dopo il salvataggio l'ordine compaia in tabella.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add components/produzione "app/(dashboard)/produzione"
