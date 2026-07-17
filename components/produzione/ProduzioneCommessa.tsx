@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, Trash2, AlertTriangle, FileDown, Mail } from 'lucide-react'
+import { pdf } from '@react-pdf/renderer'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,8 +12,11 @@ import {
 } from '@/components/ui/select'
 import DialogOrdine from './DialogOrdine'
 import DocumentiProduzione from './DocumentiProduzione'
+import OrdinePDF from './OrdinePDF'
+import type { IntestazionePDF } from './OrdinePDF'
 import { formatEuro } from '@/lib/pricing'
 import { deleteOrdine, setStatoOrdine } from '@/actions/produzione'
+import { salvaPdfOrdine } from '@/actions/produzione-pdf'
 import { STATI_ORDINE } from '@/types/produzione'
 import type { OrdineCompleto, StatoOrdine } from '@/types/produzione'
 import type { StatoCommessa, DocumentoCommessa } from '@/types/commessa'
@@ -23,12 +27,65 @@ interface Props {
   fornitori: { id: string; nome: string; email: string | null }[]
   numeroProposto: string
   documenti: DocumentoCommessa[]
+  intestazione: IntestazionePDF
 }
 
-export default function ProduzioneCommessa({ commessa, ordini, fornitori, numeroProposto, documenti }: Props) {
+export default function ProduzioneCommessa({ commessa, ordini, fornitori, numeroProposto, documenti, intestazione }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [inModifica, setInModifica] = useState<OrdineCompleto | null>(null)
+  const emailFornitore = new Map(fornitori.map((f) => [f.id, f.email]))
+
+  const inviaEmail = async (o: OrdineCompleto) => {
+    if (!confirm('Inviare l\'ordine via email al fornitore?')) return
+    try {
+      const res = await fetch('/api/produzione/invia-ordine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ordineId: o.id }),
+      })
+      const dati = (await res.json()) as { ok?: boolean; error?: string }
+      if (!res.ok) toast.error(dati.error ?? 'Errore invio')
+      else {
+        toast.success('Ordine inviato al fornitore')
+        router.refresh()
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Errore invio')
+    }
+  }
+
+  const generaPdf = async (o: OrdineCompleto) => {
+    try {
+      const nomeFile = `Ordine ${o.numero_ordine || o.id.slice(0, 8)}.pdf`
+      const blob = await pdf(
+        <OrdinePDF
+          ordine={o}
+          intestazione={intestazione}
+          fornitoreNome={o.fornitore_nome ?? 'Fornitore non indicato'}
+          numeroCommessa={commessa.numero_commessa}
+          clienteNome={commessa.cliente_nome}
+        />
+      ).toBlob()
+
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = nomeFile
+      a.click()
+      URL.revokeObjectURL(url)
+
+      const base64 = Buffer.from(await blob.arrayBuffer()).toString('base64')
+      const { error } = await salvaPdfOrdine(o.id, commessa.id, base64, nomeFile)
+      if (error) toast.error(`PDF scaricato ma non archiviato: ${error}`)
+      else {
+        toast.success('PDF generato e archiviato')
+        router.refresh()
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Errore nella generazione del PDF')
+    }
+  }
 
   const cambiaStato = async (id: string, stato: StatoOrdine) => {
     try {
@@ -115,6 +172,16 @@ export default function ProduzioneCommessa({ commessa, ordini, fornitori, numero
                     </td>
                     <td className="p-2 text-right">{formatEuro(o.totale)}</td>
                     <td className="p-2 text-right whitespace-nowrap">
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0"
+                        onClick={() => generaPdf(o)} aria-label="PDF">
+                        <FileDown className="h-4 w-4" />
+                      </Button>
+                      {o.fornitore_id && emailFornitore.get(o.fornitore_id) && o.pdf_path ? (
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0"
+                          onClick={() => inviaEmail(o)} aria-label="Invia email">
+                          <Mail className="h-4 w-4" />
+                        </Button>
+                      ) : null}
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0"
                         onClick={() => { setInModifica(o); setOpen(true) }} aria-label="Modifica">
                         <Pencil className="h-4 w-4" />
