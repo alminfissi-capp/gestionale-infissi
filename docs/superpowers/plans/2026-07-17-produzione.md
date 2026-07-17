@@ -35,7 +35,7 @@
 - Consumes: `commesse(id)`, `fornitori(id)`, funzione Postgres `get_user_organization_id()`.
 - Produces: tabelle `ordini_fornitore`, `righe_ordine_fornitore`; tipi `StatoOrdine`, `OrdineFornitore`, `RigaOrdine`, `RigaOrdineInput`, `OrdineInput`, `OrdineCompleto`, `TIPI_DOCUMENTO_PRODUZIONE`, `STATI_ORDINE`, `STATI_COMMESSA_APERTI`.
 
-- [ ] **Step 1: Scrivere la migration**
+- [x] **Step 1: Scrivere la migration**
 
 Create `supabase/migrations/20260717120000_produzione_ordini.sql`:
 
@@ -93,11 +93,11 @@ CREATE POLICY "righe_ordine_update" ON righe_ordine_fornitore FOR UPDATE USING (
 CREATE POLICY "righe_ordine_delete" ON righe_ordine_fornitore FOR DELETE USING (organization_id = get_user_organization_id());
 ```
 
-- [ ] **Step 2: Applicare la migration**
+- [x] **Step 2: Applicare la migration**
 
 Applicare al progetto Supabase `xawyrtqclpeylxnhwhwo` con il tool MCP `apply_migration`, nome `produzione_ordini`, passando lo stesso SQL.
 
-- [ ] **Step 3: Verificare che le tabelle esistano**
+- [x] **Step 3: Verificare che le tabelle esistano**
 
 Eseguire con il tool MCP `execute_sql`:
 
@@ -109,7 +109,7 @@ WHERE table_schema = 'public'
 
 Atteso: due righe.
 
-- [ ] **Step 4: Scrivere i tipi**
+- [x] **Step 4: Scrivere i tipi**
 
 Create `types/produzione.ts`:
 
@@ -218,7 +218,7 @@ export type CommessaProduzione = {
 }
 ```
 
-- [ ] **Step 5: Verificare tipi e lint**
+- [x] **Step 5: Verificare tipi e lint**
 
 ```bash
 npx tsc --noEmit
@@ -227,7 +227,7 @@ npx eslint types/produzione.ts
 
 Atteso: nessun errore.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add supabase/migrations/20260717120000_produzione_ordini.sql types/produzione.ts
