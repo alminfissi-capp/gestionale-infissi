@@ -1874,7 +1874,7 @@ git commit -m "feat: produzione - documenti di produzione per commessa"
 - Consumes: `@react-pdf/renderer`, `OrdineCompleto` Task 1, `formatEuro`.
 - Produces: `<OrdinePDF ordine settings fornitore />`, `salvaPdfOrdine(ordineId, commessaId, base64, nomeFile)`.
 
-- [ ] **Step 1: Documento PDF**
+- [x] **Step 1: Documento PDF**
 
 L'intestazione arriva da `getSettings()` in `@/actions/impostazioni`, che ritorna
 `Settings | null`. I campi utili sono `denominazione`, `indirizzo`, `piva` — si chiama
@@ -1970,7 +1970,7 @@ export default function OrdinePDF({
 }
 ```
 
-- [ ] **Step 2: Action di salvataggio**
+- [x] **Step 2: Action di salvataggio**
 
 Create `actions/produzione-pdf.ts`:
 
@@ -2024,7 +2024,7 @@ export async function salvaPdfOrdine(
 }
 ```
 
-- [ ] **Step 3: Pulsante PDF nel dettaglio**
+- [x] **Step 3: Pulsante PDF nel dettaglio**
 
 Modify `components/produzione/ProduzioneCommessa.tsx`.
 
@@ -2120,7 +2120,7 @@ e passarla al componente:
       intestazione={intestazione}
 ```
 
-- [ ] **Step 4: Verificare**
+- [x] **Step 4: Verificare**
 
 ```bash
 npx tsc --noEmit
@@ -2140,7 +2140,7 @@ Se `Buffer` non è disponibile nel client component, sostituire la conversione b
 
 Generare il PDF di un ordine con righe con e senza prezzo. Verificare: il file si scarica, l'intestazione mostra i dati reali dell'azienda, il totale coincide con quello a schermo, e il PDF compare tra i documenti di produzione come "Ordine fornitore".
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add components/produzione actions/produzione-pdf.ts "app/(dashboard)/produzione"
