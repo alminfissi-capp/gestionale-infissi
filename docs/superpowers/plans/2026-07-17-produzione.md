@@ -248,13 +248,13 @@ git commit -m "feat: produzione - migration ordini fornitore e tipi"
 - Consumes: tipi da `types/produzione.ts` (Task 1).
 - Produces: `calcolaTotaleRigaOrdine(riga)`, `calcolaTotaleOrdine(righe)`, `isInRitardo(dataConsegnaPrevista, stato, oggi)`, `prossimoNumeroOrdine(numeriEsistenti, anno)`.
 
-- [ ] **Step 1: Installare Vitest**
+- [x] **Step 1: Installare Vitest**
 
 ```bash
 npm install -D vitest@^3
 ```
 
-- [ ] **Step 2: Configurare Vitest**
+- [x] **Step 2: Configurare Vitest**
 
 Create `vitest.config.ts`. L'alias `@` replica `paths` di `tsconfig.json`; `environment: 'node'` perché si testa solo logica pura senza DOM.
 
@@ -273,7 +273,7 @@ export default defineConfig({
 })
 ```
 
-- [ ] **Step 3: Aggiungere lo script test**
+- [x] **Step 3: Aggiungere lo script test**
 
 Modify `package.json`: aggiungere in `"scripts"`, dopo `"lint": "eslint",`:
 
@@ -281,7 +281,7 @@ Modify `package.json`: aggiungere in `"scripts"`, dopo `"lint": "eslint",`:
     "test": "vitest run",
 ```
 
-- [ ] **Step 4: Scrivere i test che falliscono**
+- [x] **Step 4: Scrivere i test che falliscono**
 
 Create `lib/produzione.test.ts`:
 
@@ -382,7 +382,7 @@ describe('prossimoNumeroOrdine', () => {
 })
 ```
 
-- [ ] **Step 5: Eseguire i test e verificare che falliscano**
+- [x] **Step 5: Eseguire i test e verificare che falliscano**
 
 ```bash
 npm test
@@ -390,7 +390,7 @@ npm test
 
 Atteso: FAIL — `Failed to resolve import "@/lib/produzione"`.
 
-- [ ] **Step 6: Implementare la logica**
+- [x] **Step 6: Implementare la logica**
 
 Create `lib/produzione.ts`:
 
@@ -444,7 +444,7 @@ export function prossimoNumeroOrdine(numeriEsistenti: string[], anno: number): s
 }
 ```
 
-- [ ] **Step 7: Eseguire i test e verificare che passino**
+- [x] **Step 7: Eseguire i test e verificare che passino**
 
 ```bash
 npm test
@@ -452,7 +452,7 @@ npm test
 
 Atteso: PASS, 18 test.
 
-- [ ] **Step 8: Verificare tipi e lint**
+- [x] **Step 8: Verificare tipi e lint**
 
 ```bash
 npx tsc --noEmit
@@ -461,7 +461,7 @@ npx eslint lib/produzione.ts lib/produzione.test.ts vitest.config.ts
 
 Atteso: nessun errore. Se eslint segnala `vitest.config.ts` o i file di test come non inclusi in tsconfig, aggiungerli a `include` in `tsconfig.json`.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add package.json package-lock.json vitest.config.ts lib/produzione.ts lib/produzione.test.ts
