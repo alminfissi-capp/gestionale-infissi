@@ -10,6 +10,7 @@ export const MODULI_APP = [
   'magazzino',
   'commesse',
   'dipendenti',
+  'produzione',
   'impostazioni',
 ] as const
 
@@ -25,6 +26,7 @@ export const MODULO_LABELS: Record<ModuloApp, string> = {
   magazzino:    'Magazzino',
   commesse:     'Commesse',
   dipendenti:   'Dipendenti',
+  produzione:   'Produzione',
   impostazioni: 'Impostazioni',
 }
 
@@ -40,6 +42,7 @@ export const PERMESSI_ADMIN: PermessiUtente = {
   magazzino:    'scrittura',
   commesse:     'scrittura',
   dipendenti:   'scrittura',
+  produzione:   'scrittura',
   impostazioni: 'scrittura',
 }
 
@@ -53,6 +56,7 @@ export const PERMESSI_VUOTI: PermessiUtente = {
   magazzino:    'nessuno',
   commesse:     'nessuno',
   dipendenti:   'nessuno',
+  produzione:   'nessuno',
   impostazioni: 'nessuno',
 }
 
