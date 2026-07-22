@@ -9,11 +9,13 @@ const styles = StyleSheet.create({
   titolo: { fontSize: 16, fontFamily: 'Helvetica-Bold', marginBottom: 12 },
   riga: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#ccc', paddingVertical: 4 },
   intestazioneTabella: { flexDirection: 'row', borderBottomWidth: 1, paddingVertical: 4, fontFamily: 'Helvetica-Bold' },
-  colDesc: { flex: 5 },
-  colQta: { flex: 1, textAlign: 'right' },
-  colUm: { flex: 1, textAlign: 'center' },
-  colPrezzo: { flex: 1.5, textAlign: 'right' },
-  colTot: { flex: 1.5, textAlign: 'right' },
+  colCodice: { flex: 1.6 },
+  colDesc: { flex: 3.2 },
+  colFinitura: { flex: 1.6 },
+  colQta: { flex: 0.9, textAlign: 'right' },
+  colUm: { flex: 0.9, textAlign: 'center' },
+  colPrezzo: { flex: 1.3, textAlign: 'right' },
+  colTot: { flex: 1.3, textAlign: 'right' },
   blocco: { marginBottom: 12 },
   grassetto: { fontFamily: 'Helvetica-Bold' },
   totale: { marginTop: 10, textAlign: 'right', fontSize: 12, fontFamily: 'Helvetica-Bold' },
@@ -54,7 +56,9 @@ export default function OrdinePDF({
         </View>
 
         <View style={styles.intestazioneTabella}>
+          <Text style={styles.colCodice}>Cod. Articolo</Text>
           <Text style={styles.colDesc}>Descrizione</Text>
+          <Text style={styles.colFinitura}>Finitura</Text>
           <Text style={styles.colQta}>Q.tà</Text>
           <Text style={styles.colUm}>U.M.</Text>
           <Text style={styles.colPrezzo}>Prezzo</Text>
@@ -63,7 +67,9 @@ export default function OrdinePDF({
 
         {ordine.righe.map((r) => (
           <View key={r.id} style={styles.riga}>
+            <Text style={styles.colCodice}>{r.codice_articolo || '—'}</Text>
             <Text style={styles.colDesc}>{r.descrizione}</Text>
+            <Text style={styles.colFinitura}>{r.finitura || '—'}</Text>
             <Text style={styles.colQta}>{r.quantita}</Text>
             <Text style={styles.colUm}>{r.unita_misura}</Text>
             <Text style={styles.colPrezzo}>

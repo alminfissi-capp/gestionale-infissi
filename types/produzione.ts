@@ -35,6 +35,8 @@ export type RigaOrdine = {
   ordine_id: string
   organization_id: string
   descrizione: string
+  codice_articolo: string | null
+  finitura: string | null
   quantita: number
   unita_misura: string
   prezzo_unitario: number | null
@@ -44,6 +46,8 @@ export type RigaOrdine = {
 
 export type RigaOrdineInput = {
   descrizione: string
+  codice_articolo: string | null
+  finitura: string | null
   quantita: number
   unita_misura: string
   prezzo_unitario: number | null

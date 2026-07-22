@@ -227,6 +227,8 @@ async function salvaRighe(ordineId: string, orgId: string, righe: OrdineInput['r
       ordine_id: ordineId,
       organization_id: orgId,
       descrizione: r.descrizione.trim(),
+      codice_articolo: r.codice_articolo?.trim() || null,
+      finitura: r.finitura?.trim() || null,
       quantita: r.quantita,
       unita_misura: r.unita_misura,
       prezzo_unitario: r.prezzo_unitario,

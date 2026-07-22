@@ -56,11 +56,15 @@ export default function DialogOrdine({
     setRighe(
       ordine?.righe.map((r) => ({
         descrizione: r.descrizione,
+        codice_articolo: r.codice_articolo,
+        finitura: r.finitura,
         quantita: r.quantita,
         unita_misura: r.unita_misura,
         prezzo_unitario: r.prezzo_unitario,
         ordine: r.ordine,
-      })) ?? [{ descrizione: '', quantita: 1, unita_misura: 'pz', prezzo_unitario: null, ordine: 0 }]
+      })) ?? [
+        { descrizione: '', codice_articolo: null, finitura: null, quantita: 1, unita_misura: 'pz', prezzo_unitario: null, ordine: 0 },
+      ]
     )
   }, [open, ordine, numeroProposto])
 
