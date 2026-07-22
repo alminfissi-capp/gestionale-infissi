@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import RigheOrdine from './RigheOrdine'
+import AllegatiOrdine from './AllegatiOrdine'
 import { formatEuro } from '@/lib/pricing'
 import { calcolaTotaleOrdine } from '@/lib/produzione'
 import { createOrdine, updateOrdine } from '@/actions/produzione'
@@ -153,6 +154,17 @@ export default function DialogOrdine({
           <div className="space-y-1.5">
             <Label>Note</Label>
             <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Allegati</Label>
+            {ordine ? (
+              <AllegatiOrdine ordineId={ordine.id} />
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Salva l&apos;ordine per poter aggiungere allegati.
+              </p>
+            )}
           </div>
         </div>
 

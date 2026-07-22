@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Pencil, Trash2, AlertTriangle, FileDown, Mail } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, Trash2, AlertTriangle, Eye, Mail } from 'lucide-react'
 import { pdf } from '@react-pdf/renderer'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,7 @@ import type { IntestazionePDF } from './OrdinePDF'
 import { formatEuro } from '@/lib/pricing'
 import { deleteOrdine, setStatoOrdine } from '@/actions/produzione'
 import { salvaPdfOrdine } from '@/actions/produzione-pdf'
+import { getDocumentoSignedUrl } from '@/actions/produzione-documenti'
 import { STATI_ORDINE } from '@/types/produzione'
 import type { OrdineCompleto, StatoOrdine } from '@/types/produzione'
 import type { StatoCommessa, DocumentoCommessa } from '@/types/commessa'
@@ -56,6 +57,8 @@ export default function ProduzioneCommessa({ commessa, ordini, fornitori, numero
   }
 
   const generaPdf = async (o: OrdineCompleto) => {
+    // Apre subito la scheda nel gesto utente per non farla bloccare dal popup blocker.
+    const win = window.open('', '_blank')
     try {
       const nomeFile = `Ordine ${o.numero_ordine || o.id.slice(0, 8)}.pdf`
       const blob = await pdf(
@@ -68,21 +71,23 @@ export default function ProduzioneCommessa({ commessa, ordini, fornitori, numero
         />
       ).toBlob()
 
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = nomeFile
-      a.click()
-      URL.revokeObjectURL(url)
-
       const base64 = Buffer.from(await blob.arrayBuffer()).toString('base64')
-      const { error } = await salvaPdfOrdine(o.id, commessa.id, base64, nomeFile)
-      if (error) toast.error(`PDF scaricato ma non archiviato: ${error}`)
-      else {
-        toast.success('PDF generato e archiviato')
-        router.refresh()
+      const { path, error } = await salvaPdfOrdine(o.id, commessa.id, base64, nomeFile)
+      if (error || !path) {
+        win?.close()
+        toast.error(error ?? 'Errore nella generazione del PDF')
+        return
       }
+
+      const url = await getDocumentoSignedUrl(path)
+      if (url && win) win.location.href = url
+      else {
+        win?.close()
+        if (url) window.open(url, '_blank')
+      }
+      router.refresh()
     } catch (e) {
+      win?.close()
       toast.error(e instanceof Error ? e.message : 'Errore nella generazione del PDF')
     }
   }
@@ -173,8 +178,8 @@ export default function ProduzioneCommessa({ commessa, ordini, fornitori, numero
                     <td className="p-2 text-right">{formatEuro(o.totale)}</td>
                     <td className="p-2 text-right whitespace-nowrap">
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0"
-                        onClick={() => generaPdf(o)} aria-label="PDF">
-                        <FileDown className="h-4 w-4" />
+                        onClick={() => generaPdf(o)} aria-label="Visualizza PDF">
+                        <Eye className="h-4 w-4" />
                       </Button>
                       {o.fornitore_id && emailFornitore.get(o.fornitore_id) && o.pdf_path ? (
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0"

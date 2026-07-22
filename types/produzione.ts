@@ -54,6 +54,16 @@ export type RigaOrdineInput = {
   ordine: number
 }
 
+export type AllegatoOrdine = {
+  id: string
+  organization_id: string
+  ordine_id: string
+  nome_file: string
+  storage_path: string
+  content_type: string | null
+  created_at: string
+}
+
 export type OrdineFornitore = {
   id: string
   organization_id: string
