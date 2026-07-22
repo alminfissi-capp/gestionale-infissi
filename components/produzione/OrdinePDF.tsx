@@ -1,11 +1,13 @@
 'use client'
 
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer'
 import { formatEuro } from '@/lib/pricing'
 import type { OrdineCompleto } from '@/types/produzione'
 
 const styles = StyleSheet.create({
   page: { padding: 36, fontSize: 10, fontFamily: 'Helvetica' },
+  intestazioneAzienda: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 12 },
+  logo: { height: 48, maxWidth: 130, objectFit: 'contain' },
   titolo: { fontSize: 16, fontFamily: 'Helvetica-Bold', marginBottom: 12 },
   riga: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#ccc', paddingVertical: 4 },
   intestazioneTabella: { flexDirection: 'row', borderBottomWidth: 1, paddingVertical: 4, fontFamily: 'Helvetica-Bold' },
@@ -22,7 +24,12 @@ const styles = StyleSheet.create({
   note: { marginTop: 16, color: '#444' },
 })
 
-export type IntestazionePDF = { denominazione: string; indirizzo: string; piva: string }
+export type IntestazionePDF = {
+  denominazione: string
+  indirizzo: string
+  piva: string
+  logoUrl: string | null
+}
 
 interface Props {
   ordine: OrdineCompleto
@@ -38,10 +45,13 @@ export default function OrdinePDF({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <View style={styles.blocco}>
-          <Text style={styles.grassetto}>{intestazione.denominazione}</Text>
-          {intestazione.indirizzo ? <Text>{intestazione.indirizzo}</Text> : null}
-          {intestazione.piva ? <Text>P.IVA {intestazione.piva}</Text> : null}
+        <View style={styles.intestazioneAzienda}>
+          {intestazione.logoUrl ? <Image src={intestazione.logoUrl} style={styles.logo} /> : null}
+          <View>
+            <Text style={styles.grassetto}>{intestazione.denominazione}</Text>
+            {intestazione.indirizzo ? <Text>{intestazione.indirizzo}</Text> : null}
+            {intestazione.piva ? <Text>P.IVA {intestazione.piva}</Text> : null}
+          </View>
         </View>
 
         <Text style={styles.titolo}>Ordine fornitore {ordine.numero_ordine}</Text>

@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import RigheOrdine from './RigheOrdine'
 import { formatEuro } from '@/lib/pricing'
 import { calcolaTotaleOrdine } from '@/lib/produzione'
-import { createOrdine, updateOrdine, getDescrizioniFornitore } from '@/actions/produzione'
+import { createOrdine, updateOrdine } from '@/actions/produzione'
 import { STATI_ORDINE } from '@/types/produzione'
 import type { OrdineCompleto, RigaOrdineInput, StatoOrdine } from '@/types/produzione'
 
@@ -43,7 +43,6 @@ export default function DialogOrdine({
   const [stato, setStato] = useState<StatoOrdine>('da_ordinare')
   const [note, setNote] = useState('')
   const [righe, setRighe] = useState<RigaOrdineInput[]>([])
-  const [suggerimenti, setSuggerimenti] = useState<string[]>([])
 
   useEffect(() => {
     if (!open) return
@@ -67,14 +66,6 @@ export default function DialogOrdine({
       ]
     )
   }, [open, ordine, numeroProposto])
-
-  useEffect(() => {
-    if (!fornitoreId) {
-      setSuggerimenti([])
-      return
-    }
-    getDescrizioniFornitore(fornitoreId).then(setSuggerimenti).catch(() => setSuggerimenti([]))
-  }, [fornitoreId])
 
   const salva = async () => {
     if (righe.every((r) => r.descrizione.trim() === '')) {
@@ -152,7 +143,7 @@ export default function DialogOrdine({
 
           <div className="space-y-1.5">
             <Label>Righe</Label>
-            <RigheOrdine righe={righe} suggerimenti={suggerimenti} onChange={setRighe} />
+            <RigheOrdine righe={righe} onChange={setRighe} />
           </div>
 
           <div className="text-right text-sm font-semibold">

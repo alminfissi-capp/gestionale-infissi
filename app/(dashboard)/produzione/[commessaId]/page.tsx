@@ -4,7 +4,7 @@ import {
   getCommessaProduzione, getOrdiniCommessa, getFornitoriPerOrdine, getProssimoNumeroOrdine,
 } from '@/actions/produzione'
 import { getDocumentiProduzione } from '@/actions/produzione-documenti'
-import { getSettings } from '@/actions/impostazioni'
+import { getSettings, getLogoSignedUrl } from '@/actions/impostazioni'
 import ProduzioneCommessa from '@/components/produzione/ProduzioneCommessa'
 
 export const dynamic = 'force-dynamic'
@@ -28,10 +28,13 @@ export default async function ProduzioneCommessaPage({
     getSettings(),
   ])
 
+  const logoUrl = settings?.logo_url ? await getLogoSignedUrl(settings.logo_url) : null
+
   const intestazione = {
     denominazione: settings?.denominazione ?? 'A.L.M. Infissi',
     indirizzo: settings?.indirizzo ?? '',
     piva: settings?.piva ?? '',
+    logoUrl,
   }
 
   return (

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Trash2, Plus, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { formatEuro } from '@/lib/pricing'
 import { calcolaTotaleRigaOrdine } from '@/lib/produzione'
 import DialogSelezioneArticolo, { type ArticoloScelto } from './DialogSelezioneArticolo'
@@ -11,7 +12,6 @@ import type { RigaOrdineInput } from '@/types/produzione'
 
 interface Props {
   righe: RigaOrdineInput[]
-  suggerimenti: string[]
   onChange: (righe: RigaOrdineInput[]) => void
 }
 
@@ -39,7 +39,7 @@ function Campo({
   )
 }
 
-export default function RigheOrdine({ righe, suggerimenti, onChange }: Props) {
+export default function RigheOrdine({ righe, onChange }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false)
 
   const aggiorna = (i: number, patch: Partial<RigaOrdineInput>) => {
@@ -84,12 +84,6 @@ export default function RigheOrdine({ righe, suggerimenti, onChange }: Props) {
 
   return (
     <div className="space-y-2">
-      <datalist id="suggerimenti-righe">
-        {suggerimenti.map((s) => (
-          <option key={s} value={s} />
-        ))}
-      </datalist>
-
       {/* Intestazioni colonne — solo desktop */}
       <div
         className={`hidden ${COLS} gap-2 px-1 text-xs font-medium text-gray-500 dark:text-gray-400 lg:grid`}
@@ -107,7 +101,7 @@ export default function RigheOrdine({ righe, suggerimenti, onChange }: Props) {
       {righe.map((riga, i) => (
         <div
           key={i}
-          className={`grid grid-cols-2 gap-2 rounded-lg border border-gray-200 p-3 dark:border-gray-800 lg:items-center lg:rounded-none lg:border-0 lg:p-0 ${COLS}`}
+          className={`grid grid-cols-2 gap-2 rounded-lg border border-gray-200 p-3 dark:border-gray-800 lg:items-start lg:rounded-none lg:border-0 lg:p-0 ${COLS}`}
         >
           <Campo label="Quantità">
             <Input
@@ -120,11 +114,12 @@ export default function RigheOrdine({ righe, suggerimenti, onChange }: Props) {
           </Campo>
 
           <Campo label="Descrizione" className="col-span-2 lg:col-span-1">
-            <Input
-              list="suggerimenti-righe"
+            <Textarea
+              rows={1}
               placeholder="Descrizione"
               value={riga.descrizione}
               onChange={(e) => aggiorna(i, { descrizione: e.target.value })}
+              className="min-h-9 resize-none py-2 leading-snug"
             />
           </Campo>
 
