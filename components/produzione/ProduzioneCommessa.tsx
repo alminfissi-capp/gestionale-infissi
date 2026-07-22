@@ -57,8 +57,9 @@ export default function ProduzioneCommessa({ commessa, ordini, fornitori, numero
   }
 
   const generaPdf = async (o: OrdineCompleto) => {
-    // Apre subito la scheda nel gesto utente per non farla bloccare dal popup blocker.
-    const win = window.open('', '_blank')
+    // Apre subito la scheda (about:blank, fuori dallo scope del service worker)
+    // nel gesto utente, per non farla bloccare dal popup blocker.
+    const win = window.open('about:blank', '_blank')
     try {
       const nomeFile = `Ordine ${o.numero_ordine || o.id.slice(0, 8)}.pdf`
       const blob = await pdf(
