@@ -52,22 +52,27 @@ function DialogContent({
   children,
   showCloseButton = true,
   fullscreen = false,
+  wide = false,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
   fullscreen?: boolean
+  wide?: boolean
 }) {
+  const contentClass = fullscreen
+    ? "bg-background fixed inset-0 z-50 flex flex-col outline-none"
+    : wide
+      ? // Pannello quasi a tutto schermo: su desktop parte dopo la sidebar
+        // (var --sidebar-w) così il menu laterale non viene mai coperto.
+        "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-2 z-50 flex flex-col gap-4 rounded-lg border p-4 shadow-lg duration-200 outline-none sm:p-6 lg:inset-y-4 lg:right-4 lg:left-[calc(var(--sidebar-w,16rem)+1rem)]"
+      : "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 outline-none sm:max-w-lg"
+
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
-        className={cn(
-          fullscreen
-            ? "bg-background fixed inset-0 z-50 flex flex-col outline-none"
-            : "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 outline-none sm:max-w-lg",
-          className
-        )}
+        className={cn(contentClass, className)}
         {...props}
       >
         {children}

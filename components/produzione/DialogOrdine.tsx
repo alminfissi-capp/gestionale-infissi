@@ -103,63 +103,65 @@ export default function DialogOrdine({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent wide>
+        <DialogHeader className="shrink-0">
           <DialogTitle>{ordine ? 'Modifica ordine' : 'Nuovo ordine fornitore'}</DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label>Fornitore</Label>
-            <Select value={fornitoreId} onValueChange={setFornitoreId}>
-              <SelectTrigger><SelectValue placeholder="Seleziona fornitore" /></SelectTrigger>
-              <SelectContent>
-                {fornitori.map((f) => (
-                  <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label>Fornitore</Label>
+              <Select value={fornitoreId} onValueChange={setFornitoreId}>
+                <SelectTrigger><SelectValue placeholder="Seleziona fornitore" /></SelectTrigger>
+                <SelectContent>
+                  {fornitori.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Numero ordine</Label>
+              <Input value={numero} onChange={(e) => setNumero(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Data ordine</Label>
+              <Input type="date" value={dataOrdine} onChange={(e) => setDataOrdine(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Consegna prevista</Label>
+              <Input type="date" value={consegna} onChange={(e) => setConsegna(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Stato</Label>
+              <Select value={stato} onValueChange={(v) => setStato(v as StatoOrdine)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {STATI_ORDINE.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
           <div className="space-y-1.5">
-            <Label>Numero ordine</Label>
-            <Input value={numero} onChange={(e) => setNumero(e.target.value)} />
+            <Label>Righe</Label>
+            <RigheOrdine righe={righe} suggerimenti={suggerimenti} onChange={setRighe} />
           </div>
-          <div className="space-y-1.5">
-            <Label>Data ordine</Label>
-            <Input type="date" value={dataOrdine} onChange={(e) => setDataOrdine(e.target.value)} />
+
+          <div className="text-right text-sm font-semibold">
+            Totale: {formatEuro(calcolaTotaleOrdine(righe))}
           </div>
+
           <div className="space-y-1.5">
-            <Label>Consegna prevista</Label>
-            <Input type="date" value={consegna} onChange={(e) => setConsegna(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Stato</Label>
-            <Select value={stato} onValueChange={(v) => setStato(v as StatoOrdine)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {STATI_ORDINE.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Note</Label>
+            <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} />
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label>Righe</Label>
-          <RigheOrdine righe={righe} suggerimenti={suggerimenti} onChange={setRighe} />
-        </div>
-
-        <div className="text-right text-sm font-semibold">
-          Totale: {formatEuro(calcolaTotaleOrdine(righe))}
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Note</Label>
-          <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} />
-        </div>
-
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Annulla</Button>
           <Button onClick={salva} disabled={saving}>{saving ? 'Salvataggio...' : 'Salva'}</Button>
         </DialogFooter>

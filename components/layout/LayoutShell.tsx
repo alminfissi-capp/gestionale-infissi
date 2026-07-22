@@ -30,6 +30,12 @@ export default function LayoutShell({ children, logoUrl, denominazione, permessi
     setMobileOpen(false)
   }, [pathname])
 
+  // Espone la larghezza della sidebar a :root così i dialog in portale
+  // (fuori da questo albero) possono posizionarsi accanto al menu.
+  useEffect(() => {
+    document.documentElement.style.setProperty('--sidebar-w', collapsed ? '4rem' : '16rem')
+  }, [collapsed])
+
   useEffect(() => {
     const handler = () => setCollapsed(true)
     window.addEventListener('layout:sidebar-collapse', handler)
