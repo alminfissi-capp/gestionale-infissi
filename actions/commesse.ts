@@ -15,6 +15,11 @@ import type {
   RigaCalcolo,
   TipoBlocco,
 } from '@/types/commessa'
+import { TIPI_DOCUMENTO_PRODUZIONE_VALUES } from '@/types/produzione'
+
+// I documenti di produzione (disegni, DDT, ordini fornitore, ...) sono di
+// competenza della sezione Produzione e NON devono comparire nel lato Commesse.
+const FILTRO_TIPI_PRODUZIONE = `(${TIPI_DOCUMENTO_PRODUZIONE_VALUES.join(',')})`
 
 export async function getCommesse(gruppoId: string): Promise<CommessaCompleta[]> {
   const supabase = await createClient()
@@ -41,6 +46,7 @@ export async function getCommesse(gruppoId: string): Promise<CommessaCompleta[]>
       .from('documenti_commessa')
       .select('*')
       .eq('organization_id', orgId)
+      .not('tipo_documento', 'in', FILTRO_TIPI_PRODUZIONE)
       .order('created_at', { ascending: true }),
     supabase
       .from('preventivi_commessa')
@@ -98,6 +104,7 @@ export async function getAllCommesse(): Promise<CommessaCompleta[]> {
       .from('documenti_commessa')
       .select('*')
       .eq('organization_id', orgId)
+      .not('tipo_documento', 'in', FILTRO_TIPI_PRODUZIONE)
       .order('created_at', { ascending: true }),
     supabase
       .from('preventivi_commessa')
@@ -137,7 +144,7 @@ export async function getCommessaById(id: string): Promise<CommessaCompleta | nu
   const [{ data: c, error }, { data: acconti }, { data: documenti }, { data: prevCollegati }] = await Promise.all([
     supabase.from('commesse').select('*').eq('id', id).eq('organization_id', orgId).maybeSingle(),
     supabase.from('acconti_commessa').select('*').eq('commessa_id', id).order('data_pagamento', { ascending: true }),
-    supabase.from('documenti_commessa').select('*').eq('commessa_id', id).order('created_at', { ascending: true }),
+    supabase.from('documenti_commessa').select('*').eq('commessa_id', id).not('tipo_documento', 'in', FILTRO_TIPI_PRODUZIONE).order('created_at', { ascending: true }),
     supabase.from('preventivi_commessa').select('*').eq('commessa_id', id).order('ordine', { ascending: true }),
   ])
   if (error || !c) return null
