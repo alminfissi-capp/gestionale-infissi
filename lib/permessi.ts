@@ -38,6 +38,34 @@ export const getMyPermissions = cache(async (): Promise<{
   return { isAdmin: false, permessi }
 })
 
+/** Rotta home di ciascun modulo, per calcolare dove atterra chi non ha la dashboard. */
+const MODULO_HOME: Record<ModuloApp, string> = {
+  dashboard:    '/',
+  preventivi:   '/preventivi',
+  clienti:      '/clienti',
+  listini:      '/listini',
+  cataloghi:    '/cataloghi',
+  rilievo:      '/rilievo',
+  winconfig:    '/winconfig',
+  magazzino:    '/magazzino',
+  commesse:     '/commesse',
+  dipendenti:   '/dipendenti',
+  produzione:   '/produzione',
+  impostazioni: '/impostazioni',
+}
+
+/**
+ * Prima sezione (esclusa la dashboard) a cui l'utente ha accesso, seguendo
+ * l'ordine di MODULI_APP. Null se non ha accesso a nulla.
+ */
+export function primoModuloAccessibile(permessi: PermessiUtente): string | null {
+  for (const modulo of MODULI_APP) {
+    if (modulo === 'dashboard') continue
+    if (permessi[modulo] !== 'nessuno') return MODULO_HOME[modulo]
+  }
+  return null
+}
+
 /**
  * Verifica che l'utente abbia almeno il livello richiesto per il modulo.
  * Se non lo ha, redirige alla dashboard.
