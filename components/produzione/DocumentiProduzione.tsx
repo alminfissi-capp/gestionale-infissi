@@ -29,17 +29,22 @@ export default function DocumentiProduzione({ commessaId, documenti }: Props) {
   const [caricamento, setCaricamento] = useState(false)
   const [viewer, setViewer] = useState<{ url: string; nome: string } | null>(null)
 
-  const carica = async (file: File) => {
+  // Carica i file in sequenza, nell'ordine di selezione (primo → ultimo).
+  const carica = async (files: FileList) => {
     setCaricamento(true)
+    let caricati = 0
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('commessaId', commessaId)
-      formData.append('tipo', tipo)
-      const { error } = await uploadDocumentoProduzione(formData)
-      if (error) toast.error(error)
-      else {
-        toast.success('Documento caricato')
+      for (const file of Array.from(files)) {
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('commessaId', commessaId)
+        formData.append('tipo', tipo)
+        const { error } = await uploadDocumentoProduzione(formData)
+        if (error) toast.error(`${file.name}: ${error}`)
+        else caricati++
+      }
+      if (caricati > 0) {
+        toast.success(caricati === 1 ? 'Documento caricato' : `${caricati} documenti caricati`)
         router.refresh()
       }
     } finally {
@@ -85,11 +90,12 @@ export default function DocumentiProduzione({ commessaId, documenti }: Props) {
             ref={inputRef}
             id="upload-produzione"
             type="file"
+            multiple
             className="hidden"
             accept=".pdf,.jpg,.jpeg,.png,.webp"
             onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) carica(file)
+              const files = e.target.files
+              if (files && files.length > 0) carica(files)
             }}
           />
           <Button asChild size="sm" variant="outline" disabled={caricamento}>

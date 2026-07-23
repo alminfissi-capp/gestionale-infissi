@@ -63,36 +63,47 @@ export default function DialogDocumenti({ open, onOpenChange, commessaId, client
     return () => { cancelled = true }
   }, [open, documenti])
 
+  const caricaFile = async (file: File): Promise<string | null> => {
+    // Su iOS i file da cloud (Dropbox/iCloud) sono lazy — arrayBuffer() forza la lettura completa
+    const buffer = await file.arrayBuffer()
+    const mimeFromExt: Record<string, string> = {
+      pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+      png: 'image/png', webp: 'image/webp',
+    }
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+    const contentType = (file.type && file.type !== 'application/octet-stream')
+      ? file.type
+      : (mimeFromExt[ext] ?? 'application/octet-stream')
+    const blob = new Blob([buffer], { type: contentType })
+    const fd = new FormData()
+    fd.append('file', blob, file.name)
+    fd.append('commessaId', commessaId)
+    fd.append('tipo', tipo)
+    const result = await uploadDocumentoCommessa(fd)
+    return result.error ?? null
+  }
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = e.target.files
+    if (!files || files.length === 0) return
     setUploading(true)
+    let caricati = 0
     try {
-      // Su iOS i file da cloud (Dropbox/iCloud) sono lazy — arrayBuffer() forza la lettura completa
-      const buffer = await file.arrayBuffer()
-      const mimeFromExt: Record<string, string> = {
-        pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg',
-        png: 'image/png', webp: 'image/webp',
+      // Carica in sequenza, nell'ordine di selezione (primo → ultimo).
+      for (const file of Array.from(files)) {
+        try {
+          const error = await caricaFile(file)
+          if (error) toast.error(`${file.name}: ${error}`)
+          else caricati++
+        } catch (err) {
+          console.error('Upload error:', err)
+          toast.error(`${file.name}: errore nel caricamento`)
+        }
       }
-      const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
-      const contentType = (file.type && file.type !== 'application/octet-stream')
-        ? file.type
-        : (mimeFromExt[ext] ?? 'application/octet-stream')
-      const blob = new Blob([buffer], { type: contentType })
-      const fd = new FormData()
-      fd.append('file', blob, file.name)
-      fd.append('commessaId', commessaId)
-      fd.append('tipo', tipo)
-      const result = await uploadDocumentoCommessa(fd)
-      if (result.error) {
-        toast.error(result.error)
-      } else {
-        toast.success('Documento caricato')
+      if (caricati > 0) {
+        toast.success(caricati === 1 ? 'Documento caricato' : `${caricati} documenti caricati`)
         router.refresh()
       }
-    } catch (err) {
-      console.error('Upload error:', err)
-      toast.error('Errore nel caricamento')
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -217,6 +228,7 @@ export default function DialogDocumenti({ open, onOpenChange, commessaId, client
             ref={fileInputRef}
             id="doc-upload"
             type="file"
+            multiple
             accept=".pdf,application/pdf,.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
             className="sr-only"
             onChange={handleUpload}
@@ -230,7 +242,7 @@ export default function DialogDocumenti({ open, onOpenChange, commessaId, client
             <Button variant="outline" className="w-full" asChild>
               <label htmlFor="doc-upload" className="cursor-pointer">
                 <Upload className="h-4 w-4 mr-2" />
-                Seleziona file (PDF, immagine)
+                Seleziona file (uno o più)
               </label>
             </Button>
           )}
