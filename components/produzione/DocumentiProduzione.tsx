@@ -11,6 +11,7 @@ import {
 import {
   uploadDocumentoProduzione, deleteDocumentoProduzione, getDocumentoSignedUrl,
 } from '@/actions/produzione-documenti'
+import DialogVisualizzatore from './DialogVisualizzatore'
 import { TIPI_DOCUMENTO_PRODUZIONE } from '@/types/produzione'
 import type { DocumentoCommessa } from '@/types/commessa'
 
@@ -26,6 +27,7 @@ export default function DocumentiProduzione({ commessaId, documenti }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [tipo, setTipo] = useState('disegno')
   const [caricamento, setCaricamento] = useState(false)
+  const [viewer, setViewer] = useState<{ url: string; nome: string } | null>(null)
 
   const carica = async (file: File) => {
     setCaricamento(true)
@@ -46,9 +48,9 @@ export default function DocumentiProduzione({ commessaId, documenti }: Props) {
     }
   }
 
-  const apri = async (storagePath: string) => {
+  const apri = async (storagePath: string, nome: string) => {
     const url = await getDocumentoSignedUrl(storagePath)
-    if (url) window.open(url, '_blank')
+    if (url) setViewer({ url, nome })
     else toast.error('Impossibile aprire il file')
   }
 
@@ -112,7 +114,7 @@ export default function DocumentiProduzione({ commessaId, documenti }: Props) {
             >
               <FileText className="h-4 w-4 text-gray-400 shrink-0" />
               <button
-                onClick={() => apri(d.storage_path)}
+                onClick={() => apri(d.storage_path, d.nome_file)}
                 className="min-w-0 flex-1 text-left text-sm text-blue-700 dark:text-blue-400 hover:underline truncate"
               >
                 {d.nome_file}
@@ -130,6 +132,12 @@ export default function DocumentiProduzione({ commessaId, documenti }: Props) {
           ))}
         </div>
       )}
+
+      <DialogVisualizzatore
+        url={viewer?.url ?? null}
+        nome={viewer?.nome ?? ''}
+        onClose={() => setViewer(null)}
+      />
     </section>
   )
 }

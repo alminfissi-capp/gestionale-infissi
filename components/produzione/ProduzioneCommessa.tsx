@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Plus, Pencil, Trash2, AlertTriangle, Eye, Mail } from 'lucide-react'
@@ -12,12 +12,12 @@ import {
 } from '@/components/ui/select'
 import DialogOrdine from './DialogOrdine'
 import DocumentiProduzione from './DocumentiProduzione'
+import DialogVisualizzatore from './DialogVisualizzatore'
 import OrdinePDF from './OrdinePDF'
 import type { IntestazionePDF } from './OrdinePDF'
 import { formatEuro } from '@/lib/pricing'
 import { deleteOrdine, setStatoOrdine } from '@/actions/produzione'
 import { salvaPdfOrdine } from '@/actions/produzione-pdf'
-import { getDocumentoSignedUrl } from '@/actions/produzione-documenti'
 import { STATI_ORDINE } from '@/types/produzione'
 import type { OrdineCompleto, StatoOrdine } from '@/types/produzione'
 import type { StatoCommessa, DocumentoCommessa } from '@/types/commessa'
@@ -35,7 +35,16 @@ export default function ProduzioneCommessa({ commessa, ordini, fornitori, numero
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [inModifica, setInModifica] = useState<OrdineCompleto | null>(null)
+  const [viewer, setViewer] = useState<{ url: string; nome: string } | null>(null)
+  const blobUrlRef = useRef<string | null>(null)
   const emailFornitore = new Map(fornitori.map((f) => [f.id, f.email]))
+
+  // Revoca l'ultimo object URL quando il componente viene smontato.
+  useEffect(() => {
+    return () => {
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
+    }
+  }, [])
 
   const inviaEmail = async (o: OrdineCompleto) => {
     if (!confirm('Inviare l\'ordine via email al fornitore?')) return
@@ -57,9 +66,6 @@ export default function ProduzioneCommessa({ commessa, ordini, fornitori, numero
   }
 
   const generaPdf = async (o: OrdineCompleto) => {
-    // Apre subito la scheda (about:blank, fuori dallo scope del service worker)
-    // nel gesto utente, per non farla bloccare dal popup blocker.
-    const win = window.open('about:blank', '_blank')
     try {
       const nomeFile = `Ordine ${o.numero_ordine || o.id.slice(0, 8)}.pdf`
       const blob = await pdf(
@@ -72,23 +78,18 @@ export default function ProduzioneCommessa({ commessa, ordini, fornitori, numero
         />
       ).toBlob()
 
-      const base64 = Buffer.from(await blob.arrayBuffer()).toString('base64')
-      const { path, error } = await salvaPdfOrdine(o.id, commessa.id, base64, nomeFile)
-      if (error || !path) {
-        win?.close()
-        toast.error(error ?? 'Errore nella generazione del PDF')
-        return
-      }
+      // Mostra subito il PDF nel visualizzatore in-app usando il blob generato.
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
+      const objectUrl = URL.createObjectURL(blob)
+      blobUrlRef.current = objectUrl
+      setViewer({ url: objectUrl, nome: nomeFile })
 
-      const url = await getDocumentoSignedUrl(path)
-      if (url && win) win.location.href = url
-      else {
-        win?.close()
-        if (url) window.open(url, '_blank')
-      }
-      router.refresh()
+      // Archivia in background e lega il PDF all'ordine.
+      const base64 = Buffer.from(await blob.arrayBuffer()).toString('base64')
+      const { error } = await salvaPdfOrdine(o.id, commessa.id, base64, nomeFile)
+      if (error) toast.error(`PDF mostrato ma non archiviato: ${error}`)
+      else router.refresh()
     } catch (e) {
-      win?.close()
       toast.error(e instanceof Error ? e.message : 'Errore nella generazione del PDF')
     }
   }
@@ -214,6 +215,12 @@ export default function ProduzioneCommessa({ commessa, ordini, fornitori, numero
         ordine={inModifica}
         fornitori={fornitori}
         numeroProposto={numeroProposto}
+      />
+
+      <DialogVisualizzatore
+        url={viewer?.url ?? null}
+        nome={viewer?.nome ?? ''}
+        onClose={() => setViewer(null)}
       />
     </div>
   )

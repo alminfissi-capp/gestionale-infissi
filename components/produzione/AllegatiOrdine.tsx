@@ -8,6 +8,7 @@ import {
   getAllegatiOrdine, uploadAllegatiOrdine, deleteAllegatoOrdine,
 } from '@/actions/produzione-allegati'
 import { getDocumentoSignedUrl } from '@/actions/produzione-documenti'
+import DialogVisualizzatore from './DialogVisualizzatore'
 import type { AllegatoOrdine } from '@/types/produzione'
 
 interface Props {
@@ -20,6 +21,7 @@ export default function AllegatiOrdine({ ordineId }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [allegati, setAllegati] = useState<AllegatoOrdine[]>([])
   const [caricamento, setCaricamento] = useState(false)
+  const [viewer, setViewer] = useState<{ url: string; nome: string } | null>(null)
 
   const ricarica = useCallback(() => {
     getAllegatiOrdine(ordineId).then(setAllegati).catch(() => setAllegati([]))
@@ -47,9 +49,9 @@ export default function AllegatiOrdine({ ordineId }: Props) {
     }
   }
 
-  const apri = async (path: string) => {
+  const apri = async (path: string, nome: string) => {
     const url = await getDocumentoSignedUrl(path)
-    if (url) window.open(url, '_blank')
+    if (url) setViewer({ url, nome })
     else toast.error('Impossibile aprire il file')
   }
 
@@ -101,7 +103,7 @@ export default function AllegatiOrdine({ ordineId }: Props) {
               )}
               <button
                 type="button"
-                onClick={() => apri(a.storage_path)}
+                onClick={() => apri(a.storage_path, a.nome_file)}
                 className="min-w-0 flex-1 text-left text-sm text-blue-700 dark:text-blue-400 hover:underline truncate"
               >
                 {a.nome_file}
@@ -117,6 +119,12 @@ export default function AllegatiOrdine({ ordineId }: Props) {
           ))}
         </div>
       )}
+
+      <DialogVisualizzatore
+        url={viewer?.url ?? null}
+        nome={viewer?.nome ?? ''}
+        onClose={() => setViewer(null)}
+      />
     </div>
   )
 }
