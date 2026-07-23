@@ -244,6 +244,22 @@ export default function Sidebar({
           <LogOut className="h-4 w-4 shrink-0" />
           <span>Esci</span>
         </Button>
+
+        {/* Powered by Win Systems */}
+        <div className={cn('pt-2 mt-1', collapsed && 'lg:hidden')}>
+          <div className="flex flex-col items-center rounded-md border border-gray-200 dark:border-gray-700 bg-white px-3 py-1.5">
+            <span className="mb-0.5 text-[9px] font-medium uppercase tracking-wider text-gray-400">
+              Powered by
+            </span>
+            <Image
+              src="/win-systems-logo.png"
+              alt="Win Systems"
+              width={160}
+              height={84}
+              className="h-auto w-full max-w-[130px] object-contain"
+            />
+          </div>
+        </div>
       </div>
     </aside>
   )
