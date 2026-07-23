@@ -124,10 +124,12 @@ export default function RigheOrdine({ righe, onChange }: Props) {
           </Campo>
 
           <Campo label="Cod. Articolo">
-            <Input
+            <Textarea
+              rows={1}
               placeholder="Codice"
               value={riga.codice_articolo ?? ''}
               onChange={(e) => aggiorna(i, { codice_articolo: e.target.value })}
+              className="min-h-9 resize-none py-2 leading-snug"
             />
           </Campo>
 
