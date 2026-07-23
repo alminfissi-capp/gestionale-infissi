@@ -18,6 +18,9 @@ import type { IntestazionePDF } from './OrdinePDF'
 import { formatEuro } from '@/lib/pricing'
 import { deleteOrdine, setStatoOrdine } from '@/actions/produzione'
 import { salvaPdfOrdine } from '@/actions/produzione-pdf'
+import { getAllegatiOrdine } from '@/actions/produzione-allegati'
+import { getDocumentoSignedUrl } from '@/actions/produzione-documenti'
+import { unisciAllegatiAlPdf, type AllegatoDaUnire } from '@/lib/produzione-allegati-pdf'
 import { STATI_ORDINE } from '@/types/produzione'
 import type { OrdineCompleto, StatoOrdine } from '@/types/produzione'
 import type { StatoCommessa, DocumentoCommessa } from '@/types/commessa'
@@ -65,10 +68,27 @@ export default function ProduzioneCommessa({ commessa, ordini, fornitori, numero
     }
   }
 
+  // Scarica gli allegati dell'ordine come byte, per unirli al PDF.
+  const scaricaAllegati = async (ordineId: string): Promise<AllegatoDaUnire[]> => {
+    const allegati = await getAllegatiOrdine(ordineId)
+    const risultati = await Promise.all(
+      allegati.map(async (a): Promise<AllegatoDaUnire | null> => {
+        const url = await getDocumentoSignedUrl(a.storage_path)
+        if (!url) return null
+        const resp = await fetch(url)
+        if (!resp.ok) return null
+        const bytes = await resp.arrayBuffer()
+        return { nome: a.nome_file, bytes, contentType: a.content_type ?? '' }
+      })
+    )
+    return risultati.filter((r): r is AllegatoDaUnire => r !== null)
+  }
+
   const generaPdf = async (o: OrdineCompleto) => {
+    const attesa = toast.loading('Generazione PDF in corso...')
     try {
       const nomeFile = `Ordine ${o.numero_ordine || o.id.slice(0, 8)}.pdf`
-      const blob = await pdf(
+      const baseBlob = await pdf(
         <OrdinePDF
           ordine={o}
           intestazione={intestazione}
@@ -78,18 +98,36 @@ export default function ProduzioneCommessa({ commessa, ordini, fornitori, numero
         />
       ).toBlob()
 
-      // Mostra subito il PDF nel visualizzatore in-app usando il blob generato.
+      // Accoda gli allegati (foto/PDF) in fondo al documento.
+      const baseBuffer = await baseBlob.arrayBuffer()
+      let finaleBytes: Uint8Array = new Uint8Array(baseBuffer)
+      const allegati = await scaricaAllegati(o.id)
+      if (allegati.length > 0) {
+        const { bytes, saltati } = await unisciAllegatiAlPdf(baseBuffer, allegati)
+        finaleBytes = bytes
+        if (saltati.length > 0) {
+          toast.warning(`Allegati non inclusi (formato non supportato): ${saltati.join(', ')}`)
+        }
+      }
+
+      // Copia ArrayBuffer-backed per Blob/Buffer (pdf-lib restituisce ArrayBufferLike).
+      const outBytes = new Uint8Array(finaleBytes)
+      const blob = new Blob([outBytes], { type: 'application/pdf' })
+
+      // Mostra il PDF completo nel visualizzatore in-app.
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
       const objectUrl = URL.createObjectURL(blob)
       blobUrlRef.current = objectUrl
       setViewer({ url: objectUrl, nome: nomeFile })
 
-      // Archivia in background e lega il PDF all'ordine.
-      const base64 = Buffer.from(await blob.arrayBuffer()).toString('base64')
+      // Archivia e lega il PDF all'ordine (è quello che riceve il fornitore).
+      const base64 = Buffer.from(outBytes).toString('base64')
       const { error } = await salvaPdfOrdine(o.id, commessa.id, base64, nomeFile)
+      toast.dismiss(attesa)
       if (error) toast.error(`PDF mostrato ma non archiviato: ${error}`)
       else router.refresh()
     } catch (e) {
+      toast.dismiss(attesa)
       toast.error(e instanceof Error ? e.message : 'Errore nella generazione del PDF')
     }
   }
