@@ -62,7 +62,10 @@ export default function OrdinePDF({
           {ordine.data_consegna_prevista ? (
             <Text><Text style={styles.grassetto}>Consegna prevista: </Text>{ordine.data_consegna_prevista}</Text>
           ) : null}
-          <Text><Text style={styles.grassetto}>Commessa: </Text>{numeroCommessa} — {clienteNome}</Text>
+          <Text>
+            <Text style={styles.grassetto}>Commessa: </Text>
+            {clienteNome ? `${numeroCommessa} — ${clienteNome}` : numeroCommessa}
+          </Text>
         </View>
 
         <View style={styles.intestazioneTabella}>

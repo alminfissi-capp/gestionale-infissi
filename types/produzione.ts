@@ -67,7 +67,7 @@ export type AllegatoOrdine = {
 export type OrdineFornitore = {
   id: string
   organization_id: string
-  commessa_id: string
+  commessa_id: string | null
   fornitore_id: string | null
   numero_ordine: string
   data_ordine: string
@@ -81,7 +81,7 @@ export type OrdineFornitore = {
 }
 
 export type OrdineInput = {
-  commessa_id: string
+  commessa_id: string | null
   fornitore_id: string | null
   numero_ordine: string
   data_ordine: string
@@ -100,6 +100,22 @@ export type OrdineCompleto = OrdineFornitore & {
 
 /** Riga del cruscotto: ordine con il contesto della commessa. */
 export type OrdineConCommessa = OrdineCompleto & {
+  numero_commessa: string
+  cliente_nome: string
+}
+
+/**
+ * Ordine con il contesto della commessa quando c'è, altrimenti ordine di
+ * magazzino (commessa_id null). Usato nell'elenco ordini del magazzino.
+ */
+export type OrdineConContesto = OrdineCompleto & {
+  numero_commessa: string | null
+  cliente_nome: string | null
+}
+
+/** Opzione commessa per il selettore nel dialog ordine (dal magazzino). */
+export type CommessaOpzione = {
+  id: string
   numero_commessa: string
   cliente_nome: string
 }

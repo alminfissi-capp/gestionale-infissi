@@ -8,6 +8,8 @@ import { STATI_COMMESSA_APERTI, TIPI_DOCUMENTO_PRODUZIONE_VALUES } from '@/types
 import type {
   OrdineCompleto,
   OrdineConCommessa,
+  OrdineConContesto,
+  CommessaOpzione,
   OrdineInput,
   RigaOrdine,
   StatoOrdine,
@@ -108,6 +110,71 @@ export async function getOrdiniCommessa(commessaId: string): Promise<OrdineCompl
     righePerOrdine.set(r.ordine_id, [...(righePerOrdine.get(r.ordine_id) ?? []), r])
   }
   return componiOrdini(ordini, fornitori, righePerOrdine)
+}
+
+/** Commesse selezionabili nel dialog ordine (dal magazzino). */
+export async function getCommessePerOrdine(): Promise<CommessaOpzione[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data } = await supabase
+    .from('commesse')
+    .select('id, numero_commessa, cliente_nome')
+    .eq('organization_id', orgId)
+    .order('data_conferma', { ascending: false })
+  return (data ?? []) as CommessaOpzione[]
+}
+
+/**
+ * Tutti gli ordini dell'organizzazione (commessa + magazzino), con il
+ * contesto commessa quando presente. Usato nell'elenco ordini del magazzino.
+ */
+export async function getTuttiGliOrdini(): Promise<OrdineConContesto[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const [{ data: ordini }, fornitori] = await Promise.all([
+    supabase
+      .from('ordini_fornitore')
+      .select('*')
+      .eq('organization_id', orgId)
+      .order('data_ordine', { ascending: false }),
+    getFornitoriPerOrdine(),
+  ])
+  if (!ordini || ordini.length === 0) return []
+
+  const { data: righe } = await supabase
+    .from('righe_ordine_fornitore')
+    .select('*')
+    .in('ordine_id', ordini.map((o) => o.id))
+    .order('ordine', { ascending: true })
+
+  const righePerOrdine = new Map<string, RigaOrdine[]>()
+  for (const r of numeraRighe((righe ?? []) as RigaOrdine[])) {
+    righePerOrdine.set(r.ordine_id, [...(righePerOrdine.get(r.ordine_id) ?? []), r])
+  }
+
+  const commessaIds = [...new Set(ordini.map((o) => o.commessa_id).filter((v): v is string => !!v))]
+  const commesseMap = new Map<string, { numero_commessa: string; cliente_nome: string }>()
+  if (commessaIds.length > 0) {
+    const { data: commesse } = await supabase
+      .from('commesse')
+      .select('id, numero_commessa, cliente_nome')
+      .eq('organization_id', orgId)
+      .in('id', commessaIds)
+    for (const c of commesse ?? []) {
+      commesseMap.set(c.id, { numero_commessa: c.numero_commessa, cliente_nome: c.cliente_nome })
+    }
+  }
+
+  const completi = componiOrdini(ordini, fornitori, righePerOrdine)
+  return completi.map((o) => {
+    const ctx = o.commessa_id ? commesseMap.get(o.commessa_id) : undefined
+    return {
+      ...o,
+      numero_commessa: ctx?.numero_commessa ?? null,
+      cliente_nome: ctx?.cliente_nome ?? null,
+    }
+  })
 }
 
 export async function getCruscottoProduzione(

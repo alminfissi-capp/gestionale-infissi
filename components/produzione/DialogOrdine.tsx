@@ -19,25 +19,29 @@ import { formatEuro } from '@/lib/pricing'
 import { calcolaTotaleOrdine } from '@/lib/produzione'
 import { createOrdine, updateOrdine } from '@/actions/produzione'
 import { STATI_ORDINE } from '@/types/produzione'
-import type { OrdineCompleto, RigaOrdineInput, StatoOrdine } from '@/types/produzione'
+import type { OrdineCompleto, RigaOrdineInput, StatoOrdine, CommessaOpzione } from '@/types/produzione'
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-  commessaId: string
+  commessaId: string | null
   ordine: OrdineCompleto | null
   fornitori: { id: string; nome: string; email: string | null }[]
   numeroProposto: string
+  /** Se presenti, mostra il selettore commessa (uso dal magazzino). */
+  commesse?: CommessaOpzione[]
 }
 
 const oggiISO = () => new Date().toISOString().slice(0, 10)
+const MAGAZZINO = '__magazzino__'
 
 export default function DialogOrdine({
-  open, onOpenChange, commessaId, ordine, fornitori, numeroProposto,
+  open, onOpenChange, commessaId, ordine, fornitori, numeroProposto, commesse,
 }: Props) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [fornitoreId, setFornitoreId] = useState<string>('')
+  const [commessaSel, setCommessaSel] = useState<string>(MAGAZZINO)
   const [numero, setNumero] = useState('')
   const [dataOrdine, setDataOrdine] = useState(oggiISO())
   const [consegna, setConsegna] = useState('')
@@ -48,6 +52,7 @@ export default function DialogOrdine({
   useEffect(() => {
     if (!open) return
     setFornitoreId(ordine?.fornitore_id ?? '')
+    setCommessaSel(ordine?.commessa_id ?? commessaId ?? MAGAZZINO)
     setNumero(ordine?.numero_ordine ?? numeroProposto)
     setDataOrdine(ordine?.data_ordine ?? oggiISO())
     setConsegna(ordine?.data_consegna_prevista ?? '')
@@ -66,7 +71,7 @@ export default function DialogOrdine({
         { descrizione: '', codice_articolo: null, finitura: null, quantita: 1, unita_misura: 'pz', prezzo_unitario: null, ordine: 0 },
       ]
     )
-  }, [open, ordine, numeroProposto])
+  }, [open, ordine, numeroProposto, commessaId])
 
   const salva = async () => {
     if (righe.every((r) => r.descrizione.trim() === '')) {
@@ -75,8 +80,11 @@ export default function DialogOrdine({
     }
     setSaving(true)
     try {
+      const commessa_id = commesse
+        ? (commessaSel === MAGAZZINO ? null : commessaSel)
+        : commessaId
       const input = {
-        commessa_id: commessaId,
+        commessa_id,
         fornitore_id: fornitoreId || null,
         numero_ordine: numero.trim(),
         data_ordine: dataOrdine,
@@ -106,6 +114,22 @@ export default function DialogOrdine({
 
         <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {commesse && (
+              <div className="space-y-1.5">
+                <Label>Commessa</Label>
+                <Select value={commessaSel} onValueChange={setCommessaSel}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={MAGAZZINO}>Magazzino (nessuna commessa)</SelectItem>
+                    {commesse.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.numero_commessa || 'Senza numero'} — {c.cliente_nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label>Fornitore</Label>
               <Select value={fornitoreId} onValueChange={setFornitoreId}>
