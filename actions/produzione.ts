@@ -178,17 +178,21 @@ export async function getTuttiGliOrdini(): Promise<OrdineConContesto[]> {
 }
 
 export async function getCruscottoProduzione(
-  stati: StatoCommessa[] = STATI_COMMESSA_APERTI
+  stati: StatoCommessa[] = STATI_COMMESSA_APERTI,
+  archiviate = false
 ): Promise<{ daFare: OrdineConCommessa[]; commesse: CommessaProduzione[] }> {
   const supabase = await createClient()
   const orgId = await getOrgId()
 
-  const { data: commesse } = await supabase
+  // In vista archivio si mostrano tutte le commesse archiviate (ogni stato);
+  // altrimenti solo quelle attive filtrate per stato.
+  let query = supabase
     .from('commesse')
-    .select('id, numero_commessa, cliente_nome, stato')
+    .select('id, numero_commessa, cliente_nome, stato, data_conferma')
     .eq('organization_id', orgId)
-    .in('stato', stati)
-    .order('data_conferma', { ascending: false })
+    .eq('archiviata', archiviate)
+  if (!archiviate) query = query.in('stato', stati)
+  const { data: commesse } = await query.order('data_conferma', { ascending: false })
 
   if (!commesse || commesse.length === 0) return { daFare: [], commesse: [] }
   const commessaIds = commesse.map((c) => c.id)
@@ -224,17 +228,19 @@ export async function getCruscottoProduzione(
   const completi = componiOrdini(listaOrdini, fornitori, righePerOrdine)
   const datiCommessa = new Map(commesse.map((c) => [c.id, c]))
 
-  const daFare: OrdineConCommessa[] = completi
-    .filter((o) => o.stato === 'da_ordinare' || o.in_ritardo)
-    .map((o) => {
-      const c = datiCommessa.get(o.commessa_id)
-      return {
-        ...o,
-        numero_commessa: c?.numero_commessa ?? '',
-        cliente_nome: c?.cliente_nome ?? '',
-      }
-    })
-    .sort((a, b) => Number(b.in_ritardo) - Number(a.in_ritardo))
+  const daFare: OrdineConCommessa[] = archiviate
+    ? []
+    : completi
+        .filter((o) => o.stato === 'da_ordinare' || o.in_ritardo)
+        .map((o) => {
+          const c = datiCommessa.get(o.commessa_id)
+          return {
+            ...o,
+            numero_commessa: c?.numero_commessa ?? '',
+            cliente_nome: c?.cliente_nome ?? '',
+          }
+        })
+        .sort((a, b) => Number(b.in_ritardo) - Number(a.in_ritardo))
 
   const docProduzione = (documenti ?? []).filter((d) =>
     TIPI_DOCUMENTO_PRODUZIONE_VALUES.includes(d.tipo_documento)
@@ -247,6 +253,7 @@ export async function getCruscottoProduzione(
       numero_commessa: c.numero_commessa,
       cliente_nome: c.cliente_nome,
       stato: c.stato as StatoCommessa,
+      data_conferma: c.data_conferma ?? null,
       ordini_aperti: suoi.filter((o) => o.stato !== 'arrivato').length,
       ordini_in_ritardo: suoi.filter((o) => o.in_ritardo).length,
       documenti: docProduzione.filter((d) => d.commessa_id === c.id).length,
@@ -353,6 +360,19 @@ export async function deleteOrdine(id: string): Promise<void> {
     .from('ordini_fornitore')
     .delete()
     .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/produzione', 'layout')
+}
+
+/** Archivia / ripristina una commessa (usato dal lato Produzione). */
+export async function setArchiviataCommessa(commessaId: string, archiviata: boolean): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('commesse')
+    .update({ archiviata })
+    .eq('id', commessaId)
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
   revalidatePath('/produzione', 'layout')

@@ -126,6 +126,7 @@ export type CommessaProduzione = {
   numero_commessa: string
   cliente_nome: string
   stato: StatoCommessa
+  data_conferma: string | null
   ordini_aperti: number
   ordini_in_ritardo: number
   documenti: number

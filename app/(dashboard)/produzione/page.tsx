@@ -21,13 +21,21 @@ function statiDaFiltro(filtro: string): StatoCommessa[] {
 export default async function ProduzionePage({
   searchParams,
 }: {
-  searchParams: Promise<{ stato?: string }>
+  searchParams: Promise<{ stato?: string; archiviate?: string }>
 }) {
   await requireAccesso('produzione')
-  const { stato } = await searchParams
+  const { stato, archiviate } = await searchParams
   const filtro = stato ?? 'aperte'
+  const vistaArchivio = archiviate === '1'
 
-  const { daFare, commesse } = await getCruscottoProduzione(statiDaFiltro(filtro))
+  const { daFare, commesse } = await getCruscottoProduzione(statiDaFiltro(filtro), vistaArchivio)
 
-  return <CruscottoProduzione daFare={daFare} commesse={commesse} statoFiltro={filtro} />
+  return (
+    <CruscottoProduzione
+      daFare={daFare}
+      commesse={commesse}
+      statoFiltro={filtro}
+      archiviate={vistaArchivio}
+    />
+  )
 }

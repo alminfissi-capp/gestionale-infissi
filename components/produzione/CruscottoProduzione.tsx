@@ -1,19 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Factory, AlertTriangle, FileText, Package, Search,
-  BarChart3, MessageSquare, ClipboardList,
+  BarChart3, MessageSquare, ClipboardList, Archive, ArchiveRestore, ArrowLeft,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import { setArchiviataCommessa } from '@/actions/produzione'
 import type { OrdineConCommessa, CommessaProduzione } from '@/types/produzione'
 
 interface Props {
   daFare: OrdineConCommessa[]
   commesse: CommessaProduzione[]
   statoFiltro: string
+  archiviate: boolean
 }
 
 const OPZIONI_FILTRO = [
@@ -23,15 +29,82 @@ const OPZIONI_FILTRO = [
   { value: 'tutte', label: 'Tutte' },
 ]
 
-export default function CruscottoProduzione({ daFare, commesse, statoFiltro }: Props) {
+const ORDINAMENTI = [
+  { value: 'numero_desc', label: 'Numero ↓' },
+  { value: 'numero_asc', label: 'Numero ↑' },
+  { value: 'data_desc', label: 'Data ↓' },
+  { value: 'data_asc', label: 'Data ↑' },
+] as const
+type Ordinamento = (typeof ORDINAMENTI)[number]['value']
+const STORAGE_KEY = 'produzione:ordinamento'
+
+// "NN-YYYY" → { anno, numero }. Le commesse senza numero valido vanno in fondo.
+function chiaveNumero(numero: string): { valido: boolean; anno: number; n: number } {
+  const m = /^(\d+)-(\d{4})$/.exec((numero || '').trim())
+  if (!m) return { valido: false, anno: 0, n: 0 }
+  return { valido: true, anno: Number(m[2]), n: Number(m[1]) }
+}
+
+function comparatore(ord: Ordinamento) {
+  return (a: CommessaProduzione, b: CommessaProduzione): number => {
+    if (ord === 'numero_asc' || ord === 'numero_desc') {
+      const ka = chiaveNumero(a.numero_commessa)
+      const kb = chiaveNumero(b.numero_commessa)
+      if (ka.valido !== kb.valido) return ka.valido ? -1 : 1 // invalidi sempre in fondo
+      if (!ka.valido) return 0
+      const diff = ka.anno !== kb.anno ? ka.anno - kb.anno : ka.n - kb.n
+      return ord === 'numero_asc' ? diff : -diff
+    }
+    const da = a.data_conferma ? new Date(a.data_conferma).getTime() : null
+    const db = b.data_conferma ? new Date(b.data_conferma).getTime() : null
+    if (da === null && db === null) return 0
+    if (da === null) return 1
+    if (db === null) return -1
+    return ord === 'data_asc' ? da - db : db - da
+  }
+}
+
+export default function CruscottoProduzione({ daFare, commesse, statoFiltro, archiviate }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [ricerca, setRicerca] = useState('')
+  const [ordinamento, setOrdinamento] = useState<Ordinamento>('numero_desc')
+
+  // Ripristina l'ordinamento salvato dopo il mount (niente mismatch di idratazione).
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved && ORDINAMENTI.some((o) => o.value === saved)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setOrdinamento(saved as Ordinamento)
+    }
+  }, [])
+
+  const cambiaOrdinamento = (v: Ordinamento) => {
+    setOrdinamento(v)
+    localStorage.setItem(STORAGE_KEY, v)
+  }
 
   const cambiaFiltro = (valore: string) => {
     const params = new URLSearchParams(searchParams.toString())
     params.set('stato', valore)
     router.push(`/produzione?${params.toString()}`)
+  }
+
+  const vaiArchivio = (on: boolean) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (on) params.set('archiviate', '1')
+    else params.delete('archiviate')
+    router.push(`/produzione?${params.toString()}`)
+  }
+
+  const toggleArchivia = async (id: string, archivia: boolean) => {
+    try {
+      await setArchiviataCommessa(id, archivia)
+      toast.success(archivia ? 'Commessa archiviata' : 'Commessa ripristinata')
+      router.refresh()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Errore')
+    }
   }
 
   const q = ricerca.trim().toLowerCase()
@@ -42,6 +115,7 @@ export default function CruscottoProduzione({ daFare, commesse, statoFiltro }: P
           (c.cliente_nome || '').toLowerCase().includes(q)
       )
     : commesse
+  const commesseOrdinate = [...commesseFiltrate].sort(comparatore(ordinamento))
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
@@ -129,21 +203,52 @@ export default function CruscottoProduzione({ daFare, commesse, statoFiltro }: P
       {/* Zona inferiore: ricerca + filtri + commesse */}
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Commesse</h2>
-          <div className="flex gap-1">
-            {OPZIONI_FILTRO.map((o) => (
+          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+            {archiviate ? 'Commesse archiviate' : 'Commesse'}
+          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            {!archiviate && (
+              <div className="flex gap-1">
+                {OPZIONI_FILTRO.map((o) => (
+                  <button
+                    key={o.value}
+                    onClick={() => cambiaFiltro(o.value)}
+                    className={
+                      statoFiltro === o.value
+                        ? 'rounded-md px-2.5 py-1 text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400'
+                        : 'rounded-md px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <Select value={ordinamento} onValueChange={(v) => cambiaOrdinamento(v as Ordinamento)}>
+              <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ORDINAMENTI.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {archiviate ? (
               <button
-                key={o.value}
-                onClick={() => cambiaFiltro(o.value)}
-                className={
-                  statoFiltro === o.value
-                    ? 'rounded-md px-2.5 py-1 text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400'
-                    : 'rounded-md px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-                }
+                onClick={() => vaiArchivio(false)}
+                className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
               >
-                {o.label}
+                <ArrowLeft className="h-3.5 w-3.5" /> Attive
               </button>
-            ))}
+            ) : (
+              <button
+                onClick={() => vaiArchivio(true)}
+                className="inline-flex items-center gap-1.5 rounded-md bg-gray-800 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600"
+              >
+                <Archive className="h-3.5 w-3.5" /> Archiviate
+              </button>
+            )}
           </div>
         </div>
 
@@ -159,38 +264,47 @@ export default function CruscottoProduzione({ daFare, commesse, statoFiltro }: P
 
         {commesse.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400 border border-dashed rounded-lg p-6 text-center">
-            Nessuna commessa con questo filtro.
+            {archiviate ? 'Nessuna commessa archiviata.' : 'Nessuna commessa con questo filtro.'}
           </p>
-        ) : commesseFiltrate.length === 0 ? (
+        ) : commesseOrdinate.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400 border border-dashed rounded-lg p-6 text-center">
             Nessuna commessa trovata per &quot;{ricerca}&quot;.
           </p>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {commesseFiltrate.map((c) => (
-              <Link
+            {commesseOrdinate.map((c) => (
+              <div
                 key={c.id}
-                href={`/produzione/${c.id}`}
-                className="rounded-lg border border-gray-200 dark:border-gray-800 p-3 hover:bg-gray-50 dark:hover:bg-gray-900"
+                className="relative rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900"
               >
-                <p className="text-sm font-medium truncate text-gray-900 dark:text-gray-100">
-                  {c.numero_commessa || 'Senza numero'}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{c.cliente_nome}</p>
-                <div className="mt-2 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                  <span className="inline-flex items-center gap-1">
-                    <Package className="h-3.5 w-3.5" /> {c.ordini_aperti}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <FileText className="h-3.5 w-3.5" /> {c.documenti}
-                  </span>
-                  {c.ordini_in_ritardo > 0 && (
-                    <span className="inline-flex items-center gap-1 text-red-600">
-                      <AlertTriangle className="h-3.5 w-3.5" /> {c.ordini_in_ritardo}
+                <Link href={`/produzione/${c.id}`} className="block p-3 pr-10">
+                  <p className="text-sm font-medium truncate text-gray-900 dark:text-gray-100">
+                    {c.numero_commessa || 'Senza numero'}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{c.cliente_nome}</p>
+                  <div className="mt-2 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                    <span className="inline-flex items-center gap-1">
+                      <Package className="h-3.5 w-3.5" /> {c.ordini_aperti}
                     </span>
-                  )}
-                </div>
-              </Link>
+                    <span className="inline-flex items-center gap-1">
+                      <FileText className="h-3.5 w-3.5" /> {c.documenti}
+                    </span>
+                    {c.ordini_in_ritardo > 0 && (
+                      <span className="inline-flex items-center gap-1 text-red-600">
+                        <AlertTriangle className="h-3.5 w-3.5" /> {c.ordini_in_ritardo}
+                      </span>
+                    )}
+                  </div>
+                </Link>
+                <button
+                  onClick={() => toggleArchivia(c.id, !archiviate)}
+                  className="absolute top-2 right-2 rounded-md p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200"
+                  title={archiviate ? 'Ripristina' : 'Archivia'}
+                  aria-label={archiviate ? 'Ripristina' : 'Archivia'}
+                >
+                  {archiviate ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+                </button>
+              </div>
             ))}
           </div>
         )}
