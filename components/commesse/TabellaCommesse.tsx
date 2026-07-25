@@ -96,6 +96,8 @@ function pendingToCommessa(p: PendingCommessa): CommessaCompleta {
     costo_materiali_manuale: p.input.costo_materiali_manuale ?? null,
     costo_manodopera_manuale: p.input.costo_manodopera_manuale ?? null,
     utile_manuale: p.input.utile_manuale ?? null,
+    cantiere_lat: null,
+    cantiere_lng: null,
     created_at: p.createdAt,
     updated_at: p.createdAt,
     acconti: [],

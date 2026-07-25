@@ -103,6 +103,8 @@ export type Commessa = {
   costo_materiali_manuale: number | null
   costo_manodopera_manuale: number | null
   utile_manuale: number | null
+  cantiere_lat: number | null
+  cantiere_lng: number | null
   created_at: string
   updated_at: string
 }
@@ -166,6 +168,8 @@ export type CommessaInput = {
   costo_materiali_manuale?: number | null
   costo_manodopera_manuale?: number | null
   utile_manuale?: number | null
+  cantiere_lat?: number | null
+  cantiere_lng?: number | null
 }
 
 export type AccontoInput = {

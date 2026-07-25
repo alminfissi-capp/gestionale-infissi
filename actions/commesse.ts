@@ -156,6 +156,8 @@ export async function getCommessaById(id: string): Promise<CommessaCompleta | nu
     iva_totale: Number(c.iva_totale),
     totale: Number(c.totale),
     incasso_previsto: c.incasso_previsto != null ? Number(c.incasso_previsto) : null,
+    cantiere_lat: c.cantiere_lat != null ? Number(c.cantiere_lat) : null,
+    cantiere_lng: c.cantiere_lng != null ? Number(c.cantiere_lng) : null,
     acconti: acc.map((a) => ({ ...a, importo: Number(a.importo) })),
     documenti: documenti ?? [],
     preventivi_collegati: (prevCollegati ?? []) as PreventivoCommessa[],
