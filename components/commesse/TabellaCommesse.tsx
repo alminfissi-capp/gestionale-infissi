@@ -822,6 +822,8 @@ export default function TabellaCommesse({
           commessaId={dialogAcconto.id}
           clienteNome={dialogAcconto.cliente_nome}
           acconti={dialogAcconto.acconti}
+          commessaLat={dialogAcconto.cantiere_lat}
+          commessaLng={dialogAcconto.cantiere_lng}
         />
       )}
 

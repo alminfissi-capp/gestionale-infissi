@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Trash2, Plus } from 'lucide-react'
+import { Trash2, Plus, MapPin, Navigation, ExternalLink, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,11 +20,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { addAcconto, deleteAcconto } from '@/actions/commesse'
+import { addAcconto, deleteAcconto, updateCommessa } from '@/actions/commesse'
 import { formatEuro } from '@/lib/pricing'
 import type { AccontoCommessa, AccontoInput, MetodoPagamento } from '@/types/commessa'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { db } from '@/lib/db'
+import { parseCoordinate, mapsUrl } from '@/lib/geo'
 
 interface Props {
   open: boolean
@@ -32,6 +33,8 @@ interface Props {
   commessaId: string
   clienteNome: string
   acconti: AccontoCommessa[]
+  commessaLat: number | null
+  commessaLng: number | null
 }
 
 const METODI: { value: MetodoPagamento; label: string }[] = [
@@ -50,12 +53,66 @@ const emptyForm = (): AccontoInput => ({
   note: null,
 })
 
-export default function DialogAcconto({ open, onOpenChange, commessaId, clienteNome, acconti }: Props) {
+export default function DialogAcconto({ open, onOpenChange, commessaId, clienteNome, acconti, commessaLat, commessaLng }: Props) {
   const router = useRouter()
   const { isOnline } = useOnlineStatus()
   const [form, setForm] = useState<AccontoInput>(emptyForm())
   const [loading, setLoading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const [lat, setLat] = useState<number | null>(commessaLat)
+  const [lng, setLng] = useState<number | null>(commessaLng)
+  const [linkInput, setLinkInput] = useState('')
+  const [editingPos, setEditingPos] = useState(false)
+  const [savingPos, setSavingPos] = useState(false)
+
+  const salvaPosizione = async (nLat: number | null, nLng: number | null) => {
+    if (!isOnline) {
+      toast.error('Connessione richiesta per salvare la posizione')
+      return
+    }
+    setSavingPos(true)
+    try {
+      await updateCommessa(commessaId, { cantiere_lat: nLat, cantiere_lng: nLng })
+      setLat(nLat)
+      setLng(nLng)
+      setLinkInput('')
+      setEditingPos(false)
+      toast.success(nLat === null ? 'Posizione rimossa' : 'Posizione salvata')
+      router.refresh()
+    } catch {
+      toast.error('Errore nel salvataggio della posizione')
+    } finally {
+      setSavingPos(false)
+    }
+  }
+
+  const usaPosizioneAttuale = () => {
+    if (!('geolocation' in navigator)) {
+      toast.error('Geolocalizzazione non disponibile su questo dispositivo')
+      return
+    }
+    setSavingPos(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        void salvaPosizione(pos.coords.latitude, pos.coords.longitude)
+      },
+      () => {
+        setSavingPos(false)
+        toast.error('Impossibile ottenere la posizione (permesso negato o GPS assente)')
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    )
+  }
+
+  const salvaDaLink = () => {
+    const parsed = parseCoordinate(linkInput)
+    if (!parsed) {
+      toast.error('Coordinate non riconosciute. Incolla il link Google Maps completo o coordinate "lat, lng".')
+      return
+    }
+    void salvaPosizione(parsed.lat, parsed.lng)
+  }
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -112,6 +169,71 @@ export default function DialogAcconto({ open, onOpenChange, commessaId, clienteN
         <DialogHeader>
           <DialogTitle>Acconti — {clienteNome}</DialogTitle>
         </DialogHeader>
+
+        {/* Posizione cantiere */}
+        <div className="rounded-md border p-3 space-y-2">
+          <p className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+            <MapPin className="h-4 w-4" /> Posizione cantiere
+          </p>
+
+          {lat !== null && lng !== null && !editingPos ? (
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500 font-mono">
+                {lat.toFixed(5)}, {lng.toFixed(5)}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <a href={mapsUrl(lat, lng)} target="_blank" rel="noopener noreferrer">
+                  <Button type="button" size="sm" variant="outline" className="gap-1.5">
+                    <ExternalLink className="h-3.5 w-3.5" /> Apri in Google Maps
+                  </Button>
+                </a>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setEditingPos(true)}>
+                  Modifica
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="text-red-400 hover:text-red-600 gap-1"
+                  disabled={savingPos}
+                  onClick={() => salvaPosizione(null, null)}
+                >
+                  <X className="h-3.5 w-3.5" /> Rimuovi
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full gap-1.5"
+                disabled={savingPos}
+                onClick={usaPosizioneAttuale}
+              >
+                <Navigation className="h-3.5 w-3.5" />
+                {savingPos ? 'Attendere...' : 'Usa posizione attuale'}
+              </Button>
+              <div className="flex gap-2">
+                <Input
+                  value={linkInput}
+                  onChange={(e) => setLinkInput(e.target.value)}
+                  placeholder="Incolla link Maps o lat, lng"
+                  className="text-sm"
+                />
+                <Button type="button" size="sm" variant="secondary" disabled={savingPos || !linkInput.trim()} onClick={salvaDaLink}>
+                  Salva
+                </Button>
+              </div>
+              {editingPos && (
+                <Button type="button" size="sm" variant="ghost" className="w-full" onClick={() => setEditingPos(false)}>
+                  Annulla
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Lista acconti esistenti */}
         {acconti.length > 0 ? (
