@@ -7,6 +7,7 @@ import Link from 'next/link'
 import {
   Pencil, X, Plus, Trash2, Upload, FileText,
   Eye, Share2, Check, ExternalLink, Printer,
+  MapPin, Navigation,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,6 +38,8 @@ import {
   type PreventivoCommessaItemInput,
 } from '@/actions/commesse'
 import { formatEuro } from '@/lib/pricing'
+import { parseCoordinate, mapsUrl } from '@/lib/geo'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import type {
   CommessaCompleta,
   CommessaInput,
@@ -123,7 +126,15 @@ interface Props {
 
 export default function DialogSchedaCommessa({ open, onOpenChange, commessa, utenti }: Props) {
   const router = useRouter()
+  const { isOnline } = useOnlineStatus()
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Posizione cantiere
+  const [lat, setLat] = useState<number | null>(null)
+  const [lng, setLng] = useState<number | null>(null)
+  const [linkInput, setLinkInput] = useState('')
+  const [editingPos, setEditingPos] = useState(false)
+  const [savingPos, setSavingPos] = useState(false)
 
   // Edit mode
   const [editMode, setEditMode] = useState(false)
@@ -153,6 +164,10 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
     setNewAcconto(emptyAcconto())
     setUrlMap({})
     setForm(commessaToForm(commessa))
+    setLat(commessa.cantiere_lat)
+    setLng(commessa.cantiere_lng)
+    setLinkInput('')
+    setEditingPos(false)
   }, [open, commessa?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
 
@@ -325,6 +340,60 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
     setStampaDialogOpen(true)
   }
 
+  // ── Posizione cantiere ────────────────────────────────────
+
+  const salvaPosizione = async (nLat: number | null, nLng: number | null) => {
+    if (!isOnline) {
+      toast.error('Connessione richiesta per salvare la posizione')
+      setSavingPos(false)
+      return
+    }
+    setSavingPos(true)
+    try {
+      await updateCommessa(commessa.id, { cantiere_lat: nLat, cantiere_lng: nLng })
+      setLat(nLat)
+      setLng(nLng)
+      setLinkInput('')
+      setEditingPos(false)
+      toast.success(nLat === null ? 'Posizione rimossa' : 'Posizione salvata')
+      router.refresh()
+    } catch {
+      toast.error('Errore nel salvataggio della posizione')
+    } finally {
+      setSavingPos(false)
+    }
+  }
+
+  const usaPosizioneAttuale = () => {
+    if (!('geolocation' in navigator)) {
+      toast.error('Geolocalizzazione non disponibile su questo dispositivo')
+      return
+    }
+    if (!isOnline) {
+      toast.error('Connessione richiesta per salvare la posizione')
+      return
+    }
+    setSavingPos(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        void salvaPosizione(pos.coords.latitude, pos.coords.longitude)
+      },
+      () => {
+        setSavingPos(false)
+        toast.error('Impossibile ottenere la posizione (permesso negato o GPS assente)')
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    )
+  }
+
+  const salvaDaLink = () => {
+    const parsed = parseCoordinate(linkInput)
+    if (!parsed) {
+      toast.error('Coordinate non riconosciute. Incolla il link Google Maps completo o coordinate "lat, lng".')
+      return
+    }
+    void salvaPosizione(parsed.lat, parsed.lng)
+  }
 
   // ── Acconti ───────────────────────────────────────────────
 
@@ -570,6 +639,66 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                 <p className={`text-sm leading-relaxed ${commessa.note ? 'text-gray-700' : 'text-gray-400 italic'}`}>
                   {commessa.note || 'Nessuna descrizione'}
                 </p>
+              )}
+            </section>
+
+            {/* Posizione cantiere */}
+            <section className="space-y-2">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5" /> Posizione cantiere
+              </p>
+              {lat !== null && lng !== null && !editingPos ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-mono text-gray-700">{lat.toFixed(5)}, {lng.toFixed(5)}</span>
+                  <Button asChild type="button" size="sm" variant="outline" className="gap-1.5">
+                    <a href={mapsUrl(lat, lng)} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3.5 w-3.5" /> Apri in Google Maps
+                    </a>
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setEditingPos(true)}>
+                    Modifica
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-red-400 hover:text-red-600 gap-1"
+                    disabled={savingPos}
+                    onClick={() => void salvaPosizione(null, null)}
+                  >
+                    <X className="h-3.5 w-3.5" /> Rimuovi
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    disabled={savingPos}
+                    onClick={usaPosizioneAttuale}
+                  >
+                    <Navigation className="h-3.5 w-3.5" />
+                    {savingPos ? 'Attendere...' : 'Usa posizione attuale'}
+                  </Button>
+                  <div className="flex gap-2">
+                    <Input
+                      value={linkInput}
+                      onChange={(e) => setLinkInput(e.target.value)}
+                      placeholder="Incolla link Maps o lat, lng"
+                      className="text-sm"
+                    />
+                    <Button type="button" size="sm" variant="secondary" disabled={savingPos || !linkInput.trim()} onClick={salvaDaLink}>
+                      Salva
+                    </Button>
+                  </div>
+                  {editingPos && (
+                    <Button type="button" size="sm" variant="ghost" onClick={() => { setEditingPos(false); setLinkInput('') }}>
+                      Annulla
+                    </Button>
+                  )}
+                </div>
               )}
             </section>
 

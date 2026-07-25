@@ -817,14 +817,11 @@ export default function TabellaCommesse({
 
       {dialogAcconto && (
         <DialogAcconto
-          key={dialogAcconto.id}
           open
           onOpenChange={(v) => { if (!v) setDialogAcconto(null) }}
           commessaId={dialogAcconto.id}
           clienteNome={dialogAcconto.cliente_nome}
           acconti={dialogAcconto.acconti}
-          commessaLat={dialogAcconto.cantiere_lat}
-          commessaLng={dialogAcconto.cantiere_lng}
         />
       )}
 
