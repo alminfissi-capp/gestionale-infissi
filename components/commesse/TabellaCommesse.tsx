@@ -817,6 +817,7 @@ export default function TabellaCommesse({
 
       {dialogAcconto && (
         <DialogAcconto
+          key={dialogAcconto.id}
           open
           onOpenChange={(v) => { if (!v) setDialogAcconto(null) }}
           commessaId={dialogAcconto.id}

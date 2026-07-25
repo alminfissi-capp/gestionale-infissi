@@ -232,7 +232,7 @@ export default function DialogAcconto({ open, onOpenChange, commessaId, clienteN
                 </Button>
               </div>
               {editingPos && (
-                <Button type="button" size="sm" variant="ghost" className="w-full" onClick={() => setEditingPos(false)}>
+                <Button type="button" size="sm" variant="ghost" className="w-full" onClick={() => { setEditingPos(false); setLinkInput('') }}>
                   Annulla
                 </Button>
               )}

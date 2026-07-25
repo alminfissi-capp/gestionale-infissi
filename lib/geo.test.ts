@@ -38,6 +38,12 @@ describe('parseCoordinate', () => {
     })
   })
 
+  it('URL con sia @center che !3d!4d pin → usa il pin', () => {
+    expect(parseCoordinate('https://www.google.com/maps/place/X/@41.9028,12.4964,17z/data=!3d41.8999!4d12.4888')).toEqual({
+      lat: 41.8999, lng: 12.4888,
+    })
+  })
+
   it('link accorciato non risolvibile → null', () => {
     expect(parseCoordinate('https://maps.app.goo.gl/abc123')).toBeNull()
   })

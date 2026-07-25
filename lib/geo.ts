@@ -18,6 +18,10 @@ export function parseCoordinate(text: string): LatLng | null {
 
   const num = '(-?\\d{1,3}(?:\\.\\d+)?)'
 
+  // !3dLAT!4dLNG — pin del luogo, più preciso del centro mappa (@): controllato per primo
+  const bang = s.match(new RegExp(`!3d${num}!4d${num}`))
+  if (bang) return valida(parseFloat(bang[1]), parseFloat(bang[2]))
+
   // @lat,lng
   const at = s.match(new RegExp(`@${num},${num}`))
   if (at) return valida(parseFloat(at[1]), parseFloat(at[2]))
@@ -25,10 +29,6 @@ export function parseCoordinate(text: string): LatLng | null {
   // q=lat,lng oppure query=lat,lng
   const q = s.match(new RegExp(`[?&](?:q|query)=${num},${num}`))
   if (q) return valida(parseFloat(q[1]), parseFloat(q[2]))
-
-  // !3dLAT!4dLNG
-  const bang = s.match(new RegExp(`!3d${num}!4d${num}`))
-  if (bang) return valida(parseFloat(bang[1]), parseFloat(bang[2]))
 
   // coordinate nude: separatore virgola (con spazi opzionali) o solo spazi.
   // Escludo URL residui: se contiene 'http' e nessuno dei pattern sopra ha
