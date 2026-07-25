@@ -69,6 +69,7 @@ export default function DialogAcconto({ open, onOpenChange, commessaId, clienteN
   const salvaPosizione = async (nLat: number | null, nLng: number | null) => {
     if (!isOnline) {
       toast.error('Connessione richiesta per salvare la posizione')
+      setSavingPos(false)
       return
     }
     setSavingPos(true)
@@ -90,6 +91,10 @@ export default function DialogAcconto({ open, onOpenChange, commessaId, clienteN
   const usaPosizioneAttuale = () => {
     if (!('geolocation' in navigator)) {
       toast.error('Geolocalizzazione non disponibile su questo dispositivo')
+      return
+    }
+    if (!isOnline) {
+      toast.error('Connessione richiesta per salvare la posizione')
       return
     }
     setSavingPos(true)
@@ -182,11 +187,11 @@ export default function DialogAcconto({ open, onOpenChange, commessaId, clienteN
                 {lat.toFixed(5)}, {lng.toFixed(5)}
               </p>
               <div className="flex flex-wrap gap-2">
-                <a href={mapsUrl(lat, lng)} target="_blank" rel="noopener noreferrer">
-                  <Button type="button" size="sm" variant="outline" className="gap-1.5">
+                <Button asChild type="button" size="sm" variant="outline" className="gap-1.5">
+                  <a href={mapsUrl(lat, lng)} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-3.5 w-3.5" /> Apri in Google Maps
-                  </Button>
-                </a>
+                  </a>
+                </Button>
                 <Button type="button" size="sm" variant="ghost" onClick={() => setEditingPos(true)}>
                   Modifica
                 </Button>
@@ -196,7 +201,7 @@ export default function DialogAcconto({ open, onOpenChange, commessaId, clienteN
                   variant="ghost"
                   className="text-red-400 hover:text-red-600 gap-1"
                   disabled={savingPos}
-                  onClick={() => salvaPosizione(null, null)}
+                  onClick={() => void salvaPosizione(null, null)}
                 >
                   <X className="h-3.5 w-3.5" /> Rimuovi
                 </Button>
