@@ -29,19 +29,54 @@ export function isInRitardo(
   return previsto.getTime() < riferimento.getTime()
 }
 
-const RE_NUMERO_ORDINE = /^(\d{4})-(\d{3})$/
+/** Sigla mostrata davanti al numero ordine: "ORD 011-2026". */
+export const PREFISSO_ORDINE = 'ORD'
+
+const RE_NUMERO_ORDINE = /^(\d{1,4})-(\d{1,4})$/
+const ANNO_MINIMO = 2000
 
 /**
- * Progressivo AAAA-NNN. Usa il massimo esistente dell'anno, non il conteggio:
+ * Legge un numero ordine in progressivo + anno. Accetta il formato attuale
+ * NNN-AAAA, la sigla davanti ("ORD 011-2026") e il vecchio formato AAAA-NNN
+ * degli ordini già in archivio. Restituisce null sui numeri liberi.
+ */
+export function parseNumeroOrdine(numero: string): { progressivo: number; anno: number } | null {
+  const pulito = numero.trim().replace(/^ORD\s*/i, '')
+  const match = RE_NUMERO_ORDINE.exec(pulito)
+  if (!match) return null
+  const primo = Number(match[1])
+  const secondo = Number(match[2])
+  if (match[2].length === 4 && secondo >= ANNO_MINIMO) return { progressivo: primo, anno: secondo }
+  if (match[1].length === 4 && primo >= ANNO_MINIMO) return { progressivo: secondo, anno: primo }
+  return null
+}
+
+/** Forma memorizzata a DB: NNN-AAAA, senza sigla. */
+export function normalizzaNumeroOrdine(numero: string): string {
+  const parsed = parseNumeroOrdine(numero)
+  if (!parsed) return numero.trim()
+  return `${String(parsed.progressivo).padStart(3, '0')}-${parsed.anno}`
+}
+
+/** Forma mostrata a video e nei PDF: "ORD 011-2026". */
+export function formattaNumeroOrdine(numero: string | null | undefined): string {
+  const pulito = (numero ?? '').trim()
+  if (!pulito) return ''
+  const parsed = parseNumeroOrdine(pulito)
+  if (!parsed) return pulito
+  return `${PREFISSO_ORDINE} ${String(parsed.progressivo).padStart(3, '0')}-${parsed.anno}`
+}
+
+/**
+ * Progressivo NNN-AAAA. Usa il massimo esistente dell'anno, non il conteggio:
  * con i numeri modificabili a mano possono esserci buchi e duplicati.
  */
 export function prossimoNumeroOrdine(numeriEsistenti: string[], anno: number): string {
   let massimo = 0
   for (const numero of numeriEsistenti) {
-    const match = RE_NUMERO_ORDINE.exec(numero.trim())
-    if (!match) continue
-    if (Number(match[1]) !== anno) continue
-    massimo = Math.max(massimo, Number(match[2]))
+    const parsed = parseNumeroOrdine(numero)
+    if (!parsed || parsed.anno !== anno) continue
+    massimo = Math.max(massimo, parsed.progressivo)
   }
-  return `${anno}-${String(massimo + 1).padStart(3, '0')}`
+  return `${String(massimo + 1).padStart(3, '0')}-${anno}`
 }

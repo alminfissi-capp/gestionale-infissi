@@ -2,6 +2,7 @@
 
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer'
 import { formatEuro } from '@/lib/pricing'
+import { formattaNumeroOrdine } from '@/lib/produzione'
 import type { OrdineCompleto } from '@/types/produzione'
 
 const styles = StyleSheet.create({
@@ -54,7 +55,7 @@ export default function OrdinePDF({
           </View>
         </View>
 
-        <Text style={styles.titolo}>Ordine fornitore {ordine.numero_ordine}</Text>
+        <Text style={styles.titolo}>Ordine fornitore {formattaNumeroOrdine(ordine.numero_ordine)}</Text>
 
         <View style={styles.blocco}>
           <Text><Text style={styles.grassetto}>Fornitore: </Text>{fornitoreNome}</Text>

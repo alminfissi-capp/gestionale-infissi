@@ -3,7 +3,12 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
-import { calcolaTotaleOrdine, isInRitardo, prossimoNumeroOrdine } from '@/lib/produzione'
+import {
+  calcolaTotaleOrdine,
+  isInRitardo,
+  normalizzaNumeroOrdine,
+  prossimoNumeroOrdine,
+} from '@/lib/produzione'
 import { STATI_COMMESSA_APERTI, TIPI_DOCUMENTO_PRODUZIONE_VALUES } from '@/types/produzione'
 import type {
   OrdineCompleto,
@@ -318,7 +323,11 @@ export async function createOrdine(input: OrdineInput): Promise<string> {
   const { righe, ...testata } = input
   const { data, error } = await supabase
     .from('ordini_fornitore')
-    .insert({ ...testata, organization_id: orgId })
+    .insert({
+      ...testata,
+      numero_ordine: normalizzaNumeroOrdine(testata.numero_ordine),
+      organization_id: orgId,
+    })
     .select('id')
     .single()
   if (error || !data) throw new Error(error?.message ?? 'Errore creazione ordine')
@@ -333,7 +342,11 @@ export async function updateOrdine(id: string, input: OrdineInput): Promise<void
   const { righe, ...testata } = input
   const { error } = await supabase
     .from('ordini_fornitore')
-    .update({ ...testata, updated_at: new Date().toISOString() })
+    .update({
+      ...testata,
+      numero_ordine: normalizzaNumeroOrdine(testata.numero_ordine),
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', id)
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)

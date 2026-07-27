@@ -16,6 +16,7 @@ import DialogVisualizzatore from './DialogVisualizzatore'
 import OrdinePDF from './OrdinePDF'
 import type { IntestazionePDF } from './OrdinePDF'
 import { formatEuro } from '@/lib/pricing'
+import { formattaNumeroOrdine } from '@/lib/produzione'
 import { deleteOrdine, setStatoOrdine } from '@/actions/produzione'
 import { salvaPdfOrdine } from '@/actions/produzione-pdf'
 import { getAllegatiOrdine } from '@/actions/produzione-allegati'
@@ -87,7 +88,7 @@ export default function ProduzioneCommessa({ commessa, ordini, fornitori, numero
   const generaPdf = async (o: OrdineCompleto) => {
     const attesa = toast.loading('Generazione PDF in corso...')
     try {
-      const nomeFile = `Ordine ${o.numero_ordine || o.id.slice(0, 8)}.pdf`
+      const nomeFile = `${formattaNumeroOrdine(o.numero_ordine) || `ORD ${o.id.slice(0, 8)}`}.pdf`
       const baseBlob = await pdf(
         <OrdinePDF
           ordine={o}
@@ -197,7 +198,7 @@ export default function ProduzioneCommessa({ commessa, ordini, fornitori, numero
               <tbody>
                 {ordini.map((o) => (
                   <tr key={o.id} className="border-t border-gray-200 dark:border-gray-800">
-                    <td className="p-2">{o.numero_ordine || '—'}</td>
+                    <td className="p-2">{formattaNumeroOrdine(o.numero_ordine) || '—'}</td>
                     <td className="p-2">{o.fornitore_nome ?? '—'}</td>
                     <td className="p-2">
                       <span className={o.in_ritardo ? 'text-red-600 font-medium inline-flex items-center gap-1' : ''}>

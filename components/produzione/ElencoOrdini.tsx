@@ -14,6 +14,7 @@ import DialogVisualizzatore from './DialogVisualizzatore'
 import OrdinePDF from './OrdinePDF'
 import type { IntestazionePDF } from './OrdinePDF'
 import { formatEuro } from '@/lib/pricing'
+import { formattaNumeroOrdine } from '@/lib/produzione'
 import { deleteOrdine, setStatoOrdine } from '@/actions/produzione'
 import { salvaPdfOrdine } from '@/actions/produzione-pdf'
 import { getAllegatiOrdine } from '@/actions/produzione-allegati'
@@ -83,7 +84,7 @@ export default function ElencoOrdini({ ordini, fornitori, commesse, numeroPropos
     try {
       const numeroCommessa = o.commessa_id ? (o.numero_commessa || 'Commessa') : 'Magazzino'
       const clienteNome = o.commessa_id ? (o.cliente_nome || '') : ''
-      const nomeFile = `Ordine ${o.numero_ordine || o.id.slice(0, 8)}.pdf`
+      const nomeFile = `${formattaNumeroOrdine(o.numero_ordine) || `ORD ${o.id.slice(0, 8)}`}.pdf`
       const baseBlob = await pdf(
         <OrdinePDF
           ordine={o}
@@ -174,7 +175,7 @@ export default function ElencoOrdini({ ordini, fornitori, commesse, numeroPropos
             <tbody>
               {ordini.map((o) => (
                 <tr key={o.id} className="border-t border-gray-200 dark:border-gray-800">
-                  <td className="p-2">{o.numero_ordine || '—'}</td>
+                  <td className="p-2">{formattaNumeroOrdine(o.numero_ordine) || '—'}</td>
                   <td className="p-2">{o.fornitore_nome ?? '—'}</td>
                   <td className="p-2">
                     {o.commessa_id ? (

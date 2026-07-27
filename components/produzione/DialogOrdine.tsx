@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import RigheOrdine from './RigheOrdine'
 import AllegatiOrdine from './AllegatiOrdine'
 import { formatEuro } from '@/lib/pricing'
-import { calcolaTotaleOrdine } from '@/lib/produzione'
+import { calcolaTotaleOrdine, normalizzaNumeroOrdine, PREFISSO_ORDINE } from '@/lib/produzione'
 import { createOrdine, updateOrdine } from '@/actions/produzione'
 import { STATI_ORDINE } from '@/types/produzione'
 import type { OrdineCompleto, RigaOrdineInput, StatoOrdine, CommessaOpzione } from '@/types/produzione'
@@ -53,7 +53,7 @@ export default function DialogOrdine({
     if (!open) return
     setFornitoreId(ordine?.fornitore_id ?? '')
     setCommessaSel(ordine?.commessa_id ?? commessaId ?? MAGAZZINO)
-    setNumero(ordine?.numero_ordine ?? numeroProposto)
+    setNumero(ordine ? normalizzaNumeroOrdine(ordine.numero_ordine) : numeroProposto)
     setDataOrdine(ordine?.data_ordine ?? oggiISO())
     setConsegna(ordine?.data_consegna_prevista ?? '')
     setStato(ordine?.stato ?? 'da_ordinare')
@@ -143,7 +143,17 @@ export default function DialogOrdine({
             </div>
             <div className="space-y-1.5">
               <Label>Numero ordine</Label>
-              <Input value={numero} onChange={(e) => setNumero(e.target.value)} />
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 dark:text-gray-400">
+                  {PREFISSO_ORDINE}
+                </span>
+                <Input
+                  className="pl-11"
+                  placeholder="011-2026"
+                  value={numero}
+                  onChange={(e) => setNumero(e.target.value)}
+                />
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label>Data ordine</Label>

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getOrgId } from '@/lib/auth'
 import { getSettings } from '@/actions/impostazioni'
+import { formattaNumeroOrdine } from '@/lib/produzione'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -50,14 +51,16 @@ export async function POST(request: Request) {
     const azienda = settings?.denominazione || 'Azienda'
     const fromEmail = settings?.email || 'onboarding@resend.dev'
 
+    const numeroOrdine = formattaNumeroOrdine(ordine.numero_ordine)
+
     const { error: sendError } = await resend.emails.send({
       from: `${azienda} <${fromEmail}>`,
       to: fornitore.email,
-      subject: `Ordine ${ordine.numero_ordine}`,
-      text: `Buongiorno,\n\nin allegato l'ordine ${ordine.numero_ordine}.\n\nCordiali saluti\n${azienda}`,
+      subject: `Ordine ${numeroOrdine}`,
+      text: `Buongiorno,\n\nin allegato l'ordine ${numeroOrdine}.\n\nCordiali saluti\n${azienda}`,
       attachments: [
         {
-          filename: `Ordine ${ordine.numero_ordine}.pdf`,
+          filename: `${numeroOrdine || `ORD ${ordine.id.slice(0, 8)}`}.pdf`,
           content: Buffer.from(await file.arrayBuffer()),
         },
       ],

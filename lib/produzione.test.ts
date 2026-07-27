@@ -4,6 +4,9 @@ import {
   calcolaTotaleOrdine,
   isInRitardo,
   prossimoNumeroOrdine,
+  parseNumeroOrdine,
+  normalizzaNumeroOrdine,
+  formattaNumeroOrdine,
 } from '@/lib/produzione'
 
 describe('calcolaTotaleRigaOrdine', () => {
@@ -73,22 +76,82 @@ describe('isInRitardo', () => {
 
 describe('prossimoNumeroOrdine', () => {
   it('parte da 001 se non ci sono ordini per quell anno', () => {
-    expect(prossimoNumeroOrdine([], 2026)).toBe('2026-001')
+    expect(prossimoNumeroOrdine([], 2026)).toBe('001-2026')
   })
 
   it('incrementa il massimo dell anno', () => {
-    expect(prossimoNumeroOrdine(['2026-001', '2026-002'], 2026)).toBe('2026-003')
+    expect(prossimoNumeroOrdine(['001-2026', '002-2026'], 2026)).toBe('003-2026')
   })
 
   it('ignora gli anni diversi', () => {
-    expect(prossimoNumeroOrdine(['2025-009', '2026-001'], 2026)).toBe('2026-002')
+    expect(prossimoNumeroOrdine(['009-2025', '001-2026'], 2026)).toBe('002-2026')
   })
 
   it('ignora i numeri non conformi inseriti a mano', () => {
-    expect(prossimoNumeroOrdine(['ordine urgente', '2026-004'], 2026)).toBe('2026-005')
+    expect(prossimoNumeroOrdine(['ordine urgente', '004-2026'], 2026)).toBe('005-2026')
   })
 
   it('usa il massimo, non il conteggio, se ci sono buchi', () => {
-    expect(prossimoNumeroOrdine(['2026-001', '2026-007'], 2026)).toBe('2026-008')
+    expect(prossimoNumeroOrdine(['001-2026', '007-2026'], 2026)).toBe('008-2026')
+  })
+
+  it('tiene conto dei numeri nel vecchio formato AAAA-NNN', () => {
+    expect(prossimoNumeroOrdine(['2026-010', '003-2026'], 2026)).toBe('011-2026')
+  })
+})
+
+describe('parseNumeroOrdine', () => {
+  it('legge il formato NNN-AAAA', () => {
+    expect(parseNumeroOrdine('011-2026')).toEqual({ progressivo: 11, anno: 2026 })
+  })
+
+  it('legge il vecchio formato AAAA-NNN', () => {
+    expect(parseNumeroOrdine('2026-011')).toEqual({ progressivo: 11, anno: 2026 })
+  })
+
+  it('accetta la sigla davanti', () => {
+    expect(parseNumeroOrdine('ORD 011-2026')).toEqual({ progressivo: 11, anno: 2026 })
+  })
+
+  it('restituisce null sui numeri liberi', () => {
+    expect(parseNumeroOrdine('ordine urgente')).toBeNull()
+    expect(parseNumeroOrdine('')).toBeNull()
+  })
+})
+
+describe('normalizzaNumeroOrdine', () => {
+  it('porta il vecchio formato al nuovo', () => {
+    expect(normalizzaNumeroOrdine('2026-011')).toBe('011-2026')
+  })
+
+  it('toglie la sigla e riempie di zeri', () => {
+    expect(normalizzaNumeroOrdine('ORD 11-2026')).toBe('011-2026')
+  })
+
+  it('lascia intatti i numeri liberi', () => {
+    expect(normalizzaNumeroOrdine('  ordine urgente ')).toBe('ordine urgente')
+  })
+})
+
+describe('formattaNumeroOrdine', () => {
+  it('antepone la sigla ORD', () => {
+    expect(formattaNumeroOrdine('011-2026')).toBe('ORD 011-2026')
+  })
+
+  it('converte il vecchio formato', () => {
+    expect(formattaNumeroOrdine('2026-011')).toBe('ORD 011-2026')
+  })
+
+  it('non raddoppia la sigla', () => {
+    expect(formattaNumeroOrdine('ORD 011-2026')).toBe('ORD 011-2026')
+  })
+
+  it('restituisce stringa vuota se il numero manca', () => {
+    expect(formattaNumeroOrdine(null)).toBe('')
+    expect(formattaNumeroOrdine('   ')).toBe('')
+  })
+
+  it('mostra come sono i numeri liberi', () => {
+    expect(formattaNumeroOrdine('ordine urgente')).toBe('ordine urgente')
   })
 })
