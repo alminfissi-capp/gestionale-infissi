@@ -21,6 +21,7 @@ import { salvaPdfOrdine } from '@/actions/produzione-pdf'
 import { getAllegatiOrdine } from '@/actions/produzione-allegati'
 import { getDocumentoSignedUrl } from '@/actions/produzione-documenti'
 import { unisciAllegatiAlPdf, type AllegatoDaUnire } from '@/lib/produzione-allegati-pdf'
+import { conFallbackInvio, TRACKING_VUOTO } from '@/lib/produzione-tracking'
 import { STATI_ORDINE } from '@/types/produzione'
 import type { OrdineConContesto, OrdineCompleto, StatoOrdine, CommessaOpzione, TrackingOrdine } from '@/types/produzione'
 
@@ -89,6 +90,7 @@ export default function ElencoOrdini({
       const numeroCommessa = o.commessa_id ? (o.numero_commessa || 'Commessa') : 'Magazzino'
       const clienteNome = o.commessa_id ? (o.cliente_nome || '') : ''
       const nomeFile = `${formattaNumeroOrdine(o.numero_ordine) || `ORD ${o.id.slice(0, 8)}`}.pdf`
+      const trackingOrdine = conFallbackInvio(tracking[o.id] ?? TRACKING_VUOTO, o.inviato_at)
       const baseBlob = await pdf(
         <OrdinePDF
           ordine={o}
@@ -96,6 +98,7 @@ export default function ElencoOrdini({
           fornitoreNome={o.fornitore_nome ?? 'Fornitore non indicato'}
           numeroCommessa={numeroCommessa}
           clienteNome={clienteNome}
+          tracking={trackingOrdine}
         />
       ).toBlob()
 

@@ -23,6 +23,7 @@ import { salvaPdfOrdine } from '@/actions/produzione-pdf'
 import { getAllegatiOrdine } from '@/actions/produzione-allegati'
 import { getDocumentoSignedUrl } from '@/actions/produzione-documenti'
 import { unisciAllegatiAlPdf, type AllegatoDaUnire } from '@/lib/produzione-allegati-pdf'
+import { conFallbackInvio, TRACKING_VUOTO } from '@/lib/produzione-tracking'
 import { STATI_ORDINE } from '@/types/produzione'
 import type { OrdineCompleto, StatoOrdine, TrackingOrdine } from '@/types/produzione'
 import type { StatoCommessa, DocumentoCommessa } from '@/types/commessa'
@@ -93,6 +94,7 @@ export default function ProduzioneCommessa({
     const attesa = toast.loading('Generazione PDF in corso...')
     try {
       const nomeFile = `${formattaNumeroOrdine(o.numero_ordine) || `ORD ${o.id.slice(0, 8)}`}.pdf`
+      const trackingOrdine = conFallbackInvio(tracking[o.id] ?? TRACKING_VUOTO, o.inviato_at)
       const baseBlob = await pdf(
         <OrdinePDF
           ordine={o}
@@ -100,6 +102,7 @@ export default function ProduzioneCommessa({
           fornitoreNome={o.fornitore_nome ?? 'Fornitore non indicato'}
           numeroCommessa={commessa.numero_commessa}
           clienteNome={commessa.cliente_nome}
+          tracking={trackingOrdine}
         />
       ).toBlob()
 
@@ -125,7 +128,8 @@ export default function ProduzioneCommessa({
       blobUrlRef.current = objectUrl
       setViewer({ url: objectUrl, nome: nomeFile })
 
-      // Archivia e lega il PDF all'ordine (è quello che riceve il fornitore).
+      // Archivia e lega il PDF all'ordine: è la copia interna, quella del
+      // fornitore viene congelata al momento dell'invio in pdf_inviato_path.
       const base64 = Buffer.from(outBytes).toString('base64')
       const { error } = await salvaPdfOrdine(o.id, commessa.id, base64, nomeFile)
       toast.dismiss(attesa)
