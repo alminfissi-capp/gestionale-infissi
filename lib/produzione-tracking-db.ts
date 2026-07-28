@@ -43,9 +43,9 @@ export async function registraEvento(
   tipo: TipoEventoTracking,
   dati: DatiEvento = {}
 ): Promise<void> {
-  const service = createServiceClient()
-
   try {
+    const service = createServiceClient()
+
     if (dati.dedupSecondi && dati.dedupSecondi > 0) {
       const soglia = new Date(Date.now() - dati.dedupSecondi * 1000).toISOString()
       const { data: recenti } = await service
