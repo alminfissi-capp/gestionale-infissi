@@ -856,7 +856,9 @@ export default function StatoInvioOrdine({ tracking, inviatoAt }: Props) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className="inline-flex" role="img" aria-label={descrizione} title={descrizione}>
+        {/* Niente attributo title: raddoppierebbe il tooltip di shadcn.
+            L'aria-label porta lo stesso testo agli screen reader. */}
+        <span className="inline-flex" role="img" aria-label={descrizione}>
           {icona}
         </span>
       </TooltipTrigger>
