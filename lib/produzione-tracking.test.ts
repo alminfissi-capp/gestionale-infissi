@@ -128,6 +128,11 @@ describe('formattaDataOra', () => {
     expect(formattaDataOra(INVIO)).toBe('28/07/2026 11:42')
   })
 
+  it('formatta correttamente anche in ora solare (CET, +1h)', () => {
+    // 09:42 UTC in gennaio = 10:42 a Roma
+    expect(formattaDataOra('2026-01-15T09:42:00.000Z')).toBe('15/01/2026 10:42')
+  })
+
   it('restituisce stringa vuota su null o data non valida', () => {
     expect(formattaDataOra(null)).toBe('')
     expect(formattaDataOra('non-una-data')).toBe('')
