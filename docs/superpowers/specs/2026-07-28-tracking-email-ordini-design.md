@@ -103,7 +103,7 @@ assumere l'onere, le due colonne si tolgono senza impatto sul resto del disegno.
 
 ## Componenti
 
-### `lib/produzione-tracking.ts` — logica pura, testata
+### `types/produzione.ts` — tipi
 
 ```ts
 export type TipoEventoTracking = 'inviato' | 'email_aperta' | 'pagina_aperta' | 'pdf_scaricato'
@@ -126,21 +126,46 @@ export type TrackingOrdine = {
   aperture: number                  // pagina_aperta + pdf_scaricato dopo l'ultimo invio
   invii: number                     // totale eventi 'inviato', storico completo
 }
+```
 
+### `lib/produzione-tracking.ts` — logica pura, testata
+
+```ts
+export const TRACKING_VUOTO: TrackingOrdine
 export function riassumiEventi(eventi: EventoTracking[]): TrackingOrdine
+export function conFallbackInvio(t: TrackingOrdine, inviatoAt: string | null): TrackingOrdine
+export function formattaDataOra(iso: string | null): string
+export function righeTooltip(t: TrackingOrdine): string[]
+export function righeFooterPdf(t: TrackingOrdine): string[]
 ```
 
 `riassumiEventi` prende tutti gli eventi di un ordine, individua l'ultimo `inviato` e considera
 solo ciò che è successo dopo. `stato = 'letto'` se esiste almeno un evento di lettura di qualsiasi
-tipo dopo l'ultimo invio. Nessuna dipendenza da React o Supabase, testabile in isolamento.
+tipo dopo l'ultimo invio. `conFallbackInvio` copre gli ordini spediti prima di questa funzione, che
+hanno `inviato_at` ma nessun evento. `formattaDataOra` fissa il fuso a `Europe/Rome`: il server gira
+in UTC e una prova di consegna deve riportare l'ora di casa. `righeTooltip` e `righeFooterPdf`
+costruiscono i testi, così i componenti restano privi di logica. Nessuna dipendenza da React o
+Supabase, testabile in isolamento.
 
 ### `actions/produzione-tracking.ts`
 
-- `getTrackingOrdini(ordineIds: string[]): Promise<Map<string, TrackingOrdine>>` — una sola query
-  `in('ordine_id', ordineIds)` filtrata per org, poi `riassumiEventi` per gruppo. Ritorna una mappa
-  vuota per array vuoto senza interrogare il database.
-- `registraEvento(ordineId, orgId, tipo, dati)` — usata dalle route server, scrive con il service
-  client. Riceve `orgId` come argomento perché sui percorsi pubblici non c'è sessione utente.
+- `getTrackingOrdini(ordineIds: string[]): Promise<Record<string, TrackingOrdine>>` — una sola query
+  `in('ordine_id', ordineIds)` filtrata per org, poi `riassumiEventi` per gruppo. Ritorna un oggetto
+  vuoto per array vuoto senza interrogare il database. Oggetto e non `Map` perché attraversa il
+  confine Server → Client Component.
+
+### `lib/produzione-tracking-db.ts`
+
+Modulo normale, **non** `'use server'`: ogni export di un file `'use server'` diventa un endpoint
+pubblico, e una funzione che scrive eventi di consegna non può essere chiamabile da chiunque.
+Importato solo da route handler e Server Component.
+
+- `registraEvento(ordineId, organizationId, tipo, dati)` — scrive con il service client. Riceve
+  `organizationId` come argomento perché sui percorsi pubblici non c'è sessione utente. Accetta
+  `dedupSecondi` per scartare i doppioni. Non solleva mai.
+- `getOrdinePerToken(token)` — risolve il token per pixel e download.
+- `getDatiPaginaOrdine(token)` — ordine, fornitore, denominazione e logo per la pagina pubblica,
+  senza sessione utente.
 
 ### `components/produzione/StatoInvioOrdine.tsx`
 
@@ -235,6 +260,7 @@ pagine server devono quindi caricare il tracking insieme agli ordini.
 **Nuovi**
 - `supabase/migrations/20260728120000_tracking_email_ordini.sql`
 - `lib/produzione-tracking.ts` + `lib/produzione-tracking.test.ts`
+- `lib/produzione-tracking-db.ts`
 - `actions/produzione-tracking.ts`
 - `components/produzione/StatoInvioOrdine.tsx`
 - `components/ui/tooltip.tsx` (da shadcn)
@@ -245,7 +271,7 @@ pagine server devono quindi caricare il tracking insieme agli ordini.
 
 **Modificati**
 - `app/api/produzione/invia-ordine/route.ts` — email HTML, snapshot, evento
-- `types/produzione.ts` — riesporta i tipi di tracking
+- `types/produzione.ts` — tipi di tracking, `tracking_token` e `pdf_inviato_path` su `OrdineFornitore`
 - `components/produzione/OrdinePDF.tsx` — prop `tracking` e footer
 - `components/produzione/ElencoOrdini.tsx` — icona in tabella, prop al PDF
 - `components/produzione/ProduzioneCommessa.tsx` — idem
