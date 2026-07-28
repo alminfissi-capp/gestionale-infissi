@@ -100,20 +100,31 @@ export async function POST(request: Request) {
 
     const text = `Buongiorno,\n\ndi seguito l'ordine ${numeroOrdine}:\n${linkOrdine}\n\nCordiali saluti\n${azienda}`
 
-    const { error: sendError } = await resend.emails.send({
-      from: `${azienda} <${fromEmail}>`,
-      to: fornitore.email,
-      subject: `Ordine ${numeroOrdine}`,
-      html,
-      text,
-    })
+    let sendError: { message: string } | null = null
+    try {
+      const result = await resend.emails.send({
+        from: `${azienda} <${fromEmail}>`,
+        to: fornitore.email,
+        subject: `Ordine ${numeroOrdine}`,
+        html,
+        text,
+      })
+      sendError = result.error
+    } catch (e) {
+      // L'SDK ha lanciato invece di restituire { error }: lo snapshot va rimosso comunque.
+      await service.storage.from('commesse-docs').remove([snapshotPath])
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : 'Errore invio email' },
+        { status: 500 }
+      )
+    }
     if (sendError) {
       // L'email non è partita: lo snapshot appena caricato non serve.
       await service.storage.from('commesse-docs').remove([snapshotPath])
       return NextResponse.json({ error: sendError.message }, { status: 500 })
     }
 
-    await supabase
+    const { error: updateError } = await supabase
       .from('ordini_fornitore')
       .update({
         inviato_at: new Date().toISOString(),
@@ -125,9 +136,20 @@ export async function POST(request: Request) {
       .eq('id', ordineId)
       .eq('organization_id', orgId)
 
+    if (updateError) {
+      // L'email è già partita: non mentire all'admin dicendo che tutto è andato bene,
+      // e non toccare il vecchio snapshot perché il DB continua a puntare a quello.
+      console.error('[invia-ordine] update ordine:', updateError.message)
+      return NextResponse.json(
+        { error: 'Email inviata, ma il tracking non è stato registrato: ' + updateError.message },
+        { status: 500 }
+      )
+    }
+
     await registraEvento(ordineId, orgId, 'inviato', { destinatario: fornitore.email })
 
     // Rimuove lo snapshot precedente (best effort, non blocca l'esito).
+    // Solo se l'update sopra è andato a buon fine: altrimenti il DB punta ancora al vecchio file.
     const vecchioSnapshot = ordine.pdf_inviato_path as string | null
     if (vecchioSnapshot && vecchioSnapshot !== snapshotPath) {
       await service.storage.from('commesse-docs').remove([vecchioSnapshot])
