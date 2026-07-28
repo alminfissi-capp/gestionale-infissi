@@ -13,11 +13,6 @@ export async function GET(
     return new NextResponse('Documento non disponibile', { status: 404 })
   }
 
-  await registraEvento(ordine.id, ordine.organizationId, 'pdf_scaricato', {
-    userAgent: req.headers.get('user-agent'),
-    ip: req.headers.get('x-forwarded-for'),
-  })
-
   const service = createServiceClient()
   const { data, error } = await service.storage
     .from('commesse-docs')
@@ -25,6 +20,11 @@ export async function GET(
   if (error || !data) {
     return new NextResponse('Documento non disponibile', { status: 404 })
   }
+
+  await registraEvento(ordine.id, ordine.organizationId, 'pdf_scaricato', {
+    userAgent: req.headers.get('user-agent'),
+    ip: req.headers.get('x-forwarded-for'),
+  })
 
   const nomeFile = `${formattaNumeroOrdine(ordine.numeroOrdine) || 'Ordine'}.pdf`
 
