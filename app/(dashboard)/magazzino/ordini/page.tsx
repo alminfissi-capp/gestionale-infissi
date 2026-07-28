@@ -2,6 +2,7 @@ import {
   getTuttiGliOrdini, getFornitoriPerOrdine, getCommessePerOrdine, getProssimoNumeroOrdine,
 } from '@/actions/produzione'
 import { getSettings, getLogoSignedUrl } from '@/actions/impostazioni'
+import { getTrackingOrdini } from '@/actions/produzione-tracking'
 import ElencoOrdini from '@/components/produzione/ElencoOrdini'
 
 export const dynamic = 'force-dynamic'
@@ -14,6 +15,8 @@ export default async function OrdiniMagazzinoPage() {
     getProssimoNumeroOrdine(),
     getSettings(),
   ])
+
+  const tracking = await getTrackingOrdini(ordini.map((o) => o.id))
 
   const logoUrl = settings?.logo_url ? await getLogoSignedUrl(settings.logo_url) : null
 
@@ -39,6 +42,7 @@ export default async function OrdiniMagazzinoPage() {
         commesse={commesse}
         numeroProposto={numeroProposto}
         intestazione={intestazione}
+        tracking={tracking}
       />
     </div>
   )

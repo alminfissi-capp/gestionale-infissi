@@ -13,6 +13,7 @@ import DialogOrdine from './DialogOrdine'
 import DialogVisualizzatore from './DialogVisualizzatore'
 import OrdinePDF from './OrdinePDF'
 import type { IntestazionePDF } from './OrdinePDF'
+import StatoInvioOrdine from '@/components/produzione/StatoInvioOrdine'
 import { formatEuro } from '@/lib/pricing'
 import { formattaNumeroOrdine } from '@/lib/produzione'
 import { deleteOrdine, setStatoOrdine } from '@/actions/produzione'
@@ -21,7 +22,7 @@ import { getAllegatiOrdine } from '@/actions/produzione-allegati'
 import { getDocumentoSignedUrl } from '@/actions/produzione-documenti'
 import { unisciAllegatiAlPdf, type AllegatoDaUnire } from '@/lib/produzione-allegati-pdf'
 import { STATI_ORDINE } from '@/types/produzione'
-import type { OrdineConContesto, OrdineCompleto, StatoOrdine, CommessaOpzione } from '@/types/produzione'
+import type { OrdineConContesto, OrdineCompleto, StatoOrdine, CommessaOpzione, TrackingOrdine } from '@/types/produzione'
 
 interface Props {
   ordini: OrdineConContesto[]
@@ -29,9 +30,12 @@ interface Props {
   commesse: CommessaOpzione[]
   numeroProposto: string
   intestazione: IntestazionePDF
+  tracking: Record<string, TrackingOrdine>
 }
 
-export default function ElencoOrdini({ ordini, fornitori, commesse, numeroProposto, intestazione }: Props) {
+export default function ElencoOrdini({
+  ordini, fornitori, commesse, numeroProposto, intestazione, tracking,
+}: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [inModifica, setInModifica] = useState<OrdineCompleto | null>(null)
@@ -168,6 +172,7 @@ export default function ElencoOrdini({ ordini, fornitori, commesse, numeroPropos
                 <th className="p-2 font-medium">Commessa</th>
                 <th className="p-2 font-medium">Consegna</th>
                 <th className="p-2 font-medium">Stato</th>
+                <th className="p-2 font-medium text-center">Invio</th>
                 <th className="p-2 font-medium text-right">Totale</th>
                 <th className="p-2" />
               </tr>
@@ -204,6 +209,9 @@ export default function ElencoOrdini({ ordini, fornitori, commesse, numeroPropos
                         ))}
                       </SelectContent>
                     </Select>
+                  </td>
+                  <td className="p-2 text-center">
+                    <StatoInvioOrdine tracking={tracking[o.id]} inviatoAt={o.inviato_at} />
                   </td>
                   <td className="p-2 text-right">{formatEuro(o.totale)}</td>
                   <td className="p-2 text-right whitespace-nowrap">
