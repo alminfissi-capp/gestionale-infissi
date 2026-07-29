@@ -5,6 +5,7 @@ import {
 } from '@/actions/produzione'
 import { getDocumentiProduzione } from '@/actions/produzione-documenti'
 import { getSettings, getLogoSignedUrl } from '@/actions/impostazioni'
+import { getTrackingOrdini } from '@/actions/produzione-tracking'
 import ProduzioneCommessa from '@/components/produzione/ProduzioneCommessa'
 
 export const dynamic = 'force-dynamic'
@@ -28,6 +29,8 @@ export default async function ProduzioneCommessaPage({
     getSettings(),
   ])
 
+  const tracking = await getTrackingOrdini(ordini.map((o) => o.id))
+
   const logoUrl = settings?.logo_url ? await getLogoSignedUrl(settings.logo_url) : null
 
   const intestazione = {
@@ -45,6 +48,7 @@ export default async function ProduzioneCommessaPage({
       numeroProposto={numeroProposto}
       documenti={documenti}
       intestazione={intestazione}
+      tracking={tracking}
     />
   )
 }

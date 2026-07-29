@@ -75,6 +75,8 @@ export type OrdineFornitore = {
   stato: StatoOrdine
   pdf_path: string | null
   inviato_at: string | null
+  tracking_token: string | null
+  pdf_inviato_path: string | null
   note: string | null
   created_at: string
   updated_at: string
@@ -130,4 +132,33 @@ export type CommessaProduzione = {
   ordini_aperti: number
   ordini_in_ritardo: number
   documenti: number
+}
+
+export type TipoEventoTracking =
+  | 'inviato'
+  | 'email_aperta'
+  | 'pagina_aperta'
+  | 'pdf_scaricato'
+
+/** Riga di `tracking_email_ordine`, nella forma che serve al riepilogo. */
+export type EventoTracking = {
+  tipo: TipoEventoTracking
+  avvenuto_at: string
+  destinatario: string | null
+}
+
+export type StatoInvio = 'non_inviato' | 'inviato' | 'letto'
+
+/** Stato corrente derivato dagli eventi successivi all'ultimo invio. */
+export type TrackingOrdine = {
+  stato: StatoInvio
+  inviatoAt: string | null
+  destinatario: string | null
+  emailApertaAt: string | null
+  paginaApertaAt: string | null
+  pdfScaricatoAt: string | null
+  /** Aperture pagina + download dopo l'ultimo invio. */
+  aperture: number
+  /** Quante volte l'ordine è stato inviato in tutto. */
+  invii: number
 }

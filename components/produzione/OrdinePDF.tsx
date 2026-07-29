@@ -3,10 +3,11 @@
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer'
 import { formatEuro } from '@/lib/pricing'
 import { formattaNumeroOrdine } from '@/lib/produzione'
-import type { OrdineCompleto } from '@/types/produzione'
+import { isModificatoDopoInvio, righeFooterPdf } from '@/lib/produzione-tracking'
+import type { OrdineCompleto, TrackingOrdine } from '@/types/produzione'
 
 const styles = StyleSheet.create({
-  page: { padding: 36, fontSize: 10, fontFamily: 'Helvetica' },
+  page: { padding: 36, paddingBottom: 64, fontSize: 10, fontFamily: 'Helvetica' },
   intestazioneAzienda: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 12 },
   logo: { height: 48, maxWidth: 130, objectFit: 'contain' },
   titolo: { fontSize: 16, fontFamily: 'Helvetica-Bold', marginBottom: 12 },
@@ -23,6 +24,17 @@ const styles = StyleSheet.create({
   grassetto: { fontFamily: 'Helvetica-Bold' },
   totale: { marginTop: 10, textAlign: 'right', fontSize: 12, fontFamily: 'Helvetica-Bold' },
   note: { marginTop: 16, color: '#444' },
+  piePagina: {
+    position: 'absolute',
+    bottom: 24,
+    left: 36,
+    right: 36,
+    borderTopWidth: 0.5,
+    borderTopColor: '#ccc',
+    paddingTop: 6,
+    fontSize: 8,
+    color: '#666',
+  },
 })
 
 export type IntestazionePDF = {
@@ -38,11 +50,18 @@ interface Props {
   fornitoreNome: string
   numeroCommessa: string
   clienteNome: string
+  /** Ricevuta di consegna: assente finché l'ordine non è stato inviato. */
+  tracking?: TrackingOrdine
 }
 
 export default function OrdinePDF({
-  ordine, intestazione, fornitoreNome, numeroCommessa, clienteNome,
+  ordine, intestazione, fornitoreNome, numeroCommessa, clienteNome, tracking,
 }: Props) {
+  const modificato = isModificatoDopoInvio(
+    ordine.righe.map((r) => r.created_at),
+    tracking?.inviatoAt ?? null
+  )
+  const righeFooter = tracking ? righeFooterPdf(tracking, modificato) : []
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -98,6 +117,14 @@ export default function OrdinePDF({
         <Text style={styles.totale}>Totale: {formatEuro(ordine.totale)}</Text>
 
         {ordine.note ? <Text style={styles.note}>{ordine.note}</Text> : null}
+
+        {righeFooter.length > 0 ? (
+          <View style={styles.piePagina} fixed>
+            {righeFooter.map((riga) => (
+              <Text key={riga}>{riga}</Text>
+            ))}
+          </View>
+        ) : null}
       </Page>
     </Document>
   )

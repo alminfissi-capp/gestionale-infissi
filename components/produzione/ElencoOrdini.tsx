@@ -13,6 +13,7 @@ import DialogOrdine from './DialogOrdine'
 import DialogVisualizzatore from './DialogVisualizzatore'
 import OrdinePDF from './OrdinePDF'
 import type { IntestazionePDF } from './OrdinePDF'
+import StatoInvioOrdine from '@/components/produzione/StatoInvioOrdine'
 import { formatEuro } from '@/lib/pricing'
 import { formattaNumeroOrdine } from '@/lib/produzione'
 import { deleteOrdine, setStatoOrdine } from '@/actions/produzione'
@@ -20,8 +21,9 @@ import { salvaPdfOrdine } from '@/actions/produzione-pdf'
 import { getAllegatiOrdine } from '@/actions/produzione-allegati'
 import { getDocumentoSignedUrl } from '@/actions/produzione-documenti'
 import { unisciAllegatiAlPdf, type AllegatoDaUnire } from '@/lib/produzione-allegati-pdf'
+import { conFallbackInvio, righeFooterPdf, TRACKING_VUOTO } from '@/lib/produzione-tracking'
 import { STATI_ORDINE } from '@/types/produzione'
-import type { OrdineConContesto, OrdineCompleto, StatoOrdine, CommessaOpzione } from '@/types/produzione'
+import type { OrdineConContesto, OrdineCompleto, StatoOrdine, CommessaOpzione, TrackingOrdine } from '@/types/produzione'
 
 interface Props {
   ordini: OrdineConContesto[]
@@ -29,9 +31,12 @@ interface Props {
   commesse: CommessaOpzione[]
   numeroProposto: string
   intestazione: IntestazionePDF
+  tracking: Record<string, TrackingOrdine>
 }
 
-export default function ElencoOrdini({ ordini, fornitori, commesse, numeroProposto, intestazione }: Props) {
+export default function ElencoOrdini({
+  ordini, fornitori, commesse, numeroProposto, intestazione, tracking,
+}: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [inModifica, setInModifica] = useState<OrdineCompleto | null>(null)
@@ -79,34 +84,59 @@ export default function ElencoOrdini({ ordini, fornitori, commesse, numeroPropos
     return risultati.filter((r): r is AllegatoDaUnire => r !== null)
   }
 
+  /**
+   * Renderizza il PDF dell'ordine e vi unisce gli allegati. `trackingPerPdf`
+   * è `undefined` per la copia da archiviare (mai footer: è quella che
+   * raggiungerà il fornitore) e valorizzato per la copia mostrata a video.
+   * `avvisaAllegatiSaltati` evita il doppio toast quando si renderizza due volte.
+   */
+  const renderizzaPdf = async (
+    o: OrdineConContesto,
+    trackingPerPdf: TrackingOrdine | undefined,
+    allegati: AllegatoDaUnire[],
+    avvisaAllegatiSaltati: boolean
+  ): Promise<Uint8Array<ArrayBuffer>> => {
+    const numeroCommessa = o.commessa_id ? (o.numero_commessa || 'Commessa') : 'Magazzino'
+    const clienteNome = o.commessa_id ? (o.cliente_nome || '') : ''
+    const baseBlob = await pdf(
+      <OrdinePDF
+        ordine={o}
+        intestazione={intestazione}
+        fornitoreNome={o.fornitore_nome ?? 'Fornitore non indicato'}
+        numeroCommessa={numeroCommessa}
+        clienteNome={clienteNome}
+        tracking={trackingPerPdf}
+      />
+    ).toBlob()
+
+    const baseBuffer = await baseBlob.arrayBuffer()
+    let finaleBytes: Uint8Array = new Uint8Array(baseBuffer)
+    if (allegati.length > 0) {
+      const { bytes, saltati } = await unisciAllegatiAlPdf(baseBuffer, allegati)
+      finaleBytes = bytes
+      if (saltati.length > 0 && avvisaAllegatiSaltati) {
+        toast.warning(`Allegati non inclusi (formato non supportato): ${saltati.join(', ')}`)
+      }
+    }
+    return new Uint8Array(finaleBytes)
+  }
+
   const generaPdf = async (o: OrdineConContesto) => {
     const attesa = toast.loading('Generazione PDF in corso...')
     try {
-      const numeroCommessa = o.commessa_id ? (o.numero_commessa || 'Commessa') : 'Magazzino'
-      const clienteNome = o.commessa_id ? (o.cliente_nome || '') : ''
       const nomeFile = `${formattaNumeroOrdine(o.numero_ordine) || `ORD ${o.id.slice(0, 8)}`}.pdf`
-      const baseBlob = await pdf(
-        <OrdinePDF
-          ordine={o}
-          intestazione={intestazione}
-          fornitoreNome={o.fornitore_nome ?? 'Fornitore non indicato'}
-          numeroCommessa={numeroCommessa}
-          clienteNome={clienteNome}
-        />
-      ).toBlob()
-
-      const baseBuffer = await baseBlob.arrayBuffer()
-      let finaleBytes: Uint8Array = new Uint8Array(baseBuffer)
+      const trackingOrdine = conFallbackInvio(tracking[o.id] ?? TRACKING_VUOTO, o.inviato_at)
       const allegati = await scaricaAllegati(o.id)
-      if (allegati.length > 0) {
-        const { bytes, saltati } = await unisciAllegatiAlPdf(baseBuffer, allegati)
-        finaleBytes = bytes
-        if (saltati.length > 0) {
-          toast.warning(`Allegati non inclusi (formato non supportato): ${saltati.join(', ')}`)
-        }
-      }
 
-      const outBytes = new Uint8Array(finaleBytes)
+      // Copia da archiviare: sempre senza footer, è quella che finirà al fornitore.
+      const archivioBytes = await renderizzaPdf(o, undefined, allegati, true)
+
+      // Copia da mostrare: con footer solo se c'è già uno storico di invio da raccontare.
+      const righeFooter = righeFooterPdf(trackingOrdine)
+      const outBytes = righeFooter.length > 0
+        ? await renderizzaPdf(o, trackingOrdine, allegati, false)
+        : archivioBytes
+
       const blob = new Blob([outBytes], { type: 'application/pdf' })
 
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
@@ -114,7 +144,7 @@ export default function ElencoOrdini({ ordini, fornitori, commesse, numeroPropos
       blobUrlRef.current = objectUrl
       setViewer({ url: objectUrl, nome: nomeFile })
 
-      const base64 = Buffer.from(outBytes).toString('base64')
+      const base64 = Buffer.from(archivioBytes).toString('base64')
       const { error } = await salvaPdfOrdine(o.id, o.commessa_id, base64, nomeFile)
       toast.dismiss(attesa)
       if (error) toast.error(`PDF mostrato ma non archiviato: ${error}`)
@@ -168,6 +198,7 @@ export default function ElencoOrdini({ ordini, fornitori, commesse, numeroPropos
                 <th className="p-2 font-medium">Commessa</th>
                 <th className="p-2 font-medium">Consegna</th>
                 <th className="p-2 font-medium">Stato</th>
+                <th className="p-2 font-medium text-center">Invio</th>
                 <th className="p-2 font-medium text-right">Totale</th>
                 <th className="p-2" />
               </tr>
@@ -204,6 +235,9 @@ export default function ElencoOrdini({ ordini, fornitori, commesse, numeroPropos
                         ))}
                       </SelectContent>
                     </Select>
+                  </td>
+                  <td className="p-2 text-center">
+                    <StatoInvioOrdine tracking={tracking[o.id]} inviatoAt={o.inviato_at} />
                   </td>
                   <td className="p-2 text-right">{formatEuro(o.totale)}</td>
                   <td className="p-2 text-right whitespace-nowrap">
