@@ -26,7 +26,10 @@ export async function GET(
     ip: req.headers.get('x-forwarded-for'),
   })
 
-  const nomeFile = `${formattaNumeroOrdine(ordine.numeroOrdine) || 'Ordine'}.pdf`
+  const numeroPulito = formattaNumeroOrdine(ordine.numeroOrdine)
+    .replace(/[\x00-\x1f\x7f"]/g, '')
+    .trim()
+  const nomeFile = `${numeroPulito || 'Ordine'}.pdf`
 
   return new NextResponse(await data.arrayBuffer(), {
     status: 200,
