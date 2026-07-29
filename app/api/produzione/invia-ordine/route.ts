@@ -146,12 +146,17 @@ export async function POST(request: Request) {
       )
     }
 
-    await registraEvento(ordineId, orgId, 'inviato', { destinatario: fornitore.email })
+    await registraEvento(ordineId, orgId, 'inviato', {
+      destinatario: fornitore.email,
+      pdfPath: snapshotPath,
+    })
 
     // Le copie congelate degli invii precedenti NON vengono rimosse, di proposito:
     // ogni evento 'inviato' nel registro deve continuare a puntare al documento
     // che è stato davvero consegnato quel giorno. Il path porta già un timestamp,
-    // quindi i vari snapshot non collidono mai tra loro.
+    // quindi i vari snapshot non collidono mai tra loro. Da questa modifica in poi,
+    // ogni evento 'inviato' porta anche il proprio pdf_path: la copia congelata
+    // resta ricollegabile all'invio esatto che l'ha prodotta, anche dopo un reinvio.
 
     return NextResponse.json({ ok: true })
   } catch (e) {

@@ -29,6 +29,8 @@ type DatiEvento = {
   destinatario?: string | null
   userAgent?: string | null
   ip?: string | null
+  /** Path storage della copia congelata inviata in questo evento (solo tipo='inviato'). */
+  pdfPath?: string | null
   /** Se valorizzato, non scrive se esiste già lo stesso evento entro N secondi. */
   dedupSecondi?: number
 }
@@ -65,6 +67,7 @@ export async function registraEvento(
       destinatario: dati.destinatario ?? null,
       user_agent: dati.userAgent ?? null,
       ip: dati.ip ?? null,
+      pdf_path: dati.pdfPath ?? null,
     })
     if (error) console.error('[tracking ordine] insert:', error.message)
   } catch (e) {
