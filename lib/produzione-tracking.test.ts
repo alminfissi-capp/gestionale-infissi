@@ -5,6 +5,7 @@ import {
   formattaDataOra,
   righeTooltip,
   righeFooterPdf,
+  isModificatoDopoInvio,
   TRACKING_VUOTO,
 } from '@/lib/produzione-tracking'
 import type { EventoTracking } from '@/types/produzione'
@@ -212,5 +213,50 @@ describe('righeFooterPdf', () => {
       'Inviato a rossi@esempio.it il 28/07/2026 11:42',
       'Email aperta dal destinatario il 28/07/2026 13:10',
     ])
+  })
+
+  it('con il flag di modifica attivo su un ordine inviato e letto, l ultima riga è l avviso', () => {
+    const t = riassumiEventi([
+      ev('inviato', INVIO, 'rossi@esempio.it'),
+      ev('pagina_aperta', APERTURA_PAGINA),
+      ev('pdf_scaricato', DOWNLOAD),
+    ])
+    const righe = righeFooterPdf(t, true)
+    expect(righe[righe.length - 1]).toBe(
+      "Documento modificato dopo l'invio: le date si riferiscono alla versione spedita"
+    )
+    expect(righe).toEqual([
+      'Inviato a rossi@esempio.it il 28/07/2026 11:42',
+      'Documento aperto dal destinatario il 28/07/2026 14:00',
+      "Documento modificato dopo l'invio: le date si riferiscono alla versione spedita",
+    ])
+  })
+
+  it('con il flag di modifica attivo su un ordine mai inviato, resta array vuoto', () => {
+    expect(righeFooterPdf(TRACKING_VUOTO, true)).toEqual([])
+  })
+})
+
+describe('isModificatoDopoInvio', () => {
+  it('con inviatoAt nullo risulta falso', () => {
+    expect(isModificatoDopoInvio([INVIO], null)).toBe(false)
+  })
+
+  it('con tutte le righe precedenti all invio risulta falso', () => {
+    const primaDellInvio = '2026-07-28T09:00:00.000Z'
+    expect(isModificatoDopoInvio([primaDellInvio], INVIO)).toBe(false)
+  })
+
+  it('con array di righe vuoto risulta falso', () => {
+    expect(isModificatoDopoInvio([], INVIO)).toBe(false)
+  })
+
+  it('con una riga successiva all invio risulta vero', () => {
+    const dopoLInvio = '2026-07-28T10:00:00.000Z'
+    expect(isModificatoDopoInvio([dopoLInvio], INVIO)).toBe(true)
+  })
+
+  it('con una riga di timestamp identico all invio risulta falso (confronto stretto)', () => {
+    expect(isModificatoDopoInvio([INVIO], INVIO)).toBe(false)
   })
 })

@@ -97,8 +97,22 @@ export function righeTooltip(t: TrackingOrdine): string[] {
   return righe
 }
 
+/**
+ * Vero se l'ordine è stato modificato dopo l'ultimo invio. Si basa sulle righe
+ * perché `updateOrdine` le ricrea tutte a ogni salvataggio, mentre `updated_at`
+ * della testata viene toccato anche dalla semplice Anteprima.
+ */
+export function isModificatoDopoInvio(
+  righeCreatedAt: string[],
+  inviatoAt: string | null
+): boolean {
+  if (!inviatoAt) return false
+  const soglia = Date.parse(inviatoAt)
+  return righeCreatedAt.some((c) => Date.parse(c) > soglia)
+}
+
 /** Righe del footer sul PDF: la ricevuta di consegna, sintetica. */
-export function righeFooterPdf(t: TrackingOrdine): string[] {
+export function righeFooterPdf(t: TrackingOrdine, modificatoDopoInvio = false): string[] {
   if (t.stato === 'non_inviato' || !t.inviatoAt) return []
 
   const righe = [rigaInvio(t)]
@@ -111,6 +125,10 @@ export function righeFooterPdf(t: TrackingOrdine): string[] {
     righe.push(`Documento aperto dal destinatario il ${formattaDataOra(prima)}`)
   } else if (t.emailApertaAt) {
     righe.push(`Email aperta dal destinatario il ${formattaDataOra(t.emailApertaAt)}`)
+  }
+
+  if (modificatoDopoInvio) {
+    righe.push(`Documento modificato dopo l'invio: le date si riferiscono alla versione spedita`)
   }
 
   return righe

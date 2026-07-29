@@ -3,7 +3,7 @@
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer'
 import { formatEuro } from '@/lib/pricing'
 import { formattaNumeroOrdine } from '@/lib/produzione'
-import { righeFooterPdf } from '@/lib/produzione-tracking'
+import { isModificatoDopoInvio, righeFooterPdf } from '@/lib/produzione-tracking'
 import type { OrdineCompleto, TrackingOrdine } from '@/types/produzione'
 
 const styles = StyleSheet.create({
@@ -57,7 +57,11 @@ interface Props {
 export default function OrdinePDF({
   ordine, intestazione, fornitoreNome, numeroCommessa, clienteNome, tracking,
 }: Props) {
-  const righeFooter = tracking ? righeFooterPdf(tracking) : []
+  const modificato = isModificatoDopoInvio(
+    ordine.righe.map((r) => r.created_at),
+    tracking?.inviatoAt ?? null
+  )
+  const righeFooter = tracking ? righeFooterPdf(tracking, modificato) : []
   return (
     <Document>
       <Page size="A4" style={styles.page}>
