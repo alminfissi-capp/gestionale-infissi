@@ -148,12 +148,10 @@ export async function POST(request: Request) {
 
     await registraEvento(ordineId, orgId, 'inviato', { destinatario: fornitore.email })
 
-    // Rimuove lo snapshot precedente (best effort, non blocca l'esito).
-    // Solo se l'update sopra è andato a buon fine: altrimenti il DB punta ancora al vecchio file.
-    const vecchioSnapshot = ordine.pdf_inviato_path as string | null
-    if (vecchioSnapshot && vecchioSnapshot !== snapshotPath) {
-      await service.storage.from('commesse-docs').remove([vecchioSnapshot])
-    }
+    // Le copie congelate degli invii precedenti NON vengono rimosse, di proposito:
+    // ogni evento 'inviato' nel registro deve continuare a puntare al documento
+    // che è stato davvero consegnato quel giorno. Il path porta già un timestamp,
+    // quindi i vari snapshot non collidono mai tra loro.
 
     return NextResponse.json({ ok: true })
   } catch (e) {
