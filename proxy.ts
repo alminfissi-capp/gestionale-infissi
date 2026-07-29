@@ -31,7 +31,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Route pubbliche: accessibili senza autenticazione
-  const PUBLIC_PREFIXES = ['/p/', '/offline', '/api/track/', '/conferma/', '/api/firma-callback', '/api/avvia-firma', '/api/firma-pdf/']
+  const PUBLIC_PREFIXES = ['/p/', '/o/', '/offline', '/api/track/', '/conferma/', '/api/firma-callback', '/api/avvia-firma', '/api/firma-pdf/']
   if (PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return supabaseResponse
   }
