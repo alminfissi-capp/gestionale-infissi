@@ -13,10 +13,12 @@ if (existsSync(workerSrc) && !existsSync(workerDst)) {
 const nextConfig: NextConfig = {
   // @react-pdf/renderer usa moduli nativi (fontkit, pdfkit) che webpack non può bundlare
   serverExternalPackages: ['@react-pdf/renderer', 'sharp'],
-  // Upload buste/bonifici via Server Action: il default 1MB blocca i PDF scansionati (2-3MB).
-  // (Vercel limita comunque il body delle function a ~4.5MB.)
+  // Upload via Server Action: il default 1MB blocca i PDF scansionati (2-3MB).
+  // Resta comunque il tetto di Vercel sul corpo della richiesta (~4,5MB), che
+  // questo valore non può alzare: i file grandi vanno caricati dal browser
+  // direttamente su Supabase Storage (vedi DialogDocumenti/DialogPreventivoManuale).
   experimental: {
-    serverActions: { bodySizeLimit: '10mb' },
+    serverActions: { bodySizeLimit: '20mb' },
   },
   images: {
     remotePatterns: [
