@@ -286,7 +286,8 @@ pagine server devono quindi caricare il tracking insieme agli ordini.
 - `pdf_inviato_path` nullo su un ordine con `tracking_token` (dati vecchi o snapshot fallito) →
   la pagina fornitore mostra un messaggio di documento non disponibile invece del pulsante.
 - Ordini inviati prima di questa funzione: `tracking_token` nullo, nessun evento. L'icona mostra
-  «inviato» sulla base di `inviato_at`, senza dati di lettura. Il footer non compare.
+  «inviato» sulla base di `inviato_at`, senza dati di lettura. Il footer compare comunque, con
+  la sola riga di invio (`conFallbackInvio`), perché non esistono dati di lettura da mostrare.
 
 ## Test
 
