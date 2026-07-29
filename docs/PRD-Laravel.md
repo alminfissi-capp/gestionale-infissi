@@ -499,6 +499,9 @@ Calcolo costo serramento dalla distinta → integrazione con modulo preventivi.
 **Utilizzo**:
 - Invio preventivo al cliente (PDF allegato)
 - Tracking apertura email (`/api/track/email/{id}` — pixel 1×1)
+- Invio ordine al fornitore: **niente allegato**, link tracciato a `/o/{token}` + pixel. Ogni evento
+  (invio, apertura email, apertura pagina, download) va in `tracking_email_ordine`; la copia del PDF
+  spedita viene congelata nello storage e il suo path è registrato sull'evento `inviato`
 - Invito utenti all'organization
 
 **Configurazione Laravel**:
@@ -624,7 +627,11 @@ Per interazioni AJAX e mobile (future):
 ```
 GET    /api/preventivi/{id}/pdf        → scarica PDF preventivo
 POST   /api/firma/callback             → webhook EU-SES (no auth, no CSRF)
-GET    /api/track/email/{id}           → tracking pixel
+GET    /api/track/email/{id}           → tracking pixel preventivo
+GET    /api/track/ordine/{token}       → tracking pixel ordine fornitore
+POST   /api/track/ordine/{token}/visita → beacon apertura pagina ordine
+GET    /o/{token}                      → pagina pubblica ordine fornitore (no auth)
+GET    /o/{token}/pdf                  → download tracciato dell'ordine (no auth)
 GET    /api/firma/verifica/{id}        → polling stato firma
 POST   /api/rilievo/vani/sync          → sync offline data
 GET    /api/commesse/{id}/ricevute/{accontoId}/pdf → PDF ricevuta (share mobile)
