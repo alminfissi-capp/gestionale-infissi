@@ -54,7 +54,7 @@ import {
 } from '@/actions/scadenze'
 import { formatEuro } from '@/lib/pricing'
 import { ocrAssegno } from '@/lib/ocrAssegno'
-import DialogScadenza from './DialogScadenza'
+import DialogScadenza, { CADENZE } from './DialogScadenza'
 import type { Scadenza, CategoriaScadenza, ContoCorrente } from '@/types/commessa'
 
 const MESI = [
@@ -69,6 +69,7 @@ const giornoDi = (data: string) => Number(data.slice(8, 10))
 const CAT_BADGE: Record<CategoriaScadenza, { label: string; cls: string } | null> = {
   finanziamento: { label: 'Finanz.', cls: 'bg-purple-100 text-purple-700 border-purple-200' },
   assegno: { label: 'Assegno', cls: 'bg-blue-100 text-blue-700 border-blue-200' },
+  utenza: { label: 'Utenza', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
   altro: null,
 }
 
@@ -76,6 +77,7 @@ const CAT_BADGE: Record<CategoriaScadenza, { label: string; cls: string } | null
 const CAT_BORDER: Record<CategoriaScadenza, string> = {
   finanziamento: 'border-l-purple-400',
   assegno: 'border-l-blue-400',
+  utenza: 'border-l-amber-400',
   altro: 'border-l-transparent',
 }
 
@@ -83,6 +85,7 @@ const CAT_BORDER: Record<CategoriaScadenza, string> = {
 const CAT_BG: Record<CategoriaScadenza, string> = {
   finanziamento: 'bg-purple-50/60',
   assegno: 'bg-blue-50/60',
+  utenza: 'bg-amber-50/60',
   altro: 'bg-white',
 }
 
@@ -254,15 +257,17 @@ function SortableScadenzaRow({
         <Star className={`h-4 w-4 ${s.in_calcoli ? 'text-amber-400 fill-amber-400' : 'text-gray-300 hover:text-amber-400'}`} />
       </Button>
 
-      {/* Copia rata (solo finanziamenti) */}
-      {s.categoria === 'finanziamento' && (
+      {/* Copia nei mesi successivi (rate dei finanziamenti e bollette ricorrenti) */}
+      {(s.categoria === 'finanziamento' || s.categoria === 'utenza') && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 shrink-0 text-gray-400 hover:text-purple-600"
-              title="Copia rata nei mesi successivi"
+              className={`h-8 w-8 shrink-0 text-gray-400 ${
+                s.categoria === 'utenza' ? 'hover:text-amber-600' : 'hover:text-purple-600'
+              }`}
+              title={s.categoria === 'utenza' ? 'Copia utenza nei mesi successivi' : 'Copia rata nei mesi successivi'}
               disabled={copying}
             >
               {copying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
@@ -273,6 +278,12 @@ function SortableScadenzaRow({
               <CalendarPlus className="h-4 w-4 mr-2" />
               Copia al mese successivo
             </DropdownMenuItem>
+            {s.categoria === 'utenza' && (
+              <DropdownMenuItem onClick={() => onCopia(s, 2)}>
+                <CalendarPlus className="h-4 w-4 mr-2" />
+                Copia +2 mesi (bimestrale)
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={() => onCopia(s, 3)}>
               <CalendarPlus className="h-4 w-4 mr-2" />
               Copia +3 mesi (trimestrale)
@@ -280,7 +291,7 @@ function SortableScadenzaRow({
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => onApriPiano(s)}>
               <Copy className="h-4 w-4 mr-2" />
-              Genera piano rate…
+              {s.categoria === 'utenza' ? 'Ripeti su più mesi…' : 'Genera piano rate…'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -306,6 +317,90 @@ function SortableScadenzaRow({
         <Trash2 className="h-3.5 w-3.5" />
       </Button>
     </div>
+  )
+}
+
+/** Ripete una bolletta ricorrente sui mesi successivi (stesso importo, da correggere a bolletta arrivata) */
+function DialogRipetiUtenza({ scadenza, onClose }: { scadenza: Scadenza; onClose: () => void }) {
+  const router = useRouter()
+  const [totale, setTotale] = useState('12')
+  const [cadenza, setCadenza] = useState('1')
+  const [loading, setLoading] = useState(false)
+
+  const totaleNum = parseInt(totale, 10)
+  const count = Number.isFinite(totaleNum) ? Math.min(totaleNum, 60) - 1 : 0
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (count < 1) { toast.error('Indica almeno 2 scadenze in tutto'); return }
+    setLoading(true)
+    try {
+      const { creati } = await copiaScadenzaRate({
+        origineId: scadenza.id,
+        cadenzaMesi: parseInt(cadenza, 10) || 1,
+        count,
+      })
+      toast.success(`${creati} scadenze create`)
+      onClose()
+      router.refresh()
+    } catch {
+      toast.error('Errore nella ripetizione della scadenza')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(v) => { if (!v) onClose() }}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Ripeti su più mesi</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Ripete {scadenza.descrizione || scadenza.fornitore || 'questa utenza'} nei mesi successivi
+            con lo stesso importo ({formatEuro(scadenza.importo)}), da correggere quando arriva la bolletta.
+          </p>
+          <div className="space-y-1.5">
+            <Label htmlFor="ripeti-totale">Quante scadenze in tutto</Label>
+            <Input
+              id="ripeti-totale"
+              type="number"
+              min="2"
+              max="60"
+              value={totale}
+              onChange={(e) => setTotale(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ripeti-cadenza">Cadenza</Label>
+            <select
+              id="ripeti-cadenza"
+              value={cadenza}
+              onChange={(e) => setCadenza(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              {CADENZE.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+          {count > 0 && (
+            <p className="text-xs text-gray-500">
+              Verranno create <span className="font-semibold text-gray-700">{count}</span> nuove scadenze
+              oltre a quella attuale.
+            </p>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Annulla</Button>
+            <Button type="submit" disabled={loading || count < 1}>
+              {loading ? 'Creazione…' : 'Crea'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -559,10 +654,11 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
     setCopyingId(s.id)
     try {
       await copiaScadenzaRate({ origineId: s.id, cadenzaMesi, count: 1 })
-      toast.success(cadenzaMesi === 3 ? 'Rata copiata (+3 mesi)' : 'Rata copiata al mese successivo')
+      const quando = cadenzaMesi === 1 ? 'al mese successivo' : `(+${cadenzaMesi} mesi)`
+      toast.success(`${s.categoria === 'utenza' ? 'Utenza copiata' : 'Rata copiata'} ${quando}`)
       router.refresh()
     } catch {
-      toast.error('Errore nella copia della rata')
+      toast.error('Errore nella copia')
     } finally {
       setCopyingId(null)
     }
@@ -720,8 +816,11 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
         />
       )}
 
-      {/* Dialog genera piano rate */}
-      {piano && <DialogPianoRate scadenza={piano} onClose={() => setPiano(null)} />}
+      {/* Dialog genera piano rate / ripeti utenza */}
+      {piano && (piano.categoria === 'utenza'
+        ? <DialogRipetiUtenza scadenza={piano} onClose={() => setPiano(null)} />
+        : <DialogPianoRate scadenza={piano} onClose={() => setPiano(null)} />
+      )}
 
       {/* Lightbox foto */}
       <Dialog open={!!lightbox} onOpenChange={(v) => { if (!v) setLightbox(null) }}>

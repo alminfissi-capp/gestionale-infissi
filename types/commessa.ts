@@ -25,7 +25,7 @@ export type ContoCorrenteInput = {
   saldo_attuale: number
 }
 
-export type CategoriaScadenza = 'finanziamento' | 'assegno' | 'altro'
+export type CategoriaScadenza = 'finanziamento' | 'assegno' | 'utenza' | 'altro'
 
 // Scadenza fornitore / rateizzazione (blocco anno, raggruppata per mese da data_scadenza)
 export type Scadenza = {
