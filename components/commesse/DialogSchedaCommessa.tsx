@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import {
@@ -126,6 +126,8 @@ interface Props {
 
 export default function DialogSchedaCommessa({ open, onOpenChange, commessa, utenti }: Props) {
   const router = useRouter()
+  // Passato al preventivo così il tasto indietro riporta qui e non all'elenco preventivi
+  const pathname = usePathname()
   const { isOnline } = useOnlineStatus()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -712,7 +714,7 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                 </p>
                 {commessa.preventivo_id ? (
                   <Link
-                    href={`/preventivi/${commessa.preventivo_id}`}
+                    href={`/preventivi/${commessa.preventivo_id}?from=${encodeURIComponent(pathname)}`}
                     className="inline-flex items-center gap-1.5 text-sm font-medium text-teal-600 hover:underline"
                   >
                     {commessa.numero_preventivo || 'Apri preventivo'}
