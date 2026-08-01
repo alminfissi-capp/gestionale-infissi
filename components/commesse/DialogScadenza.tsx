@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Landmark, ReceiptText, CircleDashed, Camera, Upload, Loader2, X } from 'lucide-react'
+import { Landmark, ReceiptText, CircleDashed, Zap, Camera, Upload, Loader2, X } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { createScadenza, updateScadenza, uploadFotoScadenza } from '@/actions/scadenze'
+import { createScadenza, updateScadenza, uploadFotoScadenza, copiaScadenzaRate } from '@/actions/scadenze'
 import { ocrAssegno } from '@/lib/ocrAssegno'
 import type { Scadenza, CategoriaScadenza, ContoCorrente } from '@/types/commessa'
 
@@ -39,13 +39,31 @@ type FormState = {
   numero_rata: string
   totale_rate: string
   conto_id: string
+  // Ripetizione utenza: quante scadenze creare in tutto e ogni quanti mesi
+  ripeti_totale: string
+  ripeti_cadenza: string
 }
 
 const CATEGORIE: { value: CategoriaScadenza; label: string; icon: typeof Landmark }[] = [
   { value: 'finanziamento', label: 'Finanziamento', icon: Landmark },
   { value: 'assegno', label: 'Assegno', icon: ReceiptText },
+  { value: 'utenza', label: 'Utenza', icon: Zap },
   { value: 'altro', label: 'Altro', icon: CircleDashed },
 ]
+
+export const CADENZE: { value: string; label: string }[] = [
+  { value: '1', label: 'Mensile' },
+  { value: '2', label: 'Bimestrale (ogni 2 mesi)' },
+  { value: '3', label: 'Trimestrale (ogni 3 mesi)' },
+]
+
+// Etichetta mese/anno dell'ultima scadenza generata (solo anteprima nel form)
+function meseAnnoDopo(iso: string, mesi: number): string {
+  const [y, m] = iso.split('-').map(Number)
+  if (!y || !m) return ''
+  return new Date(Date.UTC(y, m - 1 + mesi, 1))
+    .toLocaleDateString('it-IT', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+}
 
 export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza, defaultData, fornitori, conti }: Props) {
   const router = useRouter()
@@ -59,6 +77,8 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
     numero_rata: '',
     totale_rate: '',
     conto_id: '',
+    ripeti_totale: '1',
+    ripeti_cadenza: '1',
   })
   const [loading, setLoading] = useState(false)
 
@@ -82,11 +102,14 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
         numero_rata: scadenza.numero_rata != null ? String(scadenza.numero_rata) : '',
         totale_rate: scadenza.totale_rate != null ? String(scadenza.totale_rate) : '',
         conto_id: scadenza.conto_id ?? '',
+        ripeti_totale: '1',
+        ripeti_cadenza: '1',
       })
     } else {
       setForm({
         data_scadenza: defaultData, fornitore: '', descrizione: '', importo: '',
         pagato: false, categoria: 'altro', numero_rata: '', totale_rate: '', conto_id: '',
+        ripeti_totale: '1', ripeti_cadenza: '1',
       })
     }
     // Reset foto a ogni apertura
@@ -141,6 +164,7 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
     const importo = parseFloat((form.importo || '0').replace(',', '.')) || 0
     const numero_rata = form.categoria === 'finanziamento' && form.numero_rata ? parseInt(form.numero_rata, 10) : null
     const totale_rate = form.categoria === 'finanziamento' && form.totale_rate ? parseInt(form.totale_rate, 10) : null
+    const ripetiTotale = Math.min(Math.max(parseInt(form.ripeti_totale, 10) || 1, 1), 60)
     setLoading(true)
     try {
       const payload = {
@@ -156,12 +180,22 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
         conto_id: form.conto_id || null,
       }
       let id: string
+      let ripetute = 0
       if (scadenza) {
         await updateScadenza(scadenza.id, payload)
         id = scadenza.id
       } else {
         const res = await createScadenza(payload)
         id = res.id
+        // Utenza ricorrente: la prima scadenza è appena stata creata, replica le successive
+        if (form.categoria === 'utenza' && ripetiTotale > 1) {
+          const { creati } = await copiaScadenzaRate({
+            origineId: id,
+            cadenzaMesi: parseInt(form.ripeti_cadenza, 10) || 1,
+            count: ripetiTotale - 1,
+          })
+          ripetute = creati
+        }
       }
       // Carica la foto (se allegata) dopo aver ottenuto l'id
       if (fotoFile) {
@@ -171,7 +205,13 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
         const up = await uploadFotoScadenza(fd)
         if (up.error) toast.error(`Foto non caricata: ${up.error}`)
       }
-      toast.success(scadenza ? 'Scadenza aggiornata' : 'Scadenza aggiunta')
+      toast.success(
+        scadenza
+          ? 'Scadenza aggiornata'
+          : ripetute > 0
+            ? `Utenza aggiunta · ${ripetute + 1} scadenze create`
+            : 'Scadenza aggiunta'
+      )
       onOpenChange(false)
       router.refresh()
     } catch {
@@ -183,6 +223,9 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
 
   const isFin = form.categoria === 'finanziamento'
   const isAssegno = form.categoria === 'assegno'
+  const isUtenza = form.categoria === 'utenza'
+  const ripetiN = Math.min(Math.max(parseInt(form.ripeti_totale, 10) || 1, 1), 60)
+  const dataFinale = meseAnnoDopo(form.data_scadenza, (ripetiN - 1) * (parseInt(form.ripeti_cadenza, 10) || 1))
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -194,7 +237,7 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
           {/* Categoria */}
           <div className="space-y-1.5">
             <Label>Tipo di scadenza</Label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {CATEGORIE.map(({ value, label, icon: Icon }) => (
                 <button
                   key={value}
@@ -368,13 +411,62 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
             </div>
           )}
 
+          {/* Ricorrenza utenza (solo in creazione: in modifica si usa la copia dall'elenco) */}
+          {isUtenza && !scadenza && (
+            <div className="space-y-2.5 rounded-lg border border-amber-200 bg-amber-50/40 p-3">
+              <Label className="text-amber-800">Ripeti nei mesi successivi</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="ripeti_totale" className="text-xs font-normal text-amber-800/80">
+                    Quante scadenze
+                  </Label>
+                  <Input
+                    id="ripeti_totale"
+                    type="number"
+                    min="1"
+                    max="60"
+                    value={form.ripeti_totale}
+                    onChange={(e) => set('ripeti_totale', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ripeti_cadenza" className="text-xs font-normal text-amber-800/80">
+                    Cadenza
+                  </Label>
+                  <select
+                    id="ripeti_cadenza"
+                    value={form.ripeti_cadenza}
+                    onChange={(e) => set('ripeti_cadenza', e.target.value)}
+                    disabled={ripetiN < 2}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    {CADENZE.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <p className="text-[11px] text-amber-800/70">
+                {ripetiN < 2
+                  ? 'Lascia 1 per inserire una sola bolletta. Aumenta il numero per crearne anche nei mesi successivi.'
+                  : `Verranno create ${ripetiN} scadenze con lo stesso importo, l'ultima a ${dataFinale}. Correggi l'importo di ognuna quando arriva la bolletta.`}
+              </p>
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <Label htmlFor="descrizione">{isAssegno ? 'Numero assegno / descrizione' : 'Descrizione'}</Label>
             <textarea
               id="descrizione"
               value={form.descrizione}
               onChange={(e) => set('descrizione', e.target.value)}
-              placeholder={isAssegno ? 'Numero assegno (letto dalla foto o a mano)' : 'es. Rata leasing, F24, saldo fattura...'}
+              placeholder={
+                isAssegno
+                  ? 'Numero assegno (letto dalla foto o a mano)'
+                  : isUtenza
+                    ? 'es. Luce sede, Acqua capannone, Internet ufficio...'
+                    : 'es. Rata leasing, F24, saldo fattura...'
+              }
               rows={2}
               className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
             />

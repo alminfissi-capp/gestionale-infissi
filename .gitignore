@@ -46,3 +46,7 @@ next-env.d.ts
 /public/workbox-*.js
 /public/workbox-*.js.map
 env.local
+
+# tooling locale (lock di sessione, scratch dei tool) — non versionare
+/.claude/scheduled_tasks.lock
+/.superpowers/
