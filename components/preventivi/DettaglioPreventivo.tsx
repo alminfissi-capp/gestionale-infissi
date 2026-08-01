@@ -58,9 +58,11 @@ const STATO_CONFIG: Record<
 
 interface Props {
   preventivo: PreventivoCompleto
+  backHref?: string
+  backLabel?: string
 }
 
-export default function DettaglioPreventivo({ preventivo: p }: Props) {
+export default function DettaglioPreventivo({ preventivo: p, backHref = '/preventivi', backLabel = 'Preventivi' }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -249,9 +251,9 @@ export default function DettaglioPreventivo({ preventivo: p }: Props) {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <Button variant="ghost" size="sm" asChild className="-ml-2">
-              <Link href="/preventivi">
+              <Link href={backHref}>
                 <ChevronLeft className="h-4 w-4" />
-                Preventivi
+                {backLabel}
               </Link>
             </Button>
           </div>

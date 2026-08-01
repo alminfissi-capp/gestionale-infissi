@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import {
@@ -189,6 +189,8 @@ interface RowProps {
 }
 
 function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange, altriGruppi, onSposta, highlighted, onToggleCalcoli }: RowProps) {
+  // Passato al preventivo così il tasto indietro riporta qui e non all'elenco preventivi
+  const pathname = usePathname()
   const {
     attributes,
     listeners,
@@ -246,7 +248,7 @@ function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti,
               pc.preventivo_id ? (
                 <Link
                   key={pc.id}
-                  href={`/preventivi/${pc.preventivo_id}`}
+                  href={`/preventivi/${pc.preventivo_id}?from=${encodeURIComponent(pathname)}`}
                   className="inline-flex items-center gap-0.5 font-mono text-xs text-teal-600 hover:underline bg-teal-50 border border-teal-200 rounded px-1.5 py-0.5 whitespace-nowrap"
                   title="Apri preventivo"
                 >
