@@ -245,3 +245,24 @@ export function formatEuro(value: number): string {
   const intFormatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
   return `${value < 0 ? '-' : ''}${intFormatted},${decPart}`
 }
+
+/**
+ * Legge un importo digitato a mano, in formato italiano ("1.234,56") o con il
+ * punto decimale ("1234.56"). Quello che non è un numero vale 0.
+ */
+export function parseImporto(s: string): number {
+  let t = (s ?? '').trim().replace(/[\s€]/g, '')
+  if (t.includes(',')) {
+    t = t.replace(/\./g, '').replace(',', '.')
+  } else if (/\.\d{3}(\.|$)/.test(t)) {
+    // "1.234" sono migliaia, non un decimale troncato
+    t = t.replace(/\./g, '')
+  }
+  const v = parseFloat(t)
+  return isNaN(v) ? 0 : v
+}
+
+/** Importo per un campo di input: separatore italiano, sempre due decimali */
+export function formatImporto(v: number): string {
+  return v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}

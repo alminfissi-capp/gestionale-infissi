@@ -203,3 +203,18 @@ export type RigaCalcolo = {
   created_at: string
   updated_at: string
 }
+
+// Incasso in attesa: entrata che non nasce da una commessa (rimborsi, note di
+// credito, prestiti). Inseribile solo dalla pagina Calcoli.
+export type IncassoAttesa = {
+  id: string
+  organization_id: string
+  nome: string
+  descrizione: string
+  importo: number
+  incasso_concordato: number | null
+  incassato: boolean
+  ordine: number
+  created_at: string
+  updated_at: string
+}
