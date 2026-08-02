@@ -13,6 +13,7 @@ import type {
   PreventivoCommessa,
   GruppoCommesse,
   RigaCalcolo,
+  IncassoAttesa,
   TipoBlocco,
 } from '@/types/commessa'
 import { TIPI_DOCUMENTO_PRODUZIONE_VALUES } from '@/types/produzione'
@@ -690,6 +691,88 @@ export async function deleteRigaCalcolo(id: string): Promise<void> {
   const orgId = await getOrgId()
   const { error } = await supabase
     .from('calcoli_righe')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+}
+
+// ── Incassi in attesa (entrate che non nascono da una commessa) ───────
+
+const toIncasso = (r: Record<string, unknown>): IncassoAttesa => ({
+  ...r,
+  importo: Number(r.importo),
+  incasso_concordato: r.incasso_concordato == null ? null : Number(r.incasso_concordato),
+}) as IncassoAttesa
+
+export async function getIncassiAttesa(): Promise<IncassoAttesa[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data, error } = await supabase
+    .from('calcoli_incassi')
+    .select('*')
+    .eq('organization_id', orgId)
+    .order('ordine', { ascending: true })
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(toIncasso)
+}
+
+export async function addIncassoAttesa(): Promise<IncassoAttesa> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data: maxRow } = await supabase
+    .from('calcoli_incassi')
+    .select('ordine')
+    .eq('organization_id', orgId)
+    .order('ordine', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const nextOrdine = (maxRow?.ordine ?? -1) + 1
+  const { data, error } = await supabase
+    .from('calcoli_incassi')
+    .insert({ organization_id: orgId, ordine: nextOrdine })
+    .select('*')
+    .single()
+  if (error) throw new Error(error.message)
+  return toIncasso(data)
+}
+
+export async function updateIncassoAttesa(
+  id: string,
+  campi: {
+    nome: string
+    descrizione: string
+    importo: number
+    incasso_concordato: number | null
+  }
+): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('calcoli_incassi')
+    .update({ ...campi, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+}
+
+export async function setIncassatoAttesa(id: string, incassato: boolean): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('calcoli_incassi')
+    .update({ incassato, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteIncassoAttesa(id: string): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('calcoli_incassi')
     .delete()
     .eq('id', id)
     .eq('organization_id', orgId)

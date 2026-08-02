@@ -26,7 +26,7 @@ import {
 } from '@/actions/commesse'
 import { toggleCalcoliScadenza } from '@/actions/scadenze'
 import { updateSaldoConto } from '@/actions/conti'
-import { formatEuro } from '@/lib/pricing'
+import { formatEuro, parseImporto, formatImporto } from '@/lib/pricing'
 import type { CommessaCompleta, GruppoCommesse, RigaCalcolo, Scadenza, ContoCorrente } from '@/types/commessa'
 
 interface Props {
@@ -41,21 +41,6 @@ interface Props {
 type RigaCalcoloRow = RigaCalcolo & { descrizioneSalvata: string }
 
 const toRow = (r: RigaCalcolo): RigaCalcoloRow => ({ ...r, descrizioneSalvata: r.descrizione })
-
-// Accetta importi in formato italiano ("1.234,56") o con punto decimale ("1234.56")
-const parseImporto = (s: string) => {
-  let t = (s ?? '').trim().replace(/[\s€]/g, '')
-  if (t.includes(',')) {
-    t = t.replace(/\./g, '').replace(',', '.')
-  } else if (/\.\d{3}(\.|$)/.test(t)) {
-    t = t.replace(/\./g, '')
-  }
-  const v = parseFloat(t)
-  return isNaN(v) ? 0 : v
-}
-
-const formatImporto = (v: number) =>
-  v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, conti }: Props) {
   const router = useRouter()
