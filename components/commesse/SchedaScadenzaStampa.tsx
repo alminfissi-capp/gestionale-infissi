@@ -2,8 +2,8 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Printer, ChevronLeft } from 'lucide-react'
-import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { formatEuro } from '@/lib/pricing'
 import type { Scadenza, CategoriaScadenza } from '@/types/commessa'
@@ -15,6 +15,10 @@ const CATEGORIE: Record<CategoriaScadenza, string> = {
   utenza: 'Utenza',
   altro: 'Altro',
 }
+
+// Oltre questo tempo stampiamo comunque: meglio una scheda senza foto
+// che una finestra di stampa che non si apre mai
+const ATTESA_MAX_FOTO_MS = 5000
 
 function formatData(d: string) {
   const [y, m, day] = d.split('-').map(Number)
@@ -32,42 +36,41 @@ interface Props {
   logoUrl: string | null
 }
 
-export default function SchedaScadenzaStampa({
-  scadenza, contoNome, gruppoNome, fotoUrl, settings, logoUrl,
-}: Props) {
-  // Apre la finestra di stampa da sola, ma solo dopo che la foto è pronta
-  // (altrimenti l'anteprima esce con il riquadro vuoto)
+export default function SchedaScadenzaStampa(props: Props) {
+  const router = useRouter()
+  const { fotoUrl } = props
+  const imgRef = useRef<HTMLImageElement>(null)
   const [fotoPronta, setFotoPronta] = useState(!fotoUrl)
-  const stampato = useRef(false)
+  const giaStampato = useRef(false)
 
+  // Rete lenta o immagine rotta: non restiamo bloccati in attesa
   useEffect(() => {
-    if (!fotoPronta || stampato.current) return
-    stampato.current = true
-    const t = setTimeout(() => window.print(), 300)
+    if (fotoPronta) return
+    const t = setTimeout(() => setFotoPronta(true), ATTESA_MAX_FOTO_MS)
     return () => clearTimeout(t)
   }, [fotoPronta])
 
-  const scheda = (
-    <Scheda
-      scadenza={scadenza}
-      contoNome={contoNome}
-      gruppoNome={gruppoNome}
-      fotoUrl={fotoUrl}
-      settings={settings}
-      logoUrl={logoUrl}
-      onFotoLoad={() => setFotoPronta(true)}
-    />
-  )
+  // `complete` copre il caso in cui la foto era già in cache al momento
+  // dell'hydration: lì React non rilancia più onLoad.
+  // La guardia va dentro la callback e non prima: in StrictMode (dev) il
+  // cleanup annulla il primo frame e il secondo passaggio deve poter stampare.
+  useEffect(() => {
+    if (!fotoPronta && !imgRef.current?.complete) return
+    const raf = requestAnimationFrame(() => {
+      if (giaStampato.current) return
+      giaStampato.current = true
+      window.print()
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [fotoPronta])
 
   return (
     <>
       {/* Toolbar */}
       <div className="print:hidden sticky top-0 z-10 bg-gray-100 border-b border-gray-200 px-4 py-3 flex items-center gap-2 flex-wrap">
-        <Button variant="ghost" size="sm" asChild className="-ml-2">
-          <Link href="/commesse">
-            <ChevronLeft className="h-4 w-4" />
-            Commesse
-          </Link>
+        <Button variant="ghost" size="sm" className="-ml-2" onClick={() => router.back()}>
+          <ChevronLeft className="h-4 w-4" />
+          Indietro
         </Button>
         <div className="flex-1" />
         <Button size="sm" onClick={() => window.print()}>
@@ -76,13 +79,12 @@ export default function SchedaScadenzaStampa({
         </Button>
       </div>
 
-      {/* Sfondo grigio schermo */}
-      <div className="print:hidden bg-gray-100 min-h-screen py-10 px-4 flex items-start justify-center">
-        <div className="bg-white shadow-md w-full max-w-[600px] p-10">{scheda}</div>
+      {/* Una sola copia della scheda: in stampa cambia solo il contorno */}
+      <div className="bg-gray-100 min-h-screen py-10 px-4 flex items-start justify-center print:bg-white print:block print:min-h-0 print:p-0">
+        <div className="bg-white shadow-md w-full max-w-[600px] p-10 print:shadow-none print:max-w-none print:p-0">
+          <Scheda {...props} imgRef={imgRef} onFotoLoad={() => setFotoPronta(true)} />
+        </div>
       </div>
-
-      {/* Stampa */}
-      <div className="hidden print:block p-10 max-w-[600px] mx-auto">{scheda}</div>
 
       <style>{`
         @page { size: A4; margin: 15mm 20mm; }
@@ -93,8 +95,11 @@ export default function SchedaScadenzaStampa({
 }
 
 function Scheda({
-  scadenza: s, contoNome, gruppoNome, fotoUrl, settings, logoUrl, onFotoLoad,
-}: Props & { onFotoLoad: () => void }) {
+  scadenza: s, contoNome, gruppoNome, fotoUrl, settings, logoUrl, imgRef, onFotoLoad,
+}: Props & {
+  imgRef: React.RefObject<HTMLImageElement | null>
+  onFotoLoad: () => void
+}) {
   const rata = s.numero_rata != null
     ? `${s.numero_rata}${s.totale_rate ? ` di ${s.totale_rate}` : ''}`
     : null
@@ -173,6 +178,7 @@ function Scheda({
             Documento allegato
           </p>
           <img
+            ref={imgRef}
             src={fotoUrl}
             alt="Allegato scadenza"
             onLoad={onFotoLoad}

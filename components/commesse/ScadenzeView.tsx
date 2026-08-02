@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useState, useRef, useEffect, useMemo } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
@@ -103,7 +104,6 @@ type RowProps = {
   onFotoSelected: (s: Scadenza, file: File | null) => void
   onOpenFoto: (url: string, s: Scadenza) => void
   onEdit: (s: Scadenza) => void
-  onStampa: (s: Scadenza) => void
   onCopia: (s: Scadenza, cadenzaMesi: number) => void
   onApriPiano: (s: Scadenza) => void
   copying: boolean
@@ -112,7 +112,7 @@ type RowProps = {
 function SortableScadenzaRow({
   s, contoNome, fotoUrl, uploading, setFileRef, onClickCamera,
   onTogglePagato, onToggleCalcoli, onDelete, onFotoSelected, onOpenFoto, onEdit,
-  onStampa, onCopia, onApriPiano, copying,
+  onCopia, onApriPiano, copying,
 }: RowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: s.id })
@@ -277,9 +277,13 @@ function SortableScadenzaRow({
             <Pencil className="h-4 w-4 mr-2" />
             Modifica
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onStampa(s)}>
-            <Printer className="h-4 w-4 mr-2" />
-            Stampa scheda
+          {/* Link vero e non window.open: nella PWA installata (display standalone)
+              le finestre popup vengono bloccate in silenzio */}
+          <DropdownMenuItem asChild>
+            <Link href={`/scadenze/${s.id}/stampa`}>
+              <Printer className="h-4 w-4 mr-2" />
+              Stampa scheda
+            </Link>
           </DropdownMenuItem>
 
           {/* Copia nei mesi successivi (rate dei finanziamenti e bollette ricorrenti) */}
@@ -652,11 +656,6 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
     }
   }
 
-  // Scheda di stampa in una nuova scheda: si apre già con la finestra di stampa
-  const handleStampa = (s: Scadenza) => {
-    window.open(`/scadenze/${s.id}/stampa`, '_blank', 'noopener')
-  }
-
   const handleCopia = async (s: Scadenza, cadenzaMesi: number) => {
     setCopyingId(s.id)
     try {
@@ -796,7 +795,6 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                         onFotoSelected={handleFotoSelected}
                         onOpenFoto={(url, sc) => setLightbox({ url, scadenza: sc })}
                         onEdit={(sc) => setDialog({ scadenza: sc, defaultData: sc.data_scadenza })}
-                        onStampa={handleStampa}
                         onCopia={handleCopia}
                         onApriPiano={(sc) => setPiano(sc)}
                         copying={copyingId === s.id}
