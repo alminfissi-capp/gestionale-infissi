@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   Plus, Pencil, Trash2, Camera, Check, ChevronDown, Loader2, Star, Landmark, GripVertical, Copy, CalendarPlus,
+  MoreVertical, Printer,
 } from 'lucide-react'
 import {
   DndContext,
@@ -102,6 +103,7 @@ type RowProps = {
   onFotoSelected: (s: Scadenza, file: File | null) => void
   onOpenFoto: (url: string, s: Scadenza) => void
   onEdit: (s: Scadenza) => void
+  onStampa: (s: Scadenza) => void
   onCopia: (s: Scadenza, cadenzaMesi: number) => void
   onApriPiano: (s: Scadenza) => void
   copying: boolean
@@ -110,7 +112,7 @@ type RowProps = {
 function SortableScadenzaRow({
   s, contoNome, fotoUrl, uploading, setFileRef, onClickCamera,
   onTogglePagato, onToggleCalcoli, onDelete, onFotoSelected, onOpenFoto, onEdit,
-  onCopia, onApriPiano, copying,
+  onStampa, onCopia, onApriPiano, copying,
 }: RowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: s.id })
@@ -257,65 +259,65 @@ function SortableScadenzaRow({
         <Star className={`h-4 w-4 ${s.in_calcoli ? 'text-amber-400 fill-amber-400' : 'text-gray-300 hover:text-amber-400'}`} />
       </Button>
 
-      {/* Copia nei mesi successivi (rate dei finanziamenti e bollette ricorrenti) */}
-      {(s.categoria === 'finanziamento' || s.categoria === 'utenza') && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-8 w-8 shrink-0 text-gray-400 ${
-                s.categoria === 'utenza' ? 'hover:text-amber-600' : 'hover:text-purple-600'
-              }`}
-              title={s.categoria === 'utenza' ? 'Copia utenza nei mesi successivi' : 'Copia rata nei mesi successivi'}
-              disabled={copying}
-            >
-              {copying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onCopia(s, 1)}>
-              <CalendarPlus className="h-4 w-4 mr-2" />
-              Copia al mese successivo
-            </DropdownMenuItem>
-            {s.categoria === 'utenza' && (
-              <DropdownMenuItem onClick={() => onCopia(s, 2)}>
-                <CalendarPlus className="h-4 w-4 mr-2" />
-                Copia +2 mesi (bimestrale)
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem onClick={() => onCopia(s, 3)}>
-              <CalendarPlus className="h-4 w-4 mr-2" />
-              Copia +3 mesi (trimestrale)
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onApriPiano(s)}>
-              <Copy className="h-4 w-4 mr-2" />
-              {s.categoria === 'utenza' ? 'Ripeti su più mesi…' : 'Genera piano rate…'}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+      {/* Menu azioni (modifica, stampa, copia, elimina) */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 text-gray-400 hover:text-gray-700"
+            title="Azioni"
+            disabled={copying}
+          >
+            {copying ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => onEdit(s)}>
+            <Pencil className="h-4 w-4 mr-2" />
+            Modifica
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onStampa(s)}>
+            <Printer className="h-4 w-4 mr-2" />
+            Stampa scheda
+          </DropdownMenuItem>
 
-      {/* Azioni */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8 shrink-0 text-gray-400 hover:text-gray-700"
-        title="Modifica"
-        onClick={() => onEdit(s)}
-      >
-        <Pencil className="h-3.5 w-3.5" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8 shrink-0 text-gray-400 hover:text-red-500"
-        title="Elimina"
-        onClick={() => onDelete(s)}
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </Button>
+          {/* Copia nei mesi successivi (rate dei finanziamenti e bollette ricorrenti) */}
+          {(s.categoria === 'finanziamento' || s.categoria === 'utenza') && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onCopia(s, 1)}>
+                <CalendarPlus className="h-4 w-4 mr-2" />
+                Copia al mese successivo
+              </DropdownMenuItem>
+              {s.categoria === 'utenza' && (
+                <DropdownMenuItem onClick={() => onCopia(s, 2)}>
+                  <CalendarPlus className="h-4 w-4 mr-2" />
+                  Copia +2 mesi (bimestrale)
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => onCopia(s, 3)}>
+                <CalendarPlus className="h-4 w-4 mr-2" />
+                Copia +3 mesi (trimestrale)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onApriPiano(s)}>
+                <Copy className="h-4 w-4 mr-2" />
+                {s.categoria === 'utenza' ? 'Ripeti su più mesi…' : 'Genera piano rate…'}
+              </DropdownMenuItem>
+            </>
+          )}
+
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            // confirm() bloccante: lo lanciamo dopo la chiusura del menu
+            onSelect={() => setTimeout(() => onDelete(s), 0)}
+            className="text-red-600 focus:text-red-600"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Elimina
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 }
@@ -650,6 +652,11 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
     }
   }
 
+  // Scheda di stampa in una nuova scheda: si apre già con la finestra di stampa
+  const handleStampa = (s: Scadenza) => {
+    window.open(`/scadenze/${s.id}/stampa`, '_blank', 'noopener')
+  }
+
   const handleCopia = async (s: Scadenza, cadenzaMesi: number) => {
     setCopyingId(s.id)
     try {
@@ -789,6 +796,7 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                         onFotoSelected={handleFotoSelected}
                         onOpenFoto={(url, sc) => setLightbox({ url, scadenza: sc })}
                         onEdit={(sc) => setDialog({ scadenza: sc, defaultData: sc.data_scadenza })}
+                        onStampa={handleStampa}
                         onCopia={handleCopia}
                         onApriPiano={(sc) => setPiano(sc)}
                         copying={copyingId === s.id}

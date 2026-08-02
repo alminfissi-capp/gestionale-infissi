@@ -44,6 +44,43 @@ export async function getScadenze(gruppoId: string): Promise<Scadenza[]> {
   return (data ?? []).map((s) => ({ ...s, importo: Number(s.importo) })) as Scadenza[]
 }
 
+/** Singola scadenza con il nome del conto e del blocco (per la scheda di stampa) */
+export async function getScadenzaScheda(id: string): Promise<{
+  scadenza: Scadenza
+  contoNome: string | null
+  gruppoNome: string | null
+  fotoUrl: string | null
+} | null> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data, error } = await supabase
+    .from('scadenze')
+    .select('*, conti_correnti(nome), gruppi_commesse(nome)')
+    .eq('id', id)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!data) return null
+
+  const { conti_correnti, gruppi_commesse, ...row } = data as typeof data & {
+    conti_correnti: { nome: string } | null
+    gruppi_commesse: { nome: string } | null
+  }
+
+  let fotoUrl: string | null = null
+  if (row.foto_path) {
+    const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(row.foto_path, 3600)
+    fotoUrl = signed?.signedUrl ?? null
+  }
+
+  return {
+    scadenza: { ...row, importo: Number(row.importo) } as Scadenza,
+    contoNome: conti_correnti?.nome ?? null,
+    gruppoNome: gruppi_commesse?.nome ?? null,
+    fotoUrl,
+  }
+}
+
 export async function createScadenza(input: ScadenzaInput): Promise<{ id: string }> {
   const supabase = await createClient()
   const orgId = await getOrgId()
