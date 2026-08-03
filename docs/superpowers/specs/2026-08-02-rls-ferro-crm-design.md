@@ -1,7 +1,7 @@
 # Isolamento per organizzazione: tabelle Ferro e crm_sessions — Design
 
 Data: 2026-08-02
-Stato: da eseguire in una sessione dedicata
+Stato: **eseguito il 2026-08-03** — vedi "Esito" in fondo
 
 ## Obiettivo
 
@@ -143,10 +143,18 @@ cinque tabelle trattate nello stesso ordine. Da applicare con
 
 ## Punto minore: search_path delle funzioni
 
-Sei funzioni `SECURITY DEFINER` hanno `search_path` non fissato
+Sei funzioni hanno `search_path` non fissato. **Solo tre sono `SECURITY DEFINER`**
 (`get_user_organization_id`, `increment_num_contatore`,
-`increment_num_contatore_scorrevoli`, `trg_fn_ca_search_vector`,
-`get_reparti_conteggio`, `get_gruppi_conteggio`). È un irrigidimento standard:
+`increment_num_contatore_scorrevoli`) e sono quelle che contano, perché girano
+con i privilegi del proprietario. Le altre tre (`trg_fn_ca_search_vector`,
+`get_reparti_conteggio`, `get_gruppi_conteggio`) sono `SECURITY INVOKER`: rischio
+molto più basso, ma la correzione è identica e a costo zero.
+
+Attenzione alle firme, non sono tutte senza argomenti:
+`increment_num_contatore(p_org_id uuid)`, `get_reparti_conteggio(p_org_id uuid)`,
+`get_gruppi_conteggio(p_org_id uuid, p_reparto smallint)`.
+
+È un irrigidimento standard:
 
 ```sql
 ALTER FUNCTION public.get_user_organization_id() SET search_path = public, pg_temp;
@@ -193,6 +201,51 @@ novità alla prossima verifica.
    che si possa creare una voce nuova e che le si possa cambiare il prezzo: è il
    punto in cui il default sulla colonna dimostra di funzionare.
 5. `npm run build`, `npx vitest run`, eslint sui file toccati.
+
+## Esito (2026-08-03)
+
+Eseguito con l'opzione consigliata: `DEFAULT get_user_organization_id()` sulla
+colonna, `FerroCalcolatore.tsx` **non toccato**. Nessuna modifica al codice
+dell'applicazione: le query del calcolatore elencano le colonne una per una
+(`id,label,categoria,prezzo,magazzino_prodotto_id`), quindi la colonna nuova non
+entra nei tipi e non rompe nulla.
+
+Migrazioni applicate:
+
+- `20260803154659_ferro_organization_id.sql` — colonna, riempimento, `NOT NULL`,
+  default, indice e policy `org_access` sulle cinque tabelle, più il commento su
+  `crm_sessions`
+- `20260803161137_funzioni_search_path_fisso.sql` — `search_path` sulle sei funzioni
+
+Aggiunto rispetto alla spec: un indice su `organization_id` per tabella. Le nuove
+chiavi esterne senza indice sarebbero altrimenti finite tra gli avvisi di
+prestazione.
+
+Verifiche eseguite sul database di produzione:
+
+| Controllo | Esito |
+|-----------|-------|
+| Conteggio righe prima/dopo | 34 / 3 / 0 / 14 / 0 — identico |
+| Righe con `organization_id` nullo | 0 su tutte e cinque |
+| Policy risultante | `org_access` con `USING` **e** `WITH CHECK` su tutte e cinque |
+| `get_user_organization_id()` dopo il cambio di search_path | restituisce l'organizzazione corretta |
+| Utente reale autenticato | vede ancora 34 / 3 / 14 righe |
+| Utente estraneo (nessuna organizzazione) | vede 0 righe su tutte |
+| `INSERT` senza `organization_id`, come fa `makeCrud` | riuscito, colonna riempita dal default |
+| `crm_sessions` da utente autenticato | 0 righe — resta chiusa come previsto |
+| `get_advisors` security | i 5 `rls_policy_always_true` e i 6 `function_search_path_mutable` non compaiono più |
+
+La riga di prova inserita per il test è stata cancellata: i conteggi finali sono
+tornati ai valori di partenza.
+
+Un intoppo degno di nota: il primo tentativo sulle funzioni è fallito perché
+avevo assunto firme senza argomenti. La migrazione è stata annullata per intero
+da Postgres — verificato che nessuna funzione fosse rimasta modificata a metà
+prima di riprovare con le firme corrette.
+
+Restano aperti, per scelta: i due bucket pubblici, l'impostazione password di
+Supabase Auth, e i quattro avvisi sulle funzioni `SECURITY DEFINER` invocabili
+(analizzati sopra e giudicati innocui).
 
 ## Fuori scopo
 
