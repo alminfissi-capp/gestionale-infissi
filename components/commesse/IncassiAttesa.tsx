@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useLayoutEffect } from 'react'
 import { toast } from 'sonner'
 import { HandCoins, Plus, Trash2, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -30,15 +30,48 @@ const toRiga = (i: IncassoAttesa): Riga => ({
 const initImporti = (list: IncassoAttesa[]) =>
   Object.fromEntries(list.map((i) => [i.id, i.importo ? formatImporto(i.importo) : '']))
 
-const initConcordati = (list: IncassoAttesa[]) =>
-  Object.fromEntries(
-    list.map((i) => [i.id, i.incasso_concordato != null ? formatImporto(i.incasso_concordato) : ''])
+/**
+ * Campo di testo che cresce in altezza invece di far scorrere il contenuto:
+ * i nomi lunghi restano leggibili per intero anche quando la riga è stretta.
+ * Invio conferma ed esce, come negli altri campi della pagina.
+ */
+function CampoCrescente({
+  value, onChange, onBlur, placeholder, className,
+}: {
+  value: string
+  onChange: (v: string) => void
+  onBlur: () => void
+  placeholder: string
+  className?: string
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [value])
+
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() }
+      }}
+      className={`w-full resize-none overflow-hidden rounded-md border border-input bg-background px-3 py-1.5 leading-snug shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring ${className ?? ''}`}
+    />
   )
+}
 
 export default function IncassiAttesa({ incassi }: Props) {
   const [items, setItems] = useState<Riga[]>(() => incassi.map(toRiga))
   const [importi, setImporti] = useState<Record<string, string>>(() => initImporti(incassi))
-  const [concordati, setConcordati] = useState<Record<string, string>>(() => initConcordati(incassi))
 
   // Sincronizza con i dati server dopo un refresh (adjust-state-during-render)
   const [prevIncassi, setPrevIncassi] = useState(incassi)
@@ -46,7 +79,6 @@ export default function IncassiAttesa({ incassi }: Props) {
     setPrevIncassi(incassi)
     setItems(incassi.map(toRiga))
     setImporti(initImporti(incassi))
-    setConcordati(initConcordati(incassi))
   }
 
   const handleAdd = async () => {
@@ -54,7 +86,6 @@ export default function IncassiAttesa({ incassi }: Props) {
       const nuovo = await addIncassoAttesa()
       setItems((cur) => [...cur, toRiga(nuovo)])
       setImporti((cur) => ({ ...cur, [nuovo.id]: '' }))
-      setConcordati((cur) => ({ ...cur, [nuovo.id]: '' }))
     } catch {
       toast.error('Errore nel salvataggio')
     }
@@ -67,21 +98,14 @@ export default function IncassiAttesa({ incassi }: Props) {
     const riga = items.find((r) => r.id === id)
     if (!riga) return
 
-    const rawImporto = (importi[id] ?? '').trim()
-    const importo = parseImporto(rawImporto)
-    if (rawImporto !== '') setImporti((cur) => ({ ...cur, [id]: formatImporto(importo) }))
-
-    const rawConcordato = (concordati[id] ?? '').trim()
-    const incasso_concordato = rawConcordato === '' ? null : parseImporto(rawConcordato)
-    if (incasso_concordato !== null) {
-      setConcordati((cur) => ({ ...cur, [id]: formatImporto(incasso_concordato) }))
-    }
+    const raw = (importi[id] ?? '').trim()
+    const importo = parseImporto(raw)
+    if (raw !== '') setImporti((cur) => ({ ...cur, [id]: formatImporto(importo) }))
 
     const invariato =
       riga.nome === riga.nomeSalvato &&
       riga.descrizione === riga.descrizioneSalvata &&
-      importo === riga.importo &&
-      incasso_concordato === riga.incasso_concordato
+      importo === riga.importo
     if (invariato) return
 
     try {
@@ -89,18 +113,11 @@ export default function IncassiAttesa({ incassi }: Props) {
         nome: riga.nome,
         descrizione: riga.descrizione,
         importo,
-        incasso_concordato,
       })
       setItems((cur) =>
         cur.map((r) =>
           r.id === id
-            ? {
-                ...r,
-                importo,
-                incasso_concordato,
-                nomeSalvato: r.nome,
-                descrizioneSalvata: r.descrizione,
-              }
+            ? { ...r, importo, nomeSalvato: r.nome, descrizioneSalvata: r.descrizione }
             : r
         )
       )
@@ -131,27 +148,28 @@ export default function IncassiAttesa({ incassi }: Props) {
     }
   }
 
-  // Solo le righe non ancora incassate entrano nei totali
+  // Solo le righe non ancora incassate entrano nel totale
   const totali = useMemo(() => {
     const attesa = items.filter((r) => !r.incassato)
     return {
       ammontare: attesa.reduce((s, r) => s + parseImporto(importi[r.id] ?? ''), 0),
-      concordato: attesa.reduce((s, r) => s + parseImporto(concordati[r.id] ?? ''), 0),
       quante: attesa.length,
     }
-  }, [items, importi, concordati])
+  }, [items, importi])
 
   return (
     <div className="rounded-md border bg-white overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-amber-50/50">
-        <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-          <HandCoins className="h-4 w-4 text-amber-600" />
-          Incassi in attesa
-          <span className="text-xs font-normal text-gray-400">(entrate che non sono commesse)</span>
+      <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b bg-amber-50/50">
+        <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2 min-w-0">
+          <HandCoins className="h-4 w-4 text-amber-600 shrink-0" />
+          <span className="truncate">Incassi in attesa</span>
+          <span className="hidden sm:inline text-xs font-normal text-gray-400">
+            (entrate che non sono commesse)
+          </span>
         </h3>
-        <Button variant="outline" size="sm" onClick={handleAdd}>
-          <Plus className="h-4 w-4 mr-1" />
-          Aggiungi riga
+        <Button variant="outline" size="sm" className="shrink-0" onClick={handleAdd}>
+          <Plus className="h-4 w-4 sm:mr-1" />
+          <span className="hidden sm:inline">Aggiungi riga</span>
         </Button>
       </div>
 
@@ -165,31 +183,35 @@ export default function IncassiAttesa({ incassi }: Props) {
           {items.map((r) => (
             <div
               key={r.id}
-              className={`px-4 py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 ${
+              className={`px-3 sm:px-4 py-2 flex flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-3 ${
                 r.incassato ? 'bg-emerald-50/60' : ''
               }`}
             >
-              {/* Nome + descrizione */}
-              <div className="flex-1 min-w-0 flex flex-col gap-2 sm:flex-row sm:gap-3">
-                <Input
+              {/* Creditore + causale: vanno a capo invece di troncare */}
+              <div className="flex-1 min-w-0 flex flex-col gap-1.5 sm:flex-row sm:gap-3">
+                <CampoCrescente
                   value={r.nome}
                   placeholder="Chi deve i soldi"
-                  onChange={(e) => handleTestoChange(r.id, 'nome', e.target.value)}
+                  onChange={(v) => handleTestoChange(r.id, 'nome', v)}
                   onBlur={() => handleSalva(r.id)}
-                  className={`h-9 text-sm sm:w-[38%] ${r.incassato ? 'line-through text-gray-400' : ''}`}
+                  className={`text-sm font-semibold sm:w-[34%] ${
+                    r.incassato ? 'line-through text-gray-400' : 'text-gray-900'
+                  }`}
                 />
-                <Input
+                <CampoCrescente
                   value={r.descrizione}
                   placeholder="Es. rimborso INPS, nota di credito…"
-                  onChange={(e) => handleTestoChange(r.id, 'descrizione', e.target.value)}
+                  onChange={(v) => handleTestoChange(r.id, 'descrizione', v)}
                   onBlur={() => handleSalva(r.id)}
-                  className={`h-9 flex-1 text-sm ${r.incassato ? 'line-through text-gray-400' : ''}`}
+                  className={`text-xs flex-1 ${
+                    r.incassato ? 'line-through text-gray-400' : 'text-gray-600'
+                  }`}
                 />
               </div>
 
-              {/* Importi + azioni */}
+              {/* Importo + azioni: su telefono restano su una riga sola */}
               <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                <div className="relative flex-1 sm:flex-none sm:w-[130px]">
+                <div className="relative flex-1 sm:flex-none sm:w-[140px]">
                   <Input
                     type="text"
                     inputMode="decimal"
@@ -199,21 +221,7 @@ export default function IncassiAttesa({ incassi }: Props) {
                     onChange={(e) => setImporti((cur) => ({ ...cur, [r.id]: e.target.value }))}
                     onBlur={() => handleSalva(r.id)}
                     onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                    className="h-9 text-right text-sm pr-7"
-                  />
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">€</span>
-                </div>
-                <div className="relative flex-1 sm:flex-none sm:w-[130px]">
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={concordati[r.id] ?? ''}
-                    placeholder="concordato"
-                    title="Incasso concordato"
-                    onChange={(e) => setConcordati((cur) => ({ ...cur, [r.id]: e.target.value }))}
-                    onBlur={() => handleSalva(r.id)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                    className="h-9 text-right text-sm pr-7"
+                    className="h-9 text-right text-sm font-medium pr-7"
                   />
                   <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">€</span>
                 </div>
@@ -222,7 +230,7 @@ export default function IncassiAttesa({ incassi }: Props) {
                   type="button"
                   onClick={() => handleToggleIncassato(r)}
                   title={r.incassato ? 'Segna come da incassare' : 'Segna come incassato'}
-                  className={`h-6 w-6 shrink-0 rounded-full border flex items-center justify-center transition-colors ${
+                  className={`h-7 w-7 sm:h-6 sm:w-6 shrink-0 rounded-full border flex items-center justify-center transition-colors ${
                     r.incassato
                       ? 'bg-emerald-500 border-emerald-500 text-white'
                       : 'border-gray-300 text-transparent hover:border-emerald-400'
@@ -245,8 +253,7 @@ export default function IncassiAttesa({ incassi }: Props) {
         </div>
       )}
 
-      {/* Footer: stessi colori della tabella commesse (ambra = dovuto, verde = concordato) */}
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-t-2 border-amber-200 bg-amber-50/60">
+      <div className="flex items-center justify-between gap-3 px-3 sm:px-4 py-3 border-t-2 border-amber-200 bg-amber-50/60">
         <span className="text-sm font-semibold text-amber-900">
           Totale in attesa
           {items.length > 0 && (
@@ -255,11 +262,8 @@ export default function IncassiAttesa({ incassi }: Props) {
             </span>
           )}
         </span>
-        <span className="flex items-baseline gap-4 sm:gap-6">
-          <span className="text-lg font-bold text-amber-800">{formatEuro(totali.ammontare)}</span>
-          <span className="w-[130px] text-right text-lg font-bold text-emerald-800 sm:pr-[52px]">
-            {formatEuro(totali.concordato)}
-          </span>
+        <span className="text-lg font-bold text-amber-800 sm:pr-[52px]">
+          {formatEuro(totali.ammontare)}
         </span>
       </div>
     </div>

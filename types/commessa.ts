@@ -212,7 +212,6 @@ export type IncassoAttesa = {
   nome: string
   descrizione: string
   importo: number
-  incasso_concordato: number | null
   incassato: boolean
   ordine: number
   created_at: string
