@@ -2,6 +2,14 @@
 
 Data: 2026-08-02
 
+> **Aggiornamento 2026-08-03** — dopo il primo uso reale il campo
+> "incasso concordato" si è rivelato inutile: nessuna delle prime 6 righe
+> inserite lo aveva valorizzato. Colonna eliminata dal database e dall'interfaccia,
+> la riga ha guadagnato lo spazio. Restano quindi tre campi: creditore, causale,
+> ammontare. Il nome del creditore è in grassetto e i campi di testo vanno a capo
+> invece di troncare. Le parti di questo documento che parlano di
+> `incasso_concordato` e del doppio totale sono superate.
+
 ## Obiettivo
 
 Nella pagina Calcoli l'elenco degli incassi possibili nasce solo dalle commesse

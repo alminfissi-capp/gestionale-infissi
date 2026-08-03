@@ -702,7 +702,6 @@ export async function deleteRigaCalcolo(id: string): Promise<void> {
 const toIncasso = (r: Record<string, unknown>): IncassoAttesa => ({
   ...r,
   importo: Number(r.importo),
-  incasso_concordato: r.incasso_concordato == null ? null : Number(r.incasso_concordato),
 }) as IncassoAttesa
 
 export async function getIncassiAttesa(): Promise<IncassoAttesa[]> {
@@ -744,7 +743,6 @@ export async function updateIncassoAttesa(
     nome: string
     descrizione: string
     importo: number
-    incasso_concordato: number | null
   }
 ): Promise<void> {
   const supabase = await createClient()
