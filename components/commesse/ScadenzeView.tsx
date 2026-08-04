@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   Plus, Pencil, Trash2, Camera, Check, ChevronDown, Loader2, Star, Landmark, GripVertical, Copy, CalendarPlus,
-  MoreVertical, Printer,
+  MoreVertical, Printer, Paperclip, FileText,
 } from 'lucide-react'
 import {
   DndContext,
@@ -55,7 +55,8 @@ import {
   copiaScadenzaRate,
 } from '@/actions/scadenze'
 import { formatEuro } from '@/lib/pricing'
-import { ocrAssegno } from '@/lib/ocrAssegno'
+import { ocrAssegno, type OcrAssegnoResult } from '@/lib/ocrAssegno'
+import { parseBonificoScadenza, type BonificoScadenza } from '@/lib/parseBonificoScadenza'
 import DialogScadenza, { CADENZE } from './DialogScadenza'
 import type { Scadenza, CategoriaScadenza, ContoCorrente } from '@/types/commessa'
 
@@ -70,7 +71,7 @@ const giornoDi = (data: string) => Number(data.slice(8, 10))
 
 const CAT_BADGE: Record<CategoriaScadenza, { label: string; cls: string } | null> = {
   finanziamento: { label: 'Finanz.', cls: 'bg-purple-100 text-purple-700 border-purple-200' },
-  assegno: { label: 'Assegno', cls: 'bg-blue-100 text-blue-700 border-blue-200' },
+  assegno: { label: 'Ass./Bon.', cls: 'bg-blue-100 text-blue-700 border-blue-200' },
   utenza: { label: 'Utenza', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
   altro: null,
 }
@@ -96,8 +97,10 @@ type RowProps = {
   contoNome: Record<string, string>
   fotoUrl?: string
   uploading: boolean
+  setCameraRef: (el: HTMLInputElement | null) => void
   setFileRef: (el: HTMLInputElement | null) => void
   onClickCamera: () => void
+  onClickFile: () => void
   onTogglePagato: (s: Scadenza) => void
   onToggleCalcoli: (s: Scadenza) => void
   onDelete: (s: Scadenza) => void
@@ -110,7 +113,7 @@ type RowProps = {
 }
 
 function SortableScadenzaRow({
-  s, contoNome, fotoUrl, uploading, setFileRef, onClickCamera,
+  s, contoNome, fotoUrl, uploading, setCameraRef, setFileRef, onClickCamera, onClickFile,
   onTogglePagato, onToggleCalcoli, onDelete, onFotoSelected, onOpenFoto, onEdit,
   onCopia, onApriPiano, copying,
 }: RowProps) {
@@ -118,6 +121,7 @@ function SortableScadenzaRow({
     useSortable({ id: s.id })
   const style = { transform: CSS.Transform.toString(transform), transition }
   const badge = CAT_BADGE[s.categoria]
+  const isPdf = !!s.foto_path?.toLowerCase().endsWith('.pdf')
   const rata = s.numero_rata != null
     ? `Rata ${s.numero_rata}${s.totale_rate ? `/${s.totale_rate}` : ''}`
     : null
@@ -201,12 +205,19 @@ function SortableScadenzaRow({
         )}
       </div>
 
-      {/* Foto */}
+      {/* Allegato: foto dell'assegno oppure PDF della contabile del bonifico */}
       <input
-        ref={setFileRef}
+        ref={setCameraRef}
         type="file"
         accept="image/*"
         capture="environment"
+        className="hidden"
+        onChange={(e) => onFotoSelected(s, e.target.files?.[0] ?? null)}
+      />
+      <input
+        ref={setFileRef}
+        type="file"
+        accept="image/*,application/pdf"
         className="hidden"
         onChange={(e) => onFotoSelected(s, e.target.files?.[0] ?? null)}
       />
@@ -216,7 +227,19 @@ function SortableScadenzaRow({
             <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
           </div>
         ) : s.foto_path ? (
-          fotoUrl ? (
+          isPdf ? (
+            // Il PDF si riconosce a colpo d'occhio; il clic apre comunque l'anteprima
+            <button
+              type="button"
+              onClick={() => fotoUrl && onOpenFoto(fotoUrl, s)}
+              disabled={!fotoUrl}
+              className="h-12 w-20 rounded border bg-red-50 border-red-200 flex flex-col items-center justify-center gap-0.5 hover:ring-2 hover:ring-rose-300 disabled:opacity-50"
+              title="Apri anteprima del bonifico"
+            >
+              <FileText className="h-5 w-5 text-red-500" />
+              <span className="text-[9px] font-semibold text-red-600">PDF</span>
+            </button>
+          ) : fotoUrl ? (
             <button
               type="button"
               onClick={() => onOpenFoto(fotoUrl, s)}
@@ -229,15 +252,32 @@ function SortableScadenzaRow({
             <div className="h-12 w-20 rounded border bg-gray-100 animate-pulse" />
           )
         ) : (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 text-gray-400 hover:text-rose-600"
-            title={s.categoria === 'assegno' ? 'Allega foto assegno (legge il numero)' : 'Allega foto'}
-            onClick={onClickCamera}
-          >
-            <Camera className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 text-gray-400 hover:text-rose-600"
+                title={
+                  s.categoria === 'assegno'
+                    ? 'Allega assegno o contabile del bonifico'
+                    : 'Allega foto o documento'
+                }
+              >
+                <Paperclip className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onClickCamera}>
+                <Camera className="h-4 w-4 mr-2" />
+                Scatta foto
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onClickFile}>
+                <FileText className="h-4 w-4 mr-2" />
+                Scegli file (foto o PDF)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
@@ -554,17 +594,20 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
   const [fotoUrls, setFotoUrls] = useState<Record<string, string>>({})
   const [uploadingId, setUploadingId] = useState<string | null>(null)
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const cameraRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
-  // Carica gli URL firmati per le righe con foto
+  // Carica gli URL firmati delle righe con allegato. Per i PDF si usa
+  // l'anteprima: e' quella che si mostra a schermo e in stampa.
   useEffect(() => {
     let cancelled = false
-    const conFoto = items.filter((s) => s.foto_path)
-    if (conFoto.length === 0) { setFotoUrls({}); return }
+    const conAllegato = items.filter((s) => s.foto_path)
+    if (conAllegato.length === 0) { setFotoUrls({}); return }
     const load = async () => {
       const map: Record<string, string> = {}
       await Promise.all(
-        conFoto.map(async (s) => {
-          try { map[s.id] = await getFotoScadenzaUrl(s.foto_path!) } catch { /* ignora */ }
+        conAllegato.map(async (s) => {
+          const path = s.anteprima_path ?? s.foto_path!
+          try { map[s.id] = await getFotoScadenzaUrl(path) } catch { /* ignora */ }
         })
       )
       if (!cancelled) setFotoUrls(map)
@@ -610,37 +653,83 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
 
   const handleFotoSelected = async (s: Scadenza, file: File | null) => {
     if (!file) return
-    if (file.size > 20 * 1024 * 1024) { toast.error('Foto troppo grande (max 20 MB)'); return }
+    if (file.size > 20 * 1024 * 1024) { toast.error('File troppo grande (max 20 MB)'); return }
+
+    const isPdf =
+      file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+    const daLeggere = s.categoria === 'assegno'
+
     setUploadingId(s.id)
-    if (s.categoria === 'assegno') toast.info('Lettura assegno in corso…')
+    if (daLeggere) toast.info(isPdf ? 'Lettura del bonifico in corso…' : 'Lettura assegno in corso…')
+
     try {
       const fd = new FormData()
       fd.append('file', file)
       fd.append('scadenzaId', s.id)
-      const ocrPromise = s.categoria === 'assegno'
-        ? ocrAssegno(file)
-        : Promise.resolve({ numero: null, importo: null, data: null })
-      const [res, ocr] = await Promise.all([uploadFotoScadenza(fd), ocrPromise])
+
+      // I PDF non si vedono a schermo ne' in stampa: si allega l'immagine
+      // della prima pagina, generata qui nel browser
+      let anteprimaGenerata = false
+      if (isPdf) {
+        try {
+          const { renderPaginePdf } = await import('@/lib/pdf-items')
+          const [dataUrl] = await renderPaginePdf(file, { maxPagine: 1 })
+          if (dataUrl) {
+            const blob = await (await fetch(dataUrl)).blob()
+            fd.append('anteprima', blob, 'anteprima.jpg')
+            anteprimaGenerata = true
+          }
+        } catch {
+          // Senza anteprima il PDF resta comunque allegato e scaricabile
+        }
+      }
+
+      const lettura = !daLeggere
+        ? Promise.resolve(null)
+        : isPdf
+          ? parseBonificoScadenza(file)
+          : ocrAssegno(file)
+
+      const [res, letto] = await Promise.all([uploadFotoScadenza(fd), lettura])
       if (res.error) throw new Error(res.error)
-      // Aggiorna i campi letti: numero in descrizione, importo solo se ancora a 0
-      const patch: { descrizione?: string; importo?: number } = {}
-      if (ocr.numero) patch.descrizione = `Assegno n. ${ocr.numero}`
-      if (ocr.importo != null && !s.importo) patch.importo = ocr.importo
-      if (Object.keys(patch).length > 0) {
+
+      // Campi riconosciuti. Il fornitore non si tocca mai: quello scritto a mano
+      // e' piu' preciso del nome che compare in banca.
+      const patch: { descrizione?: string; importo?: number; data_scadenza?: string } = {}
+      if (letto) {
+        if (isPdf) {
+          const b = letto as BonificoScadenza
+          if (b.causale) patch.descrizione = b.causale
+          if (b.importo != null && !s.importo) patch.importo = b.importo
+          if (b.data) patch.data_scadenza = b.data
+        } else {
+          const o = letto as OcrAssegnoResult
+          if (o.numero) patch.descrizione = `Assegno n. ${o.numero}`
+          if (o.importo != null && !s.importo) patch.importo = o.importo
+        }
+      }
+      const haLetto = Object.keys(patch).length > 0
+      if (haLetto) {
         await updateScadenza(s.id, patch)
         setItems((cur) => cur.map((x) => (x.id === s.id ? { ...x, ...patch } : x)))
       }
-      if (s.categoria === 'assegno') {
-        toast.success(ocr.numero || ocr.importo != null ? 'Foto allegata · dati letti' : 'Foto allegata (nessun dato riconosciuto)')
+
+      const nome = isPdf ? 'Bonifico allegato' : 'Foto allegata'
+      if (daLeggere) {
+        toast.success(haLetto ? `${nome} · dati letti` : `${nome} (nessun dato riconosciuto)`)
       } else {
-        toast.success('Foto allegata')
+        toast.success(nome)
+      }
+      if (isPdf && !anteprimaGenerata) {
+        toast.warning("Anteprima non generata: il PDF resta allegato ma non comparirà nella scheda")
       }
       router.refresh()
     } catch {
-      toast.error('Errore nel caricamento della foto')
+      toast.error('Errore nel caricamento del file')
     } finally {
       setUploadingId(null)
       if (fileRefs.current[s.id]) fileRefs.current[s.id]!.value = ''
+      if (cameraRefs.current[s.id]) cameraRefs.current[s.id]!.value = ''
     }
   }
 
@@ -787,8 +876,10 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                         contoNome={contoNome}
                         fotoUrl={fotoUrls[s.id]}
                         uploading={uploadingId === s.id}
+                        setCameraRef={(el) => { cameraRefs.current[s.id] = el }}
                         setFileRef={(el) => { fileRefs.current[s.id] = el }}
-                        onClickCamera={() => fileRefs.current[s.id]?.click()}
+                        onClickCamera={() => cameraRefs.current[s.id]?.click()}
+                        onClickFile={() => fileRefs.current[s.id]?.click()}
                         onTogglePagato={handleTogglePagato}
                         onToggleCalcoli={handleToggleCalcoli}
                         onDelete={handleDelete}
@@ -835,12 +926,13 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
             <div className="space-y-2">
               <img
                 src={lightbox.url}
-                alt="foto scadenza"
+                alt="allegato scadenza"
                 className="w-full max-h-[80vh] object-contain rounded"
               />
               <div className="flex items-center justify-between px-1">
                 <span className="text-sm text-gray-500 truncate">
-                  {lightbox.scadenza.fornitore || 'Foto scadenza'}
+                  {lightbox.scadenza.fornitore ||
+                    (lightbox.scadenza.anteprima_path ? 'Contabile bonifico' : 'Foto scadenza')}
                 </span>
                 <Button
                   variant="ghost"
@@ -849,7 +941,7 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                   onClick={() => handleRemoveFoto(lightbox.scadenza)}
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
-                  Rimuovi foto
+                  Rimuovi allegato
                 </Button>
               </div>
             </div>

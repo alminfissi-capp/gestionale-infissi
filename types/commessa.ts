@@ -42,6 +42,9 @@ export type Scadenza = {
   totale_rate: number | null
   conto_id: string | null
   foto_path: string | null
+  // Immagine della prima pagina, solo per gli allegati PDF: serve ad anteprima
+  // e stampa, che sanno mostrare solo immagini
+  anteprima_path: string | null
   in_calcoli: boolean
   ordine: number
   created_at: string

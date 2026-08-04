@@ -67,9 +67,11 @@ export async function getScadenzaScheda(id: string): Promise<{
     gruppi_commesse: { nome: string } | null
   }
 
+  // Per i PDF si stampa l'anteprima: la scheda sa mostrare solo immagini
+  const daMostrare = row.anteprima_path ?? row.foto_path
   let fotoUrl: string | null = null
-  if (row.foto_path) {
-    const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(row.foto_path, 3600)
+  if (daMostrare) {
+    const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(daMostrare, 3600)
     fotoUrl = signed?.signedUrl ?? null
   }
 
@@ -161,9 +163,12 @@ export async function deleteScadenza(id: string): Promise<void> {
   revalidatePath('/commesse', 'layout')
 }
 
-// Upload foto (server action con service role: robusto anche da mobile)
+// Upload allegato (server action con service role: robusto anche da mobile).
+// `anteprima` e' l'immagine della prima pagina, presente solo per i PDF:
+// anteprima a schermo e scheda di stampa sanno mostrare solo immagini.
 export async function uploadFotoScadenza(formData: FormData): Promise<{ error?: string; path?: string }> {
   const file = formData.get('file') as File | null
+  const anteprima = formData.get('anteprima') as File | null
   const scadenzaId = formData.get('scadenzaId') as string
 
   if (!file || file.size === 0) return { error: 'Nessun file selezionato' }
@@ -171,7 +176,8 @@ export async function uploadFotoScadenza(formData: FormData): Promise<{ error?: 
 
   const orgId = await getOrgId()
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
-  const storagePath = `${orgId}/scadenze/${scadenzaId}/${Date.now()}.${ext}`
+  const base = `${orgId}/scadenze/${scadenzaId}/${Date.now()}`
+  const storagePath = `${base}.${ext}`
   const contentType =
     file.type && file.type !== 'application/octet-stream'
       ? file.type
@@ -179,11 +185,11 @@ export async function uploadFotoScadenza(formData: FormData): Promise<{ error?: 
 
   const service = createServiceClient()
 
-  // Rimuovi la foto precedente (se presente) per non lasciare orfani
+  // Rimuovi l'allegato precedente (se presente) per non lasciare orfani
   const supabase = await createClient()
   const { data: prev } = await supabase
     .from('scadenze')
-    .select('foto_path')
+    .select('foto_path, anteprima_path')
     .eq('id', scadenzaId)
     .eq('organization_id', orgId)
     .maybeSingle()
@@ -193,19 +199,35 @@ export async function uploadFotoScadenza(formData: FormData): Promise<{ error?: 
     .upload(storagePath, file, { contentType })
   if (uploadError) return { error: uploadError.message }
 
+  // L'anteprima e' un di piu': se fallisce resta il PDF, non si annulla tutto
+  let anteprimaPath: string | null = null
+  if (anteprima && anteprima.size > 0) {
+    const p = `${base}.anteprima.jpg`
+    const { error } = await service.storage
+      .from(BUCKET)
+      .upload(p, anteprima, { contentType: 'image/jpeg' })
+    if (!error) anteprimaPath = p
+  }
+
   const { error: dbError } = await supabase
     .from('scadenze')
-    .update({ foto_path: storagePath, updated_at: new Date().toISOString() })
+    .update({
+      foto_path: storagePath,
+      anteprima_path: anteprimaPath,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', scadenzaId)
     .eq('organization_id', orgId)
   if (dbError) {
-    await service.storage.from(BUCKET).remove([storagePath])
+    const daPulire = anteprimaPath ? [storagePath, anteprimaPath] : [storagePath]
+    await service.storage.from(BUCKET).remove(daPulire)
     return { error: dbError.message }
   }
 
-  if (prev?.foto_path && prev.foto_path !== storagePath) {
-    await service.storage.from(BUCKET).remove([prev.foto_path])
-  }
+  const vecchi = [prev?.foto_path, prev?.anteprima_path].filter(
+    (p): p is string => !!p && p !== storagePath && p !== anteprimaPath
+  )
+  if (vecchi.length > 0) await service.storage.from(BUCKET).remove(vecchi)
 
   revalidatePath('/commesse', 'layout')
   return { path: storagePath }
@@ -213,11 +235,22 @@ export async function uploadFotoScadenza(formData: FormData): Promise<{ error?: 
 
 export async function removeFotoScadenza(scadenzaId: string, path: string): Promise<void> {
   const orgId = await getOrgId()
-  await createServiceClient().storage.from(BUCKET).remove([path])
   const supabase = await createClient()
+
+  // Rileggo l'anteprima dal database: il chiamante conosce solo il file principale
+  const { data: row } = await supabase
+    .from('scadenze')
+    .select('anteprima_path')
+    .eq('id', scadenzaId)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+
+  const daRimuovere = [path, row?.anteprima_path].filter((p): p is string => !!p)
+  await createServiceClient().storage.from(BUCKET).remove(daRimuovere)
+
   const { error } = await supabase
     .from('scadenze')
-    .update({ foto_path: null, updated_at: new Date().toISOString() })
+    .update({ foto_path: null, anteprima_path: null, updated_at: new Date().toISOString() })
     .eq('id', scadenzaId)
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
