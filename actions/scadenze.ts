@@ -163,7 +163,58 @@ export async function deleteScadenza(id: string): Promise<void> {
   revalidatePath('/commesse', 'layout')
 }
 
-// Upload allegato (server action con service role: robusto anche da mobile).
+/**
+ * Registra un allegato gia' caricato sul bucket dal browser: qui passano solo i
+ * percorsi, non il file. E' la strada normale, perche' il file non attraversa le
+ * funzioni Vercel e non incontra il limite sul corpo della richiesta (~4,5 MB)
+ * che fa fallire in silenzio le foto scattate col telefono.
+ * Ripulisce l'allegato precedente per non lasciare file orfani.
+ */
+export async function setAllegatoScadenza(
+  scadenzaId: string,
+  fotoPath: string,
+  anteprimaPath: string | null,
+): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { data: prev } = await supabase
+    .from('scadenze')
+    .select('foto_path, anteprima_path')
+    .eq('id', scadenzaId)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+
+  const { error } = await supabase
+    .from('scadenze')
+    .update({
+      foto_path: fotoPath,
+      anteprima_path: anteprimaPath,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', scadenzaId)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+
+  const vecchi = [prev?.foto_path, prev?.anteprima_path].filter(
+    (p): p is string => !!p && p !== fotoPath && p !== anteprimaPath
+  )
+  if (vecchi.length > 0) {
+    await createServiceClient().storage.from(BUCKET).remove(vecchi)
+  }
+
+  revalidatePath('/commesse', 'layout')
+}
+
+/** Percorso su cui il browser deve caricare l'allegato di una scadenza */
+export async function getPathAllegatoScadenza(scadenzaId: string): Promise<string> {
+  const orgId = await getOrgId()
+  return `${orgId}/scadenze/${scadenzaId}/${Date.now()}`
+}
+
+// Ripiego: upload passando dal server (service role). Serve su iOS e Android,
+// dove dentro un Dialog il client browser puo' non avere la sessione. Qui il
+// file attraversa la funzione e resta soggetto al limite di dimensione.
 // `anteprima` e' l'immagine della prima pagina, presente solo per i PDF:
 // anteprima a schermo e scheda di stampa sanno mostrare solo immagini.
 export async function uploadFotoScadenza(formData: FormData): Promise<{ error?: string; path?: string }> {
