@@ -57,6 +57,7 @@ import {
   getPathAllegatoScadenza,
 } from '@/actions/scadenze'
 import { createClient } from '@/lib/supabase/client'
+import { conRiprova } from '@/lib/riprova'
 import { formatEuro } from '@/lib/pricing'
 import { ocrAssegno, type OcrAssegnoResult } from '@/lib/ocrAssegno'
 import { parseBonificoScadenza, type BonificoScadenza } from '@/lib/parseBonificoScadenza'
@@ -75,8 +76,10 @@ const MIME_ALLEGATO: Record<string, string> = {
   png: 'image/png', webp: 'image/webp', heic: 'image/heic',
 }
 
+export type EsitoAllegato = { fotoPath: string; anteprimaPath: string | null }
+
 /**
- * Carica l'allegato di una scadenza.
+ * Carica l'allegato di una scadenza e ne restituisce i percorsi.
  *
  * Strada normale: il browser scrive direttamente su Supabase. Il file non
  * attraversa le funzioni Vercel e quindi non incontra il limite sul corpo della
@@ -86,6 +89,10 @@ const MIME_ALLEGATO: Record<string, string> = {
  * Ripiego: la Server Action. Su iOS e Android il client browser può non avere
  * la sessione, e lì il caricamento diretto fallirebbe; passando dal server il
  * caso mobile continua a funzionare, al prezzo del limite di dimensione.
+ *
+ * Una volta che il file e' nel bucket non si torna indietro a rimandarlo: si
+ * riprova solo a registrarlo. Rimandare un file gia' al sicuro e' tempo perso
+ * su rete mobile e lascia copie orfane nel bucket.
  */
 async function caricaAllegato(
   scadenzaId: string,
@@ -93,34 +100,48 @@ async function caricaAllegato(
   ext: string,
   contentType: string,
   anteprima: Blob | null,
-): Promise<void> {
+): Promise<EsitoAllegato> {
   try {
     const base = await getPathAllegatoScadenza(scadenzaId)
     const fotoPath = `${base}.${ext}`
     const supabase = createClient()
 
-    const { error } = await supabase.storage
-      .from(BUCKET_ALLEGATI)
-      .upload(fotoPath, file, { contentType })
-    if (error) throw error
+    // upsert: una riprova dopo una risposta persa non deve fallire per "file gia' esistente"
+    await conRiprova(async () => {
+      const { error } = await supabase.storage
+        .from(BUCKET_ALLEGATI)
+        .upload(fotoPath, file, { contentType, upsert: true })
+      if (error) throw error
+    })
 
+    // L'anteprima e' un di piu': se non ce la fa, il documento resta allegato
     let anteprimaPath: string | null = null
     if (anteprima) {
       const p = `${base}.anteprima.jpg`
-      const { error: e } = await supabase.storage
-        .from(BUCKET_ALLEGATI)
-        .upload(p, anteprima, { contentType: 'image/jpeg' })
-      if (!e) anteprimaPath = p
+      try {
+        await conRiprova(async () => {
+          const { error } = await supabase.storage
+            .from(BUCKET_ALLEGATI)
+            .upload(p, anteprima, { contentType: 'image/jpeg', upsert: true })
+          if (error) throw error
+        })
+        anteprimaPath = p
+      } catch { /* si prosegue senza anteprima */ }
     }
 
-    await setAllegatoScadenza(scadenzaId, fotoPath, anteprimaPath)
+    await conRiprova(() => setAllegatoScadenza(scadenzaId, fotoPath, anteprimaPath))
+    return { fotoPath, anteprimaPath }
   } catch {
     const fd = new FormData()
     fd.append('file', file, `allegato.${ext}`)
     fd.append('scadenzaId', scadenzaId)
     if (anteprima) fd.append('anteprima', anteprima, 'anteprima.jpg')
-    const res = await uploadFotoScadenza(fd)
-    if (res.error) throw new Error(res.error)
+    const res = await conRiprova(async () => {
+      const r = await uploadFotoScadenza(fd)
+      if (r.error) throw new Error(r.error)
+      return r
+    })
+    return { fotoPath: res.path!, anteprimaPath: res.anteprimaPath ?? null }
   }
 }
 
@@ -745,50 +766,66 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
         }
       }
 
+      // La lettura parte subito ma non trattiene il caricamento: l'OCR di un
+      // assegno impiega secondi, e l'allegato deve comparire prima
       const lettura = !daLeggere
         ? Promise.resolve(null)
         : isPdf
           ? parseBonificoScadenza(file)
           : ocrAssegno(file)
 
-      const [, letto] = await Promise.all([
-        caricaAllegato(s.id, blob, ext, contentType, anteprima),
-        lettura,
-      ])
+      const esito = await caricaAllegato(s.id, blob, ext, contentType, anteprima)
 
-      // Campi riconosciuti. Il fornitore non si tocca mai: quello scritto a mano
-      // e' piu' preciso del nome che compare in banca.
-      const patch: { descrizione?: string; importo?: number; data_scadenza?: string } = {}
-      if (letto) {
-        if (isPdf) {
-          const b = letto as BonificoScadenza
-          if (b.causale) patch.descrizione = b.causale
-          if (b.importo != null && !s.importo) patch.importo = b.importo
-          if (b.data) patch.data_scadenza = b.data
-        } else {
-          const o = letto as OcrAssegnoResult
-          if (o.numero) patch.descrizione = `Assegno n. ${o.numero}`
-          if (o.importo != null && !s.importo) patch.importo = o.importo
-        }
-      }
-      const haLetto = Object.keys(patch).length > 0
-      if (haLetto) {
-        await updateScadenza(s.id, patch)
-        setItems((cur) => cur.map((x) => (x.id === s.id ? { ...x, ...patch } : x)))
-      }
+      // Il file e' al sicuro: la riga lo mostra adesso, senza aspettare il giro
+      // dal server. E' il punto in cui prima restava indietro nel PWA.
+      setItems((cur) =>
+        cur.map((x) =>
+          x.id === s.id
+            ? { ...x, foto_path: esito.fotoPath, anteprima_path: esito.anteprimaPath }
+            : x
+        )
+      )
+      setUploadingId(null)
 
       const nome = isPdf ? 'Bonifico allegato' : 'Foto allegata'
-      if (daLeggere) {
-        toast.success(haLetto ? `${nome} · dati letti` : `${nome} (nessun dato riconosciuto)`)
-      } else {
-        toast.success(nome)
-      }
-      if (isPdf && !anteprima) {
+      toast.success(nome)
+      if (isPdf && !esito.anteprimaPath) {
         toast.warning("Anteprima non generata: il PDF resta allegato ma non comparirà nella scheda")
       }
+
+      // Da qui in poi l'allegato e' salvo: quello che puo' ancora fallire
+      // riguarda solo i campi letti, e va detto senza allarmare sul file.
+      try {
+        const letto = await lettura
+        // Il fornitore non si tocca mai: quello scritto a mano e' piu' preciso
+        // del nome che compare in banca.
+        const patch: { descrizione?: string; importo?: number; data_scadenza?: string } = {}
+        if (letto) {
+          if (isPdf) {
+            const b = letto as BonificoScadenza
+            if (b.causale) patch.descrizione = b.causale
+            if (b.importo != null && !s.importo) patch.importo = b.importo
+            if (b.data) patch.data_scadenza = b.data
+          } else {
+            const o = letto as OcrAssegnoResult
+            if (o.numero) patch.descrizione = `Assegno n. ${o.numero}`
+            if (o.importo != null && !s.importo) patch.importo = o.importo
+          }
+        }
+        if (Object.keys(patch).length > 0) {
+          await conRiprova(() => updateScadenza(s.id, patch))
+          setItems((cur) => cur.map((x) => (x.id === s.id ? { ...x, ...patch } : x)))
+          toast.success('Dati letti dal documento')
+        } else if (daLeggere) {
+          toast.info('Nessun dato riconosciuto: compila a mano')
+        }
+      } catch {
+        toast.warning('Allegato salvato, ma i dati letti non si sono salvati: correggili a mano')
+      }
+
       router.refresh()
     } catch {
-      toast.error('Errore nel caricamento del file')
+      toast.error('Caricamento non riuscito: il file non è stato allegato, riprova')
     } finally {
       setUploadingId(null)
       if (fileRefs.current[s.id]) fileRefs.current[s.id]!.value = ''
