@@ -217,7 +217,9 @@ export async function getPathAllegatoScadenza(scadenzaId: string): Promise<strin
 // file attraversa la funzione e resta soggetto al limite di dimensione.
 // `anteprima` e' l'immagine della prima pagina, presente solo per i PDF:
 // anteprima a schermo e scheda di stampa sanno mostrare solo immagini.
-export async function uploadFotoScadenza(formData: FormData): Promise<{ error?: string; path?: string }> {
+export async function uploadFotoScadenza(
+  formData: FormData,
+): Promise<{ error?: string; path?: string; anteprimaPath?: string | null }> {
   const file = formData.get('file') as File | null
   const anteprima = formData.get('anteprima') as File | null
   const scadenzaId = formData.get('scadenzaId') as string
@@ -281,7 +283,7 @@ export async function uploadFotoScadenza(formData: FormData): Promise<{ error?: 
   if (vecchi.length > 0) await service.storage.from(BUCKET).remove(vecchi)
 
   revalidatePath('/commesse', 'layout')
-  return { path: storagePath }
+  return { path: storagePath, anteprimaPath }
 }
 
 export async function removeFotoScadenza(scadenzaId: string, path: string): Promise<void> {
