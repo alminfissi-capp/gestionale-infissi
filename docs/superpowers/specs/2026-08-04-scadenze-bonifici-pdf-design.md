@@ -107,12 +107,25 @@ un'immagine.
 - PDF di più pagine: l'anteprima è la prima pagina. Un bonifico sta su una pagina.
 - Unificare `parseBonifico` e `parseBonificoScadenza`.
 
-## Nota a margine, fuori da questo lavoro
+## Foto grandi: risolto subito dopo (2026-08-04)
 
-`uploadFotoScadenza` è una Server Action che riceve il file. Su Vercel il corpo
-di una Server Action si ferma intorno ai 4,5 MB, mentre il codice ne accetta 20:
-una foto scattata da un telefono recente può superare il limite e fallire in
-modo silenzioso. I PDF dei bonifici pesano poche centinaia di kB e non sono
-interessati. Il problema è preesistente e riguarda le foto; se si manifesta, la
-strada è caricare dal browser direttamente su Supabase, come già fanno
-`DialogDocumenti` e `DialogPreventivoManuale`.
+`uploadFotoScadenza` era una Server Action che riceveva il file. Su Vercel il
+corpo di una Server Action si ferma intorno ai 4,5 MB mentre il codice ne
+accettava 20: una foto scattata da un telefono recente superava il limite e
+falliva **in silenzio**. Lo stesso difetto era già emerso il 2026-07-29 su
+`DialogDocumenti`, con un PDF da 7,32 MB.
+
+Applicata la stessa soluzione già adottata lì:
+
+1. **Strada normale** — il browser carica direttamente su Supabase Storage. Il
+   file non attraversa le funzioni Vercel e il limite non si applica. La nuova
+   `setAllegatoScadenza` registra solo i percorsi, e `getPathAllegatoScadenza`
+   fornisce la cartella su cui scrivere.
+2. **Ripiego** — la Server Action originale, invariata. Su iOS e Android il
+   client browser può non avere la sessione: lì il caricamento diretto
+   fallirebbe, e passare dal server tiene in piedi il caso mobile.
+
+Verificato che le policy del bucket `commesse-docs` controllano solo la prima
+cartella del percorso (l'organizzazione), quindi il percorso
+`{org}/scadenze/{id}/…` è ammesso e la strada normale funziona davvero, senza
+ripiegare in silenzio sulla Server Action.
