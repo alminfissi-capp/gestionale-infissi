@@ -46,7 +46,7 @@ type FormState = {
 
 const CATEGORIE: { value: CategoriaScadenza; label: string; icon: typeof Landmark }[] = [
   { value: 'finanziamento', label: 'Finanziamento', icon: Landmark },
-  { value: 'assegno', label: 'Assegno', icon: ReceiptText },
+  { value: 'assegno', label: 'Assegno / Bonifico', icon: ReceiptText },
   { value: 'utenza', label: 'Utenza', icon: Zap },
   { value: 'altro', label: 'Altro', icon: CircleDashed },
 ]
