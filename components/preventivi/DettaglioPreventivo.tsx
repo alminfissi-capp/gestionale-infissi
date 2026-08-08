@@ -796,9 +796,9 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
       {(() => {
         // Costi/utile via funzione condivisa (lib/preventivo-costi) — stessa formula delle statistiche
         const getCosti = costiArticolo
-        const { materiali: totaleCostiAcquisto, posa: totalePosa, costoTotale, utile } =
+        const { materiali: totaleCostiAcquisto, posa: totalePosa, spese: totaleSpeseVarie, costoTotale, utile } =
           calcolaCostiPreventivo(p.articoli, p.totale_articoli, p.spese_trasporto)
-        if (totaleCostiAcquisto === 0 && totalePosa === 0 && p.spese_trasporto === 0) return null
+        if (totaleCostiAcquisto === 0 && totalePosa === 0 && totaleSpeseVarie === 0 && p.spese_trasporto === 0) return null
         const percUtile = costoTotale > 0 ? (utile / costoTotale) * 100 : null
         return (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-4">
@@ -816,14 +816,17 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
                     <th className="text-center pb-1.5 font-semibold w-12">Qtà</th>
                     <th className="text-right pb-1.5 font-semibold whitespace-nowrap">C. Acq. Unit.</th>
                     <th className="text-right pb-1.5 font-semibold whitespace-nowrap">Posa Unit.</th>
+                    {totaleSpeseVarie > 0 && (
+                      <th className="text-right pb-1.5 font-semibold whitespace-nowrap">Sp. Varie Unit.</th>
+                    )}
                     <th className="text-right pb-1.5 font-semibold whitespace-nowrap">Costo Tot.</th>
                     <th className="text-right pb-1.5 font-semibold whitespace-nowrap">Ricavo</th>
                   </tr>
                 </thead>
                 <tbody>
                   {p.articoli.map((a) => {
-                    const { acq, posa } = getCosti(a)
-                    const costoTotRiga = (acq + posa) * a.quantita
+                    const { acq, posa, spese } = getCosti(a)
+                    const costoTotRiga = (acq + posa + spese) * a.quantita
                     const margineRiga = a.prezzo_totale_riga - costoTotRiga
                     return (
                       <tr key={a.id} className="border-b border-amber-100">
@@ -840,6 +843,11 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
                         <td className="py-1.5 text-right text-gray-600 tabular-nums">
                           {posa > 0 ? `€ ${formatEuro(posa)}` : '—'}
                         </td>
+                        {totaleSpeseVarie > 0 && (
+                          <td className="py-1.5 text-right text-gray-600 tabular-nums">
+                            {spese > 0 ? `€ ${formatEuro(spese)}` : '—'}
+                          </td>
+                        )}
                         <td className="py-1.5 text-right text-gray-700 font-medium tabular-nums">
                           {costoTotRiga > 0 ? `€ ${formatEuro(costoTotRiga)}` : '—'}
                         </td>
@@ -865,6 +873,12 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
                 <div className="flex justify-between text-gray-600">
                   <span className="flex items-center gap-1 pl-1">↳ Costi posa</span>
                   <span className="tabular-nums">€ {formatEuro(totalePosa)}</span>
+                </div>
+              )}
+              {totaleSpeseVarie > 0 && (
+                <div className="flex justify-between text-gray-600">
+                  <span className="flex items-center gap-1 pl-1">↳ Spese varie</span>
+                  <span className="tabular-nums">€ {formatEuro(totaleSpeseVarie)}</span>
                 </div>
               )}
               {p.spese_trasporto > 0 && (

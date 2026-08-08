@@ -71,7 +71,7 @@ export default async function StatisticheCommessePage() {
   const tuttiPrevIds = [...new Set([...preventiviPerCommessa.values()].flatMap((s) => [...s]))]
 
   // Costi calcolati dai preventivi INTERNI, sommati per commessa.
-  const sysPerCommessa = new Map<string, { materiali: number; posa: number; utile: number }>()
+  const sysPerCommessa = new Map<string, { materiali: number; posa: number; spese: number; utile: number }>()
   if (tuttiPrevIds.length > 0) {
     const [{ data: prevRaw }, { data: artRaw }] = await Promise.all([
       supabase
@@ -90,26 +90,27 @@ export default async function StatisticheCommessePage() {
       list.push(a as ArticoloCosti)
       articoliPerPrev.set(a.preventivo_id, list)
     }
-    const costiPerPrev = new Map<string, { materiali: number; posa: number; utile: number }>()
+    const costiPerPrev = new Map<string, { materiali: number; posa: number; spese: number; utile: number }>()
     for (const p of prevRaw ?? []) {
       const arts = articoliPerPrev.get(p.id) ?? []
-      const { materiali, posa, utile } = calcolaCostiPreventivo(
+      const { materiali, posa, spese, utile } = calcolaCostiPreventivo(
         arts,
         Number(p.totale_articoli) || 0,
         Number(p.spese_trasporto) || 0,
       )
-      costiPerPrev.set(p.id, { materiali, posa, utile })
+      costiPerPrev.set(p.id, { materiali, posa, spese, utile })
     }
     for (const [commessaId, prevSet] of preventiviPerCommessa) {
-      let materiali = 0, posa = 0, utile = 0
+      let materiali = 0, posa = 0, spese = 0, utile = 0
       for (const prevId of prevSet) {
         const cp = costiPerPrev.get(prevId)
         if (!cp) continue
         materiali += cp.materiali
         posa += cp.posa
+        spese += cp.spese
         utile += cp.utile
       }
-      sysPerCommessa.set(commessaId, { materiali, posa, utile })
+      sysPerCommessa.set(commessaId, { materiali, posa, spese, utile })
     }
   }
 
@@ -130,7 +131,7 @@ export default async function StatisticheCommessePage() {
   for (const id of new Set([...sysPerCommessa.keys(), ...manualePerCommessa.keys()])) {
     const info = commessaInfo.get(id)
     if (!info) continue
-    const sys = sysPerCommessa.get(id) ?? { materiali: 0, posa: 0, utile: 0 }
+    const sys = sysPerCommessa.get(id) ?? { materiali: 0, posa: 0, spese: 0, utile: 0 }
     const man = manualePerCommessa.get(id) ?? { materiali: 0, posa: 0, utile: 0 }
     costiCommesse.push({
       commessa_id: id,
@@ -138,6 +139,7 @@ export default async function StatisticheCommessePage() {
       data_conferma: info.data_conferma,
       materiali: sys.materiali + man.materiali,
       posa: sys.posa + man.posa,
+      spese: sys.spese, // le spese varie esistono solo lato preventivo, non tra i costi manuali
       utile: sys.utile + man.utile,
     })
   }

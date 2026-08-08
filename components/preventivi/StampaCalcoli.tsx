@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Printer, ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatEuro } from '@/lib/pricing'
+import { costiArticolo, calcolaCostiPreventivo } from '@/lib/preventivo-costi'
 import type { PreventivoCompleto } from '@/types/preventivo'
 import type { Settings } from '@/types/impostazioni'
 import AllegatoCatalogoPdf from '@/components/preventivi/AllegatoCatalogoPdf'
@@ -102,21 +103,16 @@ interface DocProps {
   logoUrl: string | null
 }
 
-/** Per su_misura/scorrevole: usa config come fonte attendibile (funziona anche su articoli già salvati) */
-function getCostiArticolo(a: PreventivoCompleto['articoli'][number]) {
-  if (a.tipo === 'su_misura' && a.config_su_misura)
-    return { costoAcquisto: a.config_su_misura.totale_prodotto + a.config_su_misura.totale_accessori, costoPosa: a.config_su_misura.mano_dopera }
-  if (a.tipo === 'scorrevole' && a.config_scorrevole)
-    return { costoAcquisto: a.config_scorrevole.dettaglio.totale_riga, costoPosa: a.config_scorrevole.posa ?? a.costo_posa }
-  return { costoAcquisto: a.costo_acquisto_unitario, costoPosa: a.costo_posa }
-}
-
 function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings, logoUrl }: DocProps) {
   const articoliOrdinati = [...p.articoli].sort((a, b) => a.ordine - b.ordine)
-  const totaleCostiAcquisto = articoliOrdinati.reduce((sum, a) => sum + getCostiArticolo(a).costoAcquisto * a.quantita, 0)
-  const totalePosa = articoliOrdinati.reduce((sum, a) => sum + getCostiArticolo(a).costoPosa * a.quantita, 0)
-  const costoTotale = totaleCostiAcquisto + totalePosa + p.spese_trasporto
-  const utile = p.totale_articoli - costoTotale
+  // Stessa formula del "Report interno" (lib/preventivo-costi): le spese varie sono un costo.
+  const {
+    materiali: totaleCostiAcquisto,
+    posa: totalePosa,
+    spese: totaleSpeseVarie,
+    costoTotale,
+    utile,
+  } = calcolaCostiPreventivo(articoliOrdinati, p.totale_articoli, p.spese_trasporto)
   const percUtile = costoTotale > 0 ? (utile / costoTotale) * 100 : null
 
   return (
@@ -201,6 +197,7 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
               <th className="py-2 text-right w-24">Ricavo unit.</th>
               <th className="py-2 text-right w-24">C. Acq. unit.</th>
               <th className="py-2 text-right w-20">Posa unit.</th>
+              {totaleSpeseVarie > 0 && <th className="py-2 text-right w-20">Sp. varie</th>}
               <th className="py-2 text-right w-20">Trasp.</th>
               <th className="py-2 text-right w-24">Costo totale</th>
               <th className="py-2 text-right w-24">Margine</th>
@@ -208,9 +205,9 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
           </thead>
           <tbody>
             {articoliOrdinati.map((a, i) => {
-              const { costoAcquisto, costoPosa } = getCostiArticolo(a)
+              const { acq: costoAcquisto, posa: costoPosa, spese: speseVarie } = costiArticolo(a)
               const quotaTrasporto = a.quota_trasporto ?? 0
-              const costoTotRiga = (costoAcquisto + costoPosa) * a.quantita + quotaTrasporto
+              const costoTotRiga = (costoAcquisto + costoPosa + speseVarie) * a.quantita + quotaTrasporto
               const margineRiga = a.prezzo_totale_riga - costoTotRiga
               return (
                 <tr key={a.id} className="border-b border-gray-200 align-top">
@@ -239,6 +236,11 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
                   <td className="py-2 text-right tabular-nums text-gray-700">
                     {costoPosa > 0 ? `€ ${formatEuro(costoPosa)}` : '—'}
                   </td>
+                  {totaleSpeseVarie > 0 && (
+                    <td className="py-2 text-right tabular-nums text-gray-700">
+                      {speseVarie > 0 ? `€ ${formatEuro(speseVarie)}` : '—'}
+                    </td>
+                  )}
                   <td className="py-2 text-right tabular-nums text-gray-500">
                     {quotaTrasporto > 0 ? `€ ${formatEuro(quotaTrasporto)}` : '—'}
                   </td>
@@ -275,6 +277,12 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
               <div className="flex justify-between text-gray-700">
                 <span>— Costi posa</span>
                 <span className="tabular-nums">€ {formatEuro(totalePosa)}</span>
+              </div>
+            )}
+            {totaleSpeseVarie > 0 && (
+              <div className="flex justify-between text-gray-700">
+                <span>— Spese varie</span>
+                <span className="tabular-nums">€ {formatEuro(totaleSpeseVarie)}</span>
               </div>
             )}
             <div className="flex justify-between text-gray-700">
