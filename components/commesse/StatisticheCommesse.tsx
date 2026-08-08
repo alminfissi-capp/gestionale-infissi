@@ -26,6 +26,7 @@ const COLORS = {
   incasso: '#0ea5e9',  // sky-500
   materiali: '#64748b', // slate-500
   posa: '#f59e0b',     // amber-500
+  spese: '#a78bfa',    // violet-400
   utile: '#16a34a',    // green-600
 }
 
@@ -72,10 +73,11 @@ export default function StatisticheCommesse({ dati }: Props) {
 
   const totMateriali = datiCostiUtili.reduce((s, r) => s + r.materiali, 0)
   const totPosa = datiCostiUtili.reduce((s, r) => s + r.posa, 0)
+  const totSpese = datiCostiUtili.reduce((s, r) => s + r.spese, 0)
   const totUtile = datiCostiUtili.reduce((s, r) => s + r.utile, 0)
-  const totCosti = totMateriali + totPosa
+  const totCosti = totMateriali + totPosa + totSpese
   const percMargine = totCosti > 0 ? (totUtile / totCosti) * 100 : null
-  const haCostiUtili = totMateriali !== 0 || totPosa !== 0 || totUtile !== 0
+  const haCostiUtili = totMateriali !== 0 || totPosa !== 0 || totSpese !== 0 || totUtile !== 0
 
   const clienteValido = cliente.trim().length > 0
   const resoconto = useMemo(
@@ -262,6 +264,7 @@ export default function StatisticheCommesse({ dati }: Props) {
                         <Legend wrapperStyle={{ fontSize: 12 }} />
                         <Bar dataKey="materiali" name="Materiali" stackId="cu" fill={COLORS.materiali} />
                         <Bar dataKey="posa" name="M. D'opera/Posa" stackId="cu" fill={COLORS.posa} />
+                        <Bar dataKey="spese" name="Spese varie" stackId="cu" fill={COLORS.spese} />
                         <Bar dataKey="utile" name="Utile" stackId="cu" fill={COLORS.utile} radius={[4, 4, 0, 0]} />
                       </BarChart>
                     )}
@@ -269,6 +272,9 @@ export default function StatisticheCommesse({ dati }: Props) {
                   <div className="flex flex-wrap gap-x-6 gap-y-1 mt-3 text-sm">
                     <span className="text-gray-500">Materiali: <strong className="text-slate-700">{formatEuro(totMateriali)}</strong></span>
                     <span className="text-gray-500">M. D&apos;opera/Posa: <strong className="text-amber-700">{formatEuro(totPosa)}</strong></span>
+                    {totSpese !== 0 && (
+                      <span className="text-gray-500">Spese varie: <strong className="text-violet-700">{formatEuro(totSpese)}</strong></span>
+                    )}
                     <span className="text-gray-500">Utile: <strong className="text-green-700">{formatEuro(totUtile)}</strong></span>
                     {percMargine !== null && (
                       <span className="text-gray-500">Margine: <strong className="text-green-700">{percMargine.toFixed(1).replace('.', ',')}%</strong> sul costo</span>

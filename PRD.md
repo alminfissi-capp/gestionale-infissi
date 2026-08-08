@@ -797,16 +797,21 @@ costo_acquisto_unitario = prezzo_base × (1 - sconto_fornitore/100)
 
 ### Calcolo margini (uso interno)
 ```
-costo_tot_riga = (costo_acquisto_unitario + costo_posa) × quantita
+costo_tot_riga = (costo_acquisto_unitario + costo_posa + spese_varie) × quantita
 margine_riga   = prezzo_totale_riga - costo_tot_riga
 
 utile_lordo    = totale_articoli
                - totale_costi_acquisto
                - totale_posa
+               - totale_spese_varie
                - spese_trasporto
 
-margine_pct    = utile_lordo / (totale_costi_acquisto + totale_posa + spese_trasporto) × 100
+margine_pct    = utile_lordo / (totale_costi_acquisto + totale_posa + totale_spese_varie + spese_trasporto) × 100
 ```
+> `spese_varie` = `config_su_misura.spese_varie_calcolate`, presente solo sugli articoli **su misura**.
+> Sono un **costo** incluso nel prezzo di vendita dal form (prodotto + accessori + mano d'opera +
+> spese varie + utile): vanno sottratte, altrimenti finiscono nell'utile e lo gonfiano.
+> Fonte unica della formula: `lib/preventivo-costi.ts` (usata da report interno, stampa calcoli e statistiche).
 
 ### Calcolo IVA con sconto proporzionale
 ```
