@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Landmark, ReceiptText, CircleDashed, Zap, Camera, Upload, Loader2, X } from 'lucide-react'
+import { Landmark, ReceiptText, CircleDashed, Zap, Camera, Upload, Loader2, X, FileText } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -15,8 +15,10 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { createScadenza, updateScadenza, uploadFotoScadenza, copiaScadenzaRate } from '@/actions/scadenze'
+import { createScadenza, updateScadenza, copiaScadenzaRate } from '@/actions/scadenze'
 import { ocrAssegno } from '@/lib/ocrAssegno'
+import { parseBonificoScadenza } from '@/lib/parseBonificoScadenza'
+import { caricaAllegato, anteprimaPdf, tipoAllegato, isPdfFile } from '@/lib/allegatoScadenza'
 import type { Scadenza, CategoriaScadenza, ContoCorrente } from '@/types/commessa'
 
 interface Props {
@@ -82,9 +84,14 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
   })
   const [loading, setLoading] = useState(false)
 
-  // Foto allegata in fase di inserimento (caricata solo al salvataggio)
+  // Allegato scelto in fase di inserimento (caricato solo al salvataggio):
+  // foto dell'assegno oppure PDF della contabile del bonifico
   const [fotoFile, setFotoFile] = useState<File | null>(null)
   const [fotoPreview, setFotoPreview] = useState<string | null>(null)
+  // Per i PDF: immagine della prima pagina, l'unica cosa che anteprima e
+  // scheda di stampa sanno mostrare
+  const [anteprimaBlob, setAnteprimaBlob] = useState<Blob | null>(null)
+  const [allegatoPdf, setAllegatoPdf] = useState(false)
   const [ocrLoading, setOcrLoading] = useState(false)
   const cameraRef = useRef<HTMLInputElement | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
@@ -112,9 +119,11 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
         ripeti_totale: '1', ripeti_cadenza: '1',
       })
     }
-    // Reset foto a ogni apertura
+    // Reset allegato a ogni apertura
     setFotoFile(null)
     setFotoPreview(null)
+    setAnteprimaBlob(null)
+    setAllegatoPdf(false)
     setOcrLoading(false)
   }, [open, scadenza, defaultData])
 
@@ -128,24 +137,54 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
 
   const handleFotoSelected = async (file: File | null) => {
     if (!file) return
-    if (file.size > 20 * 1024 * 1024) { toast.error('Foto troppo grande (max 20 MB)'); return }
+    if (file.size > 20 * 1024 * 1024) { toast.error('File troppo grande (max 20 MB)'); return }
+    const isPdf = isPdfFile(file)
     setFotoFile(file)
-    setFotoPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(file) })
+    setAllegatoPdf(isPdf)
 
     setOcrLoading(true)
     try {
-      const { numero, importo, data } = await ocrAssegno(file)
-      setForm((f) => ({
-        ...f,
-        importo: importo != null ? String(importo) : f.importo,
-        data_scadenza: data ?? f.data_scadenza,
-        descrizione: numero ? `Assegno n. ${numero}` : f.descrizione,
-      }))
-      if (numero || importo != null || data) {
-        toast.success('Dati letti dalla foto · controlla e correggi se serve')
+      // Un PDF non si mostra a schermo: l'anteprima e' l'immagine della prima
+      // pagina, che serve anche in fase di caricamento e in stampa
+      const anteprima = isPdf ? await anteprimaPdf(file) : null
+      setAnteprimaBlob(anteprima)
+      const daMostrare = isPdf ? anteprima : file
+      setFotoPreview((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return daMostrare ? URL.createObjectURL(daMostrare) : null
+      })
+
+      // Il bonifico si legge dal testo del PDF, l'assegno dalla foto
+      if (isPdf) {
+        const { causale, importo, data } = await parseBonificoScadenza(file)
+        setForm((f) => ({
+          ...f,
+          importo: importo != null ? String(importo) : f.importo,
+          data_scadenza: data ?? f.data_scadenza,
+          descrizione: causale ?? f.descrizione,
+        }))
+        if (causale || importo != null || data) {
+          toast.success('Dati letti dal bonifico · controlla e correggi se serve')
+        } else {
+          toast.info('Bonifico allegato · nessun dato riconosciuto, inserisci a mano')
+        }
       } else {
-        toast.info('Foto allegata · nessun dato riconosciuto, inserisci a mano')
+        const { numero, importo, data } = await ocrAssegno(file)
+        setForm((f) => ({
+          ...f,
+          importo: importo != null ? String(importo) : f.importo,
+          data_scadenza: data ?? f.data_scadenza,
+          descrizione: numero ? `Assegno n. ${numero}` : f.descrizione,
+        }))
+        if (numero || importo != null || data) {
+          toast.success('Dati letti dalla foto · controlla e correggi se serve')
+        } else {
+          toast.info('Foto allegata · nessun dato riconosciuto, inserisci a mano')
+        }
       }
+    } catch {
+      // La lettura e' un aiuto, non una condizione: il file resta allegato
+      toast.info('Documento allegato · dati non riconosciuti, inseriscili a mano')
     } finally {
       setOcrLoading(false)
     }
@@ -154,6 +193,8 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
   const removeFoto = () => {
     setFotoFile(null)
     setFotoPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null })
+    setAnteprimaBlob(null)
+    setAllegatoPdf(false)
     if (cameraRef.current) cameraRef.current.value = ''
     if (fileRef.current) fileRef.current.value = ''
   }
@@ -197,13 +238,27 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
           ripetute = creati
         }
       }
-      // Carica la foto (se allegata) dopo aver ottenuto l'id
+      // Carica l'allegato (se scelto) dopo aver ottenuto l'id
       if (fotoFile) {
-        const fd = new FormData()
-        fd.append('file', fotoFile)
-        fd.append('scadenzaId', id)
-        const up = await uploadFotoScadenza(fd)
-        if (up.error) toast.error(`Foto non caricata: ${up.error}`)
+        try {
+          // Su iOS i file da cloud (iCloud/Dropbox) sono pigri: arrayBuffer()
+          // forza la lettura completa prima di spedirli
+          const buffer = await fotoFile.arrayBuffer()
+          const { ext, contentType } = tipoAllegato(fotoFile)
+          const esito = await caricaAllegato(
+            id,
+            new Blob([buffer], { type: contentType }),
+            ext,
+            contentType,
+            anteprimaBlob,
+          )
+          if (allegatoPdf && !esito.anteprimaPath) {
+            toast.warning("Anteprima non generata: il PDF resta allegato ma non comparirà nella scheda")
+          }
+        } catch {
+          // La scadenza e' gia' salvata: si segnala solo l'allegato mancante
+          toast.error('Allegato non caricato: riprova dall\'elenco')
+        }
       }
       toast.success(
         scadenza
@@ -256,10 +311,11 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
             </div>
           </div>
 
-          {/* Foto assegno + OCR (solo categoria assegno) */}
+          {/* Allegato: foto dell'assegno o PDF della contabile del bonifico
+              (solo categoria assegno), con lettura automatica dei dati */}
           {isAssegno && (
             <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50/40 p-3">
-              <Label className="text-blue-800">Foto assegno</Label>
+              <Label className="text-blue-800">Assegno o contabile bonifico</Label>
               <input
                 ref={cameraRef}
                 type="file"
@@ -271,28 +327,38 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,application/pdf"
                 className="hidden"
                 onChange={(e) => handleFotoSelected(e.target.files?.[0] ?? null)}
               />
 
-              {fotoPreview ? (
+              {fotoFile ? (
                 <div className="relative">
-                  <img
-                    src={fotoPreview}
-                    alt="anteprima assegno"
-                    className="w-full max-h-44 object-contain rounded border bg-white"
-                  />
+                  {fotoPreview ? (
+                    <img
+                      src={fotoPreview}
+                      alt={allegatoPdf ? 'anteprima bonifico' : 'anteprima assegno'}
+                      className="w-full max-h-44 object-contain rounded border bg-white"
+                    />
+                  ) : (
+                    // PDF di cui non si e' potuta generare l'anteprima: resta
+                    // allegato lo stesso, si mostra almeno il nome del file
+                    <div className="flex items-center gap-2 rounded border bg-white p-3 text-sm text-gray-600">
+                      <FileText className="h-5 w-5 text-red-500 shrink-0" />
+                      <span className="truncate">{fotoFile.name}</span>
+                    </div>
+                  )}
                   {ocrLoading && (
                     <div className="absolute inset-0 flex items-center justify-center gap-2 rounded bg-white/70 text-sm text-blue-700">
-                      <Loader2 className="h-4 w-4 animate-spin" /> Lettura assegno…
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {allegatoPdf ? 'Lettura bonifico…' : 'Lettura assegno…'}
                     </div>
                   )}
                   <button
                     type="button"
                     onClick={removeFoto}
                     className="absolute top-1 right-1 rounded-full bg-white/90 p-1 text-gray-500 hover:text-red-600 shadow"
-                    title="Rimuovi foto"
+                    title="Rimuovi allegato"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -318,7 +384,8 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
                 </div>
               )}
               <p className="text-[11px] text-blue-700/70">
-                Numero, importo e data vengono letti dalla foto: controllali e correggili qui sotto.
+                Foto dell&apos;assegno o PDF della contabile: importo, data e numero/causale
+                vengono letti dal documento. Controllali e correggili qui sotto.
               </p>
             </div>
           )}
