@@ -22,7 +22,10 @@ Scelte prese di proposito, per non gonfiare il lavoro:
   database, quelli esterni si compilano a mano;
 - nessuno storico delle versioni: un resoconto per commessa, si sovrascrive;
 - gli incassi non sono modificabili a mano: la fonte di verita' resta
-  `acconti_commessa`.
+  `acconti_commessa`;
+- nessun confronto voce per voce tra preventivo e fattura: la fattura
+  FattureInCloud ha un blocco descrittivo unico, senza quantita' e prezzi
+  unitari, quindi i controlli lavorano sui totali e sulle intestazioni.
 
 ## Accesso
 
@@ -86,6 +89,11 @@ export type FatturaEstratta = {
   imponibile: number    // negativo per le note di credito
   iva: number           // negativo per le note di credito
   totale: number        // imponibile + iva
+  destinatario: string | null   // per il controllo di coerenza
+  destinatarioIndirizzo: string | null
+  destinatarioPiva: string | null
+  destinatarioCf: string | null
+  preventivoCitato: { numero: string; data: string } | null
 }
 
 export function parseFattura(text: string): FatturaEstratta | null
@@ -100,7 +108,12 @@ Ancoraggi sul formato FattureInCloud:
 - il totale non si legge: e' la somma dei due, cosi' non si rischia di
   agganciare la cifra sbagliata tra scadenze e riepilogo IVA;
 - descrizione: prima riga non vuota del blocco che segue `DESCRIZIONE`, quindi
-  ad esempio `Acconto su preventivo n. 10040/2025 G del 22/11/2025`.
+  ad esempio `Acconto su preventivo n. 10040/2025 G del 22/11/2025`;
+- dalla descrizione, se presente, `preventivo n. <numero> del <data>` diventa
+  `preventivoCitato`;
+- dopo `DESTINATARIO`: denominazione sulla prima riga utile, poi indirizzo; le
+  etichette `P.IVA` e `CF` che precedono il blocco danno partita IVA e codice
+  fiscale del cliente.
 
 Per le note di credito `imponibile`, `iva` e `totale` sono negativi: entrano
 nella stessa tabella delle fatture, marcate come "Nota di credito", e il totale
@@ -158,6 +171,76 @@ arrotondamenti.
 Verifica sul caso reale Tranchida: preventivato 51.928,53, fatturato 51.576,67,
 incassato 43.000,00, saldo residuo 8.576,67, non fatturato 351,86, totale a saldo
 8.928,53.
+
+## Controlli di coerenza
+
+`lib/resoconto-controlli.ts` — funzione pura con test Vitest, che riceve righe
+preventivi, righe fatture, acconti, aliquote IVA e nome cliente e restituisce un
+elenco di avvisi.
+
+```ts
+export type CodiceAvviso =
+  | 'preventivato_non_fatturato'
+  | 'fatturato_oltre_preventivo'
+  | 'incassato_oltre_fatturato'
+  | 'fattura_duplicata'
+  | 'allegato_non_letto'
+  | 'iva_incoerente'
+  | 'fattura_precede_preventivo'
+  | 'destinatario_diverso'
+
+export type Avviso = {
+  codice: CodiceAvviso
+  messaggio: string          // gia' scritto in italiano, con gli importi
+  numeroFattura?: string     // per evidenziare la riga nel form
+  differenza?: number
+}
+
+export function verificaResoconto(dati: DatiVerifica): Avviso[]
+```
+
+I controlli:
+
+1. **preventivato_non_fatturato** — `totalePreventivato - totaleFatturato > 0.01`:
+   c'e' del preventivato ancora da fatturare. E' il caso Tranchida da € 351,86.
+2. **fatturato_oltre_preventivo** — la stessa differenza col segno opposto: si e'
+   fatturato piu' del pattuito, oppure una fattura a saldo non espone in
+   detrazione gli acconti gia' fatturati e sta contando due volte lo stesso
+   importo.
+3. **incassato_oltre_fatturato** — `totaleIncassato - totaleFatturato > 0.01`:
+   manca una fattura, oppure un acconto e' stato registrato due volte.
+4. **fattura_duplicata** — stesso tipo e stesso numero letti da due allegati
+   diversi.
+5. **allegato_non_letto** — un PDF il cui `tipo_documento` e' `fattura`, oppure
+   il cui nome contiene "fattura" o "nota di credito", che il parser non ha
+   riconosciuto. Va guardato a mano.
+6. **iva_incoerente** — l'aliquota implicita (`iva / imponibile`) non
+   corrisponde a nessuna delle `settings.aliquote_iva`, con mezzo punto di
+   tolleranza.
+7. **fattura_precede_preventivo** — la data della fattura e' anteriore a quella
+   del preventivo citato nella sua descrizione.
+8. **destinatario_diverso** — il destinatario della fattura non sembra il cliente
+   della commessa.
+
+Il confronto del destinatario non puo' essere letterale: sul caso reale la
+commessa dice "AZIENDA AGRICOLA DI GIANLUCA TRANCHIDA" e la fattura "AZIENDA
+AGRICOLA DI TRANCHIDA GIANLUCA", con nome e cognome invertiti. Si normalizza
+(maiuscole, accenti, punteggiatura), si scartano le parole di due lettere o meno
+e si confrontano gli insiemi di parole ignorando l'ordine: l'avviso scatta solo
+se meno di due terzi delle parole del cliente compaiono nel destinatario. Il test
+usa proprio questa coppia come caso che **non** deve dare avviso.
+
+Nessun avviso e' bloccante: si puo' sempre salvare e stampare. Gli avvisi non
+finiscono mai nel PDF da soli.
+
+### Bozza della nota
+
+Per `preventivato_non_fatturato` e `fatturato_oltre_preventivo`,
+`lib/resoconto.ts` produce anche una bozza di nota — titolo e testo, con importi
+e IVA gia' calcolati, sullo stile di quella del documento cartaceo. Nel form
+compare un pulsante che la copia nel riquadro Nota, dove poi si corregge e si
+completa con la spiegazione di merito. Finche' non si preme quel pulsante il
+riquadro resta com'era.
 
 ## Persistenza
 
@@ -237,7 +320,8 @@ I tipi stanno in `types/resoconto.ts`: `ResocontoCommessa`,
 `components/commesse/DialogResoconto.tsx`, a sezioni:
 
 1. **Documento** — data di emissione.
-2. **Cliente** — indirizzo, P.IVA, C.F.
+2. **Cliente** — indirizzo, P.IVA e C.F., precompilati dal destinatario della
+   prima fattura letta quando il resoconto e' nuovo, comunque modificabili.
 3. **Cantiere e progetto** — nome cantiere, indirizzo, titolo progetto,
    sottotitolo, CUP.
 4. **Preventivi accettati** — tabella di righe editabili, precompilata dai
@@ -252,10 +336,17 @@ I tipi stanno in `types/resoconto.ts`: `ResocontoCommessa`,
    importo.
 7. **Situazione contabile** — sola lettura, ricalcolata mentre scrivi.
 8. **Note** — nota sotto le fatture, riquadro evidenziato (titolo e testo), note
-   finali.
+   finali. Quando c'e' uno scostamento tra preventivato e fatturato, qui compare
+   il pulsante che porta la bozza nel riquadro.
+
+In cima al form, sopra tutto, il banner giallo con gli avvisi trovati: uno per
+riga, con l'importo della differenza dove ha senso. Le righe fattura coinvolte
+si evidenziano nella loro tabella. Il banner si ricalcola mentre correggi, cosi'
+si vede subito quando un problema rientra.
 
 In fondo: Salva e Genera PDF. Genera PDF salva prima, cosi' quello che vedi
-stampato e' quello che resta memorizzato.
+stampato e' quello che resta memorizzato. Gli avvisi non impediscono ne' il
+salvataggio ne' la stampa.
 
 ## Il PDF
 
@@ -295,6 +386,7 @@ Nuovi:
 - `lib/pdfText.ts`
 - `lib/parseFattura.ts` + `lib/parseFattura.test.ts`
 - `lib/resoconto.ts` + `lib/resoconto.test.ts`
+- `lib/resoconto-controlli.ts` + `lib/resoconto-controlli.test.ts`
 - `actions/resoconto-commessa.ts`
 - `components/commesse/DialogResoconto.tsx`
 - `components/commesse/ResocontoPdfDocument.tsx`
@@ -311,5 +403,6 @@ Modificati:
 - `npx vitest run` verde sui parser e sui calcoli;
 - `npm run lint` e `npm run build` senza errori;
 - prova manuale sulla commessa Tranchida 174-2025: i tre PDF fattura allegati
-  devono essere riconosciuti da soli e la situazione contabile deve chiudere sui
-  numeri del documento cartaceo.
+  devono essere riconosciuti da soli, la situazione contabile deve chiudere sui
+  numeri del documento cartaceo, deve comparire l'avviso dei € 351,86 non
+  fatturati e **non** deve comparire quello sul destinatario.
