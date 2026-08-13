@@ -59,6 +59,7 @@ import { conRiprova } from '@/lib/riprova'
 import { formatEuro } from '@/lib/pricing'
 import { ocrAssegno, type OcrAssegnoResult } from '@/lib/ocrAssegno'
 import { parseBonificoScadenza, type BonificoScadenza } from '@/lib/parseBonificoScadenza'
+import VisualizzatoreDocumento from '@/components/ui/VisualizzatoreDocumento'
 import DialogScadenza, { CADENZE } from './DialogScadenza'
 import type { Scadenza, CategoriaScadenza, ContoCorrente } from '@/types/commessa'
 
@@ -1006,35 +1007,28 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
         : <DialogPianoRate scadenza={piano} onClose={() => setPiano(null)} />
       )}
 
-      {/* Lightbox foto */}
-      <Dialog open={!!lightbox} onOpenChange={(v) => { if (!v) setLightbox(null) }}>
-        <DialogContent className="sm:max-w-3xl xl:max-w-5xl p-2 sm:p-3">
-          {lightbox && (
-            <div className="space-y-2">
-              <img
-                src={lightbox.url}
-                alt="allegato scadenza"
-                className="w-full max-h-[80vh] object-contain rounded"
-              />
-              <div className="flex items-center justify-between px-1">
-                <span className="text-sm text-gray-500 truncate">
-                  {lightbox.scadenza.fornitore ||
-                    (lightbox.scadenza.anteprima_path ? 'Contabile bonifico' : 'Foto scadenza')}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-red-500 hover:text-red-600"
-                  onClick={() => handleRemoveFoto(lightbox.scadenza)}
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Rimuovi allegato
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Anteprima a schermo intero, con zoom a pizzico e con la rotellina */}
+      {lightbox && (
+        <VisualizzatoreDocumento
+          immagini={[lightbox.url]}
+          titolo={
+            lightbox.scadenza.fornitore ||
+            (lightbox.scadenza.anteprima_path ? 'Contabile bonifico' : 'Foto scadenza')
+          }
+          azioni={
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-white/80 hover:bg-white/20 hover:text-red-300"
+              onClick={() => handleRemoveFoto(lightbox.scadenza)}
+            >
+              <Trash2 className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Rimuovi allegato</span>
+            </Button>
+          }
+          onClose={() => setLightbox(null)}
+        />
+      )}
     </div>
   )
 }
