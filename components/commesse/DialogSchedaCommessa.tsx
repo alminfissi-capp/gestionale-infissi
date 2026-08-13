@@ -7,7 +7,7 @@ import Link from 'next/link'
 import {
   Pencil, X, Plus, Trash2, Upload, FileText,
   Eye, Share2, Check, ExternalLink, Printer,
-  MapPin, Navigation,
+  MapPin, Navigation, MoreVertical, FileBarChart,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,6 +25,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import DialogResoconto from '@/components/commesse/DialogResoconto'
 import { createClient } from '@/lib/supabase/client'
 import {
   updateCommessa,
@@ -155,6 +162,7 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
   const [urlMap, setUrlMap] = useState<Record<string, string>>({})
 
   // Stampa
+  const [resocontoAperto, setResocontoAperto] = useState(false)
   const [stampaDialogOpen, setStampaDialogOpen] = useState(false)
   const [stampaDocSelezioni, setStampaDocSelezioni] = useState<string[]>([])
 
@@ -554,10 +562,30 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                   <Share2 className="h-3.5 w-3.5 mr-1.5" />
                   Condividi
                 </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="px-2">
+                      <MoreVertical className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => setResocontoAperto(true)}>
+                      <FileBarChart className="h-3.5 w-3.5 mr-2" />
+                      Resoconto economico
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
           </div>
         </div>
+
+        {/* ── Resoconto economico ── */}
+        <DialogResoconto
+          open={resocontoAperto}
+          onOpenChange={setResocontoAperto}
+          commessa={commessa}
+        />
 
         {/* ── Dialog selezione documenti per stampa ── */}
         <Dialog open={stampaDialogOpen} onOpenChange={setStampaDialogOpen}>
