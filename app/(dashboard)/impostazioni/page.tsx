@@ -43,6 +43,9 @@ export default async function ImpostazioniPage() {
     codice_fiscale: settings?.codice_fiscale ?? '',
     telefono: settings?.telefono ?? '',
     email: settings?.email ?? '',
+    sito_web: settings?.sito_web ?? '',
+    banca: settings?.banca ?? '',
+    iban: settings?.iban ?? '',
   }
 
   return (

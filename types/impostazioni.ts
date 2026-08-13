@@ -7,6 +7,9 @@ export type Settings = {
   codice_fiscale: string | null
   telefono: string | null
   email: string | null
+  sito_web: string | null
+  banca: string | null
+  iban: string | null
   logo_url: string | null
   aliquote_iva: number[]
   // Validità preventivi

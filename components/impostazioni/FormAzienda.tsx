@@ -70,6 +70,21 @@ export default function FormAzienda({ defaultValues }: Props) {
           <Label htmlFor="telefono">Telefono</Label>
           <Input id="telefono" {...register('telefono')} placeholder="+39 06 12345678" />
         </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="sito_web">Sito web</Label>
+          <Input id="sito_web" {...register('sito_web')} placeholder="www.esempio.it" />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="banca">Banca</Label>
+          <Input id="banca" {...register('banca')} placeholder="Intesa Sanpaolo - Via Roma 1, Palermo" />
+        </div>
+
+        <div className="sm:col-span-2 space-y-2">
+          <Label htmlFor="iban">IBAN</Label>
+          <Input id="iban" {...register('iban')} placeholder="IT00A0000000000000000000000" />
+        </div>
       </div>
 
       <div className="pt-2">

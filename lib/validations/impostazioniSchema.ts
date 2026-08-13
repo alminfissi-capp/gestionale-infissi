@@ -12,6 +12,9 @@ export const settingsSchema = z.object({
     .optional()
     .nullable()
     .or(z.literal('')),
+  sito_web: z.string().max(100).optional().nullable(),
+  banca: z.string().max(120).optional().nullable(),
+  iban: z.string().max(40).optional().nullable(),
 })
 
 export type SettingsInput = z.infer<typeof settingsSchema>
