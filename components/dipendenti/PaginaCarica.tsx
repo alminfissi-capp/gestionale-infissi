@@ -23,7 +23,7 @@ import type {
   Mensilita,
 } from '@/types/dipendente'
 import DialogDipendente from './DialogDipendente'
-import VisualizzatoreDocumento from './VisualizzatoreDocumento'
+import VisualizzatoreDocumento from '@/components/ui/VisualizzatoreDocumento'
 
 type TipoDoc = 'busta' | 'bonifico'
 

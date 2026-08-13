@@ -11,14 +11,22 @@ const MAX = 8
  * Visualizzatore a schermo intero per le pagine di un documento (immagini).
  * Zoom + pan: pinch-to-zoom e trascinamento su touch, rotellina e doppio click su
  * desktop, pulsanti +/−/adatta. Frecce per sfogliare le pagine. Nessuna dipendenza esterna.
+ *
+ * `titolo` e `azioni` servono a chi mostra una sola immagine (es. l'allegato di
+ * una scadenza): l'intestazione dice cosa si sta guardando e ospita i comandi
+ * propri del contesto, come "Rimuovi allegato".
  */
 export default function VisualizzatoreDocumento({
   immagini,
   indiceIniziale = 0,
+  titolo,
+  azioni,
   onClose,
 }: {
   immagini: string[]
   indiceIniziale?: number
+  titolo?: string
+  azioni?: React.ReactNode
   onClose: () => void
 }) {
   const [indice, setIndice] = useState(indiceIniziale)
@@ -159,10 +167,13 @@ export default function VisualizzatoreDocumento({
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-black/90 select-none">
       <div className="flex items-center justify-between gap-2 px-3 py-2 text-white">
-        <span className="text-sm tabular-nums">
-          {immagini.length > 1 ? `Pagina ${indice + 1} / ${immagini.length}` : 'Anteprima'}
+        <span className="text-sm tabular-nums truncate">
+          {immagini.length > 1
+            ? `Pagina ${indice + 1} / ${immagini.length}`
+            : (titolo || 'Anteprima')}
         </span>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
+          {azioni}
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={() => zoomBy(1 / 1.4)} aria-label="Riduci">
             <ZoomOut className="h-5 w-5" />
           </Button>
