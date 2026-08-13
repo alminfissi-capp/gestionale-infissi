@@ -47,17 +47,14 @@ import {
   setPagatoScadenza,
   deleteScadenza,
   updateScadenza,
-  uploadFotoScadenza,
   removeFotoScadenza,
   getFotoScadenzaUrl,
   toggleCalcoliScadenza,
   setAnnullataScadenza,
   riordinaScadenze,
   copiaScadenzaRate,
-  setAllegatoScadenza,
-  getPathAllegatoScadenza,
 } from '@/actions/scadenze'
-import { createClient } from '@/lib/supabase/client'
+import { caricaAllegato, anteprimaPdf, tipoAllegato, isPdfFile } from '@/lib/allegatoScadenza'
 import { conRiprova } from '@/lib/riprova'
 import { formatEuro } from '@/lib/pricing'
 import { ocrAssegno, type OcrAssegnoResult } from '@/lib/ocrAssegno'
@@ -69,82 +66,6 @@ const MESI = [
   'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
   'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre',
 ]
-
-const BUCKET_ALLEGATI = 'commesse-docs'
-
-const MIME_ALLEGATO: Record<string, string> = {
-  pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg',
-  png: 'image/png', webp: 'image/webp', heic: 'image/heic',
-}
-
-export type EsitoAllegato = { fotoPath: string; anteprimaPath: string | null }
-
-/**
- * Carica l'allegato di una scadenza e ne restituisce i percorsi.
- *
- * Strada normale: il browser scrive direttamente su Supabase. Il file non
- * attraversa le funzioni Vercel e quindi non incontra il limite sul corpo della
- * richiesta (~4,5 MB), che faceva fallire in silenzio le foto scattate col
- * telefono. Stesso percorso di DialogDocumenti e DialogPreventivoManuale.
- *
- * Ripiego: la Server Action. Su iOS e Android il client browser può non avere
- * la sessione, e lì il caricamento diretto fallirebbe; passando dal server il
- * caso mobile continua a funzionare, al prezzo del limite di dimensione.
- *
- * Una volta che il file e' nel bucket non si torna indietro a rimandarlo: si
- * riprova solo a registrarlo. Rimandare un file gia' al sicuro e' tempo perso
- * su rete mobile e lascia copie orfane nel bucket.
- */
-async function caricaAllegato(
-  scadenzaId: string,
-  file: Blob,
-  ext: string,
-  contentType: string,
-  anteprima: Blob | null,
-): Promise<EsitoAllegato> {
-  try {
-    const base = await getPathAllegatoScadenza(scadenzaId)
-    const fotoPath = `${base}.${ext}`
-    const supabase = createClient()
-
-    // upsert: una riprova dopo una risposta persa non deve fallire per "file gia' esistente"
-    await conRiprova(async () => {
-      const { error } = await supabase.storage
-        .from(BUCKET_ALLEGATI)
-        .upload(fotoPath, file, { contentType, upsert: true })
-      if (error) throw error
-    })
-
-    // L'anteprima e' un di piu': se non ce la fa, il documento resta allegato
-    let anteprimaPath: string | null = null
-    if (anteprima) {
-      const p = `${base}.anteprima.jpg`
-      try {
-        await conRiprova(async () => {
-          const { error } = await supabase.storage
-            .from(BUCKET_ALLEGATI)
-            .upload(p, anteprima, { contentType: 'image/jpeg', upsert: true })
-          if (error) throw error
-        })
-        anteprimaPath = p
-      } catch { /* si prosegue senza anteprima */ }
-    }
-
-    await conRiprova(() => setAllegatoScadenza(scadenzaId, fotoPath, anteprimaPath))
-    return { fotoPath, anteprimaPath }
-  } catch {
-    const fd = new FormData()
-    fd.append('file', file, `allegato.${ext}`)
-    fd.append('scadenzaId', scadenzaId)
-    if (anteprima) fd.append('anteprima', anteprima, 'anteprima.jpg')
-    const res = await conRiprova(async () => {
-      const r = await uploadFotoScadenza(fd)
-      if (r.error) throw new Error(r.error)
-      return r
-    })
-    return { fotoPath: res.path!, anteprimaPath: res.anteprimaPath ?? null }
-  }
-}
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
 const meseDi = (data: string) => Number(data.slice(5, 7))
@@ -806,8 +727,7 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
     if (!file) return
     if (file.size > 20 * 1024 * 1024) { toast.error('File troppo grande (max 20 MB)'); return }
 
-    const isPdf =
-      file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+    const isPdf = isPdfFile(file)
     const daLeggere = s.categoria === 'assegno'
 
     setUploadingId(s.id)
@@ -817,25 +737,12 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
       // Su iOS i file da cloud (iCloud/Dropbox) sono pigri: arrayBuffer() forza
       // la lettura completa prima di spedirli
       const buffer = await file.arrayBuffer()
-      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
-      const contentType =
-        file.type && file.type !== 'application/octet-stream'
-          ? file.type
-          : (MIME_ALLEGATO[ext] ?? 'image/jpeg')
+      const { ext, contentType } = tipoAllegato(file)
       const blob = new Blob([buffer], { type: contentType })
 
       // I PDF non si vedono a schermo ne' in stampa: si allega l'immagine
       // della prima pagina, generata qui nel browser
-      let anteprima: Blob | null = null
-      if (isPdf) {
-        try {
-          const { renderPaginePdf } = await import('@/lib/pdf-items')
-          const [dataUrl] = await renderPaginePdf(file, { maxPagine: 1 })
-          if (dataUrl) anteprima = await (await fetch(dataUrl)).blob()
-        } catch {
-          // Senza anteprima il PDF resta comunque allegato
-        }
-      }
+      const anteprima = isPdf ? await anteprimaPdf(file) : null
 
       // La lettura parte subito ma non trattiene il caricamento: l'OCR di un
       // assegno impiega secondi, e l'allegato deve comparire prima
