@@ -252,7 +252,7 @@ export default function DialogListinoLibero({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl xl:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{listino ? 'Modifica listino' : 'Nuovo listino'}</DialogTitle>
         </DialogHeader>

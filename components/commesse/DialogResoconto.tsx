@@ -55,9 +55,6 @@ const RESOCONTO_VUOTO: ResocontoCommessaInput = {
   cliente_cf: null,
   cantiere_nome: null,
   cantiere_indirizzo: null,
-  progetto_titolo: null,
-  progetto_sottotitolo: null,
-  progetto_cup: null,
   righe_preventivi: [],
   righe_fatture: [],
   nota_fatture: null,
@@ -226,9 +223,6 @@ export default function DialogResoconto({ open, onOpenChange, commessa }: Props)
               cliente_cf: salvato.cliente_cf,
               cantiere_nome: salvato.cantiere_nome,
               cantiere_indirizzo: salvato.cantiere_indirizzo,
-              progetto_titolo: salvato.progetto_titolo,
-              progetto_sottotitolo: salvato.progetto_sottotitolo,
-              progetto_cup: salvato.progetto_cup,
               righe_preventivi: salvato.righe_preventivi,
               righe_fatture: salvato.righe_fatture,
               nota_fatture: salvato.nota_fatture,
@@ -446,7 +440,7 @@ export default function DialogResoconto({ open, onOpenChange, commessa }: Props)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col p-0 gap-0">
+      <DialogContent className="sm:max-w-5xl xl:max-w-6xl max-h-[92vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-5 pt-5 pb-4 border-b shrink-0">
           <DialogTitle>Resoconto economico — {commessa.cliente_nome}</DialogTitle>
         </DialogHeader>
@@ -481,25 +475,30 @@ export default function DialogResoconto({ open, onOpenChange, commessa }: Props)
               </p>
             )}
 
-            {/* ── Documento e cliente ── */}
-            <section className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-              {campo('Data documento', form.data_documento, (v) =>
-                aggiorna({ data_documento: v ?? oggi() }))}
-              {campo('Indirizzo cliente', form.cliente_indirizzo, (v) =>
-                aggiorna({ cliente_indirizzo: v }), 'Via, CAP, città (PR)')}
-              {campo('P.IVA cliente', form.cliente_piva, (v) => aggiorna({ cliente_piva: v }))}
-              {campo('C.F. cliente', form.cliente_cf, (v) => aggiorna({ cliente_cf: v }))}
-            </section>
-
-            <section className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-              {campo('Cantiere', form.cantiere_nome, (v) => aggiorna({ cantiere_nome: v }), 'Frantoio')}
-              {campo('Indirizzo cantiere', form.cantiere_indirizzo, (v) =>
-                aggiorna({ cantiere_indirizzo: v }))}
-              {campo('Progetto', form.progetto_titolo, (v) =>
-                aggiorna({ progetto_titolo: v }), 'PSR 2014/2020')}
-              {campo('Dettaglio progetto', form.progetto_sottotitolo, (v) =>
-                aggiorna({ progetto_sottotitolo: v }), 'Bando 2016 – sottomisura 4.1')}
-              {campo('CUP', form.progetto_cup, (v) => aggiorna({ progetto_cup: v }))}
+            {/* ── Documento, cliente, cantiere ── */}
+            <section className="grid grid-cols-1 sm:grid-cols-6 gap-3">
+              <div className="sm:col-span-1">
+                {campo('Data documento', form.data_documento, (v) =>
+                  aggiorna({ data_documento: v ?? oggi() }))}
+              </div>
+              <div className="sm:col-span-3">
+                {campo('Indirizzo cliente', form.cliente_indirizzo, (v) =>
+                  aggiorna({ cliente_indirizzo: v }), 'Via, CAP, città (PR)')}
+              </div>
+              <div className="sm:col-span-1">
+                {campo('P.IVA cliente', form.cliente_piva, (v) => aggiorna({ cliente_piva: v }))}
+              </div>
+              <div className="sm:col-span-1">
+                {campo('C.F. cliente', form.cliente_cf, (v) => aggiorna({ cliente_cf: v }))}
+              </div>
+              <div className="sm:col-span-2">
+                {campo('Cantiere', form.cantiere_nome, (v) =>
+                  aggiorna({ cantiere_nome: v }), 'Frantoio')}
+              </div>
+              <div className="sm:col-span-4">
+                {campo('Indirizzo cantiere', form.cantiere_indirizzo, (v) =>
+                  aggiorna({ cantiere_indirizzo: v }), 'C.da San Giovanni – Mazara del Vallo (TP)')}
+              </div>
             </section>
 
             {/* ── Preventivi ── */}

@@ -245,7 +245,7 @@ export default function DialogListinoSuMisura({ open, onOpenChange, categoriaId,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-2xl xl:max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{listino ? 'Modifica prodotto' : 'Nuovo prodotto su misura'}</DialogTitle>
         </DialogHeader>

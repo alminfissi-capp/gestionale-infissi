@@ -114,7 +114,7 @@ export default function TabellaPosizioni({ posizioni }: Props) {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm xl:max-w-md">
           <DialogHeader>
             <DialogTitle>{editing ? 'Modifica posizione' : 'Nuova posizione'}</DialogTitle>
           </DialogHeader>

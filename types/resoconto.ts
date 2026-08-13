@@ -10,9 +10,6 @@ export type ResocontoCommessa = {
   cliente_cf: string | null
   cantiere_nome: string | null
   cantiere_indirizzo: string | null
-  progetto_titolo: string | null
-  progetto_sottotitolo: string | null
-  progetto_cup: string | null
   righe_preventivi: RigaPreventivo[]
   righe_fatture: RigaFattura[]
   nota_fatture: string | null

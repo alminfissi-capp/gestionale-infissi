@@ -185,7 +185,7 @@ export default function TabellaClienti({ clienti, denominazione }: Props) {
 
       {/* Dialog create / edit */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-xl xl:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingCliente ? 'Modifica cliente' : 'Nuovo cliente'}

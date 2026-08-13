@@ -125,7 +125,7 @@ export default function DialogArticoloMagazzino({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg xl:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{articolo ? 'Modifica articolo' : 'Aggiungi al magazzino'}</DialogTitle>
         </DialogHeader>

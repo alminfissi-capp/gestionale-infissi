@@ -101,7 +101,7 @@ export default function DialogSelezioneArticolo({ open, onClose, onConfirm }: Pr
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && chiudi()}>
-      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+      <DialogContent className="sm:max-w-2xl xl:max-w-4xl max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-4 w-4" />

@@ -114,7 +114,7 @@ export default function DialogAllegaCatalogo({ open, onClose, preventivoId, corr
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="sm:max-w-2xl xl:max-w-4xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Paperclip className="h-4 w-4" />

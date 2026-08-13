@@ -199,7 +199,7 @@ export default function DialogListino({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-5xl w-[95vw] h-[92vh] flex flex-col p-0 gap-0">
+      <DialogContent className="sm:max-w-5xl xl:max-w-6xl w-[95vw] h-[92vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
           <DialogTitle>{listino ? 'Modifica listino' : 'Nuovo listino'}</DialogTitle>
         </DialogHeader>

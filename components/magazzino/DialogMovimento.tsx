@@ -172,7 +172,7 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg xl:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Nuovo movimento</DialogTitle>
         </DialogHeader>

@@ -107,7 +107,7 @@ export default function DialogFirma({ open, onOpenChange, preventivoId, numero, 
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md xl:max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSignature className="h-5 w-5 text-blue-600" />

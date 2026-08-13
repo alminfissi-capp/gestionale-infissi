@@ -76,7 +76,7 @@ export default function DialogDipendente({ open, onOpenChange, dipendente, onSav
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md xl:max-w-xl">
         <DialogHeader>
           <DialogTitle>{dipendente ? 'Modifica dipendente' : 'Nuovo dipendente'}</DialogTitle>
         </DialogHeader>

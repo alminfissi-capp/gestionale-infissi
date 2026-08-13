@@ -65,7 +65,7 @@ export default function DialogInvioEmail({ open, onClose, preventivo: p, nomeCli
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v && !isSending) onClose() }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg xl:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5 text-primary" />

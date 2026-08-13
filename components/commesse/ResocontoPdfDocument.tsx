@@ -84,12 +84,16 @@ const s = StyleSheet.create({
   trTot: { flexDirection: 'row', paddingTop: 5, marginTop: 1, borderTopWidth: 1, borderTopColor: GRAY_BDR },
   tdTot: { fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: TEXT_DARK },
 
-  colNum:  { width: 74 },
-  colData: { width: 54 },
+  // Il numero di documento ha una colonna larga apposta: deve stare su una riga
+  // sola anche quando ha la lettera di serie ("10040/2025 G"). Data e oggetto
+  // partono percio' piu' a destra. L'oggetto lungo va a capo da solo e fa
+  // crescere l'altezza della riga, senza stringere le altre colonne.
+  colNum:  { width: 110 },
+  colData: { width: 58 },
   colDesc: { flex: 1, paddingRight: 8 },
-  colImp:  { width: 66, textAlign: 'right' },
-  colIva:  { width: 58, textAlign: 'right' },
-  colTot:  { width: 66, textAlign: 'right' },
+  colImp:  { width: 62, textAlign: 'right' },
+  colIva:  { width: 54, textAlign: 'right' },
+  colTot:  { width: 62, textAlign: 'right' },
 
   colIncData: { width: 70 },
   colIncRif:  { width: 90 },
@@ -155,7 +159,6 @@ export default function ResocontoPdfDocument({
   const r = resoconto
 
   const haCantiere = Boolean(r.cantiere_nome || r.cantiere_indirizzo)
-  const haProgetto = Boolean(r.progetto_titolo || r.progetto_sottotitolo || r.progetto_cup)
   const haNota = Boolean(r.nota_titolo || r.nota_testo)
   const haCoordinate = Boolean(settings?.banca || settings?.iban)
   const mostraNonFatturato = r.righe_preventivi.length > 0 && totali.preventivatoNonFatturato !== 0
@@ -220,15 +223,6 @@ export default function ResocontoPdfDocument({
               </>
             )}
           </View>
-
-          {haProgetto && (
-            <View style={s.fasciaCol}>
-              <Text style={s.etichetta}>PROGETTO</Text>
-              {r.progetto_titolo && <Text style={s.fasciaTitolo}>{r.progetto_titolo}</Text>}
-              {r.progetto_sottotitolo && <Text style={s.fasciaTxt}>{r.progetto_sottotitolo}</Text>}
-              {r.progetto_cup && <Text style={s.fasciaTxt}>CUP {r.progetto_cup}</Text>}
-            </View>
-          )}
         </View>
 
         {/* ── Preventivi accettati ── */}

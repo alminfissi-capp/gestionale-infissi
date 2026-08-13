@@ -1021,7 +1021,7 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
 
       {/* Lightbox foto */}
       <Dialog open={!!lightbox} onOpenChange={(v) => { if (!v) setLightbox(null) }}>
-        <DialogContent className="max-w-3xl p-2 sm:p-3">
+        <DialogContent className="sm:max-w-3xl xl:max-w-5xl p-2 sm:p-3">
           {lightbox && (
             <div className="space-y-2">
               <img
