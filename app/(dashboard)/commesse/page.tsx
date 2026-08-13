@@ -37,7 +37,9 @@ export default async function CommessePage({
     supabase
       .from('scadenze')
       .select('gruppo_id, importo, pagato')
-      .eq('organization_id', orgId),
+      .eq('organization_id', orgId)
+      // Le scadenze annullate restano in elenco ma non entrano in nessun totale
+      .eq('annullata', false),
   ])
 
   const statsMap = new Map<string, { count: number; totale: number }>()

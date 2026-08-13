@@ -146,6 +146,30 @@ export async function setPagatoScadenza(id: string, pagato: boolean): Promise<vo
   revalidatePath('/commesse', 'layout')
 }
 
+/**
+ * Annulla (o ripristina) una scadenza.
+ *
+ * La riga non viene toccata: restano importo, allegato, rata e conto. Cambia
+ * solo il fatto che non entra piu' in nessun totale. Annullando si toglie anche
+ * la stella dei Calcoli, altrimenti resterebbe appesa in una lista da cui e'
+ * comunque esclusa.
+ */
+export async function setAnnullataScadenza(id: string, annullata: boolean): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('scadenze')
+    .update({
+      annullata,
+      ...(annullata ? { in_calcoli: false } : {}),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/commesse', 'layout')
+}
+
 export async function deleteScadenza(id: string): Promise<void> {
   const supabase = await createClient()
   const orgId = await getOrgId()
@@ -450,7 +474,7 @@ export async function copiaScadenzaRate(params: {
   return { creati: inserts.length }
 }
 
-/** Scadenze selezionate per i Calcoli (tutti i blocchi) */
+/** Scadenze selezionate per i Calcoli (tutti i blocchi); le annullate non contano */
 export async function getScadenzeCalcoli(): Promise<Scadenza[]> {
   const supabase = await createClient()
   const orgId = await getOrgId()
@@ -459,6 +483,7 @@ export async function getScadenzeCalcoli(): Promise<Scadenza[]> {
     .select('*')
     .eq('organization_id', orgId)
     .eq('in_calcoli', true)
+    .eq('annullata', false)
     .order('data_scadenza', { ascending: true })
   if (error) throw new Error(error.message)
   return (data ?? []).map((s) => ({ ...s, importo: Number(s.importo) })) as Scadenza[]

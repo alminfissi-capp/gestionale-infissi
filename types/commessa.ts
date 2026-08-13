@@ -46,6 +46,10 @@ export type Scadenza = {
   // e stampa, che sanno mostrare solo immagini
   anteprima_path: string | null
   in_calcoli: boolean
+  // Annullata: la riga conserva tutti i dati (allegato compreso) ma esce da
+  // ogni totale e dallo slot Calcoli. Serve quando una scadenza non viene
+  // pagata perche' sostituita da un'altra.
+  annullata: boolean
   ordine: number
   created_at: string
   updated_at: string

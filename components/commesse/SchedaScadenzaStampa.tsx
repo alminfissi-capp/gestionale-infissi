@@ -146,12 +146,16 @@ function Scheda({
         {s.descrizione && <p className="text-gray-600 whitespace-pre-line">{s.descrizione}</p>}
       </div>
 
-      {/* Importo */}
+      {/* Importo — una scadenza annullata non e' ne' pagata ne' da pagare */}
       <div className="border-2 border-gray-200 rounded-lg p-6 text-center space-y-1 bg-gray-50">
         <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Importo</p>
-        <p className="text-4xl font-bold text-gray-900">{formatEuro(s.importo)}</p>
-        <p className={`text-[12px] font-semibold ${s.pagato ? 'text-green-600' : 'text-orange-600'}`}>
-          {s.pagato ? 'PAGATA' : 'DA PAGARE'}
+        <p className={`text-4xl font-bold ${s.annullata ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+          {formatEuro(s.importo)}
+        </p>
+        <p className={`text-[12px] font-semibold ${
+          s.annullata ? 'text-gray-500' : s.pagato ? 'text-green-600' : 'text-orange-600'
+        }`}>
+          {s.annullata ? 'ANNULLATA' : s.pagato ? 'PAGATA' : 'DA PAGARE'}
         </p>
       </div>
 

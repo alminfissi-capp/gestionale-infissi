@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   Plus, Pencil, Trash2, Camera, Check, ChevronDown, Loader2, Star, Landmark, GripVertical, Copy, CalendarPlus,
-  MoreVertical, Printer, Paperclip, FileText,
+  MoreVertical, Printer, Paperclip, FileText, Ban, RotateCcw,
 } from 'lucide-react'
 import {
   DndContext,
@@ -51,6 +51,7 @@ import {
   removeFotoScadenza,
   getFotoScadenzaUrl,
   toggleCalcoliScadenza,
+  setAnnullataScadenza,
   riordinaScadenze,
   copiaScadenzaRate,
   setAllegatoScadenza,
@@ -183,6 +184,7 @@ type RowProps = {
   onClickFile: () => void
   onTogglePagato: (s: Scadenza) => void
   onToggleCalcoli: (s: Scadenza) => void
+  onToggleAnnullata: (s: Scadenza) => void
   onDelete: (s: Scadenza) => void
   onFotoSelected: (s: Scadenza, file: File | null) => void
   onOpenFoto: (url: string, s: Scadenza) => void
@@ -194,7 +196,7 @@ type RowProps = {
 
 function SortableScadenzaRow({
   s, contoNome, fotoUrl, uploading, setCameraRef, setFileRef, onClickCamera, onClickFile,
-  onTogglePagato, onToggleCalcoli, onDelete, onFotoSelected, onOpenFoto, onEdit,
+  onTogglePagato, onToggleCalcoli, onToggleAnnullata, onDelete, onFotoSelected, onOpenFoto, onEdit,
   onCopia, onApriPiano, copying,
 }: RowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
@@ -211,8 +213,16 @@ function SortableScadenzaRow({
       ref={setNodeRef}
       style={style}
       {...attributes}
-      className={`flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2.5 border-l-4 ${CAT_BORDER[s.categoria]} ${
-        isDragging ? 'opacity-50 bg-rose-50 relative z-10' : s.pagato ? 'bg-emerald-50' : CAT_BG[s.categoria]
+      className={`flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2.5 border-l-4 ${
+        s.annullata ? 'border-l-gray-300' : CAT_BORDER[s.categoria]
+      } ${
+        isDragging
+          ? 'opacity-50 bg-rose-50 relative z-10'
+          : s.annullata
+            ? 'bg-gray-100 opacity-60'
+            : s.pagato
+              ? 'bg-emerald-50'
+              : CAT_BG[s.categoria]
       }`}
     >
       {/* Maniglia trascinamento */}
@@ -230,14 +240,21 @@ function SortableScadenzaRow({
       <button
         type="button"
         onClick={() => onTogglePagato(s)}
-        title={s.pagato ? 'Segna come da pagare' : 'Segna come pagata'}
+        disabled={s.annullata}
+        title={
+          s.annullata
+            ? 'Scadenza annullata'
+            : s.pagato ? 'Segna come da pagare' : 'Segna come pagata'
+        }
         className={`h-6 w-6 shrink-0 rounded-full border flex items-center justify-center transition-colors ${
-          s.pagato
-            ? 'bg-emerald-500 border-emerald-500 text-white'
-            : 'border-gray-300 text-transparent hover:border-emerald-400'
+          s.annullata
+            ? 'border-gray-300 text-gray-300 cursor-not-allowed'
+            : s.pagato
+              ? 'bg-emerald-500 border-emerald-500 text-white'
+              : 'border-gray-300 text-transparent hover:border-emerald-400'
         }`}
       >
-        <Check className="h-3.5 w-3.5" />
+        {s.annullata ? <Ban className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
       </button>
 
       {/* Giorno */}
@@ -248,9 +265,16 @@ function SortableScadenzaRow({
       {/* Fornitore + descrizione */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <p className="text-sm font-medium text-gray-800 truncate max-w-full">
+          <p className={`text-sm font-medium truncate max-w-full ${
+            s.annullata ? 'text-gray-500 line-through' : 'text-gray-800'
+          }`}>
             {s.fornitore || <span className="text-gray-400">—</span>}
           </p>
+          {s.annullata && (
+            <span className="text-[10px] rounded border border-gray-300 bg-gray-200 text-gray-600 px-1 py-0 font-semibold uppercase tracking-wide">
+              Annullata
+            </span>
+          )}
           {badge && (
             <span className={`text-[10px] rounded border px-1 py-0 font-medium ${badge.cls}`}>
               {badge.label}
@@ -363,7 +387,11 @@ function SortableScadenzaRow({
 
       {/* Importo */}
       <div className="w-24 shrink-0 text-right">
-        <span className={`text-sm font-semibold ${s.pagato ? 'text-emerald-700 line-through' : 'text-gray-900'}`}>
+        <span className={`text-sm font-semibold ${
+          s.annullata
+            ? 'text-gray-400 line-through'
+            : s.pagato ? 'text-emerald-700 line-through' : 'text-gray-900'
+        }`}>
           {formatEuro(s.importo)}
         </span>
       </div>
@@ -373,7 +401,12 @@ function SortableScadenzaRow({
         variant="ghost"
         size="icon"
         className="h-8 w-8 shrink-0"
-        title={s.in_calcoli ? 'Rimuovi dai Calcoli' : 'Aggiungi ai Calcoli'}
+        disabled={s.annullata}
+        title={
+          s.annullata
+            ? 'Le scadenze annullate non entrano nei Calcoli'
+            : s.in_calcoli ? 'Rimuovi dai Calcoli' : 'Aggiungi ai Calcoli'
+        }
         onClick={() => onToggleCalcoli(s)}
       >
         <Star className={`h-4 w-4 ${s.in_calcoli ? 'text-amber-400 fill-amber-400' : 'text-gray-300 hover:text-amber-400'}`} />
@@ -430,6 +463,25 @@ function SortableScadenzaRow({
               </DropdownMenuItem>
             </>
           )}
+
+          <DropdownMenuSeparator />
+          {/* Annulla: la scadenza resta con foto e dati, ma esce dai totali */}
+          <DropdownMenuItem
+            onClick={() => onToggleAnnullata(s)}
+            className={s.annullata ? '' : 'text-amber-700 focus:text-amber-700'}
+          >
+            {s.annullata ? (
+              <>
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Ripristina scadenza
+              </>
+            ) : (
+              <>
+                <Ban className="h-4 w-4 mr-2" />
+                Annulla scadenza
+              </>
+            )}
+          </DropdownMenuItem>
 
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -718,6 +770,25 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
     }
   }
 
+  // Annullamento: la riga resta dov'e' con tutti i suoi dati, ma smette di
+  // contare nei totali. Annullando esce anche dai Calcoli.
+  const handleToggleAnnullata = async (s: Scadenza) => {
+    const nuovo = !s.annullata
+    setItems((cur) =>
+      cur.map((x) =>
+        x.id === s.id ? { ...x, annullata: nuovo, in_calcoli: nuovo ? false : x.in_calcoli } : x
+      )
+    )
+    try {
+      await setAnnullataScadenza(s.id, nuovo)
+      toast.success(nuovo ? 'Scadenza annullata' : 'Scadenza ripristinata')
+      router.refresh()
+    } catch {
+      setItems((cur) => cur.map((x) => (x.id === s.id ? s : x)))
+      toast.error('Errore nel salvataggio')
+    }
+  }
+
   const handleDelete = async (s: Scadenza) => {
     if (!confirm('Eliminare questa scadenza?')) return
     const prev = items
@@ -899,17 +970,24 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
     }
   }
 
+  // Le annullate restano in elenco ma non entrano in nessun totale
   const totali = useMemo(() => {
-    const daPagare = items.reduce((s, x) => s + (x.pagato ? 0 : x.importo), 0)
-    const pagato = items.reduce((s, x) => s + (x.pagato ? x.importo : 0), 0)
-    return { daPagare, pagato, totale: daPagare + pagato }
+    const attive = items.filter((x) => !x.annullata)
+    const daPagare = attive.reduce((s, x) => s + (x.pagato ? 0 : x.importo), 0)
+    const pagato = attive.reduce((s, x) => s + (x.pagato ? x.importo : 0), 0)
+    return { daPagare, pagato, totale: daPagare + pagato, count: attive.length, annullate: items.length - attive.length }
   }, [items])
 
   return (
     <div className="space-y-4 pb-10">
       {/* Riepilogo anno */}
       <div className="rounded-md border bg-white p-4 flex flex-wrap items-center justify-end gap-x-8 gap-y-2">
-        <div className="mr-auto text-sm text-gray-500">{items.length} scadenze nel {anno}</div>
+        <div className="mr-auto text-sm text-gray-500">
+          {totali.count} scadenze nel {anno}
+          {totali.annullate > 0 && (
+            <span className="text-gray-400"> · {totali.annullate} annullate</span>
+          )}
+        </div>
         <div className="text-base">
           <span className="text-gray-700 font-semibold">Totale: {formatEuro(totali.totale)}</span>
           {totali.daPagare > 0 ? (
@@ -926,8 +1004,9 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
         {MESI.map((nomeMese, i) => {
           const mese = i + 1
           const righe = perMese.get(mese) ?? []
-          const totaleMese = righe.reduce((s, x) => s + x.importo, 0)
-          const daPagareMese = righe.reduce((s, x) => s + (x.pagato ? 0 : x.importo), 0)
+          const attiveMese = righe.filter((x) => !x.annullata)
+          const totaleMese = attiveMese.reduce((s, x) => s + x.importo, 0)
+          const daPagareMese = attiveMese.reduce((s, x) => s + (x.pagato ? 0 : x.importo), 0)
           const defaultData = `${anno}-${pad2(mese)}-01`
           const aperto = openMonths.has(mese)
 
@@ -944,7 +1023,7 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                   {righe.length > 0 && (
                     <Badge variant="secondary" className="text-[10px]">{righe.length}</Badge>
                   )}
-                  {righe.length > 0 && (
+                  {attiveMese.length > 0 && (
                     <span className="text-xs truncate">
                       <span className="text-gray-600 font-medium">{formatEuro(totaleMese)}</span>
                       {daPagareMese > 0 ? (
@@ -982,6 +1061,7 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                         onClickFile={() => fileRefs.current[s.id]?.click()}
                         onTogglePagato={handleTogglePagato}
                         onToggleCalcoli={handleToggleCalcoli}
+                        onToggleAnnullata={handleToggleAnnullata}
                         onDelete={handleDelete}
                         onFotoSelected={handleFotoSelected}
                         onOpenFoto={(url, sc) => setLightbox({ url, scadenza: sc })}
