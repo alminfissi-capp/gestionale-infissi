@@ -65,7 +65,12 @@ function DialogContent({
       ? // Pannello quasi a tutto schermo: su desktop parte dopo la sidebar
         // (var --sidebar-w) così il menu laterale non viene mai coperto.
         "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-2 z-50 flex flex-col gap-4 rounded-lg border p-4 shadow-lg duration-200 outline-none sm:p-6 lg:inset-y-4 lg:right-4 lg:left-[calc(var(--sidebar-w,16rem)+1rem)]"
-      : "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 outline-none sm:max-w-lg"
+      : // Larghezza di riserva per i dialog che non ne dichiarano una. Chi la
+        // dichiara deve scriverla come `sm:max-w-*`: un `max-w-*` senza
+        // modificatore non entra in conflitto con `sm:max-w-lg` nel merge delle
+        // classi, resta in piedi anche lui e sopra i 640px perde, lasciando
+        // tutte le finestre larghe 32rem invece della misura voluta.
+        "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 outline-none sm:max-w-lg xl:max-w-2xl"
 
   return (
     <DialogPortal data-slot="dialog-portal">

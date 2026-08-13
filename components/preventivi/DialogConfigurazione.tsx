@@ -1226,7 +1226,7 @@ export default function DialogConfigurazione({ item, aliquote, initialValues, is
 
   return (
     <Dialog open={!!item} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-xl xl:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? `Modifica: ${title}` : title}</DialogTitle>
         </DialogHeader>

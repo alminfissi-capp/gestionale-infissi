@@ -84,7 +84,7 @@ export default function DialogPagamentoManuale({ open, onOpenChange, dipendenteI
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md xl:max-w-xl">
         <DialogHeader>
           <DialogTitle>Registra pagamento</DialogTitle>
         </DialogHeader>

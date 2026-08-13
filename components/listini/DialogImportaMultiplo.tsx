@@ -155,7 +155,7 @@ export default function DialogImportaMultiplo({ open, onOpenChange, categoriaId,
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0">
+      <DialogContent className="sm:max-w-2xl xl:max-w-4xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
           <DialogTitle>Importa più listini</DialogTitle>
         </DialogHeader>

@@ -223,7 +223,7 @@ export default function DialogCategoria({ open, onOpenChange, categoria, onSucce
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg xl:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{categoria ? 'Modifica categoria' : 'Nuova categoria'}</DialogTitle>
         </DialogHeader>

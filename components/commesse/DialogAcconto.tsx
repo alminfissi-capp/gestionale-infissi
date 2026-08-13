@@ -108,7 +108,7 @@ export default function DialogAcconto({ open, onOpenChange, commessaId, clienteN
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md xl:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Acconti — {clienteNome}</DialogTitle>
         </DialogHeader>

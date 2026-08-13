@@ -87,7 +87,7 @@ export default function DialogCopiaArticolo({ open, onClose, articoloId, articol
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v && !isPending) onClose() }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg xl:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Copy className="h-4 w-4" />

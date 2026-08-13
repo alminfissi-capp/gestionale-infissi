@@ -76,7 +76,7 @@ export default function DialogFornitore({ open, onOpenChange, fornitore }: Props
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg xl:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{fornitore ? 'Modifica fornitore' : 'Nuovo fornitore'}</DialogTitle>
         </DialogHeader>

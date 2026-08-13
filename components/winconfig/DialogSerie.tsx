@@ -74,7 +74,7 @@ export default function DialogSerie({ open, onOpenChange, serie }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg xl:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Modifica serie' : 'Nuova serie profili'}</DialogTitle>
         </DialogHeader>

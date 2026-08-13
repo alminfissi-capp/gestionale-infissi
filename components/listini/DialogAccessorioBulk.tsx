@@ -98,7 +98,7 @@ export default function DialogAccessorioBulk({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) resetAll(); onOpenChange(o) }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg xl:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-blue-600" />

@@ -78,7 +78,7 @@ export default function DialogAltroDipendente({ open, onOpenChange, dipendente, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md xl:max-w-xl">
         <DialogHeader>
           <DialogTitle>{dipendente ? 'Modifica dipendente' : 'Nuovo altro dipendente'}</DialogTitle>
         </DialogHeader>

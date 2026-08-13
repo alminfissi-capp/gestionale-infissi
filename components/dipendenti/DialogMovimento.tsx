@@ -85,7 +85,7 @@ export default function DialogMovimento({ open, onOpenChange, dipendente, tipo }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md xl:max-w-xl">
         <DialogHeader>
           <DialogTitle>{tipo === 'stipendio' ? 'Aggiungi stipendio' : 'Aggiungi pagamento'}</DialogTitle>
         </DialogHeader>
