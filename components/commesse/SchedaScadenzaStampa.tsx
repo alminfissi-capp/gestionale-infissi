@@ -20,7 +20,9 @@ const CATEGORIE: Record<CategoriaScadenza, string> = {
 // che una finestra di stampa che non si apre mai
 const ATTESA_MAX_FOTO_MS = 5000
 
-function formatData(d: string) {
+function formatData(d: string | null) {
+  // Le scadenze del blocco "Da programmare" non hanno ancora una data
+  if (!d) return 'Da programmare'
   const [y, m, day] = d.split('-').map(Number)
   return new Date(y, m - 1, day).toLocaleDateString('it-IT', {
     weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',

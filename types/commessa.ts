@@ -1,4 +1,6 @@
-export type TipoBlocco = 'commesse' | 'scadenze'
+// 'da_programmare' e' un blocco di sistema, uno solo per organizzazione: raccoglie
+// le scadenze ancora senza data di pagamento
+export type TipoBlocco = 'commesse' | 'scadenze' | 'da_programmare'
 
 export type GruppoCommesse = {
   id: string
@@ -32,7 +34,9 @@ export type Scadenza = {
   id: string
   organization_id: string
   gruppo_id: string
-  data_scadenza: string
+  // Senza data = scadenza da programmare: vive nel blocco di sistema e non
+  // appartiene a nessun mese finche' non viene pagata
+  data_scadenza: string | null
   descrizione: string
   fornitore: string
   importo: number
@@ -57,7 +61,7 @@ export type Scadenza = {
 
 export type ScadenzaInput = {
   gruppo_id: string
-  data_scadenza: string
+  data_scadenza: string | null
   descrizione: string
   fornitore: string
   importo: number

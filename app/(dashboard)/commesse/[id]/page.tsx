@@ -11,6 +11,7 @@ import { getFornitori } from '@/actions/magazzino'
 import { getClienti } from '@/actions/clienti'
 import TabellaCommesse from '@/components/commesse/TabellaCommesse'
 import ScadenzeView from '@/components/commesse/ScadenzeView'
+import ScadenzeDaProgrammareView from '@/components/commesse/ScadenzeDaProgrammareView'
 import type { PreventivoPerCommessa } from '@/types/commessa'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
@@ -30,6 +31,7 @@ export default async function CommesseGruppoPage({
   if (!gruppoCorrente) redirect('/commesse')
 
   const isScadenze = gruppoCorrente.tipo === 'scadenze'
+  const isDaProgrammare = gruppoCorrente.tipo === 'da_programmare'
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
@@ -41,13 +43,17 @@ export default async function CommesseGruppoPage({
         </nav>
         <h1 className="text-2xl font-bold text-gray-900">{gruppoCorrente.nome}</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          {isScadenze
-            ? 'Scadenze fornitori e rateizzazioni, mese per mese'
-            : 'Gestione ordini confermati, acconti e documenti'}
+          {isDaProgrammare
+            ? 'Scadenze già note nell’importo, ancora senza data di pagamento'
+            : isScadenze
+              ? 'Scadenze fornitori e rateizzazioni, mese per mese'
+              : 'Gestione ordini confermati, acconti e documenti'}
         </p>
       </div>
 
-      {isScadenze ? (
+      {isDaProgrammare ? (
+        <ScadenzeViewLoader gruppoId={gruppoId} gruppoNome={gruppoCorrente.nome} daProgrammare />
+      ) : isScadenze ? (
         <ScadenzeViewLoader gruppoId={gruppoId} gruppoNome={gruppoCorrente.nome} />
       ) : (
         <CommesseTable gruppoId={gruppoId} from={sp.from} highlight={sp.highlight} />
@@ -56,14 +62,33 @@ export default async function CommesseGruppoPage({
   )
 }
 
-async function ScadenzeViewLoader({ gruppoId, gruppoNome }: { gruppoId: string; gruppoNome: string }) {
+async function ScadenzeViewLoader({
+  gruppoId,
+  gruppoNome,
+  daProgrammare = false,
+}: {
+  gruppoId: string
+  gruppoNome: string
+  daProgrammare?: boolean
+}) {
   const [scadenze, fornitori, conti] = await Promise.all([getScadenze(gruppoId), getFornitori(), getConti()])
-  return (
+  const nomiFornitori = fornitori.map((f) => f.nome)
+
+  // Stessi dati, due letture diverse: per mesi nei blocchi anno, elenco piatto
+  // dove le date non ci sono ancora
+  return daProgrammare ? (
+    <ScadenzeDaProgrammareView
+      gruppoId={gruppoId}
+      scadenze={scadenze}
+      fornitori={nomiFornitori}
+      conti={conti}
+    />
+  ) : (
     <ScadenzeView
       gruppoId={gruppoId}
       gruppoNome={gruppoNome}
       scadenze={scadenze}
-      fornitori={fornitori.map((f) => f.nome)}
+      fornitori={nomiFornitori}
       conti={conti}
     />
   )

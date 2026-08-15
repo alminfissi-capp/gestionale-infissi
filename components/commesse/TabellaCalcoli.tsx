@@ -337,7 +337,11 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
           <div className="divide-y">
             {scadItems.map((s) => (
               <div key={s.id} className="flex items-center gap-3 px-4 py-2.5">
-                <span className="w-20 shrink-0 text-xs text-gray-500">{formatData(s.data_scadenza)}</span>
+                {/* Senza data e' una scadenza ancora da programmare: entra
+                    comunque nelle uscite previste */}
+                <span className={`w-20 shrink-0 text-xs ${s.data_scadenza ? 'text-gray-500' : 'text-gray-400 italic'}`}>
+                  {s.data_scadenza ? formatData(s.data_scadenza) : 'da programmare'}
+                </span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <p className="text-sm font-medium text-gray-800 truncate max-w-full">
