@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { revalidatePath } from 'next/cache'
 import { getOrgId } from '@/lib/auth'
-import type { Scadenza, ScadenzaInput } from '@/types/commessa'
+import type { GruppoCommesse, Scadenza, ScadenzaInput } from '@/types/commessa'
 
 const BUCKET = 'commesse-docs'
 
@@ -38,7 +38,9 @@ export async function getScadenze(gruppoId: string): Promise<Scadenza[]> {
     .select('*')
     .eq('organization_id', orgId)
     .eq('gruppo_id', gruppoId)
-    .order('data_scadenza', { ascending: true })
+    // Le righe senza data (blocco "da programmare") in testa: la vista piatta
+    // le ordina comunque per `ordine`
+    .order('data_scadenza', { ascending: true, nullsFirst: true })
     .order('ordine', { ascending: true })
   if (error) throw new Error(error.message)
   return (data ?? []).map((s) => ({ ...s, importo: Number(s.importo) })) as Scadenza[]
@@ -83,22 +85,38 @@ export async function getScadenzaScheda(id: string): Promise<{
   }
 }
 
-export async function createScadenza(input: ScadenzaInput): Promise<{ id: string }> {
-  const supabase = await createClient()
-  const orgId = await getOrgId()
-  // Le nuove scadenze vanno in fondo: ordine = max(ordine)+1 nel blocco
+/** Ordine da assegnare a una riga nuova: va in fondo al blocco */
+async function prossimoOrdine(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+  gruppoId: string,
+): Promise<number> {
   const { data: maxRow } = await supabase
     .from('scadenze')
     .select('ordine')
     .eq('organization_id', orgId)
-    .eq('gruppo_id', input.gruppo_id)
+    .eq('gruppo_id', gruppoId)
     .order('ordine', { ascending: false })
     .limit(1)
     .maybeSingle()
-  const ordine = (maxRow?.ordine ?? 0) + 1
+  return (maxRow?.ordine ?? 0) + 1
+}
+
+export async function createScadenza(input: ScadenzaInput): Promise<{ id: string }> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  // Nata nel limbo ma gia' datata e gia' pagata: nasce direttamente nel mese
+  // giusto, senza passare da un blocco in cui non resterebbe un istante
+  let gruppoId = input.gruppo_id
+  if (input.data_scadenza && input.pagato && (await isBloccoDaProgrammare(supabase, orgId, gruppoId))) {
+    gruppoId = await resolveGruppoScadenzeAnno(supabase, orgId, Number(input.data_scadenza.slice(0, 4)))
+  }
+
+  const ordine = await prossimoOrdine(supabase, orgId, gruppoId)
   const { data, error } = await supabase
     .from('scadenze')
-    .insert({ ...input, ordine, organization_id: orgId })
+    .insert({ ...input, gruppo_id: gruppoId, ordine, organization_id: orgId })
     .select('id')
     .single()
   if (error) throw new Error(error.message)
@@ -354,6 +372,157 @@ export async function toggleCalcoliScadenza(id: string, value: boolean): Promise
   revalidatePath('/commesse', 'layout')
 }
 
+// ── Blocco di sistema "Da programmare" ────────────────────────────────────
+// Raccoglie le scadenze conosciute nell'importo ma non ancora collocate in una
+// data. Ne esiste uno solo per organizzazione: il vincolo sta sul database
+// (indice unico parziale), qui c'e' solo il get-or-create.
+
+const NOME_DA_PROGRAMMARE = 'Da programmare'
+
+async function isBloccoDaProgrammare(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+  gruppoId: string,
+): Promise<boolean> {
+  const { data } = await supabase
+    .from('gruppi_commesse')
+    .select('tipo')
+    .eq('id', gruppoId)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+  return data?.tipo === 'da_programmare'
+}
+
+async function resolveGruppoDaProgrammare(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+): Promise<GruppoCommesse> {
+  const cerca = async () =>
+    (
+      await supabase
+        .from('gruppi_commesse')
+        .select('*')
+        .eq('organization_id', orgId)
+        .eq('tipo', 'da_programmare')
+        .maybeSingle()
+    ).data
+
+  const esistente = await cerca()
+  if (esistente) return esistente as GruppoCommesse
+
+  // In testa all'elenco dei blocchi, che e' ordinato per `ordine` decrescente
+  const { data: maxRow } = await supabase
+    .from('gruppi_commesse')
+    .select('ordine')
+    .eq('organization_id', orgId)
+    .order('ordine', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const { data: creato, error } = await supabase
+    .from('gruppi_commesse')
+    .insert({
+      nome: NOME_DA_PROGRAMMARE,
+      organization_id: orgId,
+      ordine: (maxRow?.ordine ?? -1) + 1,
+      tipo: 'da_programmare',
+    })
+    .select('*')
+    .single()
+
+  if (error) {
+    // Due richieste in parallelo: l'indice unico ne ha respinta una, e il
+    // blocco creato dall'altra e' quello buono
+    const dopo = await cerca()
+    if (dopo) return dopo as GruppoCommesse
+    throw new Error(error.message)
+  }
+  return creato as GruppoCommesse
+}
+
+/** Il blocco delle scadenze senza data, creato alla prima richiesta */
+export async function getGruppoDaProgrammare(): Promise<GruppoCommesse> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  return resolveGruppoDaProgrammare(supabase, orgId)
+}
+
+/**
+ * Salva una scadenza del blocco "da programmare" e, se ora ha data ed e' segnata
+ * come pagata, la ricolloca nel blocco dell'anno di quella data (creandolo se
+ * manca), in coda. Con la sola data la riga resta dov'e': la data vale come
+ * promemoria finche' il pagamento non e' avvenuto davvero.
+ */
+export async function programmaScadenza(
+  id: string,
+  input: Partial<ScadenzaInput>,
+): Promise<{ spostata: boolean; anno: number | null }> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { error } = await supabase
+    .from('scadenze')
+    .update({ ...input, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+
+  // Si rilegge la riga: l'input e' parziale e la decisione dipende dallo stato
+  // finale, non da quello che e' stato scritto in questa chiamata
+  const { data: row } = await supabase
+    .from('scadenze')
+    .select('data_scadenza, pagato, gruppo_id')
+    .eq('id', id)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+
+  let spostata = false
+  let anno: number | null = null
+  if (
+    row?.data_scadenza &&
+    row.pagato &&
+    (await isBloccoDaProgrammare(supabase, orgId, row.gruppo_id))
+  ) {
+    anno = Number(row.data_scadenza.slice(0, 4))
+    const gruppoId = await resolveGruppoScadenzeAnno(supabase, orgId, anno)
+    const ordine = await prossimoOrdine(supabase, orgId, gruppoId)
+    const { error: e2 } = await supabase
+      .from('scadenze')
+      .update({ gruppo_id: gruppoId, ordine })
+      .eq('id', id)
+      .eq('organization_id', orgId)
+    if (e2) throw new Error(e2.message)
+    spostata = true
+  }
+
+  revalidatePath('/commesse', 'layout')
+  return { spostata, anno }
+}
+
+/**
+ * Riporta nel limbo una scadenza gia' collocata in un mese: perde la data e la
+ * spunta di pagamento, conserva tutto il resto (allegato, conto, categoria, rata).
+ */
+export async function spostaInDaProgrammare(id: string): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const gruppo = await resolveGruppoDaProgrammare(supabase, orgId)
+  const ordine = await prossimoOrdine(supabase, orgId, gruppo.id)
+  const { error } = await supabase
+    .from('scadenze')
+    .update({
+      gruppo_id: gruppo.id,
+      data_scadenza: null,
+      pagato: false,
+      ordine,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/commesse', 'layout')
+}
+
 /** Trova il blocco scadenze dell'anno indicato (per nome), creandolo se non esiste. Ritorna il gruppo_id. */
 async function resolveGruppoScadenzeAnno(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -413,6 +582,8 @@ export async function copiaScadenzaRate(params: {
     .eq('organization_id', orgId)
     .single()
   if (e1 || !orig) throw new Error(e1?.message ?? 'Scadenza non trovata')
+  if (!orig.data_scadenza)
+    throw new Error('La scadenza non ha una data: programmala prima di ripeterla nei mesi successivi.')
 
   const baseRata = orig.numero_rata != null ? Number(orig.numero_rata) : null
   const totaleRate = params.totaleRate !== undefined ? params.totaleRate : orig.totale_rate
@@ -474,7 +645,11 @@ export async function copiaScadenzaRate(params: {
   return { creati: inserts.length }
 }
 
-/** Scadenze selezionate per i Calcoli (tutti i blocchi); le annullate non contano */
+/**
+ * Scadenze selezionate per i Calcoli (tutti i blocchi); le annullate non contano.
+ * Ci sono anche quelle da programmare: entrano nelle uscite previste, in fondo
+ * all'elenco perche' senza data.
+ */
 export async function getScadenzeCalcoli(): Promise<Scadenza[]> {
   const supabase = await createClient()
   const orgId = await getOrgId()
@@ -484,7 +659,7 @@ export async function getScadenzeCalcoli(): Promise<Scadenza[]> {
     .eq('organization_id', orgId)
     .eq('in_calcoli', true)
     .eq('annullata', false)
-    .order('data_scadenza', { ascending: true })
+    .order('data_scadenza', { ascending: true, nullsFirst: false })
   if (error) throw new Error(error.message)
   return (data ?? []).map((s) => ({ ...s, importo: Number(s.importo) })) as Scadenza[]
 }

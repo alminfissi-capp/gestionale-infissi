@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { MoreVertical, Plus, FolderOpen, Star, Briefcase, CalendarClock } from 'lucide-react'
+import { MoreVertical, Plus, FolderOpen, Star, Briefcase, CalendarClock, CalendarOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,8 +30,10 @@ export default function GruppiCommesse({ gruppi, calcoli }: Props) {
   const [dialogTipo, setDialogTipo] = useState<TipoBlocco>('commesse')
   const [gruppoSelezionato, setGruppoSelezionato] = useState<GruppoCommesse | null>(null)
 
-  const commesseGruppi = gruppi.filter((g) => g.tipo !== 'scadenze')
+  const commesseGruppi = gruppi.filter((g) => g.tipo === 'commesse')
   const scadenzeGruppi = gruppi.filter((g) => g.tipo === 'scadenze')
+  // Blocco di sistema: sta in testa alla colonna Scadenze e non si tocca
+  const daProgrammare = gruppi.find((g) => g.tipo === 'da_programmare')
 
   async function handleDelete(g: GruppoConStats) {
     if (g.count > 0) {
@@ -188,6 +190,32 @@ export default function GruppiCommesse({ gruppi, calcoli }: Props) {
               Blocco
             </Button>
           </div>
+          {/* Limbo: scadenze conosciute nell'importo ma senza data di pagamento */}
+          {daProgrammare && (
+            <Card
+              className="cursor-pointer hover:shadow-md transition-shadow border-slate-300 bg-slate-50/60"
+              onClick={() => router.push(`/commesse/${daProgrammare.id}`)}
+            >
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                  <CalendarOff className="h-5 w-5 text-slate-400" />
+                  {daProgrammare.nome}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2 text-gray-500">
+                  <FolderOpen className="h-4 w-4" />
+                  <span className="text-sm">
+                    {daProgrammare.count} {daProgrammare.count === 1 ? 'scadenza in attesa' : 'scadenze in attesa'}
+                  </span>
+                </div>
+                <p className="text-2xl font-bold mt-1 text-gray-900">
+                  {formatEuro(daProgrammare.totale)}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">Ancora senza data di pagamento</p>
+              </CardContent>
+            </Card>
+          )}
           {scadenzeGruppi.length > 0 ? (
             scadenzeGruppi.map((g) => <BlockCard key={g.id} g={g} />)
           ) : (

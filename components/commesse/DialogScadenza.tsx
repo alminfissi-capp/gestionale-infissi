@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { createScadenza, updateScadenza, copiaScadenzaRate } from '@/actions/scadenze'
+import { createScadenza, updateScadenza, programmaScadenza, copiaScadenzaRate } from '@/actions/scadenze'
 import { ocrAssegno } from '@/lib/ocrAssegno'
 import { parseBonificoScadenza } from '@/lib/parseBonificoScadenza'
 import { caricaAllegato, anteprimaPdf, tipoAllegato, isPdfFile } from '@/lib/allegatoScadenza'
@@ -29,6 +29,10 @@ interface Props {
   defaultData: string // data_scadenza precompilata in creazione (YYYY-MM-DD)
   fornitori: string[]
   conti: ContoCorrente[]
+  /** Scheda aperta dal blocco "Da programmare": la data non e' obbligatoria */
+  daProgrammare?: boolean
+  /** Apre con la data di oggi e la spunta "Già pagata" gia' messa */
+  pagaSubito?: boolean
 }
 
 type FormState = {
@@ -59,6 +63,22 @@ export const CADENZE: { value: string; label: string }[] = [
   { value: '3', label: 'Trimestrale (ogni 3 mesi)' },
 ]
 
+const pad2 = (n: number) => String(n).padStart(2, '0')
+
+/** Data di oggi in formato YYYY-MM-DD, nel fuso locale */
+function oggi(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
+
+/** Etichetta "mese anno" di una data, per dire dove finisce la scadenza */
+function meseAnnoDi(iso: string): string {
+  const [y, m] = iso.split('-').map(Number)
+  if (!y || !m) return ''
+  return new Date(Date.UTC(y, m - 1, 1))
+    .toLocaleDateString('it-IT', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+}
+
 // Etichetta mese/anno dell'ultima scadenza generata (solo anteprima nel form)
 function meseAnnoDopo(iso: string, mesi: number): string {
   const [y, m] = iso.split('-').map(Number)
@@ -67,7 +87,10 @@ function meseAnnoDopo(iso: string, mesi: number): string {
     .toLocaleDateString('it-IT', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 }
 
-export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza, defaultData, fornitori, conti }: Props) {
+export default function DialogScadenza({
+  open, onOpenChange, gruppoId, scadenza, defaultData, fornitori, conti,
+  daProgrammare = false, pagaSubito = false,
+}: Props) {
   const router = useRouter()
   const [form, setForm] = useState<FormState>({
     data_scadenza: defaultData,
@@ -100,11 +123,13 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
     if (!open) return
     if (scadenza) {
       setForm({
-        data_scadenza: scadenza.data_scadenza,
+        // Dal cerchietto verde del limbo: data di oggi e spunta gia' pronte,
+        // restano solo da confermare
+        data_scadenza: pagaSubito ? (scadenza.data_scadenza ?? oggi()) : (scadenza.data_scadenza ?? ''),
         fornitore: scadenza.fornitore,
         descrizione: scadenza.descrizione,
         importo: scadenza.importo ? String(scadenza.importo) : '',
-        pagato: scadenza.pagato,
+        pagato: pagaSubito ? true : scadenza.pagato,
         categoria: scadenza.categoria,
         numero_rata: scadenza.numero_rata != null ? String(scadenza.numero_rata) : '',
         totale_rate: scadenza.totale_rate != null ? String(scadenza.totale_rate) : '',
@@ -125,7 +150,7 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
     setAnteprimaBlob(null)
     setAllegatoPdf(false)
     setOcrLoading(false)
-  }, [open, scadenza, defaultData])
+  }, [open, scadenza, defaultData, pagaSubito])
 
   // Revoca l'object URL di anteprima quando cambia/si smonta
   useEffect(() => {
@@ -201,7 +226,12 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.data_scadenza) { toast.error('Inserisci la data di scadenza'); return }
+    // Nel limbo la data e' facoltativa: e' proprio quello che manca
+    if (!form.data_scadenza && !daProgrammare) { toast.error('Inserisci la data di scadenza'); return }
+    if (daProgrammare && form.pagato && !form.data_scadenza) {
+      toast.error('Per segnarla pagata serve la data: senza non si sa in che mese collocarla')
+      return
+    }
     const importo = parseFloat((form.importo || '0').replace(',', '.')) || 0
     const numero_rata = form.categoria === 'finanziamento' && form.numero_rata ? parseInt(form.numero_rata, 10) : null
     const totale_rate = form.categoria === 'finanziamento' && form.totale_rate ? parseInt(form.totale_rate, 10) : null
@@ -210,7 +240,7 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
     try {
       const payload = {
         gruppo_id: gruppoId,
-        data_scadenza: form.data_scadenza,
+        data_scadenza: form.data_scadenza || null,
         fornitore: form.fornitore.trim(),
         descrizione: form.descrizione.trim(),
         importo,
@@ -222,12 +252,24 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
       }
       let id: string
       let ripetute = 0
+      // Data + spunta "pagata" fanno uscire la riga dal limbo: la ricollocazione
+      // nel blocco dell'anno avviene lato server
+      let spostataIn: string | null = null
       if (scadenza) {
-        await updateScadenza(scadenza.id, payload)
+        if (daProgrammare) {
+          const esito = await programmaScadenza(scadenza.id, payload)
+          if (esito.spostata) spostataIn = meseAnnoDi(form.data_scadenza)
+        } else {
+          await updateScadenza(scadenza.id, payload)
+        }
         id = scadenza.id
       } else {
         const res = await createScadenza(payload)
         id = res.id
+        // Nata gia' datata e gia' pagata: createScadenza l'ha messa nel mese giusto
+        if (daProgrammare && form.pagato && form.data_scadenza) {
+          spostataIn = meseAnnoDi(form.data_scadenza)
+        }
         // Utenza ricorrente: la prima scadenza è appena stata creata, replica le successive
         if (form.categoria === 'utenza' && ripetiTotale > 1) {
           const { creati } = await copiaScadenzaRate({
@@ -261,11 +303,13 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
         }
       }
       toast.success(
-        scadenza
-          ? 'Scadenza aggiornata'
-          : ripetute > 0
-            ? `Utenza aggiunta · ${ripetute + 1} scadenze create`
-            : 'Scadenza aggiunta'
+        spostataIn
+          ? `Scadenza pagata · spostata in ${spostataIn}`
+          : scadenza
+            ? 'Scadenza aggiornata'
+            : ripetute > 0
+              ? `Utenza aggiunta · ${ripetute + 1} scadenze create`
+              : 'Scadenza aggiunta'
       )
       onOpenChange(false)
       router.refresh()
@@ -286,7 +330,11 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[92vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{scadenza ? 'Modifica scadenza' : 'Nuova scadenza'}</DialogTitle>
+          <DialogTitle>
+            {daProgrammare
+              ? scadenza ? 'Scadenza da programmare' : 'Nuova scadenza da programmare'
+              : scadenza ? 'Modifica scadenza' : 'Nuova scadenza'}
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Categoria */}
@@ -392,13 +440,16 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="data_scadenza">Data scadenza *</Label>
+              <Label htmlFor="data_scadenza">
+                {daProgrammare ? 'Data di pagamento' : 'Data scadenza *'}
+              </Label>
               <Input
                 id="data_scadenza"
                 type="date"
                 value={form.data_scadenza}
                 onChange={(e) => set('data_scadenza', e.target.value)}
-                required
+                required={!daProgrammare}
+                autoFocus={pagaSubito}
               />
             </div>
             <div className="space-y-1.5">
@@ -478,8 +529,10 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
             </div>
           )}
 
-          {/* Ricorrenza utenza (solo in creazione: in modifica si usa la copia dall'elenco) */}
-          {isUtenza && !scadenza && (
+          {/* Ricorrenza utenza (solo in creazione: in modifica si usa la copia
+              dall'elenco). Nel limbo non ha senso: senza data non c'e' un mese
+              da cui far partire le ripetizioni. */}
+          {isUtenza && !scadenza && !daProgrammare && (
             <div className="space-y-2.5 rounded-lg border border-amber-200 bg-amber-50/40 p-3">
               <Label className="text-amber-800">Ripeti nei mesi successivi</Label>
               <div className="grid grid-cols-2 gap-3">
@@ -539,15 +592,24 @@ export default function DialogScadenza({ open, onOpenChange, gruppoId, scadenza,
             />
           </div>
 
-          <label className="flex items-center gap-2.5 text-sm cursor-pointer select-none">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-gray-300 accent-emerald-600"
-              checked={form.pagato}
-              onChange={(e) => set('pagato', e.target.checked)}
-            />
-            Già pagata
-          </label>
+          <div className="space-y-1">
+            <label className="flex items-center gap-2.5 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-gray-300 accent-emerald-600"
+                checked={form.pagato}
+                onChange={(e) => set('pagato', e.target.checked)}
+              />
+              Già pagata
+            </label>
+            {daProgrammare && (
+              <p className="text-[11px] text-gray-500 pl-7">
+                {form.pagato && form.data_scadenza
+                  ? `Salvando, la scadenza esce da qui e va in ${meseAnnoDi(form.data_scadenza)}.`
+                  : 'Con la data e questa spunta la scadenza viene collocata nel mese giusto. Solo la data la lascia qui, come promemoria.'}
+              </p>
+            )}
+          </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

@@ -538,6 +538,9 @@ export async function getGruppoCorrente(): Promise<GruppoCommesse | null> {
 }
 
 export async function createGruppo(nome: string, tipo: TipoBlocco = 'commesse'): Promise<void> {
+  // "Da programmare" e' un blocco di sistema: lo crea getGruppoDaProgrammare,
+  // uno solo per organizzazione
+  if (tipo === 'da_programmare') throw new Error('Blocco di sistema: non si crea a mano.')
   const supabase = await createClient()
   const orgId = await getOrgId()
   const { data: maxRow } = await supabase
@@ -555,8 +558,23 @@ export async function createGruppo(nome: string, tipo: TipoBlocco = 'commesse'):
   revalidatePath('/commesse', 'layout')
 }
 
+/** Il blocco di sistema "Da programmare" non si rinomina e non si elimina */
+async function assertNonDiSistema(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  id: string,
+): Promise<void> {
+  const { data } = await supabase
+    .from('gruppi_commesse')
+    .select('tipo')
+    .eq('id', id)
+    .maybeSingle()
+  if (data?.tipo === 'da_programmare')
+    throw new Error('"Da programmare" è un blocco di sistema: non si può modificare né eliminare.')
+}
+
 export async function renameGruppo(id: string, nome: string): Promise<void> {
   const supabase = await createClient()
+  await assertNonDiSistema(supabase, id)
   const { error } = await supabase
     .from('gruppi_commesse')
     .update({ nome })
@@ -567,6 +585,7 @@ export async function renameGruppo(id: string, nome: string): Promise<void> {
 
 export async function deleteGruppo(id: string): Promise<void> {
   const supabase = await createClient()
+  await assertNonDiSistema(supabase, id)
   const [{ count: nComm }, { count: nScad }] = await Promise.all([
     supabase.from('commesse').select('*', { count: 'exact', head: true }).eq('gruppo_id', id),
     supabase.from('scadenze').select('*', { count: 'exact', head: true }).eq('gruppo_id', id),

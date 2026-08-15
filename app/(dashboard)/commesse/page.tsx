@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BarChart3 } from 'lucide-react'
 import { getGruppiCommesse, getGruppoCorrente } from '@/actions/commesse'
+import { getGruppoDaProgrammare } from '@/actions/scadenze'
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
 import GruppiCommesse from '@/components/commesse/GruppiCommesse'
@@ -20,6 +21,9 @@ export default async function CommessePage({
     if (corrente) redirect(`/commesse/${corrente.id}?from=${sp.from}`)
   }
 
+  // Il blocco "Da programmare" e' di sistema: se manca lo si crea qui, cosi'
+  // c'e' sempre un posto dove mettere le scadenze ancora senza data
+  await getGruppoDaProgrammare()
   const gruppi = await getGruppiCommesse()
 
   // Statistiche aggregate: una sola query, raggruppamento in JS
@@ -75,12 +79,16 @@ export default async function CommessePage({
     saldo: stellate.reduce((s, r) => s + Number(r.totale) - (accontiPerCommessa.get(r.id) ?? 0), 0),
   }
 
-  const gruppiConStats: GruppoConStats[] = gruppi.map((g) => ({
-    ...g,
-    count: g.tipo === 'scadenze' ? (scadMap.get(g.id)?.count ?? 0) : (statsMap.get(g.id)?.count ?? 0),
-    totale: g.tipo === 'scadenze' ? (scadMap.get(g.id)?.totale ?? 0) : (statsMap.get(g.id)?.totale ?? 0),
-    daPagare: g.tipo === 'scadenze' ? (scadMap.get(g.id)?.daPagare ?? 0) : undefined,
-  }))
+  const gruppiConStats: GruppoConStats[] = gruppi.map((g) => {
+    const conScadenze = g.tipo === 'scadenze' || g.tipo === 'da_programmare'
+    return {
+      ...g,
+      count: conScadenze ? (scadMap.get(g.id)?.count ?? 0) : (statsMap.get(g.id)?.count ?? 0),
+      totale: conScadenze ? (scadMap.get(g.id)?.totale ?? 0) : (statsMap.get(g.id)?.totale ?? 0),
+      // "da pagare" ha senso solo dove c'e' una data: nel limbo non si mostra
+      daPagare: g.tipo === 'scadenze' ? (scadMap.get(g.id)?.daPagare ?? 0) : undefined,
+    }
+  })
 
   return (
     <div className="p-4 sm:p-6 space-y-4">

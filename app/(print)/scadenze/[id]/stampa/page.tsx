@@ -13,8 +13,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const scheda = await getScadenzaScheda(id)
   if (!scheda) return { title: 'Scadenza' }
   const { scadenza } = scheda
-  const [y, m, d] = scadenza.data_scadenza.split('-')
   const titolo = scadenza.fornitore || scadenza.descrizione || 'Scadenza'
+  if (!scadenza.data_scadenza) return { title: `Scadenza ${titolo} - da programmare` }
+  const [y, m, d] = scadenza.data_scadenza.split('-')
   return { title: `Scadenza ${titolo} - ${d}.${m}.${y.slice(2)}` }
 }
 
