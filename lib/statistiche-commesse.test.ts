@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
   aggregaFlussoMese,
+  riepilogoCreditiDebiti,
   type AccontoRow,
   type ScadenzaRow,
+  type StatRow,
 } from '@/lib/statistiche-commesse'
 
 const acconti: AccontoRow[] = [
@@ -64,5 +66,76 @@ describe('aggregaFlussoMese', () => {
     ]
     const r = aggregaFlussoMese([], soloUscite, '2026')
     expect(r[4].saldo).toBe(-250)
+  })
+})
+
+const OGGI = '2026-08-16'
+
+const commesseRiep: StatRow[] = [
+  { id: 'c1', cliente_nome: 'Rossi', totale: 10000, data_conferma: '2026-02-01', blocco: '2026' },
+  { id: 'c2', cliente_nome: 'Bianchi', totale: 5000, data_conferma: '2026-03-01', blocco: '2026' },
+  { id: 'c3', cliente_nome: 'Verdi', totale: 2000, data_conferma: '2025-11-01', blocco: '2025' },
+]
+
+const accontiRiep: AccontoRow[] = [
+  { commessa_id: 'c1', importo: 4000, data_pagamento: '2026-02-10' },
+  { commessa_id: 'c2', importo: 7000, data_pagamento: '2026-03-05' }, // incassata in eccesso
+]
+
+const scadenzeRiep: ScadenzaRow[] = [
+  { data_scadenza: '2026-07-01', importo: 300, pagato: false, annullata: false }, // scaduta
+  { data_scadenza: '2026-08-16', importo: 100, pagato: false, annullata: false }, // oggi
+  { data_scadenza: '2026-12-31', importo: 700, pagato: false, annullata: false }, // entro l'anno
+  { data_scadenza: '2027-01-01', importo: 900, pagato: false, annullata: false }, // futura
+  { data_scadenza: null, importo: 50, pagato: false, annullata: false },          // da programmare
+  { data_scadenza: '2026-07-05', importo: 999, pagato: true, annullata: false },  // già pagata
+  { data_scadenza: '2026-07-06', importo: 888, pagato: false, annullata: true },  // annullata
+]
+
+describe('riepilogoCreditiDebiti', () => {
+  it('somma i crediti come residuo per commessa, senza compensare fra commesse', () => {
+    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], OGGI)
+    // c1: 10000-4000 = 6000 · c2: -2000 → 0 (non riduce c1) · c3: 2000
+    expect(r.crediti).toBe(8000)
+  })
+
+  it('divide i debiti per orizzonte rispetto a oggi', () => {
+    const r = riepilogoCreditiDebiti([], [], scadenzeRiep, OGGI)
+    expect(r.debitiScaduti).toBe(300)
+    expect(r.debitiAnno).toBe(800) // 100 di oggi + 700 di fine anno
+    expect(r.debitiFuturi).toBe(900)
+    expect(r.debitiDaProgrammare).toBe(50)
+  })
+
+  it('una scadenza in data odierna non è ancora scaduta', () => {
+    const r = riepilogoCreditiDebiti([], [], [
+      { data_scadenza: OGGI, importo: 100, pagato: false, annullata: false },
+    ], OGGI)
+    expect(r.debitiScaduti).toBe(0)
+    expect(r.debitiAnno).toBe(100)
+  })
+
+  it('esclude dai debiti le scadenze pagate e quelle annullate', () => {
+    const r = riepilogoCreditiDebiti([], [], scadenzeRiep, OGGI)
+    expect(r.debitiTotali).toBe(2050) // 300+800+900+50, senza 999 e 888
+  })
+
+  it('tiene le rate future fuori dalla posizione netta', () => {
+    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, scadenzeRiep, OGGI)
+    // 8000 - (300 + 800 + 50) = 6850
+    expect(r.posizioneNetta).toBe(6850)
+  })
+
+  it('regge liste vuote', () => {
+    const r = riepilogoCreditiDebiti([], [], [], OGGI)
+    expect(r).toEqual({
+      crediti: 0,
+      debitiScaduti: 0,
+      debitiAnno: 0,
+      debitiFuturi: 0,
+      debitiDaProgrammare: 0,
+      debitiTotali: 0,
+      posizioneNetta: 0,
+    })
   })
 })

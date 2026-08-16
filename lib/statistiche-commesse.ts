@@ -227,3 +227,72 @@ export function resocontoCliente(
 
   return { righe, totale }
 }
+
+// Posizione dell'azienda a una certa data: quanto resta da incassare e quanto da pagare.
+// Indipendente dal selettore anno della pagina.
+export type RiepilogoFinanziario = {
+  crediti: number
+  debitiScaduti: number
+  debitiAnno: number
+  debitiFuturi: number
+  debitiDaProgrammare: number
+  debitiTotali: number
+  posizioneNetta: number
+}
+
+// `oggi` arriva dal server come 'YYYY-MM-DD': le date ISO si confrontano come stringhe
+// e la funzione resta pura, quindi testabile con una data fissa.
+export function riepilogoCreditiDebiti(
+  commesse: StatRow[],
+  acconti: AccontoRow[],
+  scadenze: ScadenzaRow[],
+  oggi: string,
+): RiepilogoFinanziario {
+  const incassatoPerCommessa = new Map<string, number>()
+  for (const a of acconti) {
+    const attuale = incassatoPerCommessa.get(a.commessa_id) ?? 0
+    incassatoPerCommessa.set(a.commessa_id, attuale + (Number(a.importo) || 0))
+  }
+
+  // Residuo per commessa con floor a zero: una commessa incassata in eccesso non deve
+  // mascherare il credito di un'altra.
+  let crediti = 0
+  for (const c of commesse) {
+    const residuo = (Number(c.totale) || 0) - (incassatoPerCommessa.get(c.id) ?? 0)
+    if (residuo > 0) crediti += residuo
+  }
+
+  const annoOggi = annoStr(oggi)
+  let debitiScaduti = 0
+  let debitiAnno = 0
+  let debitiFuturi = 0
+  let debitiDaProgrammare = 0
+
+  for (const s of scadenze) {
+    if (s.pagato || s.annullata) continue
+    const importo = Number(s.importo) || 0
+    if (!s.data_scadenza) {
+      debitiDaProgrammare += importo
+    } else if (s.data_scadenza < oggi) {
+      debitiScaduti += importo
+    } else if (annoStr(s.data_scadenza) === annoOggi) {
+      debitiAnno += importo
+    } else {
+      debitiFuturi += importo
+    }
+  }
+
+  const debitiTotali = debitiScaduti + debitiAnno + debitiFuturi + debitiDaProgrammare
+  // Le rate oltre l'anno restano fuori dal netto: risponde a "reggo quest'anno?".
+  const posizioneNetta = crediti - (debitiScaduti + debitiAnno + debitiDaProgrammare)
+
+  return {
+    crediti,
+    debitiScaduti,
+    debitiAnno,
+    debitiFuturi,
+    debitiDaProgrammare,
+    debitiTotali,
+    posizioneNetta,
+  }
+}
