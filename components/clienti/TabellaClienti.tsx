@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Plus, Search, Pencil, Trash2 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { deleteCliente } from '@/actions/clienti'
+import { filtraClienti } from '@/lib/ricerca-clienti'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -56,15 +57,7 @@ export default function TabellaClienti({ clienti, denominazione }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    if (!q) return clienti
-    return clienti.filter((c) =>
-      [c.ragione_sociale, c.nome, c.cognome, c.telefono, c.email, c.cf_piva].some((f) =>
-        f?.toLowerCase().includes(q)
-      )
-    )
-  }, [clienti, search])
+  const filtered = useMemo(() => filtraClienti(clienti, search), [clienti, search])
 
   const openCreate = () => {
     setEditingCliente(null)

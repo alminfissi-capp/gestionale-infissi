@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
@@ -45,6 +45,7 @@ import {
   getOrgIdPerUpload,
 } from '@/actions/commesse'
 import { createCliente } from '@/actions/clienti'
+import { filtraClienti } from '@/lib/ricerca-clienti'
 import { formatEuro } from '@/lib/pricing'
 import type {
   CommessaCompleta,
@@ -157,6 +158,7 @@ export default function DialogCommessa({
   // Selezione cliente da anagrafica
   const [clienteId, setClienteId] = useState<string | null>(null)
   const [comboOpen, setComboOpen] = useState(false)
+  const [ricercaCliente, setRicercaCliente] = useState('')
   const [salvaCliente, setSalvaCliente] = useState(false)
   const [nuovoTipo, setNuovoTipo] = useState<'privato' | 'azienda'>('privato')
   const [nuovoNome, setNuovoNome] = useState('')
@@ -452,6 +454,7 @@ export default function DialogCommessa({
 
   const totale = form.imponibile + form.iva_totale
   const clienteSelezionato = clienteId ? clienti.find((c) => c.id === clienteId) : null
+  const clientiFiltrati = useMemo(() => filtraClienti(clienti, ricercaCliente), [clienti, ricercaCliente])
   const isCreazione = !commessa
 
   return (
@@ -683,14 +686,19 @@ export default function DialogCommessa({
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
-                  <Command>
-                    <CommandInput placeholder="Cerca cliente..." />
+                  {/* shouldFilter={false}: filtriamo noi con la stessa logica dell'anagrafica */}
+                  <Command shouldFilter={false}>
+                    <CommandInput
+                      placeholder="Cerca per nome, telefono, email..."
+                      value={ricercaCliente}
+                      onValueChange={setRicercaCliente}
+                    />
                     <CommandList>
                       <CommandEmpty className="py-3 text-center text-sm text-gray-500">
                         Nessun cliente trovato
                       </CommandEmpty>
                       <CommandGroup>
-                        {clienti.map((c) => (
+                        {clientiFiltrati.map((c) => (
                           <CommandItem
                             key={c.id}
                             value={nomeCliente(c)}
