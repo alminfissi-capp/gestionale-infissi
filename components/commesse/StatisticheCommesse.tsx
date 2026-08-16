@@ -76,6 +76,8 @@ export default function StatisticheCommesse({ dati }: Props) {
 
   const totaleAnnoNumero = datiMese.reduce((s, r) => s + r.numero, 0)
   const totaleAnnoValore = datiMese.reduce((s, r) => s + r.valore, 0)
+  const annoOggi = oggi.slice(0, 4)
+
   const totaleAnnoIncassi = datiFlusso.reduce((s, r) => s + r.incasso, 0)
   const totaleAnnoPagamenti = datiFlusso.reduce((s, r) => s + r.pagamento, 0)
   const saldoCassaAnno = totaleAnnoIncassi - totaleAnnoPagamenti
@@ -110,7 +112,7 @@ export default function StatisticheCommesse({ dati }: Props) {
               <BarChart3 className="h-6 w-6 text-teal-600" />
               Grafici e statistiche
             </h1>
-            <p className="text-sm text-gray-500 mt-0.5">Andamento commesse, incassi e resoconto per cliente</p>
+            <p className="text-sm text-gray-500 mt-0.5">Andamento commesse, flusso di cassa, crediti/debiti e resoconto per cliente</p>
           </div>
         </div>
         {haDati && (
@@ -213,6 +215,72 @@ export default function StatisticheCommesse({ dati }: Props) {
                     {saldoCassaAnno >= 0 ? '+' : ''}{formatEuro(saldoCassaAnno)}
                   </strong>
                 </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* B2) Crediti e debiti — fotografia a oggi, NON segue il selettore anno */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                Crediti e debiti
+                <span className="text-xs font-normal text-white bg-gray-500 rounded px-1.5 py-0.5">
+                  a oggi
+                </span>
+              </CardTitle>
+              <p className="text-xs text-gray-500">
+                Posizione dell&apos;azienda alla data odierna: non segue il selettore dell&apos;anno
+              </p>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-lg border border-sky-100 bg-sky-50 p-3">
+                <p className="text-xs uppercase tracking-wide text-sky-700 font-medium">Crediti da incassare</p>
+                <p className="text-2xl font-bold text-sky-700 mt-1">{formatEuro(riepilogo.crediti)}</p>
+                <p className="text-xs text-gray-500 mt-1">Saldo residuo delle commesse non ancora incassate</p>
+              </div>
+
+              <div className="rounded-lg border border-gray-200 p-3">
+                <p className="text-xs uppercase tracking-wide text-gray-600 font-medium">Debiti da pagare</p>
+                <dl className="mt-2 space-y-1 text-sm">
+                  {riepilogo.debitiScaduti > 0 && (
+                    <div className="flex justify-between text-rose-700 font-medium">
+                      <dt>Già scaduto</dt>
+                      <dd>{formatEuro(riepilogo.debitiScaduti)}</dd>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-gray-700">
+                    <dt>Entro il {annoOggi}</dt>
+                    <dd>{formatEuro(riepilogo.debitiAnno)}</dd>
+                  </div>
+                  {riepilogo.debitiDaProgrammare > 0 && (
+                    <div className="flex justify-between text-gray-700">
+                      <dt>Da programmare</dt>
+                      <dd>{formatEuro(riepilogo.debitiDaProgrammare)}</dd>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-gray-500">
+                    <dt>Rate oltre il {annoOggi}</dt>
+                    <dd>{formatEuro(riepilogo.debitiFuturi)}</dd>
+                  </div>
+                  <div className="flex justify-between border-t pt-1 mt-1 font-semibold text-gray-800">
+                    <dt>Totale</dt>
+                    <dd>{formatEuro(riepilogo.debitiTotali)}</dd>
+                  </div>
+                </dl>
+              </div>
+
+              <div className="sm:col-span-2 rounded-lg border p-3 flex flex-wrap items-baseline justify-between gap-2">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-600 font-medium">
+                    Posizione netta {annoOggi}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Crediti meno i debiti da saldare entro l&apos;anno; le rate future restano escluse
+                  </p>
+                </div>
+                <p className={`text-2xl font-bold ${riepilogo.posizioneNetta >= 0 ? 'text-green-700' : 'text-rose-700'}`}>
+                  {riepilogo.posizioneNetta >= 0 ? '+' : ''}{formatEuro(riepilogo.posizioneNetta)}
+                </p>
               </div>
             </CardContent>
           </Card>
