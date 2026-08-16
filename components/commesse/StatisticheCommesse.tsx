@@ -15,15 +15,18 @@ import {
 } from '@/components/ui/select'
 import { formatEuro } from '@/lib/pricing'
 import {
-  aggregaMese, aggregaIncassiMese, aggregaCostiUtiliMese, contaCommesseSenzaPreventivo,
-  resocontoCliente, clientiUnici,
+  aggregaMese, aggregaFlussoMese, aggregaCostiUtiliMese, contaCommesseSenzaPreventivo,
+  resocontoCliente, clientiUnici, riepilogoCreditiDebiti,
   type DatiStatistiche,
 } from '@/lib/statistiche-commesse'
 
 const COLORS = {
   valore: '#0d9488',   // teal-600
   numero: '#b45309',   // amber-700 (testo leggibile su sfondo chiaro)
-  incasso: '#0ea5e9',  // sky-500
+  // sky-600 e rose-600: coppia validata per contrasto sul bianco e separazione
+  // in caso di daltonismo (ΔE 20.9 protan)
+  incasso: '#0284c7',  // sky-600 — entrate
+  pagamento: '#e11d48', // rose-600 — uscite
   materiali: '#64748b', // slate-500
   posa: '#f59e0b',     // amber-500
   spese: '#a78bfa',    // violet-400
@@ -50,7 +53,7 @@ interface Props {
 
 export default function StatisticheCommesse({ dati }: Props) {
   const router = useRouter()
-  const { commesse, acconti, anni, costiCommesse } = dati
+  const { commesse, acconti, anni, costiCommesse, scadenze, oggi } = dati
 
   const annoCorrente = String(new Date().getFullYear())
   const annoDefault = anni.includes(annoCorrente) ? annoCorrente : (anni[0] ?? annoCorrente)
@@ -59,7 +62,11 @@ export default function StatisticheCommesse({ dati }: Props) {
   const [vistaCosti, setVistaCosti] = useState<VistaCosti>('impilato')
 
   const datiMese = useMemo(() => aggregaMese(commesse, anno), [commesse, anno])
-  const datiIncassi = useMemo(() => aggregaIncassiMese(acconti, anno), [acconti, anno])
+  const datiFlusso = useMemo(() => aggregaFlussoMese(acconti, scadenze, anno), [acconti, scadenze, anno])
+  const riepilogo = useMemo(
+    () => riepilogoCreditiDebiti(commesse, acconti, scadenze, oggi),
+    [commesse, acconti, scadenze, oggi],
+  )
   const datiCostiUtili = useMemo(() => aggregaCostiUtiliMese(costiCommesse, anno), [costiCommesse, anno])
   const senzaPreventivo = useMemo(
     () => contaCommesseSenzaPreventivo(commesse, costiCommesse, anno),
@@ -69,7 +76,9 @@ export default function StatisticheCommesse({ dati }: Props) {
 
   const totaleAnnoNumero = datiMese.reduce((s, r) => s + r.numero, 0)
   const totaleAnnoValore = datiMese.reduce((s, r) => s + r.valore, 0)
-  const totaleAnnoIncassi = datiIncassi.reduce((s, r) => s + r.incasso, 0)
+  const totaleAnnoIncassi = datiFlusso.reduce((s, r) => s + r.incasso, 0)
+  const totaleAnnoPagamenti = datiFlusso.reduce((s, r) => s + r.pagamento, 0)
+  const saldoCassaAnno = totaleAnnoIncassi - totaleAnnoPagamenti
 
   const totMateriali = datiCostiUtili.reduce((s, r) => s + r.materiali, 0)
   const totPosa = datiCostiUtili.reduce((s, r) => s + r.posa, 0)
@@ -164,14 +173,17 @@ export default function StatisticheCommesse({ dati }: Props) {
             </CardContent>
           </Card>
 
-          {/* B) Incassi per mese */}
+          {/* B) Incassi e pagamenti per mese */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg font-semibold">Incassi — {anno}</CardTitle>
+              <CardTitle className="text-lg font-semibold">Incassi e pagamenti — {anno}</CardTitle>
+              <p className="text-xs text-gray-500">
+                Acconti incassati e scadenze pagate, sul mese della rispettiva data
+              </p>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={datiIncassi} margin={{ top: 24, right: 8, left: -12, bottom: 0 }}>
+                <BarChart data={datiFlusso} margin={{ top: 16, right: 8, left: -12, bottom: 0 }} barGap={2}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="mese" tick={{ fontSize: 11, fill: '#9ca3af' }} />
                   <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} width={56}
@@ -179,16 +191,28 @@ export default function StatisticheCommesse({ dati }: Props) {
                   <Tooltip
                     contentStyle={{ fontSize: 12, borderRadius: 8 }}
                     labelStyle={{ fontWeight: 600 }}
-                    formatter={(value) => [formatEuro(Number(value)), 'Incasso']}
+                    formatter={(value, name) => [`${formatEuro(Number(value))} €`, name]}
                   />
-                  <Bar dataKey="incasso" name="Incasso" fill={COLORS.incasso} radius={[4, 4, 0, 0]}>
-                    <LabelList dataKey="incasso" position="top" fill="#0369a1"
-                      fontSize={10} fontWeight={600} formatter={labelEuro} />
-                  </Bar>
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {/* Niente etichette sulle barre: con due serie per 12 mesi si
+                      sovrappongono. I valori esatti stanno nel tooltip e i totali sotto. */}
+                  <Bar dataKey="incasso" name="Incassi" fill={COLORS.incasso} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="pagamento" name="Pagamenti" fill={COLORS.pagamento} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-              <div className="mt-3 text-sm text-gray-500">
-                Totale incassato {anno}: <strong className="text-sky-700">{formatEuro(totaleAnnoIncassi)}</strong>
+              <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm border-t pt-3">
+                <span className="text-gray-500">
+                  Incassato: <strong className="text-sky-700">{formatEuro(totaleAnnoIncassi)}</strong>
+                </span>
+                <span className="text-gray-500">
+                  Pagato: <strong className="text-rose-700">{formatEuro(totaleAnnoPagamenti)}</strong>
+                </span>
+                <span className="text-gray-500">
+                  Saldo di cassa:{' '}
+                  <strong className={saldoCassaAnno >= 0 ? 'text-green-700' : 'text-rose-700'}>
+                    {saldoCassaAnno >= 0 ? '+' : ''}{formatEuro(saldoCassaAnno)}
+                  </strong>
+                </span>
               </div>
             </CardContent>
           </Card>
