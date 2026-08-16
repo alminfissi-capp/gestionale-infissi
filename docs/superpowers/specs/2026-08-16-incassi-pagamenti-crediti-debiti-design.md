@@ -145,6 +145,47 @@ Il file non esiste ancora: va creato.
 - posizione netta, verificando che le rate future ne restino fuori
 - casi limite: date nulle, anno senza dati, liste vuote
 
+## Estensione (stesso giorno): incassi in attesa e dipendenti
+
+Commesse e scadenze non erano tutto. Tre aggiunte, decise dopo la prima stesura:
+
+**Altri crediti.** Gli *incassi in attesa* (tabella `calcoli_incassi`, gestiti nella pagina
+Calcoli) sono entrate che non nascono da una commessa: rimborsi, note di credito,
+prestiti. Quelli con `incassato = false` entrano nei crediti sotto la voce **Altri
+crediti**, distinta da **Da commesse**, e il riquadro mostra il totale.
+
+Nota di merito: i Calcoli restano una cosa a sé — il flag `in_calcoli` delle scadenze
+continua a essere ignorato dal riepilogo. Qui si prende `calcoli_incassi` non perché stia
+nei Calcoli, ma perché è un credito.
+
+**Stipendi versati fra i pagamenti.** `pagamenti_dipendente` (buste pagate e bonifici dei
+dipendenti fissi) più i `movimenti_altro_dipendente` di tipo `pagamento` sono uscite di
+cassa come le scadenze, e vanno nella barra Pagamenti sul mese di `data_pagamento`. Senza
+di loro il grafico direbbe che dall'azienda esce molto meno di quanto esce davvero.
+
+**Stipendi arretrati fra i debiti.** Il dovuto verso i dipendenti fissi è il **netto delle
+buste paga** (`buste_paga.netto`) contro quanto già versato — la stessa contrapposizione
+che `calcolaSaldoDipendente` in `lib/dipendenti.ts` mostra nel modulo Dipendenti. Per gli
+altri dipendenti è la differenza fra i movimenti `stipendio` e quelli `pagamento`.
+
+Il residuo si calcola **per persona con floor a zero**, come per le commesse: un dipendente
+pagato in anticipo non deve azzerare il debito verso gli altri. L'aggregazione per persona
+avviene nel Server Component, così la funzione pura riceve una lista `{dovuto, pagato}` e
+resta una somma semplice.
+
+Gli stipendi arretrati **entrano nella posizione netta**: a differenza delle rate di
+finanziamento, sono dovuti adesso.
+
+### Firme aggiornate
+
+```ts
+aggregaFlussoMese(acconti, scadenze, pagamentiDipendenti, anno): PuntoFlusso[]
+riepilogoCreditiDebiti(commesse, acconti, altriCrediti, scadenze, contiDipendenti, oggi): RiepilogoFinanziario
+```
+
+`RiepilogoFinanziario` guadagna `creditiCommesse`, `creditiAltri`, `crediti` (totale) e
+`debitiDipendenti`.
+
 ## Fuori ambito
 
 - Nessun filtro per categoria di scadenza nel grafico

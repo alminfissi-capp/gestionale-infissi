@@ -3,6 +3,9 @@ import {
   aggregaFlussoMese,
   riepilogoCreditiDebiti,
   type AccontoRow,
+  type AltroCreditoRow,
+  type ContoDipendenteRow,
+  type PagamentoDipendenteRow,
   type ScadenzaRow,
   type StatRow,
 } from '@/lib/statistiche-commesse'
@@ -26,7 +29,7 @@ const scadenze: ScadenzaRow[] = [
 
 describe('aggregaFlussoMese', () => {
   it('restituisce sempre 12 mesi in ordine', () => {
-    const r = aggregaFlussoMese([], [], '2026')
+    const r = aggregaFlussoMese([], [], [], '2026')
     expect(r).toHaveLength(12)
     expect(r[0].mese).toBe('Gen')
     expect(r[11].mese).toBe('Dic')
@@ -34,20 +37,20 @@ describe('aggregaFlussoMese', () => {
   })
 
   it('somma gli incassi sul mese della data di pagamento', () => {
-    const r = aggregaFlussoMese(acconti, scadenze, '2026')
+    const r = aggregaFlussoMese(acconti, scadenze, [], '2026')
     expect(r[0].incasso).toBe(1500) // gennaio: 1000 + 500
     expect(r[2].incasso).toBe(2000) // marzo
     expect(r[1].incasso).toBe(0)    // febbraio
   })
 
   it('conta come pagamento solo le scadenze pagate e non annullate', () => {
-    const r = aggregaFlussoMese(acconti, scadenze, '2026')
+    const r = aggregaFlussoMese(acconti, scadenze, [], '2026')
     expect(r[0].pagamento).toBe(400) // gennaio
     expect(r[2].pagamento).toBe(300) // marzo: esclude la non pagata e l'annullata
   })
 
   it('ignora le righe di un altro anno o senza data', () => {
-    const r = aggregaFlussoMese(acconti, scadenze, '2026')
+    const r = aggregaFlussoMese(acconti, scadenze, [], '2026')
     const totIncassi = r.reduce((s, p) => s + p.incasso, 0)
     const totPagamenti = r.reduce((s, p) => s + p.pagamento, 0)
     expect(totIncassi).toBe(3500) // esclusi 999 (2025) e 777 (senza data)
@@ -55,7 +58,7 @@ describe('aggregaFlussoMese', () => {
   })
 
   it('calcola il saldo mensile come incassi meno pagamenti', () => {
-    const r = aggregaFlussoMese(acconti, scadenze, '2026')
+    const r = aggregaFlussoMese(acconti, scadenze, [], '2026')
     expect(r[0].saldo).toBe(1100) // 1500 - 400
     expect(r[2].saldo).toBe(1700) // 2000 - 300
   })
@@ -64,8 +67,22 @@ describe('aggregaFlussoMese', () => {
     const soloUscite: ScadenzaRow[] = [
       { data_scadenza: '2026-05-10', importo: 250, pagato: true, annullata: false },
     ]
-    const r = aggregaFlussoMese([], soloUscite, '2026')
+    const r = aggregaFlussoMese([], soloUscite, [], '2026')
     expect(r[4].saldo).toBe(-250)
+  })
+
+  it('somma ai pagamenti anche gli stipendi versati ai dipendenti', () => {
+    const stipendi: PagamentoDipendenteRow[] = [
+      { data_pagamento: '2026-01-27', importo: 1800 },
+      { data_pagamento: '2026-01-28', importo: 1200 },
+      { data_pagamento: '2025-01-27', importo: 500 },  // altro anno
+      { data_pagamento: null, importo: 300 },          // senza data
+    ]
+    const r = aggregaFlussoMese(acconti, scadenze, stipendi, '2026')
+    expect(r[0].pagamento).toBe(3400) // 400 di scadenze + 3000 di stipendi
+    expect(r[0].saldo).toBe(-1900)    // 1500 incassati - 3400 usciti
+    const totPagamenti = r.reduce((s, p) => s + p.pagamento, 0)
+    expect(totPagamenti).toBe(3700)   // 700 di scadenze + 3000 di stipendi
   })
 })
 
@@ -94,13 +111,26 @@ const scadenzeRiep: ScadenzaRow[] = [
 
 describe('riepilogoCreditiDebiti', () => {
   it('somma i crediti come residuo per commessa, senza compensare fra commesse', () => {
-    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], OGGI)
+    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], [], [], OGGI)
     // c1: 10000-4000 = 6000 · c2: -2000 → 0 (non riduce c1) · c3: 2000
+    expect(r.creditiCommesse).toBe(8000)
     expect(r.crediti).toBe(8000)
   })
 
+  it('somma agli altri crediti gli incassi in attesa non ancora incassati', () => {
+    const altri: AltroCreditoRow[] = [
+      { importo: 3000, incassato: false },
+      { importo: 500, incassato: false },
+      { importo: 9999, incassato: true }, // già incassato: non è più un credito
+    ]
+    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, altri, [], [], OGGI)
+    expect(r.creditiCommesse).toBe(8000)
+    expect(r.creditiAltri).toBe(3500)
+    expect(r.crediti).toBe(11500)
+  })
+
   it('divide i debiti per orizzonte rispetto a oggi', () => {
-    const r = riepilogoCreditiDebiti([], [], scadenzeRiep, OGGI)
+    const r = riepilogoCreditiDebiti([], [], [], scadenzeRiep, [], OGGI)
     expect(r.debitiScaduti).toBe(300)
     expect(r.debitiAnno).toBe(800) // 100 di oggi + 700 di fine anno
     expect(r.debitiFuturi).toBe(900)
@@ -108,32 +138,52 @@ describe('riepilogoCreditiDebiti', () => {
   })
 
   it('una scadenza in data odierna non è ancora scaduta', () => {
-    const r = riepilogoCreditiDebiti([], [], [
+    const r = riepilogoCreditiDebiti([], [], [], [
       { data_scadenza: OGGI, importo: 100, pagato: false, annullata: false },
-    ], OGGI)
+    ], [], OGGI)
     expect(r.debitiScaduti).toBe(0)
     expect(r.debitiAnno).toBe(100)
   })
 
   it('esclude dai debiti le scadenze pagate e quelle annullate', () => {
-    const r = riepilogoCreditiDebiti([], [], scadenzeRiep, OGGI)
+    const r = riepilogoCreditiDebiti([], [], [], scadenzeRiep, [], OGGI)
     expect(r.debitiTotali).toBe(2050) // 300+800+900+50, senza 999 e 888
   })
 
   it('tiene le rate future fuori dalla posizione netta', () => {
-    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, scadenzeRiep, OGGI)
+    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], scadenzeRiep, [], OGGI)
     // 8000 - (300 + 800 + 50) = 6850
     expect(r.posizioneNetta).toBe(6850)
   })
 
+  it('conta come debito lo stipendio maturato e non ancora versato', () => {
+    const conti: ContoDipendenteRow[] = [
+      { dovuto: 2000, pagato: 1200 }, // 800 residuo
+      { dovuto: 1500, pagato: 1500 }, // saldato
+      { dovuto: 900, pagato: 1100 },  // pagato in anticipo → 0, non compensa gli altri
+    ]
+    const r = riepilogoCreditiDebiti([], [], [], [], conti, OGGI)
+    expect(r.debitiDipendenti).toBe(800)
+  })
+
+  it('include gli stipendi arretrati nel totale e nella posizione netta', () => {
+    const conti: ContoDipendenteRow[] = [{ dovuto: 1000, pagato: 400 }] // 600
+    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], scadenzeRiep, conti, OGGI)
+    expect(r.debitiTotali).toBe(2650)   // 2050 + 600
+    expect(r.posizioneNetta).toBe(6250) // 6850 - 600
+  })
+
   it('regge liste vuote', () => {
-    const r = riepilogoCreditiDebiti([], [], [], OGGI)
+    const r = riepilogoCreditiDebiti([], [], [], [], [], OGGI)
     expect(r).toEqual({
+      creditiCommesse: 0,
+      creditiAltri: 0,
       crediti: 0,
       debitiScaduti: 0,
       debitiAnno: 0,
       debitiFuturi: 0,
       debitiDaProgrammare: 0,
+      debitiDipendenti: 0,
       debitiTotali: 0,
       posizioneNetta: 0,
     })

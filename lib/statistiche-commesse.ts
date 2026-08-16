@@ -29,6 +29,27 @@ export type ScadenzaRow = {
   annullata: boolean
 }
 
+// Credito che non nasce da una commessa (rimborsi, note di credito, prestiti).
+// Vive nella pagina Calcoli ma è un credito aziendale a tutti gli effetti.
+export type AltroCreditoRow = {
+  importo: number
+  incassato: boolean
+}
+
+// Uscita verso un dipendente già effettuata: busta pagata, bonifico o contanti.
+export type PagamentoDipendenteRow = {
+  data_pagamento: string | null
+  importo: number
+}
+
+// Conto di un dipendente: netto delle buste (o stipendi maturati per gli altri
+// dipendenti) contro quanto gli è già stato versato. Il server lo aggrega per
+// persona, così qui resta una somma semplice.
+export type ContoDipendenteRow = {
+  dovuto: number
+  pagato: number
+}
+
 // Contributo costi/utile di una commessa, sommato dai suoi preventivi INTERNI.
 export type CostoCommessaRow = {
   commessa_id: string
@@ -47,6 +68,9 @@ export type DatiStatistiche = {
   costiCommesse: CostoCommessaRow[] // commesse con ≥1 preventivo interno collegato
   scadenze: ScadenzaRow[] // uscite: usate per flusso mensile e debiti
   oggi: string // 'YYYY-MM-DD' calcolata sul server, per rendere puro il riepilogo
+  altriCrediti: AltroCreditoRow[] // incassi in attesa, non legati a commesse
+  pagamentiDipendenti: PagamentoDipendenteRow[] // stipendi già versati
+  contiDipendenti: ContoDipendenteRow[] // dovuto/pagato per persona
 }
 
 export type PuntoMese = { mese: string; valore: number; numero: number }
@@ -100,6 +124,7 @@ export function aggregaMese(commesse: StatRow[], anno: string): PuntoMese[] {
 export function aggregaFlussoMese(
   acconti: AccontoRow[],
   scadenze: ScadenzaRow[],
+  pagamentiDipendenti: PagamentoDipendenteRow[],
   anno: string,
 ): PuntoFlusso[] {
   const out: PuntoFlusso[] = MESI_LABEL.map((mese) => ({ mese, incasso: 0, pagamento: 0, saldo: 0 }))
@@ -117,6 +142,15 @@ export function aggregaFlussoMese(
     const m = meseDi(s.data_scadenza)
     if (m === null) continue
     out[m].pagamento += Number(s.importo) || 0
+  }
+
+  // Gli stipendi sono uscite come le altre: senza, il grafico direbbe che
+  // dall'azienda esce molto meno di quanto esce davvero.
+  for (const p of pagamentiDipendenti) {
+    if (annoStr(p.data_pagamento) !== anno) continue
+    const m = meseDi(p.data_pagamento)
+    if (m === null) continue
+    out[m].pagamento += Number(p.importo) || 0
   }
 
   for (const p of out) p.saldo = p.incasso - p.pagamento
@@ -231,11 +265,14 @@ export function resocontoCliente(
 // Posizione dell'azienda a una certa data: quanto resta da incassare e quanto da pagare.
 // Indipendente dal selettore anno della pagina.
 export type RiepilogoFinanziario = {
-  crediti: number
+  creditiCommesse: number
+  creditiAltri: number // incassi in attesa: entrate che non nascono da una commessa
+  crediti: number      // totale
   debitiScaduti: number
   debitiAnno: number
   debitiFuturi: number
   debitiDaProgrammare: number
+  debitiDipendenti: number
   debitiTotali: number
   posizioneNetta: number
 }
@@ -245,7 +282,9 @@ export type RiepilogoFinanziario = {
 export function riepilogoCreditiDebiti(
   commesse: StatRow[],
   acconti: AccontoRow[],
+  altriCrediti: AltroCreditoRow[],
   scadenze: ScadenzaRow[],
+  contiDipendenti: ContoDipendenteRow[],
   oggi: string,
 ): RiepilogoFinanziario {
   const incassatoPerCommessa = new Map<string, number>()
@@ -256,10 +295,25 @@ export function riepilogoCreditiDebiti(
 
   // Residuo per commessa con floor a zero: una commessa incassata in eccesso non deve
   // mascherare il credito di un'altra.
-  let crediti = 0
+  let creditiCommesse = 0
   for (const c of commesse) {
     const residuo = (Number(c.totale) || 0) - (incassatoPerCommessa.get(c.id) ?? 0)
-    if (residuo > 0) crediti += residuo
+    if (residuo > 0) creditiCommesse += residuo
+  }
+
+  let creditiAltri = 0
+  for (const a of altriCrediti) {
+    if (a.incassato) continue
+    creditiAltri += Number(a.importo) || 0
+  }
+  const crediti = creditiCommesse + creditiAltri
+
+  // Stesso floor delle commesse: un dipendente pagato in anticipo non azzera
+  // il debito verso gli altri.
+  let debitiDipendenti = 0
+  for (const c of contiDipendenti) {
+    const residuo = (Number(c.dovuto) || 0) - (Number(c.pagato) || 0)
+    if (residuo > 0) debitiDipendenti += residuo
   }
 
   const annoOggi = annoStr(oggi)
@@ -282,16 +336,22 @@ export function riepilogoCreditiDebiti(
     }
   }
 
-  const debitiTotali = debitiScaduti + debitiAnno + debitiFuturi + debitiDaProgrammare
+  const debitiTotali =
+    debitiScaduti + debitiAnno + debitiFuturi + debitiDaProgrammare + debitiDipendenti
   // Le rate oltre l'anno restano fuori dal netto: risponde a "reggo quest'anno?".
-  const posizioneNetta = crediti - (debitiScaduti + debitiAnno + debitiDaProgrammare)
+  // Gli stipendi arretrati invece ci entrano: sono dovuti adesso.
+  const posizioneNetta =
+    crediti - (debitiScaduti + debitiAnno + debitiDaProgrammare + debitiDipendenti)
 
   return {
+    creditiCommesse,
+    creditiAltri,
     crediti,
     debitiScaduti,
     debitiAnno,
     debitiFuturi,
     debitiDaProgrammare,
+    debitiDipendenti,
     debitiTotali,
     posizioneNetta,
   }
