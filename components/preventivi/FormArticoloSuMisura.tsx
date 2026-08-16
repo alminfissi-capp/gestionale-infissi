@@ -5,6 +5,12 @@ import Image from 'next/image'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { calcolaSuMisura, formatEuro } from '@/lib/pricing'
+import {
+  calcolaAccessoriSuMisura,
+  calcolaPrezzoUnitarioSuMisura,
+  qtyEffettivaAccessorio,
+  selezioneAccessoriDaConfig,
+} from '@/lib/su-misura'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,11 +23,7 @@ import {
 } from '@/components/ui/select'
 import ScontoSelect from './ScontoSelect'
 import type { CategoriaConListini, ListinoSuMisuraCompleto, FinituraSuMisura, AccessorioSuMisura } from '@/types/listino'
-import type {
-  AccessorioSuMisuraSelezionato,
-  ConfigSuMisuraArticolo,
-  ArticoloWizard,
-} from '@/types/preventivo'
+import type { ConfigSuMisuraArticolo, ArticoloWizard } from '@/types/preventivo'
 
 interface Props {
   categoria: CategoriaConListini
@@ -56,14 +58,14 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
   )
 
   // ── Accessori selezionati: { [accessorio_id]: qty } ───────────────────────
-  const [accessoriSel, setAccessoriSel] = useState<Record<string, number>>(() => {
-    if (initialValues?.config_su_misura) {
-      return Object.fromEntries(
-        initialValues.config_su_misura.accessori.map((a) => [a.accessorio_id, a.qty])
-      )
-    }
-    return {}
-  })
+  // Le quantità salvate sono quelle *effettive* (accessori al mq già moltiplicati per i
+  // mq): vanno riconvertite in quantità grezze, altrimenti riaprendo l'articolo in
+  // modifica la moltiplicazione verrebbe applicata una seconda volta.
+  const [accessoriSel, setAccessoriSel] = useState<Record<string, number>>(() =>
+    initialValues?.config_su_misura
+      ? selezioneAccessoriDaConfig(initialValues.config_su_misura)
+      : {}
+  )
 
   // ── Mano d'opera, spese varie e utile ────────────────────────────────────
   const [manoDopera, setManoDopera] = useState<string>(
@@ -114,34 +116,25 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
     return calcolaSuMisura(larghezzaN, altezzaN, listino.prezzo_mq, listino.mq_minimo, finitura)
   }, [listino, larghezzaN, altezzaN, finitura])
 
-  // Accessori totale
-  const totale_accessori = useMemo(() => {
-    if (!listino) return 0
-    let tot = 0
-    for (const gruppo of listino.gruppi_accessori) {
-      for (const acc of gruppo.accessori) {
-        const qty = accessoriSel[acc.id]
-        if (qty != null && qty > 0) {
-          const qtyEffettiva = acc.unita === 'mq' ? mq * qty : qty
-          tot += acc.prezzo * qtyEffettiva
-        } else if (gruppo.tipo_scelta === 'incluso') {
-          // sempre incluso — usa qty_default
-          const qtyEffettiva = acc.unita === 'mq' ? mq * acc.qty_default : acc.qty_default
-          tot += acc.prezzo * qtyEffettiva
-        }
-      }
-    }
-    return tot
-  }, [listino, accessoriSel, mq])
+  // Accessori: stessa funzione usata al salvataggio, così anteprima e righe salvate
+  // non possono divergere
+  const risultatoAccessori = useMemo(
+    () => calcolaAccessoriSuMisura(listino?.gruppi_accessori ?? [], accessoriSel, mq),
+    [listino, accessoriSel, mq]
+  )
+  const totale_accessori = risultatoAccessori.totale
 
-  const base = totale_prodotto + totale_accessori
   const manoDoperaN = parseFloat(manoDopera) || 0
   const speseValN = parseFloat(speseVal) || 0
-  const spese_calcolate = modoSpese === 'percentuale' ? base * speseValN / 100 : speseValN
   const utileValN = parseFloat(utileVal) || 0
-  const costi_totali = base + manoDoperaN + spese_calcolate
-  const utile_calcolato = modoUtile === 'percentuale' ? costi_totali * utileValN / 100 : utileValN
-  const prezzo_unitario = costi_totali + utile_calcolato
+  const { speseCalcolate: spese_calcolate, utileCalcolato: utile_calcolato, prezzoUnitario: prezzo_unitario } =
+    calcolaPrezzoUnitarioSuMisura({
+      totaleProdotto: totale_prodotto,
+      totaleAccessori: totale_accessori,
+      manoDopera: manoDoperaN,
+      spese: { modo: modoSpese, valore: speseValN },
+      utile: { modo: modoUtile, valore: utileValN },
+    })
 
   const quantitaN = parseInt(quantita) || 1
   const prezzoDopoSconto = prezzo_unitario * (1 - sconto / 100)
@@ -210,34 +203,17 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
       setAccessoriSel(effectiveAccSel)
     }
 
-    // Raccogli accessori selezionati + costo acquisto accessori
-    const accSel: AccessorioSuMisuraSelezionato[] = []
-    let costo_acquisto_accessori = 0
-    if (listino) {
-      for (const gruppo of listino.gruppi_accessori) {
-        for (const acc of gruppo.accessori) {
-          let qty: number | null = null
-          if (gruppo.tipo_scelta === 'incluso') {
-            qty = acc.qty_default
-          } else {
-            qty = effectiveAccSel[acc.id] ?? null
-          }
-          if (qty != null && qty > 0) {
-            const qtyEffettiva = acc.unita === 'mq' ? mq * qty : qty
-            accSel.push({
-              accessorio_id: acc.id,
-              gruppo_id: gruppo.id,
-              nome: acc.nome,
-              unita: acc.unita,
-              qty: qtyEffettiva,
-              prezzo_unitario: acc.prezzo,
-              totale: acc.prezzo * qtyEffettiva,
-            })
-            costo_acquisto_accessori += acc.prezzo_acquisto * qtyEffettiva
-          }
-        }
-      }
-    }
+    // Accessori e prezzo ricalcolati con le stesse funzioni dell'anteprima
+    const accessoriAdd = calcolaAccessoriSuMisura(listino.gruppi_accessori, effectiveAccSel, mq)
+    const prezziAdd = calcolaPrezzoUnitarioSuMisura({
+      totaleProdotto: totale_prodotto,
+      totaleAccessori: accessoriAdd.totale,
+      manoDopera: manoDoperaN,
+      spese: { modo: modoSpese, valore: speseValN },
+      utile: { modo: modoUtile, valore: utileValN },
+    })
+    const prezzoUnitarioAdd = prezziAdd.prezzoUnitario
+    const totaleRigaAdd = prezzoUnitarioAdd * (1 - sconto / 100) * quantitaN
 
     const config: ConfigSuMisuraArticolo = {
       listino_id: listino.id,
@@ -251,15 +227,15 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
       prezzo_mq_base: listino.prezzo_mq,
       prezzo_mq_finale,
       totale_prodotto,
-      accessori: accSel,
-      totale_accessori,
+      accessori: accessoriAdd.accessori,
+      totale_accessori: accessoriAdd.totale,
       mano_dopera: manoDoperaN,
       spese_varie_percentuale: modoSpese === 'percentuale' ? speseValN : null,
       spese_varie_fisso: modoSpese === 'fisso' ? speseValN : null,
-      spese_varie_calcolate: spese_calcolate,
+      spese_varie_calcolate: prezziAdd.speseCalcolate,
       utile_percentuale: modoUtile === 'percentuale' ? utileValN : null,
       utile_fisso: modoUtile === 'fisso' ? utileValN : null,
-      utile_calcolato,
+      utile_calcolato: prezziAdd.utileCalcolato,
     }
 
     const notaFinale = note.trim() || null
@@ -286,12 +262,12 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
       immagine_url: listino.immagine_url ?? null,
       quantita: quantitaN,
       prezzo_base: listino.prezzo_mq,
-      prezzo_unitario,
+      prezzo_unitario: prezzoUnitarioAdd,
       sconto_articolo: sconto,
-      prezzo_totale_riga: totale_riga,
+      prezzo_totale_riga: totaleRigaAdd,
       // Per su_misura, il costo di riferimento per il report è prodotto + accessori
       // (prezzo_acquisto_mq può essere 0 se non configurato → userebbe totale_prodotto come fallback)
-      costo_acquisto_unitario: totale_prodotto + totale_accessori,
+      costo_acquisto_unitario: totale_prodotto + accessoriAdd.totale,
       costo_posa: manoDoperaN,
       aliquota_iva: aliquotaIva,
       ordine: 0,
@@ -655,7 +631,8 @@ interface AccessorioRowProps {
 
 function AccessorioRow({ acc, mq, selected, qty, onToggle, onQtyChange, inputType, name }: AccessorioRowProps) {
   const unitaLabel = acc.unita === 'pz' ? 'pz' : acc.unita === 'mq' ? 'mq' : 'ml'
-  const qtyEffettiva = acc.unita === 'mq' && !acc.qty_modificabile ? mq * (selected ? qty : acc.qty_default) : selected ? qty : acc.qty_default
+  // stessa regola del calcolo prezzo, altrimenti la riga mostra un totale diverso da quello addebitato
+  const qtyEffettiva = qtyEffettivaAccessorio(acc.unita, selected ? qty : acc.qty_default, mq)
   const totale = acc.prezzo * qtyEffettiva
 
   return (
