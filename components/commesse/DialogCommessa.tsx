@@ -474,7 +474,10 @@ export default function DialogCommessa({
                   <SelectValue placeholder="Seleziona blocco..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {gruppi.filter((g) => g.tipo !== 'scadenze').map((g) => (
+                  {/* Solo blocchi commesse: scadenze e "Da programmare" ospitano
+                      scadenze da pagare. Lista in positivo, così un tipo futuro
+                      resta escluso di default. */}
+                  {gruppi.filter((g) => g.tipo === 'commesse').map((g) => (
                     <SelectItem key={g.id} value={g.id}>{g.nome}</SelectItem>
                   ))}
                 </SelectContent>
