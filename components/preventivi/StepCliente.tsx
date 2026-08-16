@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Building2, User, ChevronsUpDown, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { filtraClienti } from '@/lib/ricerca-clienti'
 import type { Cliente } from '@/types/cliente'
 import type { ClienteSnapshot } from '@/types/preventivo'
 
@@ -32,6 +33,8 @@ export default function StepCliente({
   showNumero = true,
 }: Props) {
   const [open, setOpen] = useState(false)
+  const [ricerca, setRicerca] = useState('')
+  const clientiFiltrati = useMemo(() => filtraClienti(clienti, ricerca), [clienti, ricerca])
 
   const parseTelefono = (tel: string | null | undefined) => {
     if (!tel) return { prefisso: '+39', numero: '' }
@@ -125,14 +128,20 @@ export default function StepCliente({
               </Button>
             </PopoverTrigger>
             <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
-              <Command>
-                <CommandInput placeholder="Cerca cliente..." />
+              {/* shouldFilter={false}: filtriamo noi con la stessa logica dell'anagrafica
+                  (nome completo, telefono con o senza prefisso, email, CF) */}
+              <Command shouldFilter={false}>
+                <CommandInput
+                  placeholder="Cerca per nome, telefono, email..."
+                  value={ricerca}
+                  onValueChange={setRicerca}
+                />
                 <CommandList>
                   <CommandEmpty className="py-3 text-center text-sm text-gray-500">
                     Cliente non in anagrafica
                   </CommandEmpty>
                   <CommandGroup>
-                    {clienti.map((c) => (
+                    {clientiFiltrati.map((c) => (
                       <CommandItem
                         key={c.id}
                         value={nomeCompleto(c)}
