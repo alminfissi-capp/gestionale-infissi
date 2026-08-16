@@ -1,14 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
 import StatisticheCommesse from '@/components/commesse/StatisticheCommesse'
-import type { StatRow, AccontoRow, CostoCommessaRow } from '@/lib/statistiche-commesse'
+import type { StatRow, AccontoRow, CostoCommessaRow, ScadenzaRow } from '@/lib/statistiche-commesse'
 import { calcolaCostiPreventivo, type ArticoloCosti } from '@/lib/preventivo-costi'
 
 export default async function StatisticheCommessePage() {
   const supabase = await createClient()
   const orgId = await getOrgId()
 
-  const [{ data: commesseRaw }, { data: accontiRaw }, { data: gruppiRaw }, { data: junctionRaw }] =
+  const [{ data: commesseRaw }, { data: accontiRaw }, { data: gruppiRaw }, { data: junctionRaw }, { data: scadenzeRaw }] =
     await Promise.all([
       supabase
         .from('commesse')
@@ -25,6 +25,10 @@ export default async function StatisticheCommessePage() {
       supabase
         .from('preventivi_commessa')
         .select('commessa_id, preventivo_id')
+        .eq('organization_id', orgId),
+      supabase
+        .from('scadenze')
+        .select('data_scadenza, importo, pagato, annullata')
         .eq('organization_id', orgId),
     ])
 
@@ -159,5 +163,17 @@ export default async function StatisticheCommessePage() {
     return b.localeCompare(a)
   })
 
-  return <StatisticheCommesse dati={{ commesse, acconti, anni, costiCommesse }} />
+  // Le scadenze non appartengono ai blocchi commesse: entrano come lista a sé.
+  const scadenze: ScadenzaRow[] = (scadenzeRaw ?? []).map((s) => ({
+    data_scadenza: s.data_scadenza,
+    importo: Number(s.importo) || 0,
+    pagato: !!s.pagato,
+    annullata: !!s.annullata,
+  }))
+
+  // Data locale italiana, non UTC: dopo mezzanotte a Roma il server UTC è ancora al
+  // giorno prima e sposterebbe il confine dello "scaduto". 'en-CA' formatta YYYY-MM-DD.
+  const oggi = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome' }).format(new Date())
+
+  return <StatisticheCommesse dati={{ commesse, acconti, anni, costiCommesse, scadenze, oggi }} />
 }
