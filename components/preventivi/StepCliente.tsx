@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { filtraClienti } from '@/lib/ricerca-clienti'
+import { deveScollegareCliente } from '@/lib/clienti-identita'
 import type { Cliente } from '@/types/cliente'
 import type { ClienteSnapshot } from '@/types/preventivo'
 
@@ -83,13 +84,23 @@ export default function StepCliente({
     })
   }
 
+  const clienteCollegato = clienteId ? clienti.find((c) => c.id === clienteId) : null
+
   const setField = (field: keyof ClienteSnapshot, value: string) => {
+    // Riscrivere nome/cognome/ragione sociale sopra un cliente selezionato significa
+    // che è un'altra persona: si scollega, così al salvataggio finisce in anagrafica
+    // invece di restare attribuita al cliente sbagliato.
+    if (deveScollegareCliente(clienteCollegato, field, value)) {
+      onClienteIdChange(null)
+    }
     onSnapshotChange({ ...clienteSnapshot, [field]: value || null })
   }
 
   // Quando si cambia tipo, azzera i campi specifici dell'altro tipo
   const setTipo = (t: 'privato' | 'azienda') => {
     if (t === clienteSnapshot.tipo) return
+    // cambiare tipo azzera i campi identità: il collegamento non regge più
+    if (clienteCollegato) onClienteIdChange(null)
     if (t === 'privato') {
       onSnapshotChange({ ...clienteSnapshot, tipo: t, ragione_sociale: null, codice_sdi: null })
     } else {
@@ -171,7 +182,8 @@ export default function StepCliente({
         </div>
         {clienteId && (
           <p className="text-xs text-blue-600">
-            Cliente selezionato — puoi modificare i campi sotto se necessario.
+            Cliente selezionato. Puoi correggere recapiti e indirizzo; riscrivendo il
+            nome il collegamento viene sciolto e i dati valgono come nuovo cliente.
           </p>
         )}
       </div>
