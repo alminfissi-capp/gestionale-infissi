@@ -511,7 +511,10 @@ export default function TabellaCommesse({
   const [dialogPrevManuale, setDialogPrevManuale] = useState<{ commessaId: string; numeroPrev: string | null } | null>(null)
   const autoOpenDone = useRef(false)
 
-  const altriGruppi = gruppi.filter((g) => g.id !== gruppoCorrenteId && g.tipo !== 'scadenze')
+  // Solo blocchi di tipo 'commesse': una commessa non va né fra le scadenze né nel
+  // blocco di sistema "Da programmare", che ospita scadenze senza data. Lista in
+  // positivo e non in negativo, così un tipo di blocco futuro resta escluso di default.
+  const altriGruppi = gruppi.filter((g) => g.id !== gruppoCorrenteId && g.tipo === 'commesse')
 
   const dialogPrevManualeCommessa = dialogPrevManuale
     ? items.find((c) => c.id === dialogPrevManuale.commessaId) ?? null

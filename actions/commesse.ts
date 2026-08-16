@@ -167,6 +167,29 @@ export async function getCommessaById(id: string): Promise<CommessaCompleta | nu
   }
 }
 
+/**
+ * Una commessa può stare solo in un blocco di tipo 'commesse'. I blocchi 'scadenze'
+ * e il blocco di sistema 'da_programmare' ospitano scadenze da pagare, che sono
+ * un'altra cosa. Il controllo sta qui, non solo nei menu: la Server Action è il
+ * confine vero, e i menu si dimenticano di aggiornarli quando nasce un tipo nuovo.
+ */
+async function assertBloccoCommesse(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  gruppoId: string,
+  orgId: string,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('gruppi_commesse')
+    .select('tipo')
+    .eq('id', gruppoId)
+    .eq('organization_id', orgId)
+    .single()
+  if (error || !data) throw new Error('Blocco di destinazione non trovato')
+  if (data.tipo !== 'commesse') {
+    throw new Error('Una commessa può stare solo in un blocco commesse')
+  }
+}
+
 export async function createCommessa(input: CommessaInput): Promise<{ id: string }> {
   const supabase = await createClient()
   const orgId = await getOrgId()
@@ -176,6 +199,7 @@ export async function createCommessa(input: CommessaInput): Promise<{ id: string
     const corrente = await getGruppoCorrente()
     gruppoId = corrente?.id
   }
+  if (gruppoId) await assertBloccoCommesse(supabase, gruppoId, orgId)
 
   const { data, error } = await supabase
     .from('commesse')
@@ -190,10 +214,14 @@ export async function createCommessa(input: CommessaInput): Promise<{ id: string
 
 export async function updateCommessa(id: string, input: Partial<CommessaInput>): Promise<void> {
   const supabase = await createClient()
+  const orgId = await getOrgId()
+  if (input.gruppo_id) await assertBloccoCommesse(supabase, input.gruppo_id, orgId)
+
   const { error } = await supabase
     .from('commesse')
     .update({ ...input, updated_at: new Date().toISOString() })
     .eq('id', id)
+    .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
   revalidatePath('/commesse', 'layout')
 }
@@ -632,10 +660,15 @@ export async function getCommesseCalcoli(): Promise<CommessaCompleta[]> {
 
 export async function spostaCommessa(commessaId: string, gruppoId: string): Promise<void> {
   const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  await assertBloccoCommesse(supabase, gruppoId, orgId)
+
   const { error } = await supabase
     .from('commesse')
     .update({ gruppo_id: gruppoId })
     .eq('id', commessaId)
+    .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
   revalidatePath('/commesse', 'layout')
 }
