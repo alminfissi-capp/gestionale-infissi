@@ -21,6 +21,14 @@ export type AccontoRow = {
   data_pagamento: string | null
 }
 
+// Uscita dell'azienda: fornitori, finanziamenti, assegni, utenze.
+export type ScadenzaRow = {
+  data_scadenza: string | null
+  importo: number
+  pagato: boolean
+  annullata: boolean
+}
+
 // Contributo costi/utile di una commessa, sommato dai suoi preventivi INTERNI.
 export type CostoCommessaRow = {
   commessa_id: string
@@ -37,10 +45,12 @@ export type DatiStatistiche = {
   acconti: AccontoRow[]
   anni: string[] // valori del selettore (nomi blocco + anni di pagamento), desc
   costiCommesse: CostoCommessaRow[] // commesse con ≥1 preventivo interno collegato
+  scadenze: ScadenzaRow[] // uscite: usate per flusso mensile e debiti
+  oggi: string // 'YYYY-MM-DD' calcolata sul server, per rendere puro il riepilogo
 }
 
 export type PuntoMese = { mese: string; valore: number; numero: number }
-export type PuntoIncasso = { mese: string; incasso: number }
+export type PuntoFlusso = { mese: string; incasso: number; pagamento: number; saldo: number }
 export type PuntoCostiUtili = { mese: string; materiali: number; posa: number; spese: number; costi: number; utile: number }
 export type RigaResoconto = {
   anno: string // nome del blocco (o etichetta totale)
@@ -83,15 +93,33 @@ export function aggregaMese(commesse: StatRow[], anno: string): PuntoMese[] {
   return out
 }
 
-// Incassi (acconti) per mese dell'anno di PAGAMENTO selezionato (12 righe gen-dic).
-export function aggregaIncassiMese(acconti: AccontoRow[], anno: string): PuntoIncasso[] {
-  const out: PuntoIncasso[] = MESI_LABEL.map((mese) => ({ mese, incasso: 0 }))
+// Flusso di cassa del mese: acconti incassati contro scadenze effettivamente pagate.
+// L'anno è quello della data di pagamento (acconti) e di scadenza (uscite), non il
+// blocco della commessa. Le scadenze annullate e quelle non ancora pagate restano
+// fuori: il grafico confronta soldi realmente usciti con soldi realmente entrati.
+export function aggregaFlussoMese(
+  acconti: AccontoRow[],
+  scadenze: ScadenzaRow[],
+  anno: string,
+): PuntoFlusso[] {
+  const out: PuntoFlusso[] = MESI_LABEL.map((mese) => ({ mese, incasso: 0, pagamento: 0, saldo: 0 }))
+
   for (const a of acconti) {
     if (annoStr(a.data_pagamento) !== anno) continue
     const m = meseDi(a.data_pagamento)
     if (m === null) continue
     out[m].incasso += Number(a.importo) || 0
   }
+
+  for (const s of scadenze) {
+    if (!s.pagato || s.annullata) continue
+    if (annoStr(s.data_scadenza) !== anno) continue
+    const m = meseDi(s.data_scadenza)
+    if (m === null) continue
+    out[m].pagamento += Number(s.importo) || 0
+  }
+
+  for (const p of out) p.saldo = p.incasso - p.pagamento
   return out
 }
 
