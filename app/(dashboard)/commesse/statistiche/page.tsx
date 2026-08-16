@@ -1,14 +1,21 @@
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
 import StatisticheCommesse from '@/components/commesse/StatisticheCommesse'
-import type { StatRow, AccontoRow, CostoCommessaRow, ScadenzaRow } from '@/lib/statistiche-commesse'
+import type {
+  StatRow, AccontoRow, CostoCommessaRow, ScadenzaRow,
+  AltroCreditoRow, PagamentoDipendenteRow, ContoDipendenteRow,
+} from '@/lib/statistiche-commesse'
 import { calcolaCostiPreventivo, type ArticoloCosti } from '@/lib/preventivo-costi'
 
 export default async function StatisticheCommessePage() {
   const supabase = await createClient()
   const orgId = await getOrgId()
 
-  const [{ data: commesseRaw }, { data: accontiRaw }, { data: gruppiRaw }, { data: junctionRaw }, { data: scadenzeRaw }] =
+  const [
+    { data: commesseRaw }, { data: accontiRaw }, { data: gruppiRaw }, { data: junctionRaw },
+    { data: scadenzeRaw }, { data: altriCreditiRaw }, { data: busteRaw },
+    { data: pagDipRaw }, { data: movAltriRaw },
+  ] =
     await Promise.all([
       supabase
         .from('commesse')
@@ -29,6 +36,23 @@ export default async function StatisticheCommessePage() {
       supabase
         .from('scadenze')
         .select('data_scadenza, importo, pagato, annullata')
+        .eq('organization_id', orgId),
+      // Incassi in attesa: entrate che non nascono da una commessa
+      supabase
+        .from('calcoli_incassi')
+        .select('importo, incassato')
+        .eq('organization_id', orgId),
+      supabase
+        .from('buste_paga')
+        .select('dipendente_id, netto')
+        .eq('organization_id', orgId),
+      supabase
+        .from('pagamenti_dipendente')
+        .select('dipendente_id, importo, data_pagamento')
+        .eq('organization_id', orgId),
+      supabase
+        .from('movimenti_altro_dipendente')
+        .select('altro_dipendente_id, importo, data_pagamento, tipo')
         .eq('organization_id', orgId),
     ])
 
@@ -171,9 +195,53 @@ export default async function StatisticheCommessePage() {
     annullata: !!s.annullata,
   }))
 
+  const altriCrediti: AltroCreditoRow[] = (altriCreditiRaw ?? []).map((a) => ({
+    importo: Number(a.importo) || 0,
+    incassato: !!a.incassato,
+  }))
+
+  // Uscite verso i dipendenti: buste pagate/bonifici dei fissi + movimenti di tipo
+  // 'pagamento' degli altri dipendenti. Sono uscite di cassa come le scadenze.
+  const pagamentiDipendenti: PagamentoDipendenteRow[] = [
+    ...(pagDipRaw ?? []).map((p) => ({
+      data_pagamento: p.data_pagamento,
+      importo: Number(p.importo) || 0,
+    })),
+    ...(movAltriRaw ?? [])
+      .filter((m) => m.tipo === 'pagamento')
+      .map((m) => ({ data_pagamento: m.data_pagamento, importo: Number(m.importo) || 0 })),
+  ]
+
+  // Conto per persona: netto delle buste (o stipendi maturati) contro quanto versato.
+  // Aggregato qui perché il floor a zero va applicato per singola persona.
+  const contiPerPersona = new Map<string, { dovuto: number; pagato: number }>()
+  function conto(id: string) {
+    let c = contiPerPersona.get(id)
+    if (!c) {
+      c = { dovuto: 0, pagato: 0 }
+      contiPerPersona.set(id, c)
+    }
+    return c
+  }
+  for (const b of busteRaw ?? []) conto(`d:${b.dipendente_id}`).dovuto += Number(b.netto) || 0
+  for (const p of pagDipRaw ?? []) conto(`d:${p.dipendente_id}`).pagato += Number(p.importo) || 0
+  for (const m of movAltriRaw ?? []) {
+    const c = conto(`a:${m.altro_dipendente_id}`)
+    if (m.tipo === 'stipendio') c.dovuto += Number(m.importo) || 0
+    else c.pagato += Number(m.importo) || 0
+  }
+  const contiDipendenti: ContoDipendenteRow[] = [...contiPerPersona.values()]
+
   // Data locale italiana, non UTC: dopo mezzanotte a Roma il server UTC è ancora al
   // giorno prima e sposterebbe il confine dello "scaduto". 'en-CA' formatta YYYY-MM-DD.
   const oggi = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome' }).format(new Date())
 
-  return <StatisticheCommesse dati={{ commesse, acconti, anni, costiCommesse, scadenze, oggi }} />
+  return (
+    <StatisticheCommesse
+      dati={{
+        commesse, acconti, anni, costiCommesse, scadenze, oggi,
+        altriCrediti, pagamentiDipendenti, contiDipendenti,
+      }}
+    />
+  )
 }

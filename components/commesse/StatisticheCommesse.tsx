@@ -53,7 +53,10 @@ interface Props {
 
 export default function StatisticheCommesse({ dati }: Props) {
   const router = useRouter()
-  const { commesse, acconti, anni, costiCommesse, scadenze, oggi } = dati
+  const {
+    commesse, acconti, anni, costiCommesse, scadenze, oggi,
+    altriCrediti, pagamentiDipendenti, contiDipendenti,
+  } = dati
 
   const annoCorrente = String(new Date().getFullYear())
   const annoDefault = anni.includes(annoCorrente) ? annoCorrente : (anni[0] ?? annoCorrente)
@@ -62,10 +65,13 @@ export default function StatisticheCommesse({ dati }: Props) {
   const [vistaCosti, setVistaCosti] = useState<VistaCosti>('impilato')
 
   const datiMese = useMemo(() => aggregaMese(commesse, anno), [commesse, anno])
-  const datiFlusso = useMemo(() => aggregaFlussoMese(acconti, scadenze, anno), [acconti, scadenze, anno])
+  const datiFlusso = useMemo(
+    () => aggregaFlussoMese(acconti, scadenze, pagamentiDipendenti, anno),
+    [acconti, scadenze, pagamentiDipendenti, anno],
+  )
   const riepilogo = useMemo(
-    () => riepilogoCreditiDebiti(commesse, acconti, scadenze, oggi),
-    [commesse, acconti, scadenze, oggi],
+    () => riepilogoCreditiDebiti(commesse, acconti, altriCrediti, scadenze, contiDipendenti, oggi),
+    [commesse, acconti, altriCrediti, scadenze, contiDipendenti, oggi],
   )
   const datiCostiUtili = useMemo(() => aggregaCostiUtiliMese(costiCommesse, anno), [costiCommesse, anno])
   const senzaPreventivo = useMemo(
@@ -180,7 +186,7 @@ export default function StatisticheCommesse({ dati }: Props) {
             <CardHeader className="pb-2">
               <CardTitle className="text-lg font-semibold">Incassi e pagamenti — {anno}</CardTitle>
               <p className="text-xs text-gray-500">
-                Acconti incassati e scadenze pagate, sul mese della rispettiva data
+                Acconti incassati, scadenze pagate e stipendi versati, sul mese della rispettiva data
               </p>
             </CardHeader>
             <CardContent>
@@ -236,7 +242,19 @@ export default function StatisticheCommesse({ dati }: Props) {
               <div className="rounded-lg border border-sky-100 bg-sky-50 p-3">
                 <p className="text-xs uppercase tracking-wide text-sky-700 font-medium">Crediti da incassare</p>
                 <p className="text-2xl font-bold text-sky-700 mt-1">{formatEuro(riepilogo.crediti)}</p>
-                <p className="text-xs text-gray-500 mt-1">Saldo residuo delle commesse non ancora incassate</p>
+                <dl className="mt-2 space-y-1 text-sm">
+                  <div className="flex justify-between text-gray-700">
+                    <dt>Da commesse</dt>
+                    <dd>{formatEuro(riepilogo.creditiCommesse)}</dd>
+                  </div>
+                  <div className="flex justify-between text-gray-700">
+                    <dt>Altri crediti</dt>
+                    <dd>{formatEuro(riepilogo.creditiAltri)}</dd>
+                  </div>
+                </dl>
+                <p className="text-xs text-gray-500 mt-2">
+                  Saldo residuo delle commesse più gli incassi in attesa non legati a commesse
+                </p>
               </div>
 
               <div className="rounded-lg border border-gray-200 p-3">
@@ -258,6 +276,12 @@ export default function StatisticheCommesse({ dati }: Props) {
                       <dd>{formatEuro(riepilogo.debitiDaProgrammare)}</dd>
                     </div>
                   )}
+                  {riepilogo.debitiDipendenti > 0 && (
+                    <div className="flex justify-between text-gray-700">
+                      <dt>Stipendi da versare</dt>
+                      <dd>{formatEuro(riepilogo.debitiDipendenti)}</dd>
+                    </div>
+                  )}
                   <div className="flex justify-between text-gray-500">
                     <dt>Rate oltre il {annoOggi}</dt>
                     <dd>{formatEuro(riepilogo.debitiFuturi)}</dd>
@@ -275,7 +299,7 @@ export default function StatisticheCommesse({ dati }: Props) {
                     Posizione netta {annoOggi}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Crediti meno i debiti da saldare entro l&apos;anno; le rate future restano escluse
+                    Crediti meno i debiti da saldare entro l&apos;anno, stipendi arretrati compresi; le rate future restano escluse
                   </p>
                 </div>
                 <p className={`text-2xl font-bold ${riepilogo.posizioneNetta >= 0 ? 'text-green-700' : 'text-rose-700'}`}>
