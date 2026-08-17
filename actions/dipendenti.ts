@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { calcolaSaldoDipendente, type DipendenteConSaldo } from '@/lib/dipendenti'
+import { calcolaSaldoDipendente, validaBustaInput, type DipendenteConSaldo } from '@/lib/dipendenti'
 import { assertAccessoDipendenti } from '@/lib/permessi-dipendenti'
 import type {
   BustaPaga,
@@ -137,6 +137,8 @@ async function uploadPdf(
 
 export async function addBustaPaga(input: BustaPagaInput, formData?: FormData): Promise<void> {
   const { supabase, orgId } = await assertAccessoDipendenti(true)
+  const errore = validaBustaInput(input)
+  if (errore) throw new Error(errore)
   const file_path = await uploadPdf(supabase, orgId, 'buste', input.dipendente_id, formData)
   const { error } = await supabase.from('buste_paga').insert({
     organization_id: orgId,
@@ -151,6 +153,66 @@ export async function addBustaPaga(input: BustaPagaInput, formData?: FormData): 
   })
   if (error) throw new Error(error.message)
   revalidatePath('/dipendenti', 'layout')
+}
+
+/**
+ * Modifica una busta già registrata. `rimuoviFile` nel FormData (valore '1') stacca
+ * l'allegato esistente; un file nuovo lo sostituisce. In entrambi i casi il vecchio PDF
+ * viene cancellato dallo storage: lasciarlo produrrebbe file che nessuna riga referenzia
+ * più e che nessuno ritroverebbe.
+ */
+export async function updateBustaPaga(
+  id: string,
+  input: BustaPagaInput,
+  formData?: FormData,
+): Promise<void> {
+  const { supabase, orgId } = await assertAccessoDipendenti(true)
+  const errore = validaBustaInput(input)
+  if (errore) throw new Error(errore)
+
+  const { data: esistente, error: readErr } = await supabase
+    .from('buste_paga')
+    .select('file_path')
+    .eq('organization_id', orgId)
+    .eq('id', id)
+    .maybeSingle()
+  if (readErr) throw new Error(readErr.message)
+  if (!esistente) throw new Error('Busta paga non trovata')
+
+  // Due buste sullo stesso mese raddoppierebbero il debito nei grafici senza dare
+  // segnali: qui si blocca, non si avvisa.
+  const occupato = await esisteBusta(input.dipendente_id, input.periodo, input.mensilita, id)
+  if (occupato) {
+    throw new Error('Esiste già una busta per questo dipendente in quel mese e mensilità')
+  }
+
+  let file_path = esistente.file_path as string | null
+  const nuovoFile = await uploadPdf(supabase, orgId, 'buste', input.dipendente_id, formData)
+  const rimuovi = formData?.get('rimuoviFile') === '1'
+
+  if (nuovoFile) {
+    if (esistente.file_path) await supabase.storage.from(BUCKET).remove([esistente.file_path])
+    file_path = nuovoFile
+  } else if (rimuovi && esistente.file_path) {
+    await supabase.storage.from(BUCKET).remove([esistente.file_path])
+    file_path = null
+  }
+
+  const { error } = await supabase
+    .from('buste_paga')
+    .update({
+      periodo: input.periodo,
+      mensilita: input.mensilita,
+      netto: input.netto,
+      lordo: input.lordo,
+      file_path,
+    })
+    .eq('organization_id', orgId)
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/dipendenti', 'layout')
+  // Il netto è il "dovuto" del riepilogo crediti/debiti: la pagina grafici va rinfrescata.
+  revalidatePath('/commesse/statistiche')
 }
 
 export async function deleteBustaPaga(id: string): Promise<void> {
@@ -171,19 +233,26 @@ export async function deleteBustaPaga(id: string): Promise<void> {
   revalidatePath('/dipendenti', 'layout')
 }
 
+/**
+ * `escludiId` serve alla modifica: una busta non deve considerare se stessa un
+ * duplicato. Così lo stesso controllo copre inserimento e correzione.
+ */
 export async function esisteBusta(
   dipendenteId: string,
   periodo: string,
   mensilita: Mensilita,
+  escludiId?: string,
 ): Promise<boolean> {
   const { supabase, orgId } = await assertAccessoDipendenti()
-  const { count, error } = await supabase
+  let query = supabase
     .from('buste_paga')
     .select('id', { count: 'exact', head: true })
     .eq('organization_id', orgId)
     .eq('dipendente_id', dipendenteId)
     .eq('periodo', periodo)
     .eq('mensilita', mensilita)
+  if (escludiId) query = query.neq('id', escludiId)
+  const { count, error } = await query
   if (error) throw new Error(error.message)
   return (count ?? 0) > 0
 }

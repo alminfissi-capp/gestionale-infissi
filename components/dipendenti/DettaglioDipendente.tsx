@@ -23,6 +23,7 @@ import {
 import type { BustaPaga, Dipendente, PagamentoDipendente } from '@/types/dipendente'
 import DialogDipendente from './DialogDipendente'
 import DialogPagamentoManuale from './DialogPagamentoManuale'
+import DialogBustaManuale from './DialogBustaManuale'
 
 interface Props {
   dipendente: Dipendente
@@ -45,6 +46,9 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
   const router = useRouter()
   const [editOpen, setEditOpen] = useState(false)
   const [pagamentoOpen, setPagamentoOpen] = useState(false)
+  const [bustaOpen, setBustaOpen] = useState(false)
+  // null = inserimento nuovo, valorizzata = correzione di quella busta
+  const [bustaInModifica, setBustaInModifica] = useState<BustaPaga | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
@@ -131,6 +135,12 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
               <Banknote className="h-4 w-4 mr-2" /> Carica bonifico
             </Link>
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => { setBustaInModifica(null); setBustaOpen(true) }}
+          >
+            <Plus className="h-4 w-4 mr-2" /> Busta manuale
+          </Button>
           <Button variant="outline" onClick={() => setPagamentoOpen(true)}>
             <Plus className="h-4 w-4 mr-2" /> Pagamento manuale
           </Button>
@@ -213,6 +223,15 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-7 w-7"
+                      title="Modifica busta"
+                      onClick={() => { setBustaInModifica(busta); setBustaOpen(true) }}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-7 w-7 text-red-400 hover:text-red-600"
                       disabled={busyId === busta.id}
                       onClick={() => rimuoviBusta(busta.id)}
@@ -259,6 +278,12 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
         onOpenChange={setPagamentoOpen}
         dipendenteId={dipendente.id}
         periodoDefault={righe.find((r) => r.residuo > 0)?.periodo}
+      />
+      <DialogBustaManuale
+        open={bustaOpen}
+        onOpenChange={setBustaOpen}
+        dipendenteId={dipendente.id}
+        busta={bustaInModifica}
       />
     </div>
   )
