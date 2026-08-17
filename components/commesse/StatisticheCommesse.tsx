@@ -6,6 +6,7 @@ import { ArrowLeft, BarChart3, Search, TrendingUp } from 'lucide-react'
 import {
   ResponsiveContainer, ComposedChart, BarChart, Bar, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
+  PieChart, Pie, Cell,
 } from 'recharts'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,8 +17,8 @@ import {
 import { formatEuro } from '@/lib/pricing'
 import {
   aggregaMese, aggregaFlussoMese, aggregaCostiUtiliMese, contaCommesseSenzaPreventivo,
-  resocontoCliente, clientiUnici, riepilogoCreditiDebiti,
-  type DatiStatistiche,
+  resocontoCliente, clientiUnici, riepilogoCreditiDebiti, aggregaUscitePerCategoria,
+  type DatiStatistiche, type CategoriaUscita,
 } from '@/lib/statistiche-commesse'
 
 const COLORS = {
@@ -31,6 +32,21 @@ const COLORS = {
   posa: '#f59e0b',     // amber-500
   spese: '#a78bfa',    // violet-400
   utile: '#16a34a',    // green-600
+}
+
+// Colore legato alla categoria, non alla posizione: le fette si riordinano per
+// importo e il colore deve seguire la voce di spesa, non il suo rango.
+// Tavolozza passata a validate_palette.js (skill dataviz): passa banda di luminosità,
+// chroma, contrasto e separazione per daltonismo su tutte le coppie consecutive.
+// Sei tinte non possono essere tutte distinguibili a due a due sotto protanopia:
+// per questo ogni fetta porta l'etichetta scritta e il colore non porta informazione.
+const COLORI_USCITA: Record<CategoriaUscita, string> = {
+  materiali: '#0284c7',     // sky-600
+  stipendi: '#4d7c0f',      // lime-700
+  finanziamenti: '#7c3aed', // violet-600 — come il badge dei finanziamenti
+  utenze: '#d97706',        // amber-600 — come il badge delle utenze
+  tasse: '#e11d48',         // rose-600 — come il badge delle tasse
+  altro: '#0d9488',         // teal-600
 }
 
 type VistaCosti = 'impilato' | 'costi_utile' | 'solo_utile'
@@ -72,6 +88,10 @@ export default function StatisticheCommesse({ dati }: Props) {
   const riepilogo = useMemo(
     () => riepilogoCreditiDebiti(commesse, acconti, altriCrediti, scadenze, contiDipendenti, oggi),
     [commesse, acconti, altriCrediti, scadenze, contiDipendenti, oggi],
+  )
+  const uscite = useMemo(
+    () => aggregaUscitePerCategoria(scadenze, pagamentiDipendenti, anno),
+    [scadenze, pagamentiDipendenti, anno],
   )
   const datiCostiUtili = useMemo(() => aggregaCostiUtiliMese(costiCommesse, anno), [costiCommesse, anno])
   const senzaPreventivo = useMemo(
@@ -222,6 +242,85 @@ export default function StatisticheCommesse({ dati }: Props) {
                   </strong>
                 </span>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* B1) Uscite per categoria — istantanea del pagato nell'anno */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg font-semibold">Uscite per categoria — {anno}</CardTitle>
+              <p className="text-xs text-gray-500">
+                Quanto è stato pagato nell&apos;anno, diviso per voce di spesa
+              </p>
+            </CardHeader>
+            <CardContent>
+              {uscite.fette.length === 0 ? (
+                <p className="py-10 text-center text-sm text-gray-400">
+                  Nessun pagamento registrato nel {anno}
+                </p>
+              ) : (
+                <div className="grid gap-4 lg:grid-cols-2 items-center">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={uscite.fette}
+                        dataKey="importo"
+                        nameKey="label"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={95}
+                        // stacco bianco fra le fette: le tiene distinte anche stampate
+                        stroke="#ffffff"
+                        strokeWidth={2}
+                        // etichetta su ogni fetta: così il colore non è l'unico
+                        // modo per riconoscere la categoria. Sotto il 4% l'etichetta
+                        // si sovrapporrebbe alle vicine, e il valore resta in elenco.
+                        label={({ percent }: { percent?: number }) =>
+                          (percent ?? 0) >= 0.04 ? `${((percent ?? 0) * 100).toFixed(0)}%` : ''
+                        }
+                        labelLine={false}
+                      >
+                        {uscite.fette.map((f) => (
+                          <Cell key={f.categoria} fill={COLORI_USCITA[f.categoria]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                        formatter={(value, name) => [`${formatEuro(Number(value))} €`, name]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+
+                  {/* Elenco: è la specifica richiesta (€ e %) e insieme il "table view"
+                      che rende la lettura indipendente dal colore */}
+                  <div>
+                    <dl className="space-y-1.5 text-sm">
+                      {uscite.fette.map((f) => (
+                        <div key={f.categoria} className="flex items-center gap-2">
+                          <span
+                            className="h-3 w-3 rounded-sm shrink-0"
+                            style={{ backgroundColor: COLORI_USCITA[f.categoria] }}
+                            aria-hidden
+                          />
+                          <dt className="flex-1 text-gray-700">{f.label}</dt>
+                          <dd className="font-semibold text-gray-900 tabular-nums">
+                            {formatEuro(f.importo)}
+                          </dd>
+                          <dd className="w-14 text-right text-gray-500 tabular-nums">
+                            {f.percentuale.toFixed(1)}%
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <div className="flex items-center gap-2 border-t mt-2 pt-2 text-sm font-semibold">
+                      <span className="h-3 w-3 shrink-0" aria-hidden />
+                      <span className="flex-1">Totale pagato</span>
+                      <span className="text-gray-900 tabular-nums">{formatEuro(uscite.totale)}</span>
+                      <span className="w-14 text-right text-gray-500">100%</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

@@ -13,6 +13,7 @@ const CATEGORIE: Record<CategoriaScadenza, string> = {
   finanziamento: 'Finanziamento',
   assegno: 'Assegno',
   utenza: 'Utenza',
+  tassa: 'Tassa / Contributo',
   altro: 'Altro',
 }
 

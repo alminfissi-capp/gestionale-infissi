@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   aggregaFlussoMese,
+  aggregaUscitePerCategoria,
   riepilogoCreditiDebiti,
   type AccontoRow,
   type AltroCreditoRow,
@@ -19,12 +20,12 @@ const acconti: AccontoRow[] = [
 ]
 
 const scadenze: ScadenzaRow[] = [
-  { data_scadenza: '2026-01-31', importo: 400, pagato: true, annullata: false },
-  { data_scadenza: '2026-03-10', importo: 300, pagato: true, annullata: false },
-  { data_scadenza: '2026-03-15', importo: 900, pagato: false, annullata: false }, // non pagata
-  { data_scadenza: '2026-03-20', importo: 800, pagato: true, annullata: true },   // annullata
-  { data_scadenza: '2027-01-05', importo: 100, pagato: true, annullata: false },  // altro anno
-  { data_scadenza: null, importo: 50, pagato: false, annullata: false },          // da programmare
+  { data_scadenza: '2026-01-31', importo: 400, pagato: true, annullata: false, categoria: 'assegno' },
+  { data_scadenza: '2026-03-10', importo: 300, pagato: true, annullata: false, categoria: 'assegno' },
+  { data_scadenza: '2026-03-15', importo: 900, pagato: false, annullata: false, categoria: 'assegno' }, // non pagata
+  { data_scadenza: '2026-03-20', importo: 800, pagato: true, annullata: true, categoria: 'assegno' },   // annullata
+  { data_scadenza: '2027-01-05', importo: 100, pagato: true, annullata: false, categoria: 'assegno' },  // altro anno
+  { data_scadenza: null, importo: 50, pagato: false, annullata: false, categoria: 'assegno' },          // da programmare
 ]
 
 describe('aggregaFlussoMese', () => {
@@ -65,7 +66,7 @@ describe('aggregaFlussoMese', () => {
 
   it('produce un saldo negativo quando esce più di quanto entra', () => {
     const soloUscite: ScadenzaRow[] = [
-      { data_scadenza: '2026-05-10', importo: 250, pagato: true, annullata: false },
+      { data_scadenza: '2026-05-10', importo: 250, pagato: true, annullata: false, categoria: 'assegno' },
     ]
     const r = aggregaFlussoMese([], soloUscite, [], '2026')
     expect(r[4].saldo).toBe(-250)
@@ -100,13 +101,13 @@ const accontiRiep: AccontoRow[] = [
 ]
 
 const scadenzeRiep: ScadenzaRow[] = [
-  { data_scadenza: '2026-07-01', importo: 300, pagato: false, annullata: false }, // scaduta
-  { data_scadenza: '2026-08-16', importo: 100, pagato: false, annullata: false }, // oggi
-  { data_scadenza: '2026-12-31', importo: 700, pagato: false, annullata: false }, // entro l'anno
-  { data_scadenza: '2027-01-01', importo: 900, pagato: false, annullata: false }, // futura
-  { data_scadenza: null, importo: 50, pagato: false, annullata: false },          // da programmare
-  { data_scadenza: '2026-07-05', importo: 999, pagato: true, annullata: false },  // già pagata
-  { data_scadenza: '2026-07-06', importo: 888, pagato: false, annullata: true },  // annullata
+  { data_scadenza: '2026-07-01', importo: 300, pagato: false, annullata: false, categoria: 'assegno' }, // scaduta
+  { data_scadenza: '2026-08-16', importo: 100, pagato: false, annullata: false, categoria: 'assegno' }, // oggi
+  { data_scadenza: '2026-12-31', importo: 700, pagato: false, annullata: false, categoria: 'assegno' }, // entro l'anno
+  { data_scadenza: '2027-01-01', importo: 900, pagato: false, annullata: false, categoria: 'assegno' }, // futura
+  { data_scadenza: null, importo: 50, pagato: false, annullata: false, categoria: 'assegno' },          // da programmare
+  { data_scadenza: '2026-07-05', importo: 999, pagato: true, annullata: false, categoria: 'assegno' },  // già pagata
+  { data_scadenza: '2026-07-06', importo: 888, pagato: false, annullata: true, categoria: 'assegno' },  // annullata
 ]
 
 describe('riepilogoCreditiDebiti', () => {
@@ -139,7 +140,7 @@ describe('riepilogoCreditiDebiti', () => {
 
   it('una scadenza in data odierna non è ancora scaduta', () => {
     const r = riepilogoCreditiDebiti([], [], [], [
-      { data_scadenza: OGGI, importo: 100, pagato: false, annullata: false },
+      { data_scadenza: OGGI, importo: 100, pagato: false, annullata: false, categoria: 'assegno' },
     ], [], OGGI)
     expect(r.debitiScaduti).toBe(0)
     expect(r.debitiAnno).toBe(100)
@@ -187,5 +188,86 @@ describe('riepilogoCreditiDebiti', () => {
       debitiTotali: 0,
       posizioneNetta: 0,
     })
+  })
+})
+
+describe('aggregaUscitePerCategoria', () => {
+  const usciteScadenze: ScadenzaRow[] = [
+    { data_scadenza: '2026-02-10', importo: 5000, pagato: true, annullata: false, categoria: 'assegno' },
+    { data_scadenza: '2026-03-10', importo: 3000, pagato: true, annullata: false, categoria: 'assegno' },
+    { data_scadenza: '2026-04-10', importo: 2000, pagato: true, annullata: false, categoria: 'finanziamento' },
+    { data_scadenza: '2026-05-10', importo: 800, pagato: true, annullata: false, categoria: 'tassa' },
+    { data_scadenza: '2026-06-10', importo: 200, pagato: true, annullata: false, categoria: 'utenza' },
+    { data_scadenza: '2026-07-10', importo: 500, pagato: true, annullata: false, categoria: 'altro' },
+    { data_scadenza: '2026-08-10', importo: 9999, pagato: false, annullata: false, categoria: 'assegno' }, // non pagata
+    { data_scadenza: '2026-08-11', importo: 8888, pagato: true, annullata: true, categoria: 'assegno' },  // annullata
+    { data_scadenza: '2025-08-12', importo: 7777, pagato: true, annullata: false, categoria: 'assegno' }, // altro anno
+  ]
+  const usciteStipendi: PagamentoDipendenteRow[] = [
+    { data_pagamento: '2026-01-27', importo: 1000 },
+    { data_pagamento: '2026-02-27', importo: 1500 },
+    { data_pagamento: '2025-02-27', importo: 999 }, // altro anno
+  ]
+
+  it('mappa ogni categoria di scadenza sulla voce di spesa giusta', () => {
+    const { fette } = aggregaUscitePerCategoria(usciteScadenze, [], '2026')
+    const per = (c: string) => fette.find((f) => f.categoria === c)?.importo
+    expect(per('materiali')).toBe(8000) // i due assegni
+    expect(per('finanziamenti')).toBe(2000)
+    expect(per('tasse')).toBe(800)
+    expect(per('utenze')).toBe(200)
+    expect(per('altro')).toBe(500)
+  })
+
+  it('somma gli stipendi come voce propria', () => {
+    const { fette } = aggregaUscitePerCategoria([], usciteStipendi, '2026')
+    expect(fette).toHaveLength(1)
+    expect(fette[0].categoria).toBe('stipendi')
+    expect(fette[0].importo).toBe(2500)
+  })
+
+  it('esclude non pagate, annullate e altri anni', () => {
+    const { totale } = aggregaUscitePerCategoria(usciteScadenze, usciteStipendi, '2026')
+    expect(totale).toBe(14000) // 11500 di scadenze + 2500 di stipendi
+  })
+
+  it('ordina le fette per importo decrescente', () => {
+    const { fette } = aggregaUscitePerCategoria(usciteScadenze, usciteStipendi, '2026')
+    expect(fette.map((f) => f.categoria)).toEqual([
+      'materiali', 'stipendi', 'finanziamenti', 'tasse', 'altro', 'utenze',
+    ])
+  })
+
+  it('le percentuali sommano a 100', () => {
+    const { fette } = aggregaUscitePerCategoria(usciteScadenze, usciteStipendi, '2026')
+    const somma = fette.reduce((s, f) => s + f.percentuale, 0)
+    expect(somma).toBeCloseTo(100, 6)
+    expect(fette[0].percentuale).toBeCloseTo((8000 / 14000) * 100, 6)
+  })
+
+  it('omette le categorie senza spese', () => {
+    const { fette } = aggregaUscitePerCategoria(
+      [{ data_scadenza: '2026-02-10', importo: 100, pagato: true, annullata: false, categoria: 'tassa' }],
+      [],
+      '2026',
+    )
+    expect(fette).toHaveLength(1)
+    expect(fette[0].label).toBe('Tasse')
+  })
+
+  it('una categoria non prevista finisce fra le altre spese invece di sparire', () => {
+    const { fette, totale } = aggregaUscitePerCategoria(
+      [{ data_scadenza: '2026-02-10', importo: 42, pagato: true, annullata: false, categoria: 'categoria_futura' }],
+      [],
+      '2026',
+    )
+    expect(totale).toBe(42)
+    expect(fette[0].categoria).toBe('altro')
+  })
+
+  it('non divide per zero quando non c è nessuna uscita', () => {
+    const { fette, totale } = aggregaUscitePerCategoria([], [], '2026')
+    expect(fette).toEqual([])
+    expect(totale).toBe(0)
   })
 })
