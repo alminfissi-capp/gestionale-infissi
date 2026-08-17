@@ -27,7 +27,11 @@ export type ContoCorrenteInput = {
   saldo_attuale: number
 }
 
-export type CategoriaScadenza = 'finanziamento' | 'assegno' | 'utenza' | 'altro'
+// 'tassa' aggiunta il 2026-08-17: le imposte e i contributi sono un costo che va
+// visto a parte, non annegato in 'altro'. La colonna DB è text senza vincolo, quindi
+// non serve migrazione; le etichette stanno in Record<CategoriaScadenza, …> così il
+// compilatore segnala ogni punto da completare quando la lista cresce.
+export type CategoriaScadenza = 'finanziamento' | 'assegno' | 'utenza' | 'tassa' | 'altro'
 
 // Scadenza fornitore / rateizzazione (blocco anno, raggruppata per mese da data_scadenza)
 export type Scadenza = {

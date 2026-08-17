@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Landmark, ReceiptText, CircleDashed, Zap, Camera, Upload, Loader2, X, FileText } from 'lucide-react'
+import { Landmark, ReceiptText, CircleDashed, Zap, Scale, Camera, Upload, Loader2, X, FileText } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -54,6 +54,7 @@ const CATEGORIE: { value: CategoriaScadenza; label: string; icon: typeof Landmar
   { value: 'finanziamento', label: 'Finanziamento', icon: Landmark },
   { value: 'assegno', label: 'Assegno / Bonifico', icon: ReceiptText },
   { value: 'utenza', label: 'Utenza', icon: Zap },
+  { value: 'tassa', label: 'Tassa / Contributo', icon: Scale },
   { value: 'altro', label: 'Altro', icon: CircleDashed },
 ]
 

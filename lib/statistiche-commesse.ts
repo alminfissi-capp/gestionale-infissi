@@ -21,12 +21,13 @@ export type AccontoRow = {
   data_pagamento: string | null
 }
 
-// Uscita dell'azienda: fornitori, finanziamenti, assegni, utenze.
+// Uscita dell'azienda: fornitori, finanziamenti, assegni, utenze, tasse.
 export type ScadenzaRow = {
   data_scadenza: string | null
   importo: number
   pagato: boolean
   annullata: boolean
+  categoria: string
 }
 
 // Credito che non nasce da una commessa (rimborsi, note di credito, prestiti).
@@ -260,6 +261,83 @@ export function resocontoCliente(
   )
 
   return { righe, totale }
+}
+
+// ── Uscite per categoria (istantanea del pagato) ──────────────────────────────
+
+export type CategoriaUscita =
+  | 'materiali' | 'stipendi' | 'finanziamenti' | 'utenze' | 'tasse' | 'altro'
+
+export type FettaUscita = {
+  categoria: CategoriaUscita
+  label: string
+  importo: number
+  percentuale: number
+}
+
+// La categoria delle scadenze mappata sulle voci di spesa: gli assegni sono i
+// pagamenti ai fornitori di materiali e servizi.
+const CATEGORIA_USCITA: Record<string, CategoriaUscita> = {
+  assegno: 'materiali',
+  finanziamento: 'finanziamenti',
+  utenza: 'utenze',
+  tassa: 'tasse',
+  altro: 'altro',
+}
+
+export const LABEL_USCITA: Record<CategoriaUscita, string> = {
+  materiali: 'Materiali e servizi',
+  stipendi: 'Stipendi',
+  finanziamenti: 'Finanziamenti',
+  utenze: 'Utenze',
+  tasse: 'Tasse',
+  altro: 'Altre spese',
+}
+
+/**
+ * Istantanea di quanto è uscito nell'anno, diviso per voce di spesa. Solo pagamenti
+ * effettuati e non annullati, come il grafico del flusso: un pagamento non può essere
+ * nel futuro, quindi per l'anno in corso equivale a "fino ad oggi".
+ *
+ * Le fette tornano ordinate per importo decrescente e quelle a zero sono omesse: una
+ * categoria senza spese non merita una voce in legenda.
+ */
+export function aggregaUscitePerCategoria(
+  scadenze: ScadenzaRow[],
+  pagamentiDipendenti: PagamentoDipendenteRow[],
+  anno: string,
+): { fette: FettaUscita[]; totale: number } {
+  const somme = new Map<CategoriaUscita, number>()
+  const somma = (cat: CategoriaUscita, importo: number) => {
+    somme.set(cat, (somme.get(cat) ?? 0) + importo)
+  }
+
+  for (const s of scadenze) {
+    if (!s.pagato || s.annullata) continue
+    if (annoStr(s.data_scadenza) !== anno) continue
+    // una categoria non prevista non va persa: finisce fra le altre spese
+    somma(CATEGORIA_USCITA[s.categoria] ?? 'altro', Number(s.importo) || 0)
+  }
+
+  for (const p of pagamentiDipendenti) {
+    if (annoStr(p.data_pagamento) !== anno) continue
+    somma('stipendi', Number(p.importo) || 0)
+  }
+
+  const totale = [...somme.values()].reduce((s, v) => s + v, 0)
+
+  const fette: FettaUscita[] = [...somme.entries()]
+    .filter(([, importo]) => importo > 0)
+    .map(([categoria, importo]) => ({
+      categoria,
+      label: LABEL_USCITA[categoria],
+      importo,
+      // totale > 0 garantito se almeno una fetta lo è: nessuna divisione per zero
+      percentuale: totale > 0 ? (importo / totale) * 100 : 0,
+    }))
+    .sort((a, b) => b.importo - a.importo)
+
+  return { fette, totale }
 }
 
 // Posizione dell'azienda a una certa data: quanto resta da incassare e quanto da pagare.

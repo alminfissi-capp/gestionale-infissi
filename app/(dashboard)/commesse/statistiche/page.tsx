@@ -35,7 +35,7 @@ export default async function StatisticheCommessePage() {
         .eq('organization_id', orgId),
       supabase
         .from('scadenze')
-        .select('data_scadenza, importo, pagato, annullata')
+        .select('data_scadenza, importo, pagato, annullata, categoria')
         .eq('organization_id', orgId),
       // Incassi in attesa: entrate che non nascono da una commessa
       supabase
@@ -193,6 +193,7 @@ export default async function StatisticheCommessePage() {
     importo: Number(s.importo) || 0,
     pagato: !!s.pagato,
     annullata: !!s.annullata,
+    categoria: s.categoria ?? 'altro',
   }))
 
   const altriCrediti: AltroCreditoRow[] = (altriCreditiRaw ?? []).map((a) => ({

@@ -23,6 +23,7 @@ const CAT_BADGE: Record<CategoriaScadenza, { label: string; cls: string } | null
   finanziamento: { label: 'Finanz.', cls: 'bg-purple-100 text-purple-700 border-purple-200' },
   assegno: { label: 'Ass./Bon.', cls: 'bg-blue-100 text-blue-700 border-blue-200' },
   utenza: { label: 'Utenza', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
+  tassa: { label: 'Tassa', cls: 'bg-rose-100 text-rose-700 border-rose-200' },
   altro: null,
 }
 
@@ -31,6 +32,7 @@ const CAT_BORDER: Record<CategoriaScadenza, string> = {
   finanziamento: 'border-l-purple-400',
   assegno: 'border-l-blue-400',
   utenza: 'border-l-amber-400',
+  tassa: 'border-l-rose-400',
   altro: 'border-l-transparent',
 }
 
@@ -39,6 +41,7 @@ const CAT_BG: Record<CategoriaScadenza, string> = {
   finanziamento: 'bg-purple-50/60',
   assegno: 'bg-blue-50/60',
   utenza: 'bg-amber-50/60',
+  tassa: 'bg-rose-50/60',
   altro: 'bg-white',
 }
 
@@ -91,7 +94,10 @@ export default function RigaScadenza({
   const rata = s.numero_rata != null
     ? `Rata ${s.numero_rata}${s.totale_rate ? `/${s.totale_rate}` : ''}`
     : null
-  const ripetibile = !daProgrammare && (s.categoria === 'finanziamento' || s.categoria === 'utenza')
+  // F24, IVA e contributi tornano periodicamente come le rate e le utenze
+  const ripetibile =
+    !daProgrammare &&
+    (s.categoria === 'finanziamento' || s.categoria === 'utenza' || s.categoria === 'tassa')
 
   return (
     <div
