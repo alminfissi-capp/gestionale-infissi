@@ -12,6 +12,55 @@ export const MENSILITA_LABELS: Record<Mensilita, string> = {
   altro: 'Altro',
 }
 
+/**
+ * Valida i dati di una busta paga, sia inserita a mano sia corretta a mano.
+ * Restituisce il messaggio d'errore, oppure null se va bene.
+ *
+ * `netto` è il **dovuto** del riepilogo crediti/debiti in /commesse/statistiche e del
+ * saldo dipendente: una busta a zero non darebbe errore da nessuna parte, sparirebbe
+ * semplicemente dal debito. Per questo la soglia è "maggiore di zero" e non "numero".
+ *
+ * La chiamano sia il dialog, per l'errore immediato, sia le Server Action, perché il
+ * confine vero è il server.
+ */
+export function validaBustaInput(input: {
+  periodo: string
+  mensilita: string
+  netto: number
+  lordo: number | null
+}): string | null {
+  if (!Number.isFinite(input.netto) || input.netto <= 0) {
+    return 'Il netto deve essere un importo maggiore di zero'
+  }
+  if (input.lordo != null && (!Number.isFinite(input.lordo) || input.lordo < 0)) {
+    return 'Il lordo non può essere negativo'
+  }
+  // Il periodo identifica il mese di competenza e va normalizzato al primo giorno:
+  // è la chiave con cui buste e pagamenti si incontrano nei conti mensili.
+  if (!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(input.periodo)) {
+    return 'Indica il mese di competenza'
+  }
+  if (!(input.mensilita in MENSILITA_LABELS)) {
+    return 'Mensilità non valida'
+  }
+  return null
+}
+
+/**
+ * Anomalia da segnalare senza bloccare. Distinta da {@link validaBustaInput} perché la
+ * severità deve seguire la conseguenza: un netto a zero falserebbe i debiti nei grafici
+ * e va rifiutato, mentre il lordo non entra in nessun calcolo — è solo mostrato. Un
+ * lordo sotto il netto è quasi sempre una lettura sbagliata dell'estrazione automatica
+ * (in archivio ce n'è una così), ma rifiutare il salvataggio impedirebbe di correggere
+ * il netto finché non si sistema anche il lordo.
+ */
+export function avvisoBustaInput(input: { netto: number; lordo: number | null }): string | null {
+  if (input.lordo != null && Number.isFinite(input.lordo) && input.lordo < input.netto) {
+    return 'Il lordo risulta inferiore al netto: probabile errore di lettura o di battitura'
+  }
+  return null
+}
+
 const ORDINE_MENSILITA: Record<Mensilita, number> = {
   mensile: 0,
   tredicesima: 1,

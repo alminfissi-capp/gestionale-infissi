@@ -72,15 +72,25 @@ validaBustaInput(input: { periodo: string; mensilita: string; netto: number; lor
   string | null   // messaggio d'errore, oppure null se va bene
 ```
 
-Regole: netto finito e maggiore di zero; lordo, se presente, non negativo e non inferiore
-al netto; periodo nel formato `YYYY-MM-01`; mensilità fra quelle ammesse.
+Regole bloccanti: netto finito e maggiore di zero; lordo, se presente, non negativo;
+periodo nel formato `YYYY-MM-01`; mensilità fra quelle ammesse.
 
 Sta in `lib/` perché è la sola parte pura e perché è lei che protegge i grafici: la
 chiamano sia il dialog (per il messaggio immediato) sia le due Server Action (perché il
 confine vero è il server).
 
-Il controllo sul lordo è un avviso di coerenza, non una legge fiscale: un lordo inferiore
-al netto è quasi certamente un errore di battitura o di lettura dell'AI.
+```ts
+avvisoBustaInput(input: { netto: number; lordo: number | null }): string | null
+```
+
+**La severità segue la conseguenza**, e le due funzioni sono separate per questo. Un netto
+a zero falsa i debiti nei grafici e va rifiutato. Un lordo inferiore al netto invece non
+tocca nessun calcolo — `lordo` è solo mostrato — quindi è un avviso: bloccare impedirebbe
+di correggere il netto di una busta che ha già il lordo sbagliato.
+
+Il caso non è teorico: in archivio c'è una busta così (Blay, dicembre 2025, netto 1.261,00
+con lordo 1.221,80, quasi certamente una lettura sbagliata dell'estrazione automatica).
+Una regola bloccante avrebbe reso quella riga impossibile da correggere.
 
 ## Interfaccia
 
