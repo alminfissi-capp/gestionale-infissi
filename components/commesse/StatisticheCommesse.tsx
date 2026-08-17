@@ -259,38 +259,10 @@ export default function StatisticheCommesse({ dati }: Props) {
                   Nessun pagamento registrato nel {anno}
                 </p>
               ) : (
-                <div className="grid gap-4 lg:grid-cols-2 items-center">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={uscite.fette}
-                        dataKey="importo"
-                        nameKey="label"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={95}
-                        // stacco bianco fra le fette: le tiene distinte anche stampate
-                        stroke="#ffffff"
-                        strokeWidth={2}
-                        // etichetta su ogni fetta: così il colore non è l'unico
-                        // modo per riconoscere la categoria. Sotto il 4% l'etichetta
-                        // si sovrapporrebbe alle vicine, e il valore resta in elenco.
-                        label={({ percent }: { percent?: number }) =>
-                          (percent ?? 0) >= 0.04 ? `${((percent ?? 0) * 100).toFixed(0)}%` : ''
-                        }
-                        labelLine={false}
-                      >
-                        {uscite.fette.map((f) => (
-                          <Cell key={f.categoria} fill={COLORI_USCITA[f.categoria]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                        formatter={(value, name) => [`${formatEuro(Number(value))} €`, name]}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-
+                // Elenco a sinistra, torta a destra. L'ordine nel DOM segue quello
+                // visivo, così su mobile i numeri esatti vengono prima del disegno.
+                // L'elenco è compatto e la torta prende lo spazio che avanza.
+                <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_1fr] items-center">
                   {/* Elenco: è la specifica richiesta (€ e %) e insieme il "table view"
                       che rende la lettura indipendente dal colore */}
                   <div>
@@ -319,6 +291,42 @@ export default function StatisticheCommesse({ dati }: Props) {
                       <span className="w-14 text-right text-gray-500">100%</span>
                     </div>
                   </div>
+
+                  <ResponsiveContainer width="100%" height={420}>
+                    <PieChart>
+                      <Pie
+                        data={uscite.fette}
+                        dataKey="importo"
+                        nameKey="label"
+                        cx="50%"
+                        cy="50%"
+                        // 68% e non di più: le etichette stanno fuori dal cerchio e
+                        // oltre questa soglia verrebbero tagliate dal contenitore.
+                        // Il raggio resta comunque molto maggiore di prima.
+                        outerRadius="68%"
+                        // stacco bianco fra le fette: le tiene distinte anche stampate
+                        stroke="#ffffff"
+                        strokeWidth={2}
+                        // Etichetta su ogni fetta, nessuna esclusa: è ciò che rende
+                        // leggibili le fette sottili, e insieme evita che il colore sia
+                        // l'unico modo per riconoscere la categoria.
+                        label={({ percent }: { percent?: number }) =>
+                          `${((percent ?? 0) * 100).toFixed(1)}%`
+                        }
+                        // linee di richiamo: per una fetta all'1% l'etichetta non
+                        // starebbe dentro, e senza linea non si capirebbe a chi appartiene
+                        labelLine
+                      >
+                        {uscite.fette.map((f) => (
+                          <Cell key={f.categoria} fill={COLORI_USCITA[f.categoria]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                        formatter={(value, name) => [`${formatEuro(Number(value))} €`, name]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
               )}
             </CardContent>
