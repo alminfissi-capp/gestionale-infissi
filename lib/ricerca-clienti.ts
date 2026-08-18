@@ -19,8 +19,15 @@ export type ClienteRicercabile = {
   cantiere?: string | null
 }
 
-/** Minuscolo, accenti rimossi, apostrofi tipografici normalizzati, spazi compattati. */
-export function normalizzaTesto(s: string): string {
+/**
+ * Minuscolo, accenti rimossi, apostrofi tipografici normalizzati, spazi compattati.
+ *
+ * Accetta anche null/undefined: è usata dai filtri di ricerca e dal raggruppamento
+ * clienti, e un solo chiamante che le passi un campo vuoto farebbe esplodere l'intera
+ * pagina invece di non trovare risultati.
+ */
+export function normalizzaTesto(s: string | null | undefined): string {
+  if (typeof s !== 'string') return ''
   return s
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '') // segni diacritici

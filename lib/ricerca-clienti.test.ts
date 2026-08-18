@@ -144,3 +144,16 @@ describe('filtraClienti', () => {
     expect(filtraClienti(tutti, 'marcello labarbera')).toEqual([])
   })
 })
+
+describe('normalizzaTesto — robustezza', () => {
+  it('non esplode su valori assenti', () => {
+    expect(normalizzaTesto(null)).toBe('')
+    expect(normalizzaTesto(undefined)).toBe('')
+    expect(normalizzaTesto('')).toBe('')
+  })
+
+  it('non esplode se le arriva un valore non stringa', () => {
+    // può capitare da un campo del database tipizzato male
+    expect(normalizzaTesto(42 as unknown as string)).toBe('')
+  })
+})
