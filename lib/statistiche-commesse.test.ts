@@ -3,6 +3,8 @@ import {
   aggregaFlussoMese,
   aggregaUscitePerCategoria,
   riepilogoCreditiDebiti,
+  resocontoCliente,
+  clientiUnici,
   type AccontoRow,
   type AltroCreditoRow,
   type ContoDipendenteRow,
@@ -269,5 +271,50 @@ describe('aggregaUscitePerCategoria', () => {
     const { fette, totale } = aggregaUscitePerCategoria([], [], '2026')
     expect(fette).toEqual([])
     expect(totale).toBe(0)
+  })
+})
+
+// Il caso Moritz Kind: due commesse dello stesso cliente, una scritta "Moritz Kind"
+// e una "Kind Moritz", costringevano a cercare due volte invertendo le parole.
+describe('resocontoCliente e clientiUnici — ordine delle parole', () => {
+  const commesseKind: StatRow[] = [
+    { id: 'k1', cliente_nome: 'Moritz Kind', totale: 33583.76, data_conferma: '2025-05-19', blocco: '2025' },
+    { id: 'k2', cliente_nome: 'Kind Moritz', totale: 5770.60, data_conferma: '2026-08-10', blocco: '2026' },
+    { id: 'x1', cliente_nome: 'Mario Rossi', totale: 1000, data_conferma: '2026-01-10', blocco: '2026' },
+  ]
+
+  it('raccoglie le commesse del cliente comunque siano ordinate le parole', () => {
+    const r = resocontoCliente(commesseKind, [], 'Moritz Kind')
+    expect(r.totale.numero).toBe(2)
+    expect(r.totale.fatturato).toBeCloseTo(39354.36, 2)
+  })
+
+  it('trova lo stesso risultato cercando col nome invertito', () => {
+    const dritto = resocontoCliente(commesseKind, [], 'Moritz Kind')
+    const invertito = resocontoCliente(commesseKind, [], 'Kind Moritz')
+    expect(invertito.totale).toEqual(dritto.totale)
+  })
+
+  it('divide comunque per blocco', () => {
+    const r = resocontoCliente(commesseKind, [], 'Kind Moritz')
+    expect(r.righe.map((x) => x.anno)).toEqual(['2026', '2025'])
+  })
+
+  it('non mescola clienti diversi', () => {
+    const r = resocontoCliente(commesseKind, [], 'Mario Rossi')
+    expect(r.totale.numero).toBe(1)
+  })
+
+  it('ignora maiuscole e accenti', () => {
+    const conAccento: StatRow[] = [
+      { id: 'a1', cliente_nome: "Nicolò D'Angelò", totale: 500, data_conferma: '2026-01-01', blocco: '2026' },
+    ]
+    expect(resocontoCliente(conAccento, [], "d'angelo nicolo").totale.numero).toBe(1)
+  })
+
+  it('elenca il cliente una volta sola anche se scritto nei due ordini', () => {
+    const nomi = clientiUnici(commesseKind)
+    expect(nomi).toHaveLength(2)
+    expect(nomi.filter((n) => n.toLowerCase().includes('kind'))).toHaveLength(1)
   })
 })
