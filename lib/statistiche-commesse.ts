@@ -7,6 +7,8 @@
 // - Incassi → l'anno è quello della DATA DI PAGAMENTO dell'acconto, a prescindere
 //   dal blocco della commessa collegata.
 
+import { normalizzaTesto } from '@/lib/ricerca-clienti'
+
 export type StatRow = {
   id: string
   cliente_nome: string
@@ -186,13 +188,27 @@ export function contaCommesseSenzaPreventivo(
   return Math.max(0, totBlocco - conPreventivo.size)
 }
 
-// Lista clienti unici (case-insensitive sul confronto, label originale), ordinati.
+/**
+ * Chiave di raggruppamento di un nome cliente: parole normalizzate e messe in ordine
+ * alfabetico, così "Moritz Kind" e "Kind Moritz" sono lo stesso cliente.
+ *
+ * `commesse.cliente_nome` è testo libero senza legame con l'anagrafica: chi compila
+ * scrive a volte "Nome Cognome" e a volte "Cognome Nome", e col confronto sulla stringa
+ * intera lo stesso cliente si spezzava in due voci. Due persone diverse con le stesse
+ * parole in ordine diverso sono, di fatto, la stessa persona.
+ */
+function chiaveCliente(nome: string): string {
+  return normalizzaTesto(nome).split(' ').filter(Boolean).sort().join(' ')
+}
+
+// Lista clienti unici (indipendente dall'ordine delle parole, label originale), ordinati.
 export function clientiUnici(commesse: StatRow[]): string[] {
   const map = new Map<string, string>()
   for (const c of commesse) {
     const nome = (c.cliente_nome ?? '').trim()
     if (!nome) continue
-    const key = nome.toLowerCase()
+    const key = chiaveCliente(nome)
+    if (!key) continue
     if (!map.has(key)) map.set(key, nome)
   }
   return [...map.values()].sort((a, b) => a.localeCompare(b, 'it'))
@@ -213,9 +229,9 @@ export function resocontoCliente(
   acconti: AccontoRow[],
   cliente: string,
 ): { righe: RigaResoconto[]; totale: RigaResoconto } {
-  const target = cliente.trim().toLowerCase()
+  const target = chiaveCliente(cliente)
   const commesseCliente = commesse.filter(
-    (c) => (c.cliente_nome ?? '').trim().toLowerCase() === target,
+    (c) => chiaveCliente(c.cliente_nome ?? '') === target,
   )
   const bloccoPerCommessa = new Map<string, string>()
   const perBlocco = new Map<string, RigaResoconto>()
