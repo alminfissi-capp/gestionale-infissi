@@ -140,12 +140,18 @@ export const GIORNI_SETTIMANA = [
   'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica',
 ] as const
 
+/**
+ * Giorno o periodo di chiusura. Se `ricorrente` e' vero contano soltanto
+ * giorno e mese: l'anno memorizzato e' il 2000 (bisestile, cosi' il 29
+ * febbraio e' rappresentabile) e la chiusura torna ogni anno.
+ */
 export type Chiusura = {
   id: string
   organization_id: string
   data_inizio: string
   data_fine: string
   descrizione: string
+  ricorrente: boolean
   created_at: string
 }
 
@@ -153,7 +159,34 @@ export type ChiusuraInput = {
   data_inizio: string
   data_fine: string
   descrizione: string
+  ricorrente: boolean
 }
+
+/** Anno segnaposto delle chiusure ricorrenti: bisestile, per il 29 febbraio. */
+export const ANNO_RICORRENTE = '2000'
+
+export const MESI = [
+  'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+  'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre',
+] as const
+
+/**
+ * Festivita' italiane a data fissa, per compilare le chiusure in un colpo solo.
+ * Pasqua e Pasquetta si spostano ogni anno: vanno aggiunte a mano, anno per
+ * anno, come chiusure non ricorrenti.
+ */
+export const FESTIVITA_ITALIANE: { giornoMese: string; descrizione: string }[] = [
+  { giornoMese: '01-01', descrizione: 'Capodanno' },
+  { giornoMese: '01-06', descrizione: 'Epifania' },
+  { giornoMese: '04-25', descrizione: 'Liberazione' },
+  { giornoMese: '05-01', descrizione: 'Festa del lavoro' },
+  { giornoMese: '06-02', descrizione: 'Festa della Repubblica' },
+  { giornoMese: '08-15', descrizione: 'Ferragosto' },
+  { giornoMese: '11-01', descrizione: 'Ognissanti' },
+  { giornoMese: '12-08', descrizione: 'Immacolata' },
+  { giornoMese: '12-25', descrizione: 'Natale' },
+  { giornoMese: '12-26', descrizione: 'Santo Stefano' },
+]
 
 export type CategoriaFornitore = 'alluminio' | 'vetri' | 'accessori'
 

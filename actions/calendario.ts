@@ -8,7 +8,9 @@ import { getOrgId } from '@/lib/auth'
 import { requireAccesso } from '@/lib/permessi'
 import { getSettings } from '@/actions/impostazioni'
 import { espandiCatena } from '@/lib/calendario'
-import { ORARI_LAVORO_DEFAULT, RICEZIONE_PER_CATEGORIA } from '@/types/calendario'
+import {
+  ANNO_RICORRENTE, ORARI_LAVORO_DEFAULT, RICEZIONE_PER_CATEGORIA,
+} from '@/types/calendario'
 import { STATI_COMMESSA_APERTI } from '@/types/produzione'
 import type {
   CategoriaFornitore,
@@ -85,20 +87,74 @@ export async function getChiusure(): Promise<Chiusura[]> {
 
 export async function createChiusura(input: ChiusuraInput): Promise<void> {
   await requireAccesso('impostazioni', 'scrittura')
-  if (input.data_fine < input.data_inizio) {
+  // Una chiusura ricorrente puo' scavalcare il capodanno, quindi la fine che
+  // precede l'inizio e' un errore solo per le chiusure di un anno preciso.
+  if (!input.ricorrente && input.data_fine < input.data_inizio) {
     throw new Error('La data di fine non può precedere quella di inizio')
   }
   const supabase = await createClient()
   const orgId = await getOrgId()
 
+  // Nelle ricorrenti l'anno non ha significato: si normalizza al segnaposto,
+  // altrimenti due Natali salvati in anni diversi sembrerebbero due festivita'.
+  const dati: ChiusuraInput = input.ricorrente
+    ? {
+        ...input,
+        data_inizio: `${ANNO_RICORRENTE}-${input.data_inizio.slice(5)}`,
+        data_fine: `${ANNO_RICORRENTE}-${input.data_fine.slice(5)}`,
+      }
+    : input
+
   const { error } = await supabase
     .from('chiusure')
-    .insert({ organization_id: orgId, ...input })
+    .insert({ organization_id: orgId, ...dati })
   if (error) throw new Error(error.message)
 
   revalidatePath('/impostazioni')
   revalidatePath('/produzione')
   revalidatePath('/calendario')
+}
+
+/**
+ * Inserisce piu' chiusure in un colpo solo (il pulsante delle festivita'
+ * italiane). Le descrizioni gia' presenti vengono saltate, cosi' premerlo due
+ * volte non raddoppia l'elenco.
+ */
+export async function createChiusureMultiple(inputs: ChiusuraInput[]): Promise<number> {
+  await requireAccesso('impostazioni', 'scrittura')
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { data: esistenti, error: erroreLettura } = await supabase
+    .from('chiusure')
+    .select('descrizione')
+    .eq('organization_id', orgId)
+  if (erroreLettura) throw new Error(erroreLettura.message)
+
+  const gia = new Set((esistenti ?? []).map((c) => c.descrizione.toLowerCase()))
+  const nuove = inputs
+    .filter((i) => !gia.has(i.descrizione.toLowerCase()))
+    .map((i) => ({
+      organization_id: orgId,
+      descrizione: i.descrizione,
+      ricorrente: i.ricorrente,
+      data_inizio: i.ricorrente
+        ? `${ANNO_RICORRENTE}-${i.data_inizio.slice(5)}`
+        : i.data_inizio,
+      data_fine: i.ricorrente
+        ? `${ANNO_RICORRENTE}-${i.data_fine.slice(5)}`
+        : i.data_fine,
+    }))
+
+  if (nuove.length === 0) return 0
+
+  const { error } = await supabase.from('chiusure').insert(nuove)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/impostazioni')
+  revalidatePath('/produzione')
+  revalidatePath('/calendario')
+  return nuove.length
 }
 
 export async function deleteChiusura(id: string): Promise<void> {

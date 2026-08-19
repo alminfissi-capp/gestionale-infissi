@@ -40,6 +40,24 @@ export type StatoGiorno =
     }
 
 /**
+ * Una chiusura ricorrente ignora l'anno: valgono giorno e mese. Un intervallo
+ * ricorrente puo' scavalcare il capodanno (24/12 - 06/01): in quel caso gli
+ * estremi si invertono e il confronto diventa "prima dell'inizio oppure dopo
+ * la fine".
+ */
+export function chiusuraCopre(chiusura: Chiusura, data: string): boolean {
+  if (!chiusura.ricorrente) {
+    return data >= chiusura.data_inizio && data <= chiusura.data_fine
+  }
+  const giorno = data.slice(5)
+  const inizio = chiusura.data_inizio.slice(5)
+  const fine = chiusura.data_fine.slice(5)
+  return inizio <= fine
+    ? giorno >= inizio && giorno <= fine
+    : giorno >= inizio || giorno <= fine
+}
+
+/**
  * Stato di un giorno: aperto o chiuso, con quali orari e per quale motivo.
  * Le chiusure hanno la precedenza sull'orario settimanale.
  */
@@ -51,9 +69,7 @@ export function statoGiorno(
   const indice = indiceGiornoSettimana(data)
   const orario = orari[indice]
 
-  const chiusuraAttiva = chiusure.find(
-    (c) => data >= c.data_inizio && data <= c.data_fine
-  )
+  const chiusuraAttiva = chiusure.find((c) => chiusuraCopre(c, data))
   if (chiusuraAttiva) {
     return { aperto: false, motivoChiusura: chiusuraAttiva.descrizione }
   }

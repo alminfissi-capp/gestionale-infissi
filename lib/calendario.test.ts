@@ -18,10 +18,19 @@ import type { Chiusura, OrariLavoro } from '@/types/calendario'
 const chiusura = (
   data_inizio: string,
   data_fine: string,
-  descrizione: string
+  descrizione: string,
+  ricorrente = false
 ): Chiusura => ({
-  id: 'x', organization_id: 'o', data_inizio, data_fine, descrizione, created_at: '',
+  id: 'x', organization_id: 'o', data_inizio, data_fine, descrizione,
+  ricorrente, created_at: '',
 })
+
+/** Festivita' fissa: l'anno memorizzato (2000) non conta, contano giorno e mese. */
+const festivita = (
+  giornoMeseInizio: string,
+  giornoMeseFine: string,
+  descrizione: string
+): Chiusura => chiusura(`2000-${giornoMeseInizio}`, `2000-${giornoMeseFine}`, descrizione, true)
 
 describe('minutiDaOra', () => {
   it('converte HH:MM in minuti dalla mezzanotte', () => {
@@ -275,5 +284,46 @@ describe('casi limite', () => {
         fornitore_nome: null,
       })
     ).toBe('Ripasso serramenti')
+  })
+})
+
+describe('statoGiorno con chiusure ricorrenti', () => {
+  it('una festivita ricorrente torna ogni anno', () => {
+    const natale = [festivita('12-25', '12-25', 'Natale')]
+    expect(statoGiorno('2026-12-25', ORARI_LAVORO_DEFAULT, natale)).toEqual({
+      aperto: false, motivoChiusura: 'Natale',
+    })
+    expect(statoGiorno('2031-12-25', ORARI_LAVORO_DEFAULT, natale)).toEqual({
+      aperto: false, motivoChiusura: 'Natale',
+    })
+  })
+
+  it('una festivita ricorrente non tocca gli altri giorni', () => {
+    const s = statoGiorno('2026-12-23', ORARI_LAVORO_DEFAULT, [
+      festivita('12-25', '12-25', 'Natale'),
+    ])
+    expect(s.aperto).toBe(true)
+  })
+
+  it('un intervallo ricorrente a cavallo di capodanno copre i due tronconi', () => {
+    const feste = [festivita('12-24', '01-06', 'Feste natalizie')]
+    expect(statoGiorno('2026-12-31', ORARI_LAVORO_DEFAULT, feste).aperto).toBe(false)
+    expect(statoGiorno('2027-01-02', ORARI_LAVORO_DEFAULT, feste).aperto).toBe(false)
+    // Fuori intervallo: meta' gennaio e meta' dicembre restano aperti.
+    expect(statoGiorno('2027-01-15', ORARI_LAVORO_DEFAULT, feste).aperto).toBe(true)
+    expect(statoGiorno('2026-12-15', ORARI_LAVORO_DEFAULT, feste).aperto).toBe(true)
+  })
+
+  it('una chiusura non ricorrente resta legata al suo anno', () => {
+    const ferie = [chiusura('2026-08-10', '2026-08-24', 'Ferie estive')]
+    expect(statoGiorno('2026-08-12', ORARI_LAVORO_DEFAULT, ferie).aperto).toBe(false)
+    expect(statoGiorno('2027-08-12', ORARI_LAVORO_DEFAULT, ferie).aperto).toBe(true)
+  })
+
+  it('il 29 febbraio ricorrente vale negli anni bisestili', () => {
+    const s = statoGiorno('2028-02-29', ORARI_LAVORO_DEFAULT, [
+      festivita('02-29', '02-29', 'Giorno in piu'),
+    ])
+    expect(s).toEqual({ aperto: false, motivoChiusura: 'Giorno in piu' })
   })
 })
