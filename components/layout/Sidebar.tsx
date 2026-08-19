@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard,
+  CalendarDays,
   PlusCircle,
   ClipboardList,
   Users,
@@ -41,6 +42,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/',                    label: 'Dashboard',           icon: LayoutDashboard, modulo: 'dashboard' },
+  { href: '/calendario',          label: 'Calendario',          icon: CalendarDays,    modulo: 'calendario' },
   { href: '/preventivi/nuovo',    label: 'Nuovo Preventivo',    icon: PlusCircle,      modulo: 'preventivi', requiresWrite: true },
   { href: '/preventivi',          label: 'Preventivi Salvati',  icon: ClipboardList,   modulo: 'preventivi' },
   { href: '/clienti',             label: 'Gestione Clienti',    icon: Users,           modulo: 'clienti' },

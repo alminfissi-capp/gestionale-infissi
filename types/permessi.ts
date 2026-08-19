@@ -2,6 +2,7 @@ export type TipoAccesso = 'nessuno' | 'lettura' | 'scrittura'
 
 export const MODULI_APP = [
   'dashboard',
+  'calendario',
   'preventivi',
   'clienti',
   'listini',
@@ -19,6 +20,7 @@ export type ModuloApp = (typeof MODULI_APP)[number]
 
 export const MODULO_LABELS: Record<ModuloApp, string> = {
   dashboard:    'Dashboard',
+  calendario:   'Calendario',
   preventivi:   'Preventivi',
   clienti:      'Clienti',
   listini:      'Listini',
@@ -36,6 +38,7 @@ export type PermessiUtente = Record<ModuloApp, TipoAccesso>
 
 export const PERMESSI_ADMIN: PermessiUtente = {
   dashboard:    'scrittura',
+  calendario:   'scrittura',
   preventivi:   'scrittura',
   clienti:      'scrittura',
   listini:      'scrittura',
@@ -51,6 +54,7 @@ export const PERMESSI_ADMIN: PermessiUtente = {
 
 export const PERMESSI_VUOTI: PermessiUtente = {
   dashboard:    'nessuno',
+  calendario:   'nessuno',
   preventivi:   'nessuno',
   clienti:      'nessuno',
   listini:      'nessuno',

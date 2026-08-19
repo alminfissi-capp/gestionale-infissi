@@ -41,6 +41,7 @@ export const getMyPermissions = cache(async (): Promise<{
 /** Rotta home di ciascun modulo, per calcolare dove atterra chi non ha la dashboard. */
 const MODULO_HOME: Record<ModuloApp, string> = {
   dashboard:    '/',
+  calendario:   '/calendario',
   preventivi:   '/preventivi',
   clienti:      '/clienti',
   listini:      '/listini',
