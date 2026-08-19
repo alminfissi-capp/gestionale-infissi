@@ -134,7 +134,7 @@ export default function DialogEventoAdmin({
 
   return (
     <Dialog open onOpenChange={(aperto) => !aperto && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {soloLettura
@@ -276,11 +276,10 @@ export default function DialogEventoAdmin({
               Mostra anche nel calendario della Produzione
             </label>
 
-            {/* Solo gli appuntamenti si notificano, e solo dopo il salvataggio:
-                l'avviso ha bisogno di un evento con un id. */}
-            {inModifica && tipo === 'appuntamento' && (
-              <AvvisaCliente eventoId={evento.id} />
-            )}
+            {/* Qualunque attivita' vista dall'agenda si puo' notificare, anche
+                una posa nata in Produzione. Serve pero' un evento salvato: e'
+                il suo id che l'avviso registra. */}
+            {inModifica && <AvvisaCliente eventoId={evento.id} />}
 
             <DialogFooter className="gap-2 sm:justify-between">
               {inModifica ? (

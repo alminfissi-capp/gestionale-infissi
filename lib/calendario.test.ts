@@ -429,6 +429,7 @@ describe('messaggioAppuntamento', () => {
     tutto_il_giorno: false,
     cliente_nome: 'Sig. Teresi',
     note: null,
+    attivita: null,
     azienda: 'A.L.M. Infissi',
     telefonoAzienda: '091 1234567',
   }
@@ -459,6 +460,16 @@ describe('messaggioAppuntamento', () => {
     const testo = messaggioAppuntamento({ ...base, telefonoAzienda: null })
     expect(testo).not.toContain('telefono')
     expect(testo).toContain('A.L.M. Infissi')
+  })
+
+  it('senza attivita parla di appuntamento', () => {
+    expect(messaggioAppuntamento(base)).toContain("le confermiamo l'appuntamento di")
+  })
+
+  it('con un attivita usa il suo nome: si avvisa anche di una posa', () => {
+    const testo = messaggioAppuntamento({ ...base, attivita: 'Posa/Consegna' })
+    expect(testo).toContain("le confermiamo l'intervento di")
+    expect(testo).toContain('(Posa/Consegna)')
   })
 
   it('le note finiscono nel messaggio quando ci sono', () => {

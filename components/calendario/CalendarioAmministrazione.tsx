@@ -64,6 +64,17 @@ export default function CalendarioAmministrazione({
   const tipiCreabili = useMemo(() => tipiAdmin.filter((t) => !t.sistema), [tipiAdmin])
   const tipoPredefinito = tipiCreabili[0]?.chiave ?? 'appuntamento'
 
+  // Aprendo un'attivita' nata in Produzione (una posa resa visibile qui) il suo
+  // tipo non sarebbe nell'elenco, e il selettore resterebbe vuoto.
+  const tipiDelDialog = useMemo(() => {
+    const suo = eventoAperto
+      ? tipi.find((t) => t.chiave === eventoAperto.tipo)
+      : undefined
+    return suo && !tipiCreabili.some((t) => t.chiave === suo.chiave)
+      ? [...tipiCreabili, suo]
+      : tipiCreabili
+  }, [tipiCreabili, tipi, eventoAperto])
+
   const anno = Number(data.slice(0, 4))
   const mese = Number(data.slice(5, 7))
 
@@ -182,7 +193,7 @@ export default function CalendarioAmministrazione({
         <DialogEventoAdmin
           evento={eventoAperto}
           nuovo={nuovo}
-          tipi={tipiCreabili}
+          tipi={tipiDelDialog}
           commesse={commesse}
           onClose={() => {
             setEventoAperto(null)

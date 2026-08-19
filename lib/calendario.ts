@@ -305,6 +305,11 @@ export type DatiMessaggio = {
   tutto_il_giorno: boolean
   cliente_nome: string | null
   note: string | null
+  /**
+   * Nome dell'attivita' come la chiama l'organizzazione: si avvisa anche di
+   * una posa, non solo di un appuntamento. Null ripiega su "l'appuntamento".
+   */
+  attivita: string | null
   azienda: string
   telefonoAzienda: string | null
 }
@@ -323,7 +328,11 @@ export function messaggioAppuntamento(d: DatiMessaggio): string {
   const righe = [
     `Gentile ${nome || 'cliente'},`,
     '',
-    `le confermiamo l'appuntamento di ${quando}.`,
+    d.attivita?.trim()
+      // Il nome dell'attivita' e' scelto dall'utente: sta fra parentesi perche'
+      // non se ne puo' indovinare l'articolo ("la posa", "il carico"...).
+      ? `le confermiamo l'intervento di ${quando} (${d.attivita.trim()}).`
+      : `le confermiamo l'appuntamento di ${quando}.`,
   ]
 
   const titolo = d.titolo?.trim()

@@ -70,22 +70,19 @@ export default function AvvisaCliente({ eventoId }: { eventoId: string }) {
     }
   }
 
-  const handleWhatsapp = async () => {
-    if (!telefono.trim()) {
-      toast.error('Serve un numero di telefono')
-      return
-    }
-    // Prima si apre la finestra, poi si registra: il blocco popup della PWA
-    // scatta se la apriamo dopo un await.
-    window.open(
-      `https://wa.me/${numeroWhatsapp(telefono)}?text=${encodeURIComponent(messaggio)}`,
-      '_blank'
-    )
+  // Link vero e non window.open: nella PWA installata (display standalone) le
+  // finestre aperte da codice vengono bloccate in silenzio, e il pulsante
+  // sembrava non fare niente.
+  const linkWhatsapp = telefono.trim()
+    ? `https://wa.me/${numeroWhatsapp(telefono)}?text=${encodeURIComponent(messaggio)}`
+    : null
+
+  const registraWhatsapp = async () => {
     try {
       await registraAvvisoWhatsapp(eventoId)
       setWhatsappAt(new Date().toISOString())
     } catch {
-      // L'avviso e' partito lo stesso: qui si perde solo la data.
+      // Il messaggio e' partito lo stesso: qui si perde solo la data.
       toast.error('WhatsApp aperto, ma la data dell’avviso non è stata salvata')
     }
   }
@@ -136,10 +133,24 @@ export default function AvvisaCliente({ eventoId }: { eventoId: string }) {
             onChange={(e) => setTelefono(e.target.value)}
           />
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={handleWhatsapp}>
-          <MessageCircle className="mr-1 h-4 w-4" />
-          WhatsApp
-        </Button>
+        {linkWhatsapp ? (
+          <Button asChild variant="outline" size="sm">
+            <a
+              href={linkWhatsapp}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => { void registraWhatsapp() }}
+            >
+              <MessageCircle className="mr-1 h-4 w-4" />
+              WhatsApp
+            </a>
+          </Button>
+        ) : (
+          <Button type="button" variant="outline" size="sm" disabled>
+            <MessageCircle className="mr-1 h-4 w-4" />
+            WhatsApp
+          </Button>
+        )}
       </div>
 
       <p className="whitespace-pre-line rounded-md bg-gray-50 p-2 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">

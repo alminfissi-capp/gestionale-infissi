@@ -146,7 +146,7 @@ export default function CalendarioProduzione({
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 p-4">
+    <div className="mx-auto max-w-7xl space-y-4 p-4">
       <StampaGantt />
       <h1 className="hidden text-center text-base font-semibold print:block">
         Calendario A.L.M. WP — {NOMI_MESI[mese - 1]} {anno}

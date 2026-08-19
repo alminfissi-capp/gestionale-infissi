@@ -137,7 +137,7 @@ export default function DialogEvento({
 
   return (
     <Dialog open onOpenChange={(aperto) => !aperto && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{inModifica ? 'Modifica attività' : 'Nuova attività'}</DialogTitle>
         </DialogHeader>

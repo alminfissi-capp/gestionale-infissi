@@ -11,7 +11,7 @@ import { getSettings } from '@/actions/impostazioni'
 import { aggiungiGiorni, espandiCatena, messaggioAppuntamento } from '@/lib/calendario'
 import { filtraClienti } from '@/lib/ricerca-clienti'
 import {
-  ANNO_RICORRENTE, ASPETTO_TIPO, ORARI_LAVORO_DEFAULT, TIPI_DEFAULT,
+  ANNO_RICORRENTE, ASPETTO_TIPO, aspettoDi, ORARI_LAVORO_DEFAULT, TIPI_DEFAULT,
 } from '@/types/calendario'
 import { STATI_COMMESSA_APERTI } from '@/types/produzione'
 import type { CommessaOpzione } from '@/types/produzione'
@@ -695,7 +695,7 @@ export async function getRecapitiAppuntamento(
     .single()
   if (error) throw new Error(error.message)
 
-  const settings = await getSettings()
+  const [settings, aspetti] = await Promise.all([getSettings(), getAspettiTipo()])
 
   let email: string | null = null
   let telefono: string | null = null
@@ -734,6 +734,11 @@ export async function getRecapitiAppuntamento(
       tutto_il_giorno: evento.tutto_il_giorno,
       cliente_nome: evento.cliente_nome,
       note: evento.note,
+      // Un appuntamento non ha bisogno di nominarsi; una posa o un carico si',
+      // altrimenti il cliente non sa cosa gli stiamo confermando.
+      attivita: evento.tipo === 'appuntamento'
+        ? null
+        : aspettoDi(aspetti, evento.tipo).label,
       azienda: settings?.denominazione || 'Azienda',
       telefonoAzienda: settings?.telefono ?? null,
     }),
@@ -770,7 +775,7 @@ export async function inviaEmailAppuntamento(
   const { error } = await resend.emails.send({
     from: `${azienda} <${mittente}>`,
     to: destinatario,
-    subject: 'Promemoria appuntamento',
+    subject: 'Promemoria dal vostro serramentista',
     html,
     text: messaggio,
   })

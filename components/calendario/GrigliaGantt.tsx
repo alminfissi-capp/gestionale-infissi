@@ -126,7 +126,7 @@ export default function GrigliaGantt({
 
   return (
     <div className="gantt-scroll overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-      <div className="min-w-[560px]">
+      <div>
         {/* Testata delle ore */}
         <div className="flex border-b border-gray-300 bg-gray-50 text-xs font-medium dark:border-gray-600 dark:bg-gray-800">
           <div className="w-14 shrink-0 border-r border-gray-300 px-2 py-1 dark:border-gray-600">
