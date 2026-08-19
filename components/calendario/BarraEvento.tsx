@@ -87,7 +87,12 @@ export default function BarraEvento({
         cursor: trascinabile ? 'grab' : 'pointer',
         zIndex: isDragging ? 20 : undefined,
       }}
-      onClick={onClick}
+      // Il clic non deve arrivare alla pista sotto, che aprirebbe anche la
+      // scelta della commessa per uno slot nuovo.
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick?.()
+      }}
       title={etichettaEvento(evento)}
     >
       <span className="truncate font-medium">{etichettaEvento(evento)}</span>
@@ -101,11 +106,13 @@ export default function BarraEvento({
         <>
           <span
             onPointerDown={avviaResize('inizio')}
+            onClick={(e) => e.stopPropagation()}
             className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize"
             aria-label="Sposta l’inizio"
           />
           <span
             onPointerDown={avviaResize('fine')}
+            onClick={(e) => e.stopPropagation()}
             className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize"
             aria-label="Sposta la fine"
           />

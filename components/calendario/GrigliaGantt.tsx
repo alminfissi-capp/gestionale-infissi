@@ -9,6 +9,7 @@ import {
   minutiDaOra,
   oraDaMinuti,
   posizioneBarra,
+  snapMinuti,
   statoGiorno,
 } from '@/lib/calendario'
 import BarraEvento, { ALTEZZA_BARRA } from './BarraEvento'
@@ -37,12 +38,14 @@ export function giorniDelMese(anno: number, mese: number): string[] {
 
 /** Pista di un giorno che accetta il rilascio di una barra. */
 function PistaGiorno({
-  data, altezza, onNodo, children,
+  data, altezza, onNodo, onClickVuoto, children,
 }: {
   data: string
   altezza: number
   /** Il contenitore misura la pista per convertire i pixel in minuti. */
   onNodo?: (nodo: HTMLDivElement | null) => void
+  /** Clic su una zona libera: la frazione e' la posizione orizzontale, 0-1. */
+  onClickVuoto?: (data: string, frazione: number) => void
   children: React.ReactNode
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: data })
@@ -51,6 +54,12 @@ function PistaGiorno({
       ref={(nodo) => {
         setNodeRef(nodo)
         onNodo?.(nodo)
+      }}
+      onClick={(e) => {
+        if (!onClickVuoto) return
+        const riquadro = e.currentTarget.getBoundingClientRect()
+        if (riquadro.width <= 0) return
+        onClickVuoto(data, (e.clientX - riquadro.left) / riquadro.width)
       }}
       className={`relative flex-1 ${isOver ? 'bg-sky-50 dark:bg-sky-950/30' : ''}`}
       style={{ height: altezza }}
@@ -69,6 +78,7 @@ export default function GrigliaGantt({
   onApriEvento,
   onPistaNodo,
   onRidimensiona,
+  onSlotVuoto,
   minutiPerPixel,
   modificabile,
 }: {
@@ -80,6 +90,8 @@ export default function GrigliaGantt({
   onApriEvento?: (evento: EventoConContesto) => void
   onPistaNodo?: (nodo: HTMLDivElement | null) => void
   onRidimensiona?: (id: string, data: string, oraInizio: string, oraFine: string) => void
+  /** Clic su una zona libera della giornata: apre la scelta della commessa. */
+  onSlotVuoto?: (data: string, ora: string) => void
   minutiPerPixel?: number
   modificabile?: boolean
 }) {
@@ -98,17 +110,21 @@ export default function GrigliaGantt({
 
   return (
     <div className="gantt-scroll overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-      <div className="min-w-[900px]">
+      <div className="min-w-[560px]">
         {/* Testata delle ore */}
         <div className="flex border-b border-gray-300 bg-gray-50 text-xs font-medium dark:border-gray-600 dark:bg-gray-800">
           <div className="w-14 shrink-0 border-r border-gray-300 px-2 py-1 dark:border-gray-600">
             Giorno
           </div>
           <div className="relative flex-1 py-1">
-            {ore.map((ora) => (
+            {ore.map((ora, i) => (
               <span
                 key={ora}
-                className="absolute -translate-x-1/2 text-gray-600 dark:text-gray-300"
+                // La prima e l'ultima etichetta restano dentro la pista: centrate
+                // finirebbero sopra la colonna del giorno e fuori dal bordo destro.
+                className={`absolute text-gray-600 dark:text-gray-300 ${
+                  i === 0 ? '' : i === ore.length - 1 ? '-translate-x-full' : '-translate-x-1/2'
+                }`}
                 style={{ left: `${posizioneBarra(ora, ora, fascia).sinistraPct}%` }}
               >
                 {ora}
@@ -159,6 +175,15 @@ export default function GrigliaGantt({
                   data={data}
                   altezza={altezza}
                   onNodo={indice === 0 ? onPistaNodo : undefined}
+                  onClickVuoto={
+                    onSlotVuoto
+                      ? (giorno, frazione) => {
+                          const durata = minutiDaOra(fascia.fine) - minutiDaOra(fascia.inizio)
+                          const minuti = minutiDaOra(fascia.inizio) + frazione * durata
+                          onSlotVuoto(giorno, oraDaMinuti(snapMinuti(minuti)))
+                        }
+                      : undefined
+                  }
                 >
                   {righeOre}
                   {/* Mezza giornata: la fascia oltre la chiusura e' grigia */}

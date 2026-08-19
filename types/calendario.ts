@@ -206,25 +206,3 @@ export const RICEZIONE_PER_CATEGORIA: Record<CategoriaFornitore, TipoEventoProdu
   vetri:     'ricez_vetri',
   accessori: 'ricez_accessori',
 }
-
-/** Riga della coda "da pianificare": commessa senza attivita' o ordine senza ricezione. */
-export type VoceDaPianificare =
-  | {
-      genere: 'commessa'
-      id: string
-      numero_commessa: string
-      cliente_nome: string
-      /** Quali fra lavorazione, posa e carico non sono ancora stati collocati. */
-      tipi_mancanti: TipoEventoProduzione[]
-    }
-  | {
-      genere: 'ordine'
-      id: string
-      numero_ordine: string
-      fornitore_id: string | null
-      fornitore_nome: string | null
-      data_consegna_prevista: string
-      /** Deriva da fornitori.categoria_calendario; 'ricez_accessori' se non impostata. */
-      tipo_ricezione: TipoEventoProduzione
-      categoria_mancante: boolean
-    }

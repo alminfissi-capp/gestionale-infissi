@@ -15,11 +15,10 @@ import { ASPETTO_TIPO, TIPI_PRODUZIONE } from '@/types/calendario'
 import GrigliaGantt from './GrigliaGantt'
 import DialogEvento, { type NuovoEvento } from './DialogEvento'
 import CodaDaPianificare, { PREFISSO_VOCE } from './CodaDaPianificare'
+import DialogSceltaCommessa from './DialogSceltaCommessa'
 import ListaGiorniMobile from './ListaGiorniMobile'
 import StampaGantt from './StampaGantt'
-import type {
-  Chiusura, EventoConContesto, OrariLavoro, TipoEvento, VoceDaPianificare,
-} from '@/types/calendario'
+import type { Chiusura, EventoConContesto, OrariLavoro } from '@/types/calendario'
 import type { CommessaOpzione } from '@/types/produzione'
 
 export const NOMI_MESI = [
@@ -34,7 +33,6 @@ export default function CalendarioProduzione({
   orari,
   chiusure,
   commesse,
-  voci,
   modificabile,
 }: {
   anno: number
@@ -42,14 +40,15 @@ export default function CalendarioProduzione({
   eventi: EventoConContesto[]
   orari: OrariLavoro
   chiusure: Chiusura[]
+  /** Commesse aperte: colonna laterale, scelta da slot e selettore del dialog. */
   commesse: CommessaOpzione[]
-  voci: VoceDaPianificare[]
   modificabile: boolean
 }) {
   const router = useRouter()
   const [inCorso, startTransition] = useTransition()
   const [eventoAperto, setEventoAperto] = useState<EventoConContesto | null>(null)
   const [nuovo, setNuovo] = useState<NuovoEvento | null>(null)
+  const [slotScelta, setSlotScelta] = useState<{ data: string; ora: string } | null>(null)
 
   // La larghezza della pista sta nello stato e non in una ref: serve anche in
   // fase di render, per dire alle barre quanti minuti vale un pixel.
@@ -90,33 +89,18 @@ export default function CalendarioProduzione({
 
     const idAttivo = String(e.active.id)
     if (idAttivo.startsWith(PREFISSO_VOCE)) {
-      // 'coda:commessa:<id>:<tipo>' oppure 'coda:ordine:<id>:<tipo>'
-      // Il rilascio apre il dialog gia' compilato invece di salvare subito:
-      // gli orari vanno quasi sempre corretti.
-      const [, genere, idOggetto, tipo] = idAttivo.split(':')
-      const data = String(e.over.id)
-
-      if (genere === 'commessa') {
-        const voce = voci.find((v) => v.genere === 'commessa' && v.id === idOggetto)
-        setNuovo({
-          data,
-          ora_inizio: '08:00',
-          ora_fine: '17:30',
-          tipo: tipo as TipoEvento,
-          commessa_id: idOggetto,
-          cliente_nome: voce?.genere === 'commessa' ? voce.cliente_nome : null,
-        })
-      } else {
-        const voce = voci.find((v) => v.genere === 'ordine' && v.id === idOggetto)
-        setNuovo({
-          data,
-          ora_inizio: '08:00',
-          ora_fine: '13:30',
-          tipo: tipo as TipoEvento,
-          ordine_id: idOggetto,
-          fornitore_id: voce?.genere === 'ordine' ? voce.fornitore_id : null,
-        })
-      }
+      // 'coda:<idCommessa>' — il tipo di attivita' si sceglie nel dialog, che
+      // si apre gia' compilato con giorno e commessa.
+      const idCommessa = idAttivo.slice(PREFISSO_VOCE.length)
+      const commessa = commesse.find((c) => c.id === idCommessa)
+      setNuovo({
+        data: String(e.over.id),
+        ora_inizio: '08:00',
+        ora_fine: '17:30',
+        tipo: 'lavorazione',
+        commessa_id: idCommessa,
+        cliente_nome: commessa?.cliente_nome ?? null,
+      })
       return
     }
 
@@ -146,7 +130,7 @@ export default function CalendarioProduzione({
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="mx-auto max-w-6xl space-y-4 p-4">
       <StampaGantt />
       <h1 className="hidden text-center text-base font-semibold print:block">
         Calendario A.L.M. WP — {NOMI_MESI[mese - 1]} {anno}
@@ -205,7 +189,7 @@ export default function CalendarioProduzione({
           <div className="flex gap-4">
             {modificabile && (
               <div className="no-stampa">
-                <CodaDaPianificare voci={voci} />
+                <CodaDaPianificare commesse={commesse} />
               </div>
             )}
             <div className="min-w-0 flex-1">
@@ -239,6 +223,27 @@ export default function CalendarioProduzione({
           onApriEvento={setEventoAperto}
         />
       </div>
+
+      {slotScelta && (
+        <DialogSceltaCommessa
+          data={slotScelta.data}
+          ora={slotScelta.ora}
+          commesse={commesse}
+          onClose={() => setSlotScelta(null)}
+          onScegli={(commessa) => {
+            const [h, m] = slotScelta.ora.split(':')
+            setNuovo({
+              data: slotScelta.data,
+              ora_inizio: slotScelta.ora,
+              ora_fine: `${String(Math.min(Number(h) + 1, 23)).padStart(2, '0')}:${m}`,
+              tipo: 'lavorazione',
+              commessa_id: commessa?.id ?? null,
+              cliente_nome: commessa?.cliente_nome ?? null,
+            })
+            setSlotScelta(null)
+          }}
+        />
+      )}
 
       {(eventoAperto || nuovo) && (
         <DialogEvento
