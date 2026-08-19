@@ -78,3 +78,66 @@ export function fasciaGriglia(orari: OrariLavoro): { inizio: string; fine: strin
   const fine = Math.max(...aperti.map((g) => minutiDaOra(g.chiusura)))
   return { inizio: oraDaMinuti(inizio), fine: oraDaMinuti(fine) }
 }
+
+export type Fascia = { inizio: string; fine: string }
+
+export type PosizioneBarra = {
+  /** Percentuale della larghezza della griglia. */
+  sinistraPct: number
+  larghezzaPct: number
+}
+
+/**
+ * Posizione orizzontale di una barra dentro la griglia oraria, in percentuale.
+ * Gli eventi che sbordano dalla fascia vengono tagliati ai bordi invece di
+ * uscire dalla griglia.
+ */
+export function posizioneBarra(
+  oraInizio: string,
+  oraFine: string,
+  fascia: Fascia
+): PosizioneBarra {
+  const gInizio = minutiDaOra(fascia.inizio)
+  const gFine = minutiDaOra(fascia.fine)
+  const durataGriglia = Math.max(1, gFine - gInizio)
+
+  const inizio = Math.max(gInizio, Math.min(gFine, minutiDaOra(oraInizio)))
+  const fine = Math.max(inizio, Math.min(gFine, minutiDaOra(oraFine)))
+
+  return {
+    sinistraPct: ((inizio - gInizio) / durataGriglia) * 100,
+    larghezzaPct: ((fine - inizio) / durataGriglia) * 100,
+  }
+}
+
+type Impilabile = { id: string; ora_inizio: string; ora_fine: string }
+
+export type EventoImpilato<T extends Impilabile> = T & { riga: number }
+
+/**
+ * Assegna a ogni evento la riga verticale in cui disegnarlo dentro la giornata:
+ * la prima riga in cui non si sovrappone a nulla. E' l'impilamento che nel
+ * foglio in officina si vede quando piu' attivita' occupano la stessa fascia.
+ */
+export function impilaEventi<T extends Impilabile>(eventi: T[]): EventoImpilato<T>[] {
+  const ordinati = [...eventi].sort((a, b) => {
+    const d = minutiDaOra(a.ora_inizio) - minutiDaOra(b.ora_inizio)
+    return d !== 0 ? d : a.id.localeCompare(b.id)
+  })
+
+  // Per ogni riga, il minuto in cui si libera.
+  const fineRiga: number[] = []
+  return ordinati.map((evento) => {
+    const inizio = minutiDaOra(evento.ora_inizio)
+    const fine = minutiDaOra(evento.ora_fine)
+    let riga = fineRiga.findIndex((f) => f <= inizio)
+    if (riga === -1) riga = fineRiga.length
+    fineRiga[riga] = fine
+    return { ...evento, riga }
+  })
+}
+
+/** Arrotonda i minuti al passo della griglia, per lo snap del trascinamento. */
+export function snapMinuti(minuti: number, passo = 30): number {
+  return Math.round(minuti / passo) * passo
+}

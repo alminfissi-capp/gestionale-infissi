@@ -6,6 +6,9 @@ import {
   indiceGiornoSettimana,
   statoGiorno,
   fasciaGriglia,
+  posizioneBarra,
+  impilaEventi,
+  snapMinuti,
 } from '@/lib/calendario'
 import { ORARI_LAVORO_DEFAULT } from '@/types/calendario'
 import type { Chiusura, OrariLavoro } from '@/types/calendario'
@@ -98,5 +101,72 @@ describe('fasciaGriglia', () => {
       i === 0 ? { ...g, apertura: '07:30' } : g
     )
     expect(fasciaGriglia(orari).inizio).toBe('07:30')
+  })
+})
+
+const fascia = { inizio: '08:00', fine: '19:00' } // 660 minuti
+
+describe('posizioneBarra', () => {
+  it('un evento che parte all apertura inizia a sinistra', () => {
+    const p = posizioneBarra('08:00', '09:00', fascia)
+    expect(p.sinistraPct).toBeCloseTo(0)
+    expect(p.larghezzaPct).toBeCloseTo((60 / 660) * 100)
+  })
+
+  it('un evento a meta giornata e posizionato in proporzione', () => {
+    const p = posizioneBarra('13:00', '14:00', fascia)
+    expect(p.sinistraPct).toBeCloseTo((300 / 660) * 100)
+  })
+
+  it('taglia un evento che sborda oltre la fine della griglia', () => {
+    const p = posizioneBarra('18:00', '21:00', fascia)
+    expect(p.sinistraPct + p.larghezzaPct).toBeCloseTo(100)
+  })
+
+  it('taglia un evento che inizia prima della griglia', () => {
+    const p = posizioneBarra('06:00', '09:00', fascia)
+    expect(p.sinistraPct).toBe(0)
+    expect(p.larghezzaPct).toBeCloseTo((60 / 660) * 100)
+  })
+})
+
+describe('impilaEventi', () => {
+  const ev = (id: string, ora_inizio: string, ora_fine: string) =>
+    ({ id, ora_inizio, ora_fine })
+
+  it('mette su una sola riga eventi che non si sovrappongono', () => {
+    const righe = impilaEventi([ev('a', '08:00', '10:00'), ev('b', '10:00', '12:00')])
+    expect(righe.map((r) => r.riga)).toEqual([0, 0])
+  })
+
+  it('impila gli eventi sovrapposti su righe diverse', () => {
+    const righe = impilaEventi([ev('a', '08:00', '12:00'), ev('b', '09:00', '10:00')])
+    expect(righe.find((r) => r.id === 'a')!.riga).toBe(0)
+    expect(righe.find((r) => r.id === 'b')!.riga).toBe(1)
+  })
+
+  it('riusa la prima riga libera invece di aprirne sempre una nuova', () => {
+    const righe = impilaEventi([
+      ev('a', '08:00', '12:00'),
+      ev('b', '09:00', '10:00'),
+      ev('c', '10:30', '11:00'),
+    ])
+    expect(righe.find((r) => r.id === 'c')!.riga).toBe(1)
+  })
+
+  it('ordina per ora di inizio anche se arrivano in disordine', () => {
+    const righe = impilaEventi([ev('b', '10:00', '11:00'), ev('a', '08:00', '09:00')])
+    expect(righe[0].id).toBe('a')
+  })
+})
+
+describe('snapMinuti', () => {
+  it('arrotonda al passo di 30 minuti piu vicino', () => {
+    expect(snapMinuti(497)).toBe(510)
+    expect(snapMinuti(492)).toBe(480)
+  })
+
+  it('accetta un passo diverso', () => {
+    expect(snapMinuti(497, 15)).toBe(495)
   })
 })
