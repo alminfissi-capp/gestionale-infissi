@@ -2,6 +2,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useDroppable } from '@dnd-kit/core'
 import {
   fasciaGriglia,
   impilaEventi,
@@ -33,6 +34,31 @@ export function giorniDelMese(anno: number, mese: number): string[] {
   )
 }
 
+/** Pista di un giorno che accetta il rilascio di una barra. */
+function PistaGiorno({
+  data, altezza, onNodo, children,
+}: {
+  data: string
+  altezza: number
+  /** Il contenitore misura la pista per convertire i pixel in minuti. */
+  onNodo?: (nodo: HTMLDivElement | null) => void
+  children: React.ReactNode
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: data })
+  return (
+    <div
+      ref={(nodo) => {
+        setNodeRef(nodo)
+        onNodo?.(nodo)
+      }}
+      className={`relative flex-1 ${isOver ? 'bg-sky-50 dark:bg-sky-950/30' : ''}`}
+      style={{ height: altezza }}
+    >
+      {children}
+    </div>
+  )
+}
+
 export default function GrigliaGantt({
   anno,
   mese,
@@ -40,6 +66,8 @@ export default function GrigliaGantt({
   orari,
   chiusure,
   onApriEvento,
+  onPistaNodo,
+  modificabile,
 }: {
   anno: number
   mese: number
@@ -47,6 +75,8 @@ export default function GrigliaGantt({
   orari: OrariLavoro
   chiusure: Chiusura[]
   onApriEvento?: (evento: EventoConContesto) => void
+  onPistaNodo?: (nodo: HTMLDivElement | null) => void
+  modificabile?: boolean
 }) {
   const fascia = useMemo(() => fasciaGriglia(orari), [orari])
   const ore = useMemo(() => oreDellaFascia(fascia.inizio, fascia.fine), [fascia])
@@ -83,7 +113,7 @@ export default function GrigliaGantt({
         </div>
 
         {/* Una riga per giorno */}
-        {giorni.map((data) => {
+        {giorni.map((data, indice) => {
           const stato = statoGiorno(data, orari, chiusure)
           const delGiorno = eventiPerGiorno.get(data) ?? []
           const impilati = impilaEventi(delGiorno)
@@ -94,6 +124,14 @@ export default function GrigliaGantt({
           const oltreChiusura = stato.aperto
             ? posizioneBarra(stato.chiusura, fascia.fine, fascia)
             : null
+          // Righe verticali a ora piena, uguali per ogni giorno.
+          const righeOre = ore.map((ora) => (
+            <div
+              key={ora}
+              className="absolute inset-y-0 w-px bg-gray-100 dark:bg-gray-800"
+              style={{ left: `${posizioneBarra(ora, ora, fascia).sinistraPct}%` }}
+            />
+          ))
 
           return (
             <div
@@ -111,48 +149,47 @@ export default function GrigliaGantt({
                 {Number(data.slice(8, 10))}
               </div>
 
-              <div className="relative flex-1">
-                {/* Righe verticali a ora piena */}
-                {ore.map((ora) => (
-                  <div
-                    key={ora}
-                    className="absolute inset-y-0 w-px bg-gray-100 dark:bg-gray-800"
-                    style={{ left: `${posizioneBarra(ora, ora, fascia).sinistraPct}%` }}
-                  />
-                ))}
-
-                {stato.aperto ? (
-                  <>
-                    {/* Mezza giornata: la fascia oltre la chiusura e' grigia */}
-                    {oltreChiusura && oltreChiusura.larghezzaPct > 0 && (
-                      <div
-                        className="absolute inset-y-0 bg-gray-200/70 dark:bg-gray-700/50"
-                        style={{
-                          left: `${oltreChiusura.sinistraPct}%`,
-                          width: `${oltreChiusura.larghezzaPct}%`,
-                        }}
+              {stato.aperto ? (
+                <PistaGiorno
+                  data={data}
+                  altezza={altezza}
+                  onNodo={indice === 0 ? onPistaNodo : undefined}
+                >
+                  {righeOre}
+                  {/* Mezza giornata: la fascia oltre la chiusura e' grigia */}
+                  {oltreChiusura && oltreChiusura.larghezzaPct > 0 && (
+                    <div
+                      className="absolute inset-y-0 bg-gray-200/70 dark:bg-gray-700/50"
+                      style={{
+                        left: `${oltreChiusura.sinistraPct}%`,
+                        width: `${oltreChiusura.larghezzaPct}%`,
+                      }}
+                    />
+                  )}
+                  {impilati.map((e) => {
+                    const p = posizioneBarra(e.ora_inizio, e.ora_fine, fascia)
+                    return (
+                      <BarraEvento
+                        key={e.id}
+                        evento={e}
+                        sinistraPct={p.sinistraPct}
+                        larghezzaPct={p.larghezzaPct}
+                        riga={e.riga}
+                        trascinabile={modificabile}
+                        onClick={onApriEvento ? () => onApriEvento(e) : undefined}
                       />
-                    )}
-                    {impilati.map((e) => {
-                      const p = posizioneBarra(e.ora_inizio, e.ora_fine, fascia)
-                      return (
-                        <BarraEvento
-                          key={e.id}
-                          evento={e}
-                          sinistraPct={p.sinistraPct}
-                          larghezzaPct={p.larghezzaPct}
-                          riga={e.riga}
-                          onClick={onApriEvento ? () => onApriEvento(e) : undefined}
-                        />
-                      )
-                    })}
-                  </>
-                ) : (
+                    )
+                  })}
+                </PistaGiorno>
+              ) : (
+                // I giorni chiusi non accettano rilasci: restano un div semplice.
+                <div className="relative flex-1">
+                  {righeOre}
                   <div className="absolute inset-0 flex items-center bg-red-600 px-3 text-xs font-semibold text-white">
                     CHIUSO — {stato.motivoChiusura}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )
         })}

@@ -1,5 +1,5 @@
 // app/(dashboard)/produzione/calendario/page.tsx
-import { requireAccesso } from '@/lib/permessi'
+import { getMyPermissions, requireAccesso } from '@/lib/permessi'
 import { getEventiProduzione, getOrariLavoro, getChiusure } from '@/actions/calendario'
 import { getCommessePerOrdine } from '@/actions/produzione'
 import CalendarioProduzione from '@/components/calendario/CalendarioProduzione'
@@ -30,6 +30,9 @@ export default async function CalendarioProduzionePage({
     getCommessePerOrdine(),
   ])
 
+  const { isAdmin, permessi } = await getMyPermissions()
+  const modificabile = isAdmin || permessi.produzione === 'scrittura'
+
   return (
     <CalendarioProduzione
       anno={anno}
@@ -38,6 +41,7 @@ export default async function CalendarioProduzionePage({
       orari={orari}
       chiusure={chiusure}
       commesse={commesse}
+      modificabile={modificabile}
     />
   )
 }

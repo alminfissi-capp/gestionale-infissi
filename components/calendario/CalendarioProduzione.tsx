@@ -1,10 +1,16 @@
 // components/calendario/CalendarioProduzione.tsx
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import {
+  DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
 import { ChevronLeft, ChevronRight, Plus, Printer } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { fasciaGriglia, minutiDaOra, oraDaMinuti, snapMinuti } from '@/lib/calendario'
+import { spostaEvento } from '@/actions/calendario'
 import { ASPETTO_TIPO, TIPI_PRODUZIONE } from '@/types/calendario'
 import GrigliaGantt from './GrigliaGantt'
 import DialogEvento, { type NuovoEvento } from './DialogEvento'
@@ -23,6 +29,7 @@ export default function CalendarioProduzione({
   orari,
   chiusure,
   commesse,
+  modificabile,
 }: {
   anno: number
   mese: number
@@ -30,11 +37,17 @@ export default function CalendarioProduzione({
   orari: OrariLavoro
   chiusure: Chiusura[]
   commesse: CommessaOpzione[]
+  modificabile: boolean
 }) {
   const router = useRouter()
   const [inCorso, startTransition] = useTransition()
   const [eventoAperto, setEventoAperto] = useState<EventoConContesto | null>(null)
   const [nuovo, setNuovo] = useState<NuovoEvento | null>(null)
+
+  const pistaRef = useRef<HTMLDivElement | null>(null)
+  const sensori = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  )
 
   const vaiA = (deltaMesi: number) => {
     const d = new Date(anno, mese - 1 + deltaMesi, 1)
@@ -43,6 +56,47 @@ export default function CalendarioProduzione({
         `/produzione/calendario?anno=${d.getFullYear()}&mese=${d.getMonth() + 1}`
       )
     })
+  }
+
+  const applicaSpostamento = async (
+    id: string, data: string, oraInizio: string, oraFine: string
+  ) => {
+    try {
+      await spostaEvento(id, data, oraInizio, oraFine)
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Errore nello spostamento')
+    }
+  }
+
+  const handleDragEnd = (e: DragEndEvent) => {
+    if (!modificabile || !e.over) return
+
+    const evento = eventi.find((x) => x.id === e.active.id)
+    if (!evento) return
+
+    const fascia = fasciaGriglia(orari)
+    const larghezza = pistaRef.current?.offsetWidth ?? 0
+    const durataGriglia = minutiDaOra(fascia.fine) - minutiDaOra(fascia.inizio)
+    const minutiPerPixel = larghezza > 0 ? durataGriglia / larghezza : 0
+
+    const durata = minutiDaOra(evento.ora_fine) - minutiDaOra(evento.ora_inizio)
+    const inizioAttuale = minutiDaOra(evento.ora_inizio)
+    const limiteMax = minutiDaOra(fascia.fine) - durata
+    const nuovoInizio = Math.max(
+      minutiDaOra(fascia.inizio),
+      Math.min(limiteMax, snapMinuti(inizioAttuale + e.delta.x * minutiPerPixel))
+    )
+
+    const nuovaData = String(e.over.id)
+    if (nuovaData === evento.data && nuovoInizio === inizioAttuale) return
+
+    void applicaSpostamento(
+      evento.id,
+      nuovaData,
+      oraDaMinuti(nuovoInizio),
+      oraDaMinuti(nuovoInizio + durata)
+    )
   }
 
   return (
@@ -76,6 +130,7 @@ export default function CalendarioProduzione({
             <Printer className="mr-1 h-4 w-4" />
             Stampa
           </Button>
+          {modificabile && (
           <Button
             size="sm"
             onClick={() =>
@@ -90,17 +145,22 @@ export default function CalendarioProduzione({
             <Plus className="mr-1 h-4 w-4" />
             Nuova attività
           </Button>
+          )}
         </div>
       </div>
 
-      <GrigliaGantt
-        anno={anno}
-        mese={mese}
-        eventi={eventi}
-        orari={orari}
-        chiusure={chiusure}
-        onApriEvento={setEventoAperto}
-      />
+      <DndContext sensors={sensori} onDragEnd={handleDragEnd}>
+        <GrigliaGantt
+          anno={anno}
+          mese={mese}
+          eventi={eventi}
+          orari={orari}
+          chiusure={chiusure}
+          onApriEvento={setEventoAperto}
+          onPistaNodo={(nodo) => { pistaRef.current = nodo }}
+          modificabile={modificabile}
+        />
+      </DndContext>
 
       {(eventoAperto || nuovo) && (
         <DialogEvento
