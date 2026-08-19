@@ -67,6 +67,8 @@ export default function GrigliaGantt({
   chiusure,
   onApriEvento,
   onPistaNodo,
+  onRidimensiona,
+  minutiPerPixel,
   modificabile,
 }: {
   anno: number
@@ -76,6 +78,8 @@ export default function GrigliaGantt({
   chiusure: Chiusura[]
   onApriEvento?: (evento: EventoConContesto) => void
   onPistaNodo?: (nodo: HTMLDivElement | null) => void
+  onRidimensiona?: (id: string, data: string, oraInizio: string, oraFine: string) => void
+  minutiPerPixel?: number
   modificabile?: boolean
 }) {
   const fascia = useMemo(() => fasciaGriglia(orari), [orari])
@@ -176,6 +180,13 @@ export default function GrigliaGantt({
                         larghezzaPct={p.larghezzaPct}
                         riga={e.riga}
                         trascinabile={modificabile}
+                        minutiPerPixel={minutiPerPixel}
+                        onRidimensiona={
+                          onRidimensiona
+                            ? (id, oraInizio, oraFine) =>
+                                onRidimensiona(id, e.data, oraInizio, oraFine)
+                            : undefined
+                        }
                         onClick={onApriEvento ? () => onApriEvento(e) : undefined}
                       />
                     )
