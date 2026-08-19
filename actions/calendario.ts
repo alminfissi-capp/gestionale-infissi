@@ -8,8 +8,12 @@ import { getOrgId } from '@/lib/auth'
 import { requireAccesso } from '@/lib/permessi'
 import { getSettings } from '@/actions/impostazioni'
 import { espandiCatena } from '@/lib/calendario'
-import { ORARI_LAVORO_DEFAULT } from '@/types/calendario'
+import { ORARI_LAVORO_DEFAULT, RICEZIONE_PER_CATEGORIA } from '@/types/calendario'
+import { STATI_COMMESSA_APERTI } from '@/types/produzione'
 import type {
+  CategoriaFornitore,
+  TipoEventoProduzione,
+  VoceDaPianificare,
   Chiusura,
   ChiusuraInput,
   OrariLavoro,
@@ -298,4 +302,89 @@ export async function deleteEvento(id: string, tuttaLaCatena = false): Promise<v
 
   revalidatePath('/produzione')
   revalidatePath('/calendario')
+}
+
+/** I tre tipi che una commessa deve avere collocati per uscire dalla coda. */
+const TIPI_ATTESI_COMMESSA: TipoEventoProduzione[] = ['lavorazione', 'posa', 'carico']
+
+/**
+ * Cosa aspetta di essere collocato sul calendario: commesse aperte senza
+ * lavorazione, posa o carico, e ordini in arrivo senza ricezione.
+ * Non crea nulla: propone soltanto.
+ */
+export async function getVociDaPianificare(): Promise<VoceDaPianificare[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const [commesseRes, eventiRes, ordiniRes] = await Promise.all([
+    supabase
+      .from('commesse')
+      .select('id, numero_commessa, cliente_nome')
+      .eq('organization_id', orgId)
+      .in('stato', STATI_COMMESSA_APERTI)
+      .order('numero_commessa', { ascending: true }),
+    supabase
+      .from('eventi_calendario')
+      .select('commessa_id, tipo, ordine_id')
+      .eq('organization_id', orgId)
+      .neq('stato', 'annullato'),
+    supabase
+      .from('ordini_fornitore')
+      .select(
+        'id, numero_ordine, fornitore_id, data_consegna_prevista, fornitori ( nome, categoria_calendario )'
+      )
+      .eq('organization_id', orgId)
+      .eq('stato', 'ordinato')
+      .not('data_consegna_prevista', 'is', null)
+      .order('data_consegna_prevista', { ascending: true }),
+  ])
+
+  if (commesseRes.error) throw new Error(commesseRes.error.message)
+  if (eventiRes.error) throw new Error(eventiRes.error.message)
+  if (ordiniRes.error) throw new Error(ordiniRes.error.message)
+
+  // Quali tipi sono gia' collocati, per commessa; e quali ordini hanno una ricezione.
+  const tipiPerCommessa = new Map<string, Set<string>>()
+  const ordiniCollocati = new Set<string>()
+  for (const e of eventiRes.data ?? []) {
+    if (e.ordine_id) ordiniCollocati.add(e.ordine_id as string)
+    if (!e.commessa_id) continue
+    const chiave = e.commessa_id as string
+    if (!tipiPerCommessa.has(chiave)) tipiPerCommessa.set(chiave, new Set())
+    tipiPerCommessa.get(chiave)!.add(e.tipo as string)
+  }
+
+  const voci: VoceDaPianificare[] = []
+
+  for (const c of commesseRes.data ?? []) {
+    const presenti = tipiPerCommessa.get(c.id) ?? new Set<string>()
+    const mancanti = TIPI_ATTESI_COMMESSA.filter((t) => !presenti.has(t))
+    if (mancanti.length === 0) continue
+    voci.push({
+      genere: 'commessa',
+      id: c.id,
+      numero_commessa: c.numero_commessa,
+      cliente_nome: c.cliente_nome,
+      tipi_mancanti: mancanti,
+    })
+  }
+
+  for (const o of ordiniRes.data ?? []) {
+    if (ordiniCollocati.has(o.id)) continue
+    const fornitore = o.fornitori as unknown as
+      { nome: string; categoria_calendario: CategoriaFornitore | null } | null
+    const categoria = fornitore?.categoria_calendario ?? null
+    voci.push({
+      genere: 'ordine',
+      id: o.id,
+      numero_ordine: o.numero_ordine,
+      fornitore_id: o.fornitore_id,
+      fornitore_nome: fornitore?.nome ?? null,
+      data_consegna_prevista: o.data_consegna_prevista as string,
+      tipo_ricezione: categoria ? RICEZIONE_PER_CATEGORIA[categoria] : 'ricez_accessori',
+      categoria_mancante: categoria === null,
+    })
+  }
+
+  return voci
 }
