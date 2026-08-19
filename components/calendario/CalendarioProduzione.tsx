@@ -16,6 +16,7 @@ import GrigliaGantt from './GrigliaGantt'
 import DialogEvento, { type NuovoEvento } from './DialogEvento'
 import CodaDaPianificare, { PREFISSO_VOCE } from './CodaDaPianificare'
 import ListaGiorniMobile from './ListaGiorniMobile'
+import StampaGantt from './StampaGantt'
 import type {
   Chiusura, EventoConContesto, OrariLavoro, TipoEvento, VoceDaPianificare,
 } from '@/types/calendario'
@@ -146,6 +147,11 @@ export default function CalendarioProduzione({
 
   return (
     <div className="space-y-4 p-4">
+      <StampaGantt />
+      <h1 className="hidden text-center text-base font-semibold print:block">
+        Calendario A.L.M. WP — {NOMI_MESI[mese - 1]} {anno}
+      </h1>
+
       <div className="no-stampa flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => vaiA(-1)} disabled={inCorso}>
@@ -197,7 +203,11 @@ export default function CalendarioProduzione({
       <div className="hidden min-[900px]:block">
         <DndContext sensors={sensori} onDragEnd={handleDragEnd}>
           <div className="flex gap-4">
-            {modificabile && <CodaDaPianificare voci={voci} />}
+            {modificabile && (
+              <div className="no-stampa">
+                <CodaDaPianificare voci={voci} />
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <GrigliaGantt
                 anno={anno}
