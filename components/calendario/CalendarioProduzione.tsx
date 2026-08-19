@@ -15,6 +15,7 @@ import { ASPETTO_TIPO, TIPI_PRODUZIONE } from '@/types/calendario'
 import GrigliaGantt from './GrigliaGantt'
 import DialogEvento, { type NuovoEvento } from './DialogEvento'
 import CodaDaPianificare, { PREFISSO_VOCE } from './CodaDaPianificare'
+import ListaGiorniMobile from './ListaGiorniMobile'
 import type {
   Chiusura, EventoConContesto, OrariLavoro, TipoEvento, VoceDaPianificare,
 } from '@/types/calendario'
@@ -193,28 +194,41 @@ export default function CalendarioProduzione({
         </div>
       </div>
 
-      <DndContext sensors={sensori} onDragEnd={handleDragEnd}>
-        <div className="flex gap-4">
-          {modificabile && <CodaDaPianificare voci={voci} />}
-          <div className="min-w-0 flex-1">
-            <GrigliaGantt
-              anno={anno}
-              mese={mese}
-              eventi={eventi}
-              orari={orari}
-              chiusure={chiusure}
-              onApriEvento={setEventoAperto}
-              onPistaNodo={(nodo) => {
-                const larghezza = nodo?.offsetWidth ?? 0
-                if (larghezza > 0 && larghezza !== larghezzaPista) setLarghezzaPista(larghezza)
-              }}
-              minutiPerPixel={calcolaMinutiPerPixel()}
-              onRidimensiona={modificabile ? applicaSpostamento : undefined}
-              modificabile={modificabile}
-            />
+      <div className="hidden min-[900px]:block">
+        <DndContext sensors={sensori} onDragEnd={handleDragEnd}>
+          <div className="flex gap-4">
+            {modificabile && <CodaDaPianificare voci={voci} />}
+            <div className="min-w-0 flex-1">
+              <GrigliaGantt
+                anno={anno}
+                mese={mese}
+                eventi={eventi}
+                orari={orari}
+                chiusure={chiusure}
+                onApriEvento={setEventoAperto}
+                onPistaNodo={(nodo) => {
+                  const larghezza = nodo?.offsetWidth ?? 0
+                  if (larghezza > 0 && larghezza !== larghezzaPista) setLarghezzaPista(larghezza)
+                }}
+                minutiPerPixel={calcolaMinutiPerPixel()}
+                onRidimensiona={modificabile ? applicaSpostamento : undefined}
+                modificabile={modificabile}
+              />
+            </div>
           </div>
-        </div>
-      </DndContext>
+        </DndContext>
+      </div>
+
+      <div className="min-[900px]:hidden">
+        <ListaGiorniMobile
+          anno={anno}
+          mese={mese}
+          eventi={eventi}
+          orari={orari}
+          chiusure={chiusure}
+          onApriEvento={setEventoAperto}
+        />
+      </div>
 
       {(eventoAperto || nuovo) && (
         <DialogEvento
