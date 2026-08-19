@@ -3414,8 +3414,10 @@ Expected: l'anteprima mostra un A4 orizzontale senza barra laterale né coda, co
 
 - [ ] **Step 4: Verificare l'intera build**
 
-Run: `npm run lint`
-Expected: nessun errore e nessun warning su variabili non usate.
+Run: `npx eslint components/calendario/ actions/calendario.ts lib/calendario.ts types/calendario.ts`
+Expected: pulito sui file del modulo.
+
+**Attenzione:** `npm run lint` sull'intero repo **fallisce già in partenza**, con ~35 errori preesistenti in file estranei (`FormPreventivo.tsx`, `actions/firma.ts`, `actions/firma-pubblica.ts`). Verificato con `git stash` sul branch di partenza. Il criterio quindi non è "il repo passa il lint" — non lo passava nemmeno prima — ma **nessun errore nuovo nei file toccati**.
 
 Run: `npx vitest run`
 Expected: tutti i test verdi, compresi i 30 di `lib/calendario.test.ts`.
@@ -3444,4 +3446,4 @@ Al termine dei 21 task devono valere tutte queste:
 - [ ] Sotto i 900px compare l'elenco per giorno.
 - [ ] La stampa produce un A4 orizzontale leggibile.
 - [ ] Un utente con `produzione = 'lettura'` vede tutto e non modifica nulla.
-- [ ] `npm run lint`, `npx vitest run` e `npm run build` passano.
+- [ ] `npx vitest run` e `npm run build` passano, ed `eslint` è pulito sui file del modulo (il lint dell'intero repo falliva già prima di questo lavoro).
