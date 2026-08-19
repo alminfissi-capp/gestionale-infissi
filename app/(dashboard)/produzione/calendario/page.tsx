@@ -1,0 +1,40 @@
+// app/(dashboard)/produzione/calendario/page.tsx
+import { requireAccesso } from '@/lib/permessi'
+import { getEventiProduzione, getOrariLavoro, getChiusure } from '@/actions/calendario'
+import CalendarioProduzione from '@/components/calendario/CalendarioProduzione'
+
+export const dynamic = 'force-dynamic'
+
+export default async function CalendarioProduzionePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ anno?: string; mese?: string }>
+}) {
+  await requireAccesso('produzione')
+  const { anno: annoParam, mese: meseParam } = await searchParams
+
+  const oggi = new Date()
+  const anno = Number(annoParam) || oggi.getFullYear()
+  const mese = Number(meseParam) || oggi.getMonth() + 1
+
+  const mm = String(mese).padStart(2, '0')
+  const ultimoGiorno = new Date(anno, mese, 0).getDate()
+  const dataInizio = `${anno}-${mm}-01`
+  const dataFine = `${anno}-${mm}-${ultimoGiorno}`
+
+  const [eventi, orari, chiusure] = await Promise.all([
+    getEventiProduzione(dataInizio, dataFine),
+    getOrariLavoro(),
+    getChiusure(),
+  ])
+
+  return (
+    <CalendarioProduzione
+      anno={anno}
+      mese={mese}
+      eventi={eventi}
+      orari={orari}
+      chiusure={chiusure}
+    />
+  )
+}

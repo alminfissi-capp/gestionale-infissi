@@ -6,8 +6,10 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Factory, AlertTriangle, FileText, Package, Search,
   BarChart3, MessageSquare, ClipboardList, Archive, ArchiveRestore, ArrowLeft,
+  CalendarDays,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -127,6 +129,12 @@ export default function CruscottoProduzione({ daFare, commesse, statoFiltro, arc
             Documenti, file e ordini fornitori delle commesse
           </p>
         </div>
+        <Button asChild variant="outline" size="sm" className="ml-auto">
+          <Link href="/produzione/calendario">
+            <CalendarDays className="mr-1 h-4 w-4" />
+            Calendario
+          </Link>
+        </Button>
       </div>
 
       {/* Zona superiore: statistiche + da fare + messaggi */}
