@@ -1,5 +1,5 @@
 // lib/calendario.ts
-import { ASPETTO_TIPO } from '@/types/calendario'
+import { ASPETTO_TIPO, GIORNI_SETTIMANA } from '@/types/calendario'
 import type { Chiusura, OrariLavoro, TipoEvento } from '@/types/calendario'
 
 /** 'HH:MM' o 'HH:MM:SS' → minuti dalla mezzanotte. */
@@ -24,17 +24,20 @@ export function indiceGiornoSettimana(data: string): number {
   return (d.getDay() + 6) % 7
 }
 
-export type StatoGiorno = {
-  aperto: boolean
-  apertura: string
-  chiusura: string
-  /** Perche' e' chiuso: il nome del giorno o la descrizione della chiusura. */
-  motivoChiusura: string | null
-}
-
-const NOMI_GIORNI = [
-  'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica',
-]
+/**
+ * Unione discriminata di proposito: a giorno chiuso gli orari non esistono.
+ * Prima erano presenti comunque, e la domenica riportava un plausibilissimo
+ * 08:00-19:00 accanto ad `aperto: false` — un invito a disegnare una fascia
+ * oraria che non c'e'. Cosi' leggerli senza aver prima controllato `aperto`
+ * e' un errore di compilazione, non un bug da scoprire sullo schermo.
+ */
+export type StatoGiorno =
+  | { aperto: true; apertura: string; chiusura: string; motivoChiusura: null }
+  | {
+      aperto: false
+      /** Il nome del giorno, o la descrizione della chiusura. */
+      motivoChiusura: string
+    }
 
 /**
  * Stato di un giorno: aperto o chiuso, con quali orari e per quale motivo.
@@ -52,19 +55,18 @@ export function statoGiorno(
     (c) => data >= c.data_inizio && data <= c.data_fine
   )
   if (chiusuraAttiva) {
-    return {
-      aperto: false,
-      apertura: orario.apertura,
-      chiusura: orario.chiusura,
-      motivoChiusura: chiusuraAttiva.descrizione,
-    }
+    return { aperto: false, motivoChiusura: chiusuraAttiva.descrizione }
+  }
+
+  if (!orario.aperto) {
+    return { aperto: false, motivoChiusura: GIORNI_SETTIMANA[indice] }
   }
 
   return {
-    aperto: orario.aperto,
+    aperto: true,
     apertura: orario.apertura,
     chiusura: orario.chiusura,
-    motivoChiusura: orario.aperto ? null : NOMI_GIORNI[indice],
+    motivoChiusura: null,
   }
 }
 
@@ -184,7 +186,12 @@ export type GiornoCatena = { data: string; ora_inizio: string; ora_fine: string 
  * Espande una lavorazione continuativa in una riga per giorno lavorativo.
  * I giorni chiusi vengono saltati e non consumano il conteggio; se un giorno
  * chiude prima dell'orario richiesto, la giornata si accorcia.
- * Il limite di 200 iterazioni evita di girare a vuoto se tutto e' chiuso.
+ *
+ * ATTENZIONE: puo' restituire MENO di `numeroGiorni`. Il limite di 200
+ * iterazioni evita di girare a vuoto quando tutto e' chiuso, ma la funzione
+ * tronca in silenzio. Chi la chiama deve confrontare `giorni.length` con
+ * `numeroGiorni` e avvisare l'utente: una catena piu' corta del richiesto,
+ * senza un messaggio, si nota solo contando le barre sul Gantt.
  */
 export function espandiCatena(
   dataInizio: string,

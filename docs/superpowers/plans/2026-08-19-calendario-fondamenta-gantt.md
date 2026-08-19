@@ -1688,8 +1688,17 @@ export async function createEvento(input: EventoInput, giorni = 1): Promise<void
     righe = [{ ...input, organization_id: orgId, created_by: user?.id ?? null }]
   }
 
+  // espandiCatena tronca in silenzio quando i giorni lavorativi non bastano.
+  // Una catena piu' corta del richiesto si noterebbe solo contando le barre
+  // sul Gantt, quindi qui diventa un errore visibile.
   if (righe.length === 0) {
     throw new Error('Nessun giorno lavorativo disponibile nel periodo scelto')
+  }
+  if (righe.length < giorni) {
+    throw new Error(
+      `Nel periodo scelto ci sono solo ${righe.length} giorni lavorativi invece di ${giorni}. ` +
+      'Sposta la data di inizio o riduci i giorni.'
+    )
   }
 
   const { error } = await supabase.from('eventi_calendario').insert(righe)
@@ -2101,7 +2110,11 @@ export default function GrigliaGantt({
           const impilati = impilaEventi(delGiorno)
           const numeroRighe = impilati.reduce((max, e) => Math.max(max, e.riga + 1), 0)
           const altezza = Math.max(ALTEZZA_MINIMA_RIGA, numeroRighe * ALTEZZA_BARRA + 6)
-          const oltreChiusura = posizioneBarra(stato.chiusura, fascia.fine, fascia)
+          // `StatoGiorno` e' un'unione discriminata: gli orari esistono solo a
+          // giorno aperto, quindi la fascia grigia si calcola dentro il ramo.
+          const oltreChiusura = stato.aperto
+            ? posizioneBarra(stato.chiusura, fascia.fine, fascia)
+            : null
 
           return (
             <div
@@ -2132,7 +2145,7 @@ export default function GrigliaGantt({
                 {stato.aperto ? (
                   <>
                     {/* Mezza giornata: la fascia oltre la chiusura e' grigia */}
-                    {oltreChiusura.larghezzaPct > 0 && (
+                    {oltreChiusura && oltreChiusura.larghezzaPct > 0 && (
                       <div
                         className="absolute inset-y-0 bg-gray-200/70 dark:bg-gray-700/50"
                         style={{

@@ -60,7 +60,8 @@ describe('statoGiorno', () => {
 
   it('il sabato chiude a mezzogiorno e mezzo', () => {
     const s = statoGiorno('2026-08-22', ORARI_LAVORO_DEFAULT, [])
-    expect(s.aperto).toBe(true)
+    // Il tipo e' un'unione discriminata: gli orari esistono solo se aperto.
+    if (!s.aperto) throw new Error('il sabato deve risultare aperto')
     expect(s.chiusura).toBe('12:30')
   })
 
@@ -237,5 +238,42 @@ describe('espandiCatena', () => {
       chiusura('2026-08-18', '2026-08-18', 'Ponte'),
     ])
     expect(giorni.map((g) => g.data)).toEqual(['2026-08-17', '2026-08-19'])
+  })
+})
+
+// --- Casi limite segnalati dalla revisione della logica pura ---
+
+describe('casi limite', () => {
+  it('fasciaGriglia ripiega su 08:00-19:00 se non c e nessun giorno aperto', () => {
+    const tuttoChiuso: OrariLavoro = ORARI_LAVORO_DEFAULT.map((g) => ({ ...g, aperto: false }))
+    expect(fasciaGriglia(tuttoChiuso)).toEqual({ inizio: '08:00', fine: '19:00' })
+  })
+
+  it('impilaEventi su lista vuota non esplode', () => {
+    expect(impilaEventi([])).toEqual([])
+  })
+
+  it('espandiCatena torna vuoto se ogni giorno e chiuso', () => {
+    const tuttoChiuso: OrariLavoro = ORARI_LAVORO_DEFAULT.map((g) => ({ ...g, aperto: false }))
+    expect(espandiCatena('2026-08-17', 3, '08:00', '17:30', tuttoChiuso, [])).toEqual([])
+  })
+
+  it('espandiCatena tronca quando i giorni lavorativi non bastano', () => {
+    // Una chiusura lunghissima lascia disponibile solo il primo giorno.
+    const giorni = espandiCatena('2026-08-17', 5, '08:00', '17:30', ORARI_LAVORO_DEFAULT, [
+      chiusura('2026-08-18', '2028-08-18', 'Chiusura infinita'),
+    ])
+    expect(giorni).toHaveLength(1)
+  })
+
+  it('etichettaEvento ignora un cliente fatto di soli spazi', () => {
+    expect(
+      etichettaEvento({
+        tipo: 'lavorazione',
+        titolo: 'Ripasso serramenti',
+        cliente_nome: '   ',
+        fornitore_nome: null,
+      })
+    ).toBe('Ripasso serramenti')
   })
 })
