@@ -188,7 +188,7 @@ export function etichettaEvento(evento: Etichettabile): string {
 }
 
 /** Somma giorni a una data 'YYYY-MM-DD' restando in fuso locale. */
-function aggiungiGiorni(data: string, giorni: number): string {
+export function aggiungiGiorni(data: string, giorni: number): string {
   const d = new Date(`${data}T00:00:00`)
   d.setDate(d.getDate() + giorni)
   const mm = String(d.getMonth() + 1).padStart(2, '0')
@@ -239,4 +239,48 @@ export function espandiCatena(
   }
 
   return giorni
+}
+
+/** I sette giorni della settimana che contiene `data`, da lunedi' a domenica. */
+export function settimanaDi(data: string): string[] {
+  const lunedi = aggiungiGiorni(data, -indiceGiornoSettimana(data))
+  return Array.from({ length: 7 }, (_, i) => aggiungiGiorni(lunedi, i))
+}
+
+/**
+ * Le settimane che compongono la griglia del mese. Sono sempre intere, quindi
+ * la prima e l'ultima possono sconfinare nel mese vicino: la vista mese li
+ * mostra in grigio, come su qualunque calendario di carta.
+ */
+export function settimaneDelMese(anno: number, mese: number): string[][] {
+  const mm = String(mese).padStart(2, '0')
+  const ultimoGiorno = new Date(anno, mese, 0).getDate()
+  const settimane: string[][] = []
+
+  let corrente = settimanaDi(`${anno}-${mm}-01`)
+  const fineMese = `${anno}-${mm}-${String(ultimoGiorno).padStart(2, '0')}`
+  while (corrente[0] <= fineMese) {
+    settimane.push(corrente)
+    corrente = settimanaDi(aggiungiGiorni(corrente[0], 7))
+  }
+  return settimane
+}
+
+/**
+ * Eventi indicizzati per data e ordinati per ora di inizio: e' la forma in cui
+ * le viste mese, settimana e giorno li pescano senza rifiltrare l'elenco.
+ */
+export function raggruppaPerGiorno<T extends { data: string; ora_inizio: string }>(
+  eventi: T[]
+): Map<string, T[]> {
+  const mappa = new Map<string, T[]>()
+  for (const e of eventi) {
+    const dellaData = mappa.get(e.data)
+    if (dellaData) dellaData.push(e)
+    else mappa.set(e.data, [e])
+  }
+  for (const elenco of mappa.values()) {
+    elenco.sort((a, b) => a.ora_inizio.localeCompare(b.ora_inizio))
+  }
+  return mappa
 }

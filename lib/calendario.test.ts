@@ -11,6 +11,10 @@ import {
   snapMinuti,
   etichettaEvento,
   espandiCatena,
+  aggiungiGiorni,
+  settimanaDi,
+  settimaneDelMese,
+  raggruppaPerGiorno,
 } from '@/lib/calendario'
 import { ORARI_LAVORO_DEFAULT } from '@/types/calendario'
 import type { Chiusura, OrariLavoro } from '@/types/calendario'
@@ -325,5 +329,66 @@ describe('statoGiorno con chiusure ricorrenti', () => {
       festivita('02-29', '02-29', 'Giorno in piu'),
     ])
     expect(s).toEqual({ aperto: false, motivoChiusura: 'Giorno in piu' })
+  })
+})
+
+describe('aggiungiGiorni', () => {
+  it('somma e sottrae restando in formato YYYY-MM-DD', () => {
+    expect(aggiungiGiorni('2026-08-19', 1)).toBe('2026-08-20')
+    expect(aggiungiGiorni('2026-08-01', -1)).toBe('2026-07-31')
+  })
+
+  it('scavalca il capodanno e regge il 29 febbraio', () => {
+    expect(aggiungiGiorni('2026-12-31', 1)).toBe('2027-01-01')
+    expect(aggiungiGiorni('2028-02-28', 1)).toBe('2028-02-29')
+  })
+})
+
+describe('settimanaDi', () => {
+  it('parte sempre da lunedi e finisce di domenica', () => {
+    // Il 19 agosto 2026 e' un mercoledi.
+    expect(settimanaDi('2026-08-19')).toEqual([
+      '2026-08-17', '2026-08-18', '2026-08-19', '2026-08-20',
+      '2026-08-21', '2026-08-22', '2026-08-23',
+    ])
+  })
+
+  it('di domenica resta nella settimana che si sta chiudendo', () => {
+    const s = settimanaDi('2026-08-23')
+    expect(s[0]).toBe('2026-08-17')
+    expect(s[6]).toBe('2026-08-23')
+  })
+})
+
+describe('settimaneDelMese', () => {
+  it('restituisce settimane intere che coprono tutto il mese', () => {
+    const settimane = settimaneDelMese(2026, 8)
+    expect(settimane.every((s) => s.length === 7)).toBe(true)
+    // Il 1 agosto 2026 e' un sabato: la prima settimana inizia il 27 luglio.
+    expect(settimane[0][0]).toBe('2026-07-27')
+    const ultima = settimane[settimane.length - 1]
+    expect(ultima[6] >= '2026-08-31').toBe(true)
+    const tutti = settimane.flat()
+    expect(tutti).toContain('2026-08-01')
+    expect(tutti).toContain('2026-08-31')
+  })
+
+  it('un mese che inizia di lunedi non trascina giorni del mese prima', () => {
+    // Il 1 giugno 2026 e' un lunedi.
+    expect(settimaneDelMese(2026, 6)[0][0]).toBe('2026-06-01')
+  })
+})
+
+describe('raggruppaPerGiorno', () => {
+  it('mette gli eventi sotto la loro data, ordinati per ora', () => {
+    const eventi = [
+      { data: '2026-08-19', ora_inizio: '15:00' },
+      { data: '2026-08-19', ora_inizio: '09:00' },
+      { data: '2026-08-20', ora_inizio: '11:00' },
+    ]
+    const mappa = raggruppaPerGiorno(eventi)
+    expect(mappa.get('2026-08-19')?.map((e) => e.ora_inizio)).toEqual(['09:00', '15:00'])
+    expect(mappa.get('2026-08-20')).toHaveLength(1)
+    expect(mappa.get('2026-08-21')).toBeUndefined()
   })
 })
