@@ -1,6 +1,7 @@
 // app/(dashboard)/produzione/calendario/page.tsx
 import { requireAccesso } from '@/lib/permessi'
 import { getEventiProduzione, getOrariLavoro, getChiusure } from '@/actions/calendario'
+import { getCommessePerOrdine } from '@/actions/produzione'
 import CalendarioProduzione from '@/components/calendario/CalendarioProduzione'
 
 export const dynamic = 'force-dynamic'
@@ -22,10 +23,11 @@ export default async function CalendarioProduzionePage({
   const dataInizio = `${anno}-${mm}-01`
   const dataFine = `${anno}-${mm}-${ultimoGiorno}`
 
-  const [eventi, orari, chiusure] = await Promise.all([
+  const [eventi, orari, chiusure, commesse] = await Promise.all([
     getEventiProduzione(dataInizio, dataFine),
     getOrariLavoro(),
     getChiusure(),
+    getCommessePerOrdine(),
   ])
 
   return (
@@ -35,6 +37,7 @@ export default async function CalendarioProduzionePage({
       eventi={eventi}
       orari={orari}
       chiusure={chiusure}
+      commesse={commesse}
     />
   )
 }

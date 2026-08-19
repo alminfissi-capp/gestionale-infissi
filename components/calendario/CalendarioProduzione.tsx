@@ -3,11 +3,13 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Printer } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ASPETTO_TIPO, TIPI_PRODUZIONE } from '@/types/calendario'
 import GrigliaGantt from './GrigliaGantt'
+import DialogEvento, { type NuovoEvento } from './DialogEvento'
 import type { Chiusura, EventoConContesto, OrariLavoro } from '@/types/calendario'
+import type { CommessaOpzione } from '@/types/produzione'
 
 export const NOMI_MESI = [
   'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
@@ -20,16 +22,19 @@ export default function CalendarioProduzione({
   eventi,
   orari,
   chiusure,
+  commesse,
 }: {
   anno: number
   mese: number
   eventi: EventoConContesto[]
   orari: OrariLavoro
   chiusure: Chiusura[]
+  commesse: CommessaOpzione[]
 }) {
   const router = useRouter()
   const [inCorso, startTransition] = useTransition()
   const [eventoAperto, setEventoAperto] = useState<EventoConContesto | null>(null)
+  const [nuovo, setNuovo] = useState<NuovoEvento | null>(null)
 
   const vaiA = (deltaMesi: number) => {
     const d = new Date(anno, mese - 1 + deltaMesi, 1)
@@ -71,6 +76,20 @@ export default function CalendarioProduzione({
             <Printer className="mr-1 h-4 w-4" />
             Stampa
           </Button>
+          <Button
+            size="sm"
+            onClick={() =>
+              setNuovo({
+                data: new Date().toISOString().slice(0, 10),
+                ora_inizio: '08:00',
+                ora_fine: '17:30',
+                tipo: 'lavorazione',
+              })
+            }
+          >
+            <Plus className="mr-1 h-4 w-4" />
+            Nuova attività
+          </Button>
         </div>
       </div>
 
@@ -83,8 +102,17 @@ export default function CalendarioProduzione({
         onApriEvento={setEventoAperto}
       />
 
-      {/* Il dialog arriva al Task 15. Per ora il clic seleziona e basta. */}
-      {eventoAperto !== null && null}
+      {(eventoAperto || nuovo) && (
+        <DialogEvento
+          evento={eventoAperto}
+          nuovo={nuovo}
+          commesse={commesse}
+          onClose={() => {
+            setEventoAperto(null)
+            setNuovo(null)
+          }}
+        />
+      )}
     </div>
   )
 }
