@@ -28,6 +28,16 @@ export const TIPI_PRODUZIONE: TipoEventoProduzione[] = [
 ]
 
 /**
+ * Tipi che si creano dall'agenda. 'scadenza' non c'e': nasce dalla spunta su
+ * una riga di Commesse ed e' in sola lettura.
+ */
+export const TIPI_ADMIN: TipoEventoAdmin[] = [
+  'appuntamento',
+  'impegno_interno',
+  'promemoria',
+]
+
+/**
  * Aspetto della barra. Il colore deriva dal tipo e non e' scelto a mano:
  * la legenda appesa in officina deve restare vera.
  */
