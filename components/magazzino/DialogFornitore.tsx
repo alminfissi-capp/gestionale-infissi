@@ -13,6 +13,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { createFornitore, updateFornitore } from '@/actions/magazzino'
 import type { Fornitore, FornitoreInput } from '@/types/magazzino'
 
@@ -29,6 +32,7 @@ const empty: FornitoreInput = {
   email: '',
   indirizzo: '',
   note: '',
+  categoria_calendario: null,
 }
 
 export default function DialogFornitore({ open, onOpenChange, fornitore }: Props) {
@@ -42,6 +46,7 @@ export default function DialogFornitore({ open, onOpenChange, fornitore }: Props
           email: fornitore.email ?? '',
           indirizzo: fornitore.indirizzo ?? '',
           note: fornitore.note ?? '',
+          categoria_calendario: fornitore.categoria_calendario,
         }
       : empty
   )
@@ -106,6 +111,32 @@ export default function DialogFornitore({ open, onOpenChange, fornitore }: Props
           <div className="space-y-2">
             <Label htmlFor="note">Note</Label>
             <Input id="note" value={form.note} onChange={set('note')} />
+          </div>
+          <div>
+            <Label htmlFor="categoria-calendario">Categoria per il calendario</Label>
+            <Select
+              value={form.categoria_calendario ?? 'nessuna'}
+              onValueChange={(v) =>
+                setForm((f) => ({
+                  ...f,
+                  categoria_calendario:
+                    v === 'nessuna' ? null : (v as 'alluminio' | 'vetri' | 'accessori'),
+                }))
+              }
+            >
+              <SelectTrigger id="categoria-calendario">
+                <SelectValue placeholder="Non impostata" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nessuna">Non impostata</SelectItem>
+                <SelectItem value="alluminio">Alluminio</SelectItem>
+                <SelectItem value="vetri">Vetri</SelectItem>
+                <SelectItem value="accessori">Accessori</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs text-gray-500">
+              Determina il colore della ricezione creata dagli ordini di questo fornitore.
+            </p>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

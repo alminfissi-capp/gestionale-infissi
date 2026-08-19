@@ -21,6 +21,8 @@ export type Fornitore = {
   email: string | null
   indirizzo: string | null
   note: string | null
+  /** Decide il colore della ricezione generata dagli ordini di questo fornitore. */
+  categoria_calendario: 'alluminio' | 'vetri' | 'accessori' | null
   created_at: string
   updated_at: string
 }
@@ -32,6 +34,7 @@ export type FornitoreInput = {
   email?: string
   indirizzo?: string
   note?: string
+  categoria_calendario?: 'alluminio' | 'vetri' | 'accessori' | null
 }
 
 export type CategoriaMagazzino = {
