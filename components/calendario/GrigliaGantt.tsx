@@ -145,6 +145,7 @@ export default function GrigliaGantt({
           const oltreChiusura = stato.aperto
             ? posizioneBarra(stato.chiusura, fascia.fine, fascia)
             : null
+          const giornoDiPosa = stato.aperto && delGiorno.some((e) => e.tipo === 'posa')
           // Righe verticali a ora piena, uguali per ogni giorno.
           const righeOre = ore.map((ora) => (
             <div
@@ -163,9 +164,16 @@ export default function GrigliaGantt({
               <div
                 className={`flex w-14 shrink-0 items-center justify-center border-r border-gray-300 text-sm font-semibold dark:border-gray-600 ${
                   stato.aperto
-                    ? 'bg-[#A6D64B] text-[#152300]'
+                    ? 'bg-white text-gray-700 dark:bg-gray-900 dark:text-gray-200'
                     : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
                 }`}
+                // Il verde segnala i giorni di posa, come sul foglio in officina:
+                // sono quelli che si cercano a colpo d'occhio.
+                style={
+                  giornoDiPosa
+                    ? { backgroundColor: ASPETTO_TIPO.posa.sfondo, color: ASPETTO_TIPO.posa.testo }
+                    : undefined
+                }
               >
                 {Number(data.slice(8, 10))}
               </div>
