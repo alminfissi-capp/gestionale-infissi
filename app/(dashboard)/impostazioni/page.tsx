@@ -13,8 +13,9 @@ import FormValiditaPreventivo from '@/components/impostazioni/FormValiditaPreven
 import ThemeToggle from '@/components/impostazioni/ThemeToggle'
 import SezioneFirmaDefault from '@/components/impostazioni/SezioneFirmaDefault'
 import FormConti from '@/components/impostazioni/FormConti'
-import { getOrariLavoro } from '@/actions/calendario'
+import { getOrariLavoro, getChiusure } from '@/actions/calendario'
 import FormOrariLavoro from '@/components/impostazioni/FormOrariLavoro'
+import FormChiusure from '@/components/impostazioni/FormChiusure'
 
 export default async function ImpostazioniPage() {
   await requireAccesso('impostazioni')
@@ -27,11 +28,12 @@ export default async function ImpostazioniPage() {
     .eq('id', user!.id)
     .single()
 
-  const [settings, templates, conti, orariLavoro] = await Promise.all([
+  const [settings, templates, conti, orariLavoro, chiusure] = await Promise.all([
     getSettings(),
     getNoteTemplates(),
     getConti(),
     getOrariLavoro(),
+    getChiusure(),
   ])
 
   // Genera URL firmato per il logo se presente
@@ -136,6 +138,20 @@ export default async function ImpostazioniPage() {
         </CardHeader>
         <CardContent>
           <FormOrariLavoro iniziali={orariLavoro} />
+        </CardContent>
+      </Card>
+
+      {/* Giorni di chiusura */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Giorni di chiusura</CardTitle>
+          <CardDescription>
+            Festività, ponti e ferie. Nel calendario diventano righe rosse su cui
+            non si possono collocare attività.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FormChiusure chiusure={chiusure} />
         </CardContent>
       </Card>
 
