@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getDashboardData } from '@/actions/dashboard'
 import { getMyPermissions, primoModuloAccessibile } from '@/lib/permessi'
 import DashboardPage from '@/components/dashboard/DashboardPage'
+import ProssimiImpegni from '@/components/calendario/ProssimiImpegni'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,5 +30,12 @@ export default async function Page() {
   }
 
   const data = await getDashboardData()
-  return <DashboardPage data={data} />
+  return (
+    <>
+      <div className="mx-auto max-w-5xl px-6 pt-6">
+        <ProssimiImpegni />
+      </div>
+      <DashboardPage data={data} />
+    </>
+  )
 }
