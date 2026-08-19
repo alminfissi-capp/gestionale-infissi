@@ -582,3 +582,142 @@ export async function getProssimiImpegni(giorni = 7): Promise<EventoConContesto[
   if (error) throw new Error(error.message)
   return (data ?? []).map((r) => appiattisci(r as unknown as RigaGrezza))
 }
+
+/* ------------------------------------------------------------------ *
+ * Scadenze mostrate in agenda                                        *
+ * ------------------------------------------------------------------ */
+
+/** Riga di `scadenze` che serve a comporre l'evento specchio. */
+type ScadenzaSpecchio = {
+  data_scadenza: string | null
+  descrizione: string
+  fornitore: string
+  importo: number
+}
+
+function eventoDaScadenza(s: ScadenzaSpecchio): Record<string, unknown> {
+  const importo = s.importo
+    ? new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(s.importo)
+    : null
+  return {
+    tipo: 'scadenza',
+    titolo: [s.descrizione, s.fornitore].filter(Boolean).join(' — '),
+    data: s.data_scadenza,
+    ora_inizio: '08:00',
+    ora_fine: '19:00',
+    tutto_il_giorno: true,
+    note: importo,
+    visibile_produzione: false,
+    visibile_amministrazione: true,
+    updated_at: new Date().toISOString(),
+  }
+}
+
+/** Gli id delle scadenze che hanno gia' un evento in agenda. */
+export async function getScadenzeInCalendario(): Promise<string[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { data, error } = await supabase
+    .from('eventi_calendario')
+    .select('scadenza_id')
+    .eq('organization_id', orgId)
+    .not('scadenza_id', 'is', null)
+
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((r) => r.scadenza_id as string)
+}
+
+/**
+ * Mostra o toglie una scadenza dall'agenda. L'evento e' uno specchio in sola
+ * lettura: nasce qui, si aggiorna con la scadenza e sparisce togliendo la
+ * spunta (o cancellando la scadenza, per via del vincolo ON DELETE CASCADE).
+ */
+export async function toggleScadenzaInCalendario(
+  scadenzaId: string,
+  mostra: boolean
+): Promise<void> {
+  await requireAccesso('commesse', 'scrittura')
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  if (!mostra) {
+    const { error } = await supabase
+      .from('eventi_calendario')
+      .delete()
+      .eq('scadenza_id', scadenzaId)
+      .eq('organization_id', orgId)
+    if (error) throw new Error(error.message)
+  } else {
+    const { data: scadenza, error: erroreLettura } = await supabase
+      .from('scadenze')
+      .select('data_scadenza, descrizione, fornitore, importo')
+      .eq('id', scadenzaId)
+      .eq('organization_id', orgId)
+      .single()
+    if (erroreLettura) throw new Error(erroreLettura.message)
+
+    // Una scadenza "da programmare" non ha data: sul calendario non ha un posto.
+    if (!scadenza.data_scadenza) {
+      throw new Error('Assegna prima una data alla scadenza')
+    }
+
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await supabase.from('eventi_calendario').insert({
+      ...eventoDaScadenza(scadenza as ScadenzaSpecchio),
+      organization_id: orgId,
+      scadenza_id: scadenzaId,
+      created_by: user?.id ?? null,
+    })
+    if (error) throw new Error(error.message)
+  }
+
+  revalidatePath('/commesse', 'layout')
+  revalidatePath('/calendario')
+  revalidatePath('/')
+}
+
+/**
+ * Riallinea l'evento specchio dopo una modifica alla scadenza. Non crea nulla:
+ * se la scadenza non e' in agenda non deve entrarci da sola.
+ */
+export async function sincronizzaEventoScadenza(scadenzaId: string): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { data: evento } = await supabase
+    .from('eventi_calendario')
+    .select('id')
+    .eq('scadenza_id', scadenzaId)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+  if (!evento) return
+
+  const { data: scadenza } = await supabase
+    .from('scadenze')
+    .select('data_scadenza, descrizione, fornitore, importo')
+    .eq('id', scadenzaId)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+  if (!scadenza) return
+
+  // Se la scadenza torna senza data esce dall'agenda: non c'e' giorno su cui
+  // disegnarla.
+  if (!scadenza.data_scadenza) {
+    await supabase
+      .from('eventi_calendario')
+      .delete()
+      .eq('id', evento.id)
+      .eq('organization_id', orgId)
+    revalidatePath('/calendario')
+    return
+  }
+
+  await supabase
+    .from('eventi_calendario')
+    .update(eventoDaScadenza(scadenza as ScadenzaSpecchio))
+    .eq('id', evento.id)
+    .eq('organization_id', orgId)
+
+  revalidatePath('/calendario')
+}

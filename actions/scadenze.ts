@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { revalidatePath } from 'next/cache'
 import { getOrgId } from '@/lib/auth'
+import { sincronizzaEventoScadenza } from '@/actions/calendario'
 import type { GruppoCommesse, Scadenza, ScadenzaInput } from '@/types/commessa'
 
 const BUCKET = 'commesse-docs'
@@ -149,6 +150,8 @@ export async function updateScadenza(id: string, input: Partial<ScadenzaInput>):
     .eq('id', id)
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
+  // Chi e' in agenda ci resta con i dati aggiornati; chi non c'e' non entra.
+  await sincronizzaEventoScadenza(id)
   revalidatePath('/commesse', 'layout')
 }
 

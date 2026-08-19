@@ -30,6 +30,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { updateScadenza, riordinaScadenze, copiaScadenzaRate } from '@/actions/scadenze'
+import { toggleScadenzaInCalendario } from '@/actions/calendario'
 import { useScadenzeRighe } from '@/hooks/useScadenzeRighe'
 import { formatEuro } from '@/lib/pricing'
 import VisualizzatoreDocumento from '@/components/ui/VisualizzatoreDocumento'
@@ -226,10 +227,26 @@ interface Props {
   scadenze: Scadenza[]
   fornitori: string[]
   conti: ContoCorrente[]
+  /** Id delle scadenze che hanno gia' un evento specchio in agenda. */
+  inCalendario?: string[]
 }
 
-export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori, conti }: Props) {
+export default function ScadenzeView({
+  gruppoId, gruppoNome, scadenze, fornitori, conti, inCalendario = [],
+}: Props) {
   const router = useRouter()
+  const idInCalendario = useMemo(() => new Set(inCalendario), [inCalendario])
+
+  const handleToggleCalendario = async (s: Scadenza) => {
+    const mostra = !idInCalendario.has(s.id)
+    try {
+      await toggleScadenzaInCalendario(s.id, mostra)
+      toast.success(mostra ? 'Scadenza mostrata in calendario' : 'Scadenza tolta dal calendario')
+      router.refresh()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Errore')
+    }
+  }
   const contoNome = useMemo(
     () => Object.fromEntries(conti.map((c) => [c.id, c.nome])) as Record<string, string>,
     [conti]
@@ -406,6 +423,8 @@ export default function ScadenzeView({ gruppoId, gruppoNome, scadenze, fornitori
                         onTogglePagato={handleTogglePagato}
                         onToggleCalcoli={handleToggleCalcoli}
                         onToggleAnnullata={handleToggleAnnullata}
+                        inCalendario={idInCalendario.has(s.id)}
+                        onToggleCalendario={handleToggleCalendario}
                         onDelete={handleDelete}
                         onSpostaInLimbo={handleSpostaInLimbo}
                         onFotoSelected={handleFotoSelected}

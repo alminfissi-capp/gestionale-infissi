@@ -11,6 +11,7 @@ import { getFornitori } from '@/actions/magazzino'
 import { getClienti } from '@/actions/clienti'
 import TabellaCommesse from '@/components/commesse/TabellaCommesse'
 import ScadenzeView from '@/components/commesse/ScadenzeView'
+import { getScadenzeInCalendario } from '@/actions/calendario'
 import ScadenzeDaProgrammareView from '@/components/commesse/ScadenzeDaProgrammareView'
 import type { PreventivoPerCommessa } from '@/types/commessa'
 import Link from 'next/link'
@@ -71,7 +72,9 @@ async function ScadenzeViewLoader({
   gruppoNome: string
   daProgrammare?: boolean
 }) {
-  const [scadenze, fornitori, conti] = await Promise.all([getScadenze(gruppoId), getFornitori(), getConti()])
+  const [scadenze, fornitori, conti, inCalendario] = await Promise.all([
+    getScadenze(gruppoId), getFornitori(), getConti(), getScadenzeInCalendario(),
+  ])
   const nomiFornitori = fornitori.map((f) => f.nome)
 
   // Stessi dati, due letture diverse: per mesi nei blocchi anno, elenco piatto
@@ -90,6 +93,7 @@ async function ScadenzeViewLoader({
       scadenze={scadenze}
       fornitori={nomiFornitori}
       conti={conti}
+      inCalendario={inCalendario}
     />
   )
 }

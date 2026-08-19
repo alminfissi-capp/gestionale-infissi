@@ -5,6 +5,7 @@ import Link from 'next/link'
 import {
   Pencil, Trash2, Camera, Check, Loader2, Star, Landmark, GripVertical, Copy, CalendarPlus,
   MoreVertical, Printer, Paperclip, FileText, Ban, RotateCcw, CalendarOff, CalendarClock,
+  CalendarCheck, CalendarX,
 } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -64,6 +65,9 @@ export type RigaScadenzaProps = {
   onTogglePagato: (s: Scadenza) => void
   onToggleCalcoli: (s: Scadenza) => void
   onToggleAnnullata: (s: Scadenza) => void
+  /** Vero se la scadenza ha gia' un evento specchio in agenda. */
+  inCalendario?: boolean
+  onToggleCalendario?: (s: Scadenza) => void
   onDelete: (s: Scadenza) => void
   onFotoSelected: (s: Scadenza, file: File | null) => void
   onOpenFoto: (url: string, s: Scadenza) => void
@@ -83,7 +87,8 @@ export type RigaScadenzaProps = {
 
 export default function RigaScadenza({
   s, contoNome, fotoUrl, uploading, setCameraRef, setFileRef, onClickCamera, onClickFile,
-  onTogglePagato, onToggleCalcoli, onToggleAnnullata, onDelete, onFotoSelected, onOpenFoto, onEdit,
+  onTogglePagato, onToggleCalcoli, onToggleAnnullata, inCalendario = false,
+  onToggleCalendario, onDelete, onFotoSelected, onOpenFoto, onEdit,
   onCopia, onApriPiano, onSpostaInLimbo, copying, daProgrammare = false,
 }: RigaScadenzaProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
@@ -377,6 +382,26 @@ export default function RigaScadenza({
               <DropdownMenuItem onClick={() => onSpostaInLimbo(s)}>
                 <CalendarOff className="h-4 w-4 mr-2" />
                 Sposta in Da programmare
+              </DropdownMenuItem>
+            </>
+          )}
+
+          {/* In agenda: l'evento e' uno specchio in sola lettura del calendario */}
+          {onToggleCalendario && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onToggleCalendario(s)}>
+                {inCalendario ? (
+                  <>
+                    <CalendarX className="h-4 w-4 mr-2" />
+                    Togli dal calendario
+                  </>
+                ) : (
+                  <>
+                    <CalendarCheck className="h-4 w-4 mr-2" />
+                    Mostra in calendario
+                  </>
+                )}
               </DropdownMenuItem>
             </>
           )}
