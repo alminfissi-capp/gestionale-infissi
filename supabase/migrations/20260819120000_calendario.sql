@@ -29,7 +29,7 @@ CREATE TABLE eventi_calendario (
   stato                    text        NOT NULL DEFAULT 'programmato',
   avvisato_email_at        timestamptz,
   avvisato_whatsapp_at     timestamptz,
-  created_by               uuid,
+  created_by               uuid        REFERENCES profiles(id) ON DELETE SET NULL,
   created_at               timestamptz NOT NULL DEFAULT now(),
   updated_at               timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT eventi_calendario_ore_valide CHECK (ora_fine > ora_inizio),

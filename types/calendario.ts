@@ -90,6 +90,12 @@ export type EventoConContesto = EventoCalendario & {
   fornitore_nome: string | null
 }
 
+/**
+ * Campi che l'interfaccia compila creando o modificando un evento.
+ * Non contiene `scadenza_id` di proposito: un evento di tipo 'scadenza' e' lo
+ * specchio di una riga di `scadenze` e nasce spuntando la casella in Commesse,
+ * non da questo form.
+ */
 export type EventoInput = {
   tipo: TipoEvento
   titolo: string | null
