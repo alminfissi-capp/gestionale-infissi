@@ -5,9 +5,9 @@ import { randomUUID } from 'node:crypto'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
-import { requireAccesso } from '@/lib/permessi'
+import { getMyPermissions, requireAccesso } from '@/lib/permessi'
 import { getSettings } from '@/actions/impostazioni'
-import { espandiCatena } from '@/lib/calendario'
+import { aggiungiGiorni, espandiCatena } from '@/lib/calendario'
 import {
   ANNO_RICORRENTE, ORARI_LAVORO_DEFAULT, RICEZIONE_PER_CATEGORIA,
 } from '@/types/calendario'
@@ -443,4 +443,142 @@ export async function getVociDaPianificare(): Promise<VoceDaPianificare[]> {
   }
 
   return voci
+}
+
+/* ------------------------------------------------------------------ *
+ * Vista Amministrazione                                              *
+ * ------------------------------------------------------------------ */
+
+/**
+ * Eventi dell'agenda: solo quelli marcati come visibili in Amministrazione.
+ * La visibilita' e' una proprieta' del singolo evento, non del calendario:
+ * un'attivita' di produzione compare qui solo se qualcuno l'ha spuntata.
+ */
+export async function getEventiAmministrazione(
+  dataInizio: string,
+  dataFine: string
+): Promise<EventoConContesto[]> {
+  await requireAccesso('calendario')
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { data, error } = await supabase
+    .from('eventi_calendario')
+    .select(SELECT_EVENTO)
+    .eq('organization_id', orgId)
+    .eq('visibile_amministrazione', true)
+    .neq('stato', 'annullato')
+    .gte('data', dataInizio)
+    .lte('data', dataFine)
+    .order('data', { ascending: true })
+    .order('ora_inizio', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((r) => appiattisci(r as unknown as RigaGrezza))
+}
+
+/**
+ * Un evento di tipo 'scadenza' e' lo specchio di una riga di `scadenze`: si
+ * governa dalla spunta in Commesse, non dall'agenda. Toccarlo di qua lo
+ * farebbe divergere dalla scadenza vera.
+ */
+async function vietaSeScadenza(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  id: string,
+  orgId: string
+): Promise<void> {
+  const { data } = await supabase
+    .from('eventi_calendario')
+    .select('tipo')
+    .eq('id', id)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+
+  if (data?.tipo === 'scadenza') {
+    throw new Error(
+      'Le scadenze si modificano in Commesse: qui sono in sola lettura'
+    )
+  }
+}
+
+export async function createEventoAdmin(input: EventoInput): Promise<void> {
+  await requireAccesso('calendario', 'scrittura')
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const { error } = await supabase
+    .from('eventi_calendario')
+    .insert({ ...input, organization_id: orgId, created_by: user?.id ?? null })
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/calendario')
+  revalidatePath('/produzione')
+  revalidatePath('/')
+}
+
+export async function updateEventoAdmin(
+  id: string,
+  patch: Partial<EventoInput>
+): Promise<void> {
+  await requireAccesso('calendario', 'scrittura')
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  await vietaSeScadenza(supabase, id, orgId)
+
+  const { error } = await supabase
+    .from('eventi_calendario')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/calendario')
+  revalidatePath('/produzione')
+  revalidatePath('/')
+}
+
+export async function deleteEventoAdmin(id: string): Promise<void> {
+  await requireAccesso('calendario', 'scrittura')
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  await vietaSeScadenza(supabase, id, orgId)
+
+  const { error } = await supabase
+    .from('eventi_calendario')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/calendario')
+  revalidatePath('/produzione')
+  revalidatePath('/')
+}
+
+/** I prossimi impegni dell'agenda, per il riquadro in dashboard. */
+export async function getProssimiImpegni(giorni = 7): Promise<EventoConContesto[]> {
+  const { isAdmin, permessi } = await getMyPermissions()
+  if (!isAdmin && permessi.calendario === 'nessuno') return []
+
+  const oggi = new Date()
+  const da = `${oggi.getFullYear()}-${String(oggi.getMonth() + 1).padStart(2, '0')}-${String(oggi.getDate()).padStart(2, '0')}`
+  const a = aggiungiGiorni(da, giorni)
+
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { data, error } = await supabase
+    .from('eventi_calendario')
+    .select(SELECT_EVENTO)
+    .eq('organization_id', orgId)
+    .eq('visibile_amministrazione', true)
+    .neq('stato', 'annullato')
+    .gte('data', da)
+    .lte('data', a)
+    .order('data', { ascending: true })
+    .order('ora_inizio', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((r) => appiattisci(r as unknown as RigaGrezza))
 }
