@@ -14,7 +14,10 @@ import { spostaEvento } from '@/actions/calendario'
 import { ASPETTO_TIPO, TIPI_PRODUZIONE } from '@/types/calendario'
 import GrigliaGantt from './GrigliaGantt'
 import DialogEvento, { type NuovoEvento } from './DialogEvento'
-import type { Chiusura, EventoConContesto, OrariLavoro } from '@/types/calendario'
+import CodaDaPianificare, { PREFISSO_VOCE } from './CodaDaPianificare'
+import type {
+  Chiusura, EventoConContesto, OrariLavoro, TipoEvento, VoceDaPianificare,
+} from '@/types/calendario'
 import type { CommessaOpzione } from '@/types/produzione'
 
 export const NOMI_MESI = [
@@ -29,6 +32,7 @@ export default function CalendarioProduzione({
   orari,
   chiusure,
   commesse,
+  voci,
   modificabile,
 }: {
   anno: number
@@ -37,6 +41,7 @@ export default function CalendarioProduzione({
   orari: OrariLavoro
   chiusure: Chiusura[]
   commesse: CommessaOpzione[]
+  voci: VoceDaPianificare[]
   modificabile: boolean
 }) {
   const router = useRouter()
@@ -80,6 +85,38 @@ export default function CalendarioProduzione({
 
   const handleDragEnd = (e: DragEndEvent) => {
     if (!modificabile || !e.over) return
+
+    const idAttivo = String(e.active.id)
+    if (idAttivo.startsWith(PREFISSO_VOCE)) {
+      // 'coda:commessa:<id>:<tipo>' oppure 'coda:ordine:<id>:<tipo>'
+      // Il rilascio apre il dialog gia' compilato invece di salvare subito:
+      // gli orari vanno quasi sempre corretti.
+      const [, genere, idOggetto, tipo] = idAttivo.split(':')
+      const data = String(e.over.id)
+
+      if (genere === 'commessa') {
+        const voce = voci.find((v) => v.genere === 'commessa' && v.id === idOggetto)
+        setNuovo({
+          data,
+          ora_inizio: '08:00',
+          ora_fine: '17:30',
+          tipo: tipo as TipoEvento,
+          commessa_id: idOggetto,
+          cliente_nome: voce?.genere === 'commessa' ? voce.cliente_nome : null,
+        })
+      } else {
+        const voce = voci.find((v) => v.genere === 'ordine' && v.id === idOggetto)
+        setNuovo({
+          data,
+          ora_inizio: '08:00',
+          ora_fine: '13:30',
+          tipo: tipo as TipoEvento,
+          ordine_id: idOggetto,
+          fornitore_id: voce?.genere === 'ordine' ? voce.fornitore_id : null,
+        })
+      }
+      return
+    }
 
     const evento = eventi.find((x) => x.id === e.active.id)
     if (!evento) return
@@ -157,21 +194,26 @@ export default function CalendarioProduzione({
       </div>
 
       <DndContext sensors={sensori} onDragEnd={handleDragEnd}>
-        <GrigliaGantt
-          anno={anno}
-          mese={mese}
-          eventi={eventi}
-          orari={orari}
-          chiusure={chiusure}
-          onApriEvento={setEventoAperto}
-          onPistaNodo={(nodo) => {
-            const larghezza = nodo?.offsetWidth ?? 0
-            if (larghezza > 0 && larghezza !== larghezzaPista) setLarghezzaPista(larghezza)
-          }}
-          minutiPerPixel={calcolaMinutiPerPixel()}
-          onRidimensiona={modificabile ? applicaSpostamento : undefined}
-          modificabile={modificabile}
-        />
+        <div className="flex gap-4">
+          {modificabile && <CodaDaPianificare voci={voci} />}
+          <div className="min-w-0 flex-1">
+            <GrigliaGantt
+              anno={anno}
+              mese={mese}
+              eventi={eventi}
+              orari={orari}
+              chiusure={chiusure}
+              onApriEvento={setEventoAperto}
+              onPistaNodo={(nodo) => {
+                const larghezza = nodo?.offsetWidth ?? 0
+                if (larghezza > 0 && larghezza !== larghezzaPista) setLarghezzaPista(larghezza)
+              }}
+              minutiPerPixel={calcolaMinutiPerPixel()}
+              onRidimensiona={modificabile ? applicaSpostamento : undefined}
+              modificabile={modificabile}
+            />
+          </div>
+        </div>
       </DndContext>
 
       {(eventoAperto || nuovo) && (

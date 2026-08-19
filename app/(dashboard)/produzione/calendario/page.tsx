@@ -1,6 +1,8 @@
 // app/(dashboard)/produzione/calendario/page.tsx
 import { getMyPermissions, requireAccesso } from '@/lib/permessi'
-import { getEventiProduzione, getOrariLavoro, getChiusure } from '@/actions/calendario'
+import {
+  getEventiProduzione, getOrariLavoro, getChiusure, getVociDaPianificare,
+} from '@/actions/calendario'
 import { getCommessePerOrdine } from '@/actions/produzione'
 import CalendarioProduzione from '@/components/calendario/CalendarioProduzione'
 
@@ -23,11 +25,12 @@ export default async function CalendarioProduzionePage({
   const dataInizio = `${anno}-${mm}-01`
   const dataFine = `${anno}-${mm}-${ultimoGiorno}`
 
-  const [eventi, orari, chiusure, commesse] = await Promise.all([
+  const [eventi, orari, chiusure, commesse, voci] = await Promise.all([
     getEventiProduzione(dataInizio, dataFine),
     getOrariLavoro(),
     getChiusure(),
     getCommessePerOrdine(),
+    getVociDaPianificare(),
   ])
 
   const { isAdmin, permessi } = await getMyPermissions()
@@ -41,6 +44,7 @@ export default async function CalendarioProduzionePage({
       orari={orari}
       chiusure={chiusure}
       commesse={commesse}
+      voci={voci}
       modificabile={modificabile}
     />
   )
