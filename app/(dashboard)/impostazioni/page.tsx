@@ -13,6 +13,8 @@ import FormValiditaPreventivo from '@/components/impostazioni/FormValiditaPreven
 import ThemeToggle from '@/components/impostazioni/ThemeToggle'
 import SezioneFirmaDefault from '@/components/impostazioni/SezioneFirmaDefault'
 import FormConti from '@/components/impostazioni/FormConti'
+import { getOrariLavoro } from '@/actions/calendario'
+import FormOrariLavoro from '@/components/impostazioni/FormOrariLavoro'
 
 export default async function ImpostazioniPage() {
   await requireAccesso('impostazioni')
@@ -25,10 +27,11 @@ export default async function ImpostazioniPage() {
     .eq('id', user!.id)
     .single()
 
-  const [settings, templates, conti] = await Promise.all([
+  const [settings, templates, conti, orariLavoro] = await Promise.all([
     getSettings(),
     getNoteTemplates(),
     getConti(),
+    getOrariLavoro(),
   ])
 
   // Genera URL firmato per il logo se presente
@@ -119,6 +122,20 @@ export default async function ImpostazioniPage() {
         </CardHeader>
         <CardContent>
           <SezioneFirmaDefault firmaDefault={settings?.firma_default ?? null} />
+        </CardContent>
+      </Card>
+
+      {/* Orari di lavoro */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Orari di lavoro</CardTitle>
+          <CardDescription>
+            Determinano le colonne del calendario di produzione, il sabato a mezza
+            giornata e i giorni chiusi.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FormOrariLavoro iniziali={orariLavoro} />
         </CardContent>
       </Card>
 
