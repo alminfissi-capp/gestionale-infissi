@@ -15,6 +15,7 @@ import {
   settimanaDi,
   settimaneDelMese,
   raggruppaPerGiorno,
+  messaggioAppuntamento,
 } from '@/lib/calendario'
 import { ORARI_LAVORO_DEFAULT } from '@/types/calendario'
 import type { Chiusura, OrariLavoro } from '@/types/calendario'
@@ -390,5 +391,52 @@ describe('raggruppaPerGiorno', () => {
     expect(mappa.get('2026-08-19')?.map((e) => e.ora_inizio)).toEqual(['09:00', '15:00'])
     expect(mappa.get('2026-08-20')).toHaveLength(1)
     expect(mappa.get('2026-08-21')).toBeUndefined()
+  })
+})
+
+describe('messaggioAppuntamento', () => {
+  const base = {
+    titolo: 'Sopralluogo',
+    data: '2026-09-03',
+    ora_inizio: '15:30',
+    ora_fine: '16:30',
+    tutto_il_giorno: false,
+    cliente_nome: 'Sig. Teresi',
+    note: null,
+    azienda: 'A.L.M. Infissi',
+    telefonoAzienda: '091 1234567',
+  }
+
+  it('mette cliente, data in italiano, ora e firma', () => {
+    const testo = messaggioAppuntamento(base)
+    expect(testo).toContain('Gentile Sig. Teresi')
+    expect(testo).toContain('giovedì 3 settembre 2026')
+    expect(testo).toContain('15:30')
+    expect(testo).toContain('Sopralluogo')
+    expect(testo).toContain('091 1234567')
+    expect(testo).toContain('A.L.M. Infissi')
+  })
+
+  it('senza cliente saluta senza nome e senza virgola pendente', () => {
+    const testo = messaggioAppuntamento({ ...base, cliente_nome: null })
+    expect(testo).toContain('Gentile cliente')
+    expect(testo).not.toContain('Gentile ,')
+  })
+
+  it("un appuntamento di giornata non promette un'ora", () => {
+    const testo = messaggioAppuntamento({ ...base, tutto_il_giorno: true })
+    expect(testo).not.toContain('15:30')
+    expect(testo).toContain('in giornata')
+  })
+
+  it('senza telefono aziendale non lascia la riga a meta', () => {
+    const testo = messaggioAppuntamento({ ...base, telefonoAzienda: null })
+    expect(testo).not.toContain('telefono')
+    expect(testo).toContain('A.L.M. Infissi')
+  })
+
+  it('le note finiscono nel messaggio quando ci sono', () => {
+    expect(messaggioAppuntamento({ ...base, note: 'Portare i campioni' }))
+      .toContain('Portare i campioni')
   })
 })

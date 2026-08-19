@@ -19,6 +19,7 @@ import {
   createEventoAdmin, updateEventoAdmin, deleteEventoAdmin,
 } from '@/actions/calendario'
 import { ASPETTO_TIPO, TIPI_ADMIN } from '@/types/calendario'
+import AvvisaCliente from './AvvisaCliente'
 import type { EventoConContesto, EventoInput, TipoEvento } from '@/types/calendario'
 import type { CommessaOpzione } from '@/types/produzione'
 
@@ -268,6 +269,12 @@ export default function DialogEventoAdmin({
               />
               Mostra anche nel calendario della Produzione
             </label>
+
+            {/* Solo gli appuntamenti si notificano, e solo dopo il salvataggio:
+                l'avviso ha bisogno di un evento con un id. */}
+            {inModifica && tipo === 'appuntamento' && (
+              <AvvisaCliente eventoId={evento.id} />
+            )}
 
             <DialogFooter className="gap-2 sm:justify-between">
               {inModifica ? (

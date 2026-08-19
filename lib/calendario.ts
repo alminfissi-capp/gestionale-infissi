@@ -284,3 +284,58 @@ export function raggruppaPerGiorno<T extends { data: string; ora_inizio: string 
   }
   return mappa
 }
+
+/** Data estesa in italiano: 'giovedì 3 settembre 2026'. */
+export function dataEstesa(data: string): string {
+  return new Date(`${data}T00:00:00`).toLocaleDateString('it-IT', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+export type DatiMessaggio = {
+  titolo: string | null
+  data: string
+  ora_inizio: string
+  ora_fine: string
+  tutto_il_giorno: boolean
+  cliente_nome: string | null
+  note: string | null
+  azienda: string
+  telefonoAzienda: string | null
+}
+
+/**
+ * Testo con cui si avvisa il cliente di un appuntamento, uguale per email e
+ * WhatsApp. Sta qui, fuori dalle action, perche' e' la parte che il cliente
+ * legge davvero: va provata senza spedire niente.
+ */
+export function messaggioAppuntamento(d: DatiMessaggio): string {
+  const nome = d.cliente_nome?.trim()
+  const quando = d.tutto_il_giorno
+    ? `${dataEstesa(d.data)}, in giornata`
+    : `${dataEstesa(d.data)} dalle ${d.ora_inizio.slice(0, 5)} alle ${d.ora_fine.slice(0, 5)}`
+
+  const righe = [
+    `Gentile ${nome || 'cliente'},`,
+    '',
+    `le confermiamo l'appuntamento di ${quando}.`,
+  ]
+
+  const titolo = d.titolo?.trim()
+  if (titolo) righe.push(`Motivo: ${titolo}.`)
+
+  const note = d.note?.trim()
+  if (note) righe.push(note)
+
+  righe.push('')
+  if (d.telefonoAzienda?.trim()) {
+    righe.push(`Per qualsiasi necessità ci trova al ${d.telefonoAzienda.trim()}.`)
+  }
+  righe.push('Cordiali saluti')
+  righe.push(d.azienda)
+
+  return righe.join('\n')
+}

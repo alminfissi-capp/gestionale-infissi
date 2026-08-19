@@ -2,12 +2,14 @@
 'use server'
 
 import { randomUUID } from 'node:crypto'
+import { Resend } from 'resend'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
 import { getMyPermissions, requireAccesso } from '@/lib/permessi'
 import { getSettings } from '@/actions/impostazioni'
-import { aggiungiGiorni, espandiCatena } from '@/lib/calendario'
+import { aggiungiGiorni, espandiCatena, messaggioAppuntamento } from '@/lib/calendario'
+import { filtraClienti } from '@/lib/ricerca-clienti'
 import {
   ANNO_RICORRENTE, ORARI_LAVORO_DEFAULT, RICEZIONE_PER_CATEGORIA,
 } from '@/types/calendario'
@@ -718,6 +720,152 @@ export async function sincronizzaEventoScadenza(scadenzaId: string): Promise<voi
     .update(eventoDaScadenza(scadenza as ScadenzaSpecchio))
     .eq('id', evento.id)
     .eq('organization_id', orgId)
+
+  revalidatePath('/calendario')
+}
+
+/* ------------------------------------------------------------------ *
+ * Notifiche al cliente                                               *
+ * ------------------------------------------------------------------ */
+
+export type RecapitiAppuntamento = {
+  email: string | null
+  telefono: string | null
+  /** Testo gia' composto, uguale per email e WhatsApp. */
+  messaggio: string
+  avvisato_email_at: string | null
+  avvisato_whatsapp_at: string | null
+}
+
+/**
+ * Recapiti e testo per avvisare il cliente di un appuntamento. I recapiti si
+ * cercano in anagrafica dal nome scritto sull'evento: un cliente puo' non
+ * essere in `clienti` (succede spesso), e in quel caso si compilano a mano.
+ */
+export async function getRecapitiAppuntamento(
+  eventoId: string
+): Promise<RecapitiAppuntamento> {
+  await requireAccesso('calendario')
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { data: evento, error } = await supabase
+    .from('eventi_calendario')
+    .select(
+      'tipo, titolo, data, ora_inizio, ora_fine, tutto_il_giorno, cliente_id, cliente_nome, note, avvisato_email_at, avvisato_whatsapp_at'
+    )
+    .eq('id', eventoId)
+    .eq('organization_id', orgId)
+    .single()
+  if (error) throw new Error(error.message)
+
+  const settings = await getSettings()
+
+  let email: string | null = null
+  let telefono: string | null = null
+
+  if (evento.cliente_id) {
+    const { data: cliente } = await supabase
+      .from('clienti')
+      .select('email, telefono')
+      .eq('id', evento.cliente_id)
+      .eq('organization_id', orgId)
+      .maybeSingle()
+    email = cliente?.email ?? null
+    telefono = cliente?.telefono ?? null
+  } else if (evento.cliente_nome) {
+    const { data: clienti } = await supabase
+      .from('clienti')
+      .select('tipo, ragione_sociale, nome, cognome, telefono, email, cf_piva, cantiere')
+      .eq('organization_id', orgId)
+    // Un solo risultato e' una corrispondenza; due o piu' sono un'omonimia, e
+    // indovinare a chi scrivere non e' un rischio che vale la pena correre.
+    const trovati = filtraClienti(clienti ?? [], evento.cliente_nome)
+    if (trovati.length === 1) {
+      email = trovati[0].email ?? null
+      telefono = trovati[0].telefono ?? null
+    }
+  }
+
+  return {
+    email,
+    telefono,
+    messaggio: messaggioAppuntamento({
+      titolo: evento.titolo,
+      data: evento.data,
+      ora_inizio: evento.ora_inizio,
+      ora_fine: evento.ora_fine,
+      tutto_il_giorno: evento.tutto_il_giorno,
+      cliente_nome: evento.cliente_nome,
+      note: evento.note,
+      azienda: settings?.denominazione || 'Azienda',
+      telefonoAzienda: settings?.telefono ?? null,
+    }),
+    avvisato_email_at: evento.avvisato_email_at,
+    avvisato_whatsapp_at: evento.avvisato_whatsapp_at,
+  }
+}
+
+const escapeHtml = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+/**
+ * Avvisa il cliente via email. A comando: nessun invio automatico, cosi'
+ * correggere l'orario di un appuntamento non genera email a raffica.
+ */
+export async function inviaEmailAppuntamento(
+  eventoId: string,
+  email: string
+): Promise<void> {
+  await requireAccesso('calendario', 'scrittura')
+  const destinatario = email.trim()
+  if (!destinatario.includes('@')) throw new Error('Indirizzo email non valido')
+
+  const { messaggio } = await getRecapitiAppuntamento(eventoId)
+  const settings = await getSettings()
+  const azienda = settings?.denominazione || 'Azienda'
+  const mittente = settings?.email || 'onboarding@resend.dev'
+
+  const resend = new Resend(process.env.RESEND_API_KEY)
+  const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111827;line-height:1.6">${
+    escapeHtml(messaggio).split('\n').join('<br>')
+  }</div>`
+
+  const { error } = await resend.emails.send({
+    from: `${azienda} <${mittente}>`,
+    to: destinatario,
+    subject: 'Promemoria appuntamento',
+    html,
+    text: messaggio,
+  })
+  if (error) throw new Error(error.message)
+
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  await supabase
+    .from('eventi_calendario')
+    .update({ avvisato_email_at: new Date().toISOString() })
+    .eq('id', eventoId)
+    .eq('organization_id', orgId)
+
+  revalidatePath('/calendario')
+}
+
+/**
+ * Registra che il cliente e' stato avvisato su WhatsApp. Il messaggio parte
+ * dal telefono di chi lo manda (wa.me), quindi qui resta solo la data.
+ */
+export async function registraAvvisoWhatsapp(eventoId: string): Promise<void> {
+  await requireAccesso('calendario', 'scrittura')
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { error } = await supabase
+    .from('eventi_calendario')
+    .update({ avvisato_whatsapp_at: new Date().toISOString() })
+    .eq('id', eventoId)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
 
   revalidatePath('/calendario')
 }
