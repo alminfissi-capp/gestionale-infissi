@@ -1,9 +1,9 @@
 // components/calendario/ProssimiImpegni.tsx
 import Link from 'next/link'
 import { CalendarDays, ChevronRight } from 'lucide-react'
-import { getProssimiImpegni } from '@/actions/calendario'
+import { getAspettiTipo, getProssimiImpegni } from '@/actions/calendario'
 import { etichettaEvento, indiceGiornoSettimana } from '@/lib/calendario'
-import { ASPETTO_TIPO, GIORNI_SETTIMANA } from '@/types/calendario'
+import { aspettoDi, GIORNI_SETTIMANA } from '@/types/calendario'
 
 /**
  * I prossimi sette giorni dell'agenda, in dashboard. Chi non ha il modulo
@@ -13,6 +13,7 @@ import { ASPETTO_TIPO, GIORNI_SETTIMANA } from '@/types/calendario'
 export default async function ProssimiImpegni() {
   const impegni = await getProssimiImpegni(7)
   if (impegni.length === 0) return null
+  const aspetti = await getAspettiTipo()
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
@@ -35,7 +36,7 @@ export default async function ProssimiImpegni() {
           <li key={e.id} className="flex min-w-0 items-center gap-2 py-2 text-sm">
             <span
               className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
-              style={{ backgroundColor: ASPETTO_TIPO[e.tipo].sfondo }}
+              style={{ backgroundColor: aspettoDi(aspetti, e.tipo).sfondo }}
             />
             <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
               {GIORNI_SETTIMANA[indiceGiornoSettimana(e.data)].slice(0, 3)}{' '}
@@ -47,7 +48,7 @@ export default async function ProssimiImpegni() {
               </span>
             )}
             <span className="min-w-0 truncate text-gray-800 dark:text-gray-200">
-              {etichettaEvento(e)}
+              {etichettaEvento(e, aspetti)}
             </span>
           </li>
         ))}

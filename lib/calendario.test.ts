@@ -17,8 +17,13 @@ import {
   raggruppaPerGiorno,
   messaggioAppuntamento,
 } from '@/lib/calendario'
-import { ORARI_LAVORO_DEFAULT } from '@/types/calendario'
+import { ASPETTO_TIPO, ORARI_LAVORO_DEFAULT } from '@/types/calendario'
 import type { Chiusura, OrariLavoro } from '@/types/calendario'
+
+/** Gli aspetti di partenza, nella forma mappa usata dai componenti. */
+const ASPETTI = Object.fromEntries(
+  Object.entries(ASPETTO_TIPO).map(([chiave, a]) => [chiave, a])
+)
 
 const chiusura = (
   data_inizio: string,
@@ -196,7 +201,7 @@ describe('etichettaEvento', () => {
         titolo: null,
         cliente_nome: 'MARCELLO ZAMUELI',
         fornitore_nome: null,
-      })
+      }, ASPETTI)
     ).toBe('Lavorazione ---MARCELLO ZAMUELI---')
   })
 
@@ -207,7 +212,7 @@ describe('etichettaEvento', () => {
         titolo: null,
         cliente_nome: 'SPAGNA',
         fornitore_nome: 'METALVETRO',
-      })
+      }, ASPETTI)
     ).toBe('Ricez. Vetri METALVETRO ---SPAGNA---')
   })
 
@@ -218,14 +223,35 @@ describe('etichettaEvento', () => {
         titolo: 'Chiamare il commercialista',
         cliente_nome: null,
         fornitore_nome: null,
-      })
+      }, ASPETTI)
     ).toBe('Chiamare il commercialista')
   })
 
   it('ripiega sull etichetta del tipo se non c e altro', () => {
     expect(
-      etichettaEvento({ tipo: 'carico', titolo: null, cliente_nome: null, fornitore_nome: null })
+      etichettaEvento(
+        { tipo: 'carico', titolo: null, cliente_nome: null, fornitore_nome: null },
+        ASPETTI
+      )
     ).toBe('Carico/Imballo/Trasp.')
+  })
+
+  it('un tipo non piu in anagrafica non fa saltare la barra', () => {
+    expect(
+      etichettaEvento(
+        { tipo: 'tipo_sparito', titolo: null, cliente_nome: null, fornitore_nome: null },
+        ASPETTI
+      )
+    ).toBe('Attività')
+  })
+
+  it('usa il nome personalizzato dall organizzazione', () => {
+    expect(
+      etichettaEvento(
+        { tipo: 'posa', titolo: null, cliente_nome: 'V.TERESI', fornitore_nome: null },
+        { ...ASPETTI, posa: { label: 'Montaggio', sfondo: '#A6D64B', testo: '#152300' } }
+      )
+    ).toBe('Montaggio ---V.TERESI---')
   })
 })
 
@@ -287,7 +313,7 @@ describe('casi limite', () => {
         titolo: 'Ripasso serramenti',
         cliente_nome: '   ',
         fornitore_nome: null,
-      })
+      }, ASPETTI)
     ).toBe('Ripasso serramenti')
   })
 })

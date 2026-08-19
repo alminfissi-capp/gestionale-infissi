@@ -13,9 +13,10 @@ import FormValiditaPreventivo from '@/components/impostazioni/FormValiditaPreven
 import ThemeToggle from '@/components/impostazioni/ThemeToggle'
 import SezioneFirmaDefault from '@/components/impostazioni/SezioneFirmaDefault'
 import FormConti from '@/components/impostazioni/FormConti'
-import { getOrariLavoro, getChiusure } from '@/actions/calendario'
+import { getOrariLavoro, getChiusure, getTipiAttivita } from '@/actions/calendario'
 import FormOrariLavoro from '@/components/impostazioni/FormOrariLavoro'
 import FormChiusure from '@/components/impostazioni/FormChiusure'
+import FormTipiAttivita from '@/components/impostazioni/FormTipiAttivita'
 
 export default async function ImpostazioniPage() {
   await requireAccesso('impostazioni')
@@ -28,12 +29,13 @@ export default async function ImpostazioniPage() {
     .eq('id', user!.id)
     .single()
 
-  const [settings, templates, conti, orariLavoro, chiusure] = await Promise.all([
+  const [settings, templates, conti, orariLavoro, chiusure, tipiAttivita] = await Promise.all([
     getSettings(),
     getNoteTemplates(),
     getConti(),
     getOrariLavoro(),
     getChiusure(),
+    getTipiAttivita(),
   ])
 
   // Genera URL firmato per il logo se presente
@@ -152,6 +154,20 @@ export default async function ImpostazioniPage() {
         </CardHeader>
         <CardContent>
           <FormChiusure chiusure={chiusure} />
+        </CardContent>
+      </Card>
+
+      {/* Attività del calendario */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Attività del calendario</CardTitle>
+          <CardDescription>
+            Nome e colore di ogni attività, dove compare e se colora il riquadro
+            del giorno nel calendario di produzione.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FormTipiAttivita tipi={tipiAttivita} />
         </CardContent>
       </Card>
 

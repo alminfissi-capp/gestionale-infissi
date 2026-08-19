@@ -1,6 +1,8 @@
 // app/(dashboard)/calendario/page.tsx
 import { getMyPermissions, requireAccesso } from '@/lib/permessi'
-import { getEventiAmministrazione, getOrariLavoro, getChiusure } from '@/actions/calendario'
+import {
+  getEventiAmministrazione, getOrariLavoro, getChiusure, getTipiAttivita,
+} from '@/actions/calendario'
 import { getCommessePerOrdine } from '@/actions/produzione'
 import { aggiungiGiorni, settimanaDi } from '@/lib/calendario'
 import CalendarioAmministrazione, {
@@ -49,11 +51,12 @@ export default async function CalendarioPage({
 
   const [dataInizio, dataFine] = periodo(vista, data)
 
-  const [eventi, orari, chiusure, commesse, { isAdmin, permessi }] = await Promise.all([
+  const [eventi, orari, chiusure, commesse, tipi, { isAdmin, permessi }] = await Promise.all([
     getEventiAmministrazione(dataInizio, dataFine),
     getOrariLavoro(),
     getChiusure(),
     getCommessePerOrdine(),
+    getTipiAttivita(),
     getMyPermissions(),
   ])
 
@@ -62,6 +65,7 @@ export default async function CalendarioPage({
       vista={vista}
       data={data}
       eventi={eventi}
+      tipi={tipi}
       orari={orari}
       chiusure={chiusure}
       commesse={commesse}

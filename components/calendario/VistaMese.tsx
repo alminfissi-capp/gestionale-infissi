@@ -2,9 +2,9 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ASPETTO_TIPO, GIORNI_SETTIMANA } from '@/types/calendario'
+import { aspettoDi, GIORNI_SETTIMANA } from '@/types/calendario'
 import { etichettaEvento, raggruppaPerGiorno, settimaneDelMese, statoGiorno } from '@/lib/calendario'
-import type { Chiusura, EventoConContesto, OrariLavoro } from '@/types/calendario'
+import type { AspettiTipo, Chiusura, EventoConContesto, OrariLavoro } from '@/types/calendario'
 
 /** Quante righe stanno in una cella prima di collassare in "+n altri". */
 const EVENTI_PER_CELLA = 3
@@ -13,6 +13,7 @@ export default function VistaMese({
   anno,
   mese,
   eventi,
+  aspetti,
   orari,
   chiusure,
   onApriEvento,
@@ -21,6 +22,7 @@ export default function VistaMese({
   anno: number
   mese: number
   eventi: EventoConContesto[]
+  aspetti: AspettiTipo
   orari: OrariLavoro
   chiusure: Chiusura[]
   onApriEvento: (evento: EventoConContesto) => void
@@ -87,15 +89,15 @@ export default function VistaMese({
                       }}
                       className="truncate rounded-sm px-1 text-[11px] leading-tight"
                       style={{
-                        backgroundColor: ASPETTO_TIPO[e.tipo].sfondo,
-                        color: ASPETTO_TIPO[e.tipo].testo,
+                        backgroundColor: aspettoDi(aspetti, e.tipo).sfondo,
+                        color: aspettoDi(aspetti, e.tipo).testo,
                       }}
-                      title={etichettaEvento(e)}
+                      title={etichettaEvento(e, aspetti)}
                     >
                       {!e.tutto_il_giorno && (
                         <span className="mr-1 font-mono">{e.ora_inizio.slice(0, 5)}</span>
                       )}
-                      {etichettaEvento(e)}
+                      {etichettaEvento(e, aspetti)}
                     </div>
                   ))}
 

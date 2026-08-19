@@ -49,6 +49,55 @@ export type AspettoTipo = {
   testo: string
 }
 
+/**
+ * Un tipo di attivita' come lo vede l'organizzazione: etichetta, colori e la
+ * spunta che colora il riquadro del giorno. Vive su `tipi_attivita`, non nel
+ * codice, cosi' si personalizza dalle Impostazioni.
+ */
+export type AmbitoTipo = 'produzione' | 'amministrazione'
+
+export type TipoAttivita = {
+  id: string
+  organization_id: string
+  /** Chiave stabile salvata in `eventi_calendario.tipo`. */
+  chiave: string
+  etichetta: string
+  sfondo: string
+  testo: string
+  ambito: AmbitoTipo
+  evidenzia_giorno: boolean
+  /** I tipi di sistema non si eliminano: nascono da altri moduli. */
+  sistema: boolean
+  ordine: number
+}
+
+export type TipoAttivitaInput = {
+  chiave?: string
+  etichetta: string
+  sfondo: string
+  testo: string
+  ambito: AmbitoTipo
+  evidenzia_giorno: boolean
+}
+
+/** Mappa chiave -> aspetto, come la ricevono i componenti del calendario. */
+export type AspettiTipo = Record<string, AspettoTipo>
+
+/**
+ * Aspetto neutro per una chiave che non e' piu' in anagrafica: un tipo
+ * eliminato non deve far sparire (ne' far esplodere) gli eventi gia' inseriti.
+ */
+export const ASPETTO_SCONOSCIUTO: AspettoTipo = {
+  label: 'Attività',
+  sfondo: '#D4D4D4',
+  testo: '#1F1F1F',
+}
+
+export function aspettoDi(aspetti: AspettiTipo, tipo: string): AspettoTipo {
+  return aspetti[tipo] ?? ASPETTO_SCONOSCIUTO
+}
+
+/** Valori di partenza: e' con questi che si popola una organizzazione nuova. */
 export const ASPETTO_TIPO: Record<TipoEvento, AspettoTipo> = {
   ricez_alluminio: { label: 'Ricez. Alluminio',      sfondo: '#6699CC', testo: '#0B1B2B' },
   lavorazione:     { label: 'Lavorazione',           sfondo: '#FF8C00', testo: '#2B1400' },
@@ -62,12 +111,32 @@ export const ASPETTO_TIPO: Record<TipoEvento, AspettoTipo> = {
   scadenza:        { label: 'Scadenza',              sfondo: '#D64545', testo: '#FFFFFF' },
 }
 
+/** Ordine e ambito dei tipi di partenza, per il seed della nuova anagrafica. */
+export const TIPI_DEFAULT: {
+  chiave: TipoEvento
+  ambito: AmbitoTipo
+  evidenzia_giorno: boolean
+  sistema: boolean
+}[] = [
+  { chiave: 'ricez_alluminio', ambito: 'produzione',      evidenzia_giorno: false, sistema: false },
+  { chiave: 'lavorazione',     ambito: 'produzione',      evidenzia_giorno: false, sistema: false },
+  { chiave: 'ricez_vetri',     ambito: 'produzione',      evidenzia_giorno: false, sistema: false },
+  { chiave: 'ricez_accessori', ambito: 'produzione',      evidenzia_giorno: false, sistema: false },
+  { chiave: 'carico',          ambito: 'produzione',      evidenzia_giorno: false, sistema: false },
+  { chiave: 'posa',            ambito: 'produzione',      evidenzia_giorno: true,  sistema: false },
+  { chiave: 'appuntamento',    ambito: 'amministrazione', evidenzia_giorno: false, sistema: false },
+  { chiave: 'impegno_interno', ambito: 'amministrazione', evidenzia_giorno: false, sistema: false },
+  { chiave: 'promemoria',      ambito: 'amministrazione', evidenzia_giorno: false, sistema: false },
+  { chiave: 'scadenza',        ambito: 'amministrazione', evidenzia_giorno: false, sistema: true  },
+]
+
 export type StatoEvento = 'programmato' | 'completato' | 'annullato'
 
 export type EventoCalendario = {
   id: string
   organization_id: string
-  tipo: TipoEvento
+  /** Chiave di `tipi_attivita`: i tipi non sono piu' una lista chiusa. */
+  tipo: string
   titolo: string | null
   /** 'YYYY-MM-DD' */
   data: string
@@ -107,7 +176,7 @@ export type EventoConContesto = EventoCalendario & {
  * non da questo form.
  */
 export type EventoInput = {
-  tipo: TipoEvento
+  tipo: string
   titolo: string | null
   data: string
   ora_inizio: string

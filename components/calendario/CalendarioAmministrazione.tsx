@@ -1,12 +1,12 @@
 // components/calendario/CalendarioAmministrazione.tsx
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { CalendarDays, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { aggiungiGiorni, settimanaDi } from '@/lib/calendario'
-import { ASPETTO_TIPO, TIPI_ADMIN } from '@/types/calendario'
+import type { AspettiTipo, TipoAttivita } from '@/types/calendario'
 import VistaMese from './VistaMese'
 import VistaAgenda from './VistaAgenda'
 import DialogEventoAdmin, { type NuovoImpegno } from './DialogEventoAdmin'
@@ -29,6 +29,7 @@ export default function CalendarioAmministrazione({
   vista,
   data,
   eventi,
+  tipi,
   orari,
   chiusure,
   commesse,
@@ -38,6 +39,7 @@ export default function CalendarioAmministrazione({
   /** Giorno di riferimento: il mese, la settimana o il giorno mostrato. */
   data: string
   eventi: EventoConContesto[]
+  tipi: TipoAttivita[]
   orari: OrariLavoro
   chiusure: Chiusura[]
   commesse: CommessaOpzione[]
@@ -47,6 +49,20 @@ export default function CalendarioAmministrazione({
   const [inCorso, startTransition] = useTransition()
   const [eventoAperto, setEventoAperto] = useState<EventoConContesto | null>(null)
   const [nuovo, setNuovo] = useState<NuovoImpegno | null>(null)
+
+  const tipiAdmin = useMemo(
+    () => tipi.filter((t) => t.ambito === 'amministrazione'),
+    [tipi]
+  )
+  const aspetti: AspettiTipo = useMemo(
+    () => Object.fromEntries(
+      tipi.map((t) => [t.chiave, { label: t.etichetta, sfondo: t.sfondo, testo: t.testo }])
+    ),
+    [tipi]
+  )
+  // 'scadenza' nasce da Commesse: non e' un tipo che si sceglie qui.
+  const tipiCreabili = useMemo(() => tipiAdmin.filter((t) => !t.sistema), [tipiAdmin])
+  const tipoPredefinito = tipiCreabili[0]?.chiave ?? 'appuntamento'
 
   const anno = Number(data.slice(0, 4))
   const mese = Number(data.slice(5, 7))
@@ -80,7 +96,7 @@ export default function CalendarioAmministrazione({
     if (!modificabile) return
     const [h, m] = ora.split(':')
     const fine = `${String(Number(h) + 1).padStart(2, '0')}:${m}`
-    setNuovo({ data: giorno, ora_inizio: ora, ora_fine: fine, tipo: 'appuntamento' })
+    setNuovo({ data: giorno, ora_inizio: ora, ora_fine: fine, tipo: tipoPredefinito })
   }
 
   return (
@@ -119,13 +135,13 @@ export default function CalendarioAmministrazione({
           </div>
 
           <div className="flex flex-wrap gap-2 text-[11px]">
-            {TIPI_ADMIN.map((tipo) => (
-              <span key={tipo} className="flex items-center gap-1">
+            {tipiAdmin.map((tipo) => (
+              <span key={tipo.id} className="flex items-center gap-1">
                 <span
                   className="inline-block h-3 w-3 rounded-sm"
-                  style={{ backgroundColor: ASPETTO_TIPO[tipo].sfondo }}
+                  style={{ backgroundColor: tipo.sfondo }}
                 />
-                {ASPETTO_TIPO[tipo].label}
+                {tipo.etichetta}
               </span>
             ))}
           </div>
@@ -144,6 +160,7 @@ export default function CalendarioAmministrazione({
           anno={anno}
           mese={mese}
           eventi={eventi}
+          aspetti={aspetti}
           orari={orari}
           chiusure={chiusure}
           onApriEvento={setEventoAperto}
@@ -153,6 +170,7 @@ export default function CalendarioAmministrazione({
         <VistaAgenda
           giorni={vista === 'settimana' ? settimanaDi(data) : [data]}
           eventi={eventi}
+          aspetti={aspetti}
           orari={orari}
           chiusure={chiusure}
           onApriEvento={setEventoAperto}
@@ -164,6 +182,7 @@ export default function CalendarioAmministrazione({
         <DialogEventoAdmin
           evento={eventoAperto}
           nuovo={nuovo}
+          tipi={tipiCreabili}
           commesse={commesse}
           onClose={() => {
             setEventoAperto(null)

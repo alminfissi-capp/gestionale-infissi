@@ -18,9 +18,9 @@ import {
 import {
   createEventoAdmin, updateEventoAdmin, deleteEventoAdmin,
 } from '@/actions/calendario'
-import { ASPETTO_TIPO, TIPI_ADMIN } from '@/types/calendario'
+
 import AvvisaCliente from './AvvisaCliente'
-import type { EventoConContesto, EventoInput, TipoEvento } from '@/types/calendario'
+import type { EventoConContesto, EventoInput, TipoAttivita } from '@/types/calendario'
 import type { CommessaOpzione } from '@/types/produzione'
 
 /** Valori di partenza quando il dialog si apre su un giorno vuoto. */
@@ -28,7 +28,8 @@ export type NuovoImpegno = {
   data: string
   ora_inizio: string
   ora_fine: string
-  tipo: TipoEvento
+  /** Chiave del tipo scelto in anagrafica. */
+  tipo: string
 }
 
 const soloOreMinuti = (ora: string) => ora.slice(0, 5)
@@ -36,11 +37,14 @@ const soloOreMinuti = (ora: string) => ora.slice(0, 5)
 export default function DialogEventoAdmin({
   evento,
   nuovo,
+  tipi,
   commesse,
   onClose,
 }: {
   evento: EventoConContesto | null
   nuovo: NuovoImpegno | null
+  /** Tipi creabili dall'agenda: quelli di sistema non ci sono. */
+  tipi: TipoAttivita[]
   commesse: CommessaOpzione[]
   onClose: () => void
 }) {
@@ -49,7 +53,9 @@ export default function DialogEventoAdmin({
   // Una scadenza e' lo specchio di una riga di Commesse: qui si guarda e basta.
   const soloLettura = evento?.tipo === 'scadenza'
 
-  const [tipo, setTipo] = useState<TipoEvento>(evento?.tipo ?? nuovo?.tipo ?? 'appuntamento')
+  const [tipo, setTipo] = useState<string>(
+    evento?.tipo ?? nuovo?.tipo ?? tipi[0]?.chiave ?? 'appuntamento'
+  )
   const [titolo, setTitolo] = useState(evento?.titolo ?? '')
   const [data, setData] = useState(evento?.data ?? nuovo?.data ?? '')
   const [tuttoIlGiorno, setTuttoIlGiorno] = useState(evento?.tutto_il_giorno ?? false)
@@ -160,13 +166,13 @@ export default function DialogEventoAdmin({
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label htmlFor="impegno-tipo">Tipo</Label>
-              <Select value={tipo} onValueChange={(v) => setTipo(v as TipoEvento)}>
+              <Select value={tipo} onValueChange={setTipo}>
                 <SelectTrigger id="impegno-tipo">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TIPI_ADMIN.map((t) => (
-                    <SelectItem key={t} value={t}>{ASPETTO_TIPO[t].label}</SelectItem>
+                  {tipi.map((t) => (
+                    <SelectItem key={t.id} value={t.chiave}>{t.etichetta}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

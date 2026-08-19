@@ -1,6 +1,6 @@
 // lib/calendario.ts
-import { ASPETTO_TIPO, GIORNI_SETTIMANA } from '@/types/calendario'
-import type { Chiusura, OrariLavoro, TipoEvento } from '@/types/calendario'
+import { aspettoDi, GIORNI_SETTIMANA } from '@/types/calendario'
+import type { AspettiTipo, Chiusura, OrariLavoro } from '@/types/calendario'
 
 /** 'HH:MM' o 'HH:MM:SS' → minuti dalla mezzanotte. */
 export function minutiDaOra(ora: string): number {
@@ -162,7 +162,7 @@ export function snapMinuti(minuti: number, passo = 30): number {
 }
 
 type Etichettabile = {
-  tipo: TipoEvento
+  tipo: string
   titolo: string | null
   cliente_nome: string | null
   fornitore_nome: string | null
@@ -170,12 +170,14 @@ type Etichettabile = {
 
 /**
  * Testo della barra, nella forma usata sul foglio appeso in officina:
- * "Ricez. Vetri METALVETRO ---SPAGNA---".
+ * "Ricez. Vetri METALVETRO ---SPAGNA---". Il nome dell'attivita' arriva
+ * dall'anagrafica dei tipi, che l'organizzazione personalizza.
  */
-export function etichettaEvento(evento: Etichettabile): string {
+export function etichettaEvento(evento: Etichettabile, aspetti: AspettiTipo): string {
+  const nomeTipo = aspettoDi(aspetti, evento.tipo).label
   const cliente = evento.cliente_nome?.trim()
   if (cliente) {
-    const parti = [ASPETTO_TIPO[evento.tipo].label]
+    const parti = [nomeTipo]
     const fornitore = evento.fornitore_nome?.trim()
     if (fornitore) parti.push(fornitore)
     return `${parti.join(' ')} ---${cliente}---`
@@ -184,7 +186,7 @@ export function etichettaEvento(evento: Etichettabile): string {
   const titolo = evento.titolo?.trim()
   if (titolo) return titolo
 
-  return ASPETTO_TIPO[evento.tipo].label
+  return nomeTipo
 }
 
 /** Somma giorni a una data 'YYYY-MM-DD' restando in fuso locale. */

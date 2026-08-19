@@ -2,14 +2,15 @@
 'use client'
 
 import { useDraggable } from '@dnd-kit/core'
-import { ASPETTO_TIPO } from '@/types/calendario'
+import { aspettoDi } from '@/types/calendario'
 import { etichettaEvento, minutiDaOra, oraDaMinuti, snapMinuti } from '@/lib/calendario'
-import type { EventoConContesto } from '@/types/calendario'
+import type { AspettiTipo, EventoConContesto } from '@/types/calendario'
 
 export const ALTEZZA_BARRA = 22
 
 export default function BarraEvento({
   evento,
+  aspetti,
   sinistraPct,
   larghezzaPct,
   riga,
@@ -19,6 +20,7 @@ export default function BarraEvento({
   onClick,
 }: {
   evento: EventoConContesto
+  aspetti: AspettiTipo
   sinistraPct: number
   larghezzaPct: number
   riga: number
@@ -27,7 +29,7 @@ export default function BarraEvento({
   onRidimensiona?: (id: string, oraInizio: string, oraFine: string) => void
   onClick?: () => void
 }) {
-  const aspetto = ASPETTO_TIPO[evento.tipo]
+  const aspetto = aspettoDi(aspetti, evento.tipo)
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: evento.id,
     disabled: !trascinabile,
@@ -93,9 +95,9 @@ export default function BarraEvento({
         e.stopPropagation()
         onClick?.()
       }}
-      title={etichettaEvento(evento)}
+      title={etichettaEvento(evento, aspetti)}
     >
-      <span className="truncate font-medium">{etichettaEvento(evento)}</span>
+      <span className="truncate font-medium">{etichettaEvento(evento, aspetti)}</span>
       {evento.confermato_cliente && (
         <span className="ml-2 shrink-0 italic text-red-700">
           CONFERMATO CON IL CLIENTE

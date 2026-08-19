@@ -2,12 +2,12 @@
 'use client'
 
 import { useMemo } from 'react'
-import { ASPETTO_TIPO, GIORNI_SETTIMANA } from '@/types/calendario'
+import { aspettoDi, GIORNI_SETTIMANA } from '@/types/calendario'
 import {
   etichettaEvento, impilaEventi, indiceGiornoSettimana, minutiDaOra,
   oraDaMinuti, raggruppaPerGiorno, statoGiorno,
 } from '@/lib/calendario'
-import type { Chiusura, EventoConContesto, OrariLavoro } from '@/types/calendario'
+import type { AspettiTipo, Chiusura, EventoConContesto, OrariLavoro } from '@/types/calendario'
 
 /** La giornata mostrata va dalle 7 alle 21: fuori non si prendono appuntamenti. */
 const PRIMA_ORA = 7
@@ -30,6 +30,7 @@ function posizione(oraInizio: string, oraFine: string) {
 export default function VistaAgenda({
   giorni,
   eventi,
+  aspetti,
   orari,
   chiusure,
   onApriEvento,
@@ -38,6 +39,7 @@ export default function VistaAgenda({
   /** Uno solo per la vista giorno, sette per la settimana. */
   giorni: string[]
   eventi: EventoConContesto[]
+  aspetti: AspettiTipo
   orari: OrariLavoro
   chiusure: Chiusura[]
   onApriEvento: (evento: EventoConContesto) => void
@@ -82,11 +84,11 @@ export default function VistaAgenda({
                     onClick={() => onApriEvento(e)}
                     className="cursor-pointer truncate rounded-sm px-1 text-[11px]"
                     style={{
-                      backgroundColor: ASPETTO_TIPO[e.tipo].sfondo,
-                      color: ASPETTO_TIPO[e.tipo].testo,
+                      backgroundColor: aspettoDi(aspetti, e.tipo).sfondo,
+                      color: aspettoDi(aspetti, e.tipo).testo,
                     }}
                   >
-                    {etichettaEvento(e)}
+                    {etichettaEvento(e, aspetti)}
                   </div>
                 ))}
             </div>
@@ -139,13 +141,13 @@ export default function VistaAgenda({
                         height: p.height,
                         left: `${(e.riga * 100) / colonne}%`,
                         width: `${100 / colonne}%`,
-                        backgroundColor: ASPETTO_TIPO[e.tipo].sfondo,
-                        color: ASPETTO_TIPO[e.tipo].testo,
+                        backgroundColor: aspettoDi(aspetti, e.tipo).sfondo,
+                        color: aspettoDi(aspetti, e.tipo).testo,
                       }}
-                      title={etichettaEvento(e)}
+                      title={etichettaEvento(e, aspetti)}
                     >
                       <div className="font-mono text-[10px]">{e.ora_inizio.slice(0, 5)}</div>
-                      <div className="truncate font-medium">{etichettaEvento(e)}</div>
+                      <div className="truncate font-medium">{etichettaEvento(e, aspetti)}</div>
                     </div>
                   )
                 })}

@@ -10,10 +10,15 @@ import { getMyPermissions, requireAccesso } from '@/lib/permessi'
 import { getSettings } from '@/actions/impostazioni'
 import { aggiungiGiorni, espandiCatena, messaggioAppuntamento } from '@/lib/calendario'
 import { filtraClienti } from '@/lib/ricerca-clienti'
-import { ANNO_RICORRENTE, ORARI_LAVORO_DEFAULT } from '@/types/calendario'
+import {
+  ANNO_RICORRENTE, ASPETTO_TIPO, ORARI_LAVORO_DEFAULT, TIPI_DEFAULT,
+} from '@/types/calendario'
 import { STATI_COMMESSA_APERTI } from '@/types/produzione'
 import type { CommessaOpzione } from '@/types/produzione'
 import type {
+  AspettiTipo,
+  TipoAttivita,
+  TipoAttivitaInput,
   Chiusura,
   ChiusuraInput,
   OrariLavoro,
@@ -798,5 +803,189 @@ export async function registraAvvisoWhatsapp(eventoId: string): Promise<void> {
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
 
+  revalidatePath('/calendario')
+}
+
+/* ------------------------------------------------------------------ *
+ * Anagrafica dei tipi di attivita'                                    *
+ * ------------------------------------------------------------------ */
+
+/**
+ * I tipi di attivita' dell'organizzazione. Alla prima lettura popola
+ * l'anagrafica coi valori di partenza: nessuna organizzazione deve trovarsi
+ * un calendario senza tipi, e il seed in migration non copre chi si iscrive
+ * dopo.
+ */
+export async function getTipiAttivita(): Promise<TipoAttivita[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { data, error } = await supabase
+    .from('tipi_attivita')
+    .select('*')
+    .eq('organization_id', orgId)
+    .order('ordine', { ascending: true })
+  if (error) throw new Error(error.message)
+  if (data && data.length > 0) return data as TipoAttivita[]
+
+  const iniziali = TIPI_DEFAULT.map((t, i) => ({
+    organization_id: orgId,
+    chiave: t.chiave,
+    etichetta: ASPETTO_TIPO[t.chiave].label,
+    sfondo: ASPETTO_TIPO[t.chiave].sfondo,
+    testo: ASPETTO_TIPO[t.chiave].testo,
+    ambito: t.ambito,
+    evidenzia_giorno: t.evidenzia_giorno,
+    sistema: t.sistema,
+    ordine: i,
+  }))
+
+  const { data: creati, error: erroreSeed } = await supabase
+    .from('tipi_attivita')
+    .insert(iniziali)
+    .select()
+  // Due richieste in parallelo possono seminare insieme: la seconda sbatte
+  // sull'indice unico e si accontenta di rileggere.
+  if (erroreSeed) {
+    const { data: riletti } = await supabase
+      .from('tipi_attivita')
+      .select('*')
+      .eq('organization_id', orgId)
+      .order('ordine', { ascending: true })
+    return (riletti ?? []) as TipoAttivita[]
+  }
+  return (creati ?? []) as TipoAttivita[]
+}
+
+/** Gli stessi tipi nella forma che serve a disegnare: chiave -> aspetto. */
+export async function getAspettiTipo(): Promise<AspettiTipo> {
+  const tipi = await getTipiAttivita()
+  return Object.fromEntries(
+    tipi.map((t) => [t.chiave, { label: t.etichetta, sfondo: t.sfondo, testo: t.testo }])
+  )
+}
+
+const RE_COLORE = /^#[0-9a-fA-F]{6}$/
+
+/** Chiave stabile ricavata dall'etichetta: minuscole, underscore, niente accenti. */
+function chiaveDaEtichetta(etichetta: string): string {
+  const base = etichetta
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+  return base || 'attivita'
+}
+
+function validaTipo(input: TipoAttivitaInput): void {
+  if (!input.etichetta.trim()) throw new Error('Serve un nome per l’attività')
+  if (!RE_COLORE.test(input.sfondo) || !RE_COLORE.test(input.testo)) {
+    throw new Error('I colori devono essere in formato #RRGGBB')
+  }
+}
+
+export async function createTipoAttivita(input: TipoAttivitaInput): Promise<void> {
+  await requireAccesso('impostazioni', 'scrittura')
+  validaTipo(input)
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const esistenti = await getTipiAttivita()
+  const radice = input.chiave?.trim() || chiaveDaEtichetta(input.etichetta)
+  // La chiave finisce dentro gli eventi: se e' gia' presa se ne prende un'altra
+  // invece di riusarla e mischiare due attivita' diverse.
+  let chiave = radice
+  let n = 2
+  while (esistenti.some((t) => t.chiave === chiave)) {
+    chiave = `${radice}_${n}`
+    n++
+  }
+
+  const { error } = await supabase.from('tipi_attivita').insert({
+    organization_id: orgId,
+    chiave,
+    etichetta: input.etichetta.trim(),
+    sfondo: input.sfondo,
+    testo: input.testo,
+    ambito: input.ambito,
+    evidenzia_giorno: input.evidenzia_giorno,
+    sistema: false,
+    ordine: esistenti.length,
+  })
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/impostazioni')
+  revalidatePath('/produzione/calendario')
+  revalidatePath('/calendario')
+}
+
+export async function updateTipoAttivita(
+  id: string,
+  input: TipoAttivitaInput
+): Promise<void> {
+  await requireAccesso('impostazioni', 'scrittura')
+  validaTipo(input)
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  // La chiave non si tocca: e' il filo che tiene legati gli eventi gia' inseriti.
+  const { error } = await supabase
+    .from('tipi_attivita')
+    .update({
+      etichetta: input.etichetta.trim(),
+      sfondo: input.sfondo,
+      testo: input.testo,
+      ambito: input.ambito,
+      evidenzia_giorno: input.evidenzia_giorno,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/impostazioni')
+  revalidatePath('/produzione/calendario')
+  revalidatePath('/calendario')
+}
+
+export async function deleteTipoAttivita(id: string): Promise<void> {
+  await requireAccesso('impostazioni', 'scrittura')
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { data: tipo } = await supabase
+    .from('tipi_attivita')
+    .select('chiave, sistema, etichetta')
+    .eq('id', id)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+  if (!tipo) return
+  if (tipo.sistema) {
+    throw new Error(`"${tipo.etichetta}" è un tipo di sistema e non si elimina`)
+  }
+
+  // Un tipo usato non si cancella: gli eventi resterebbero senza colore ne' nome.
+  const { count, error: erroreConteggio } = await supabase
+    .from('eventi_calendario')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', orgId)
+    .eq('tipo', tipo.chiave)
+  if (erroreConteggio) throw new Error(erroreConteggio.message)
+  if ((count ?? 0) > 0) {
+    throw new Error(
+      `"${tipo.etichetta}" è usata da ${count} eventi: spostali o eliminali prima`
+    )
+  }
+
+  const { error } = await supabase
+    .from('tipi_attivita')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/impostazioni')
+  revalidatePath('/produzione/calendario')
   revalidatePath('/calendario')
 }

@@ -13,8 +13,10 @@ import {
   statoGiorno,
 } from '@/lib/calendario'
 import BarraEvento, { ALTEZZA_BARRA } from './BarraEvento'
-import { ASPETTO_TIPO } from '@/types/calendario'
-import type { Chiusura, EventoConContesto, OrariLavoro } from '@/types/calendario'
+import { aspettoDi } from '@/types/calendario'
+import type {
+  AspettiTipo, Chiusura, EventoConContesto, OrariLavoro, TipoAttivita,
+} from '@/types/calendario'
 
 const ALTEZZA_MINIMA_RIGA = 34
 
@@ -73,6 +75,7 @@ export default function GrigliaGantt({
   anno,
   mese,
   eventi,
+  tipi,
   orari,
   chiusure,
   onApriEvento,
@@ -85,6 +88,7 @@ export default function GrigliaGantt({
   anno: number
   mese: number
   eventi: EventoConContesto[]
+  tipi: TipoAttivita[]
   orari: OrariLavoro
   chiusure: Chiusura[]
   onApriEvento?: (evento: EventoConContesto) => void
@@ -95,6 +99,18 @@ export default function GrigliaGantt({
   minutiPerPixel?: number
   modificabile?: boolean
 }) {
+  const aspetti: AspettiTipo = useMemo(
+    () => Object.fromEntries(
+      tipi.map((t) => [t.chiave, { label: t.etichetta, sfondo: t.sfondo, testo: t.testo }])
+    ),
+    [tipi]
+  )
+  // Quali tipi colorano il riquadro del giorno: la spunta sta in anagrafica.
+  const tipiEvidenziati = useMemo(
+    () => new Map(tipi.filter((t) => t.evidenzia_giorno).map((t) => [t.chiave, t])),
+    [tipi]
+  )
+
   const fascia = useMemo(() => fasciaGriglia(orari), [orari])
   const ore = useMemo(() => oreDellaFascia(fascia.inizio, fascia.fine), [fascia])
   const giorni = useMemo(() => giorniDelMese(anno, mese), [anno, mese])
@@ -145,7 +161,9 @@ export default function GrigliaGantt({
           const oltreChiusura = stato.aperto
             ? posizioneBarra(stato.chiusura, fascia.fine, fascia)
             : null
-          const giornoDiPosa = stato.aperto && delGiorno.some((e) => e.tipo === 'posa')
+          const tipoEvidenziato = stato.aperto
+            ? delGiorno.map((e) => tipiEvidenziati.get(e.tipo)).find(Boolean)
+            : undefined
           // Righe verticali a ora piena, uguali per ogni giorno.
           const righeOre = ore.map((ora) => (
             <div
@@ -167,11 +185,11 @@ export default function GrigliaGantt({
                     ? 'bg-white text-gray-700 dark:bg-gray-900 dark:text-gray-200'
                     : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
                 }`}
-                // Il verde segnala i giorni di posa, come sul foglio in officina:
-                // sono quelli che si cercano a colpo d'occhio.
+                // Il colore segnala i giorni con un'attivita' da cercare a colpo
+                // d'occhio: quali, lo decide la spunta in Impostazioni.
                 style={
-                  giornoDiPosa
-                    ? { backgroundColor: ASPETTO_TIPO.posa.sfondo, color: ASPETTO_TIPO.posa.testo }
+                  tipoEvidenziato
+                    ? { backgroundColor: tipoEvidenziato.sfondo, color: tipoEvidenziato.testo }
                     : undefined
                 }
               >
@@ -214,7 +232,7 @@ export default function GrigliaGantt({
                         className="absolute inset-y-0 w-1"
                         style={{
                           left: `${posizioneBarra(ev.ora_inizio, ev.ora_fine, fascia).sinistraPct}%`,
-                          backgroundColor: ASPETTO_TIPO[ev.tipo].sfondo,
+                          backgroundColor: aspettoDi(aspetti, ev.tipo).sfondo,
                           opacity: 0.55,
                         }}
                       />
@@ -225,6 +243,7 @@ export default function GrigliaGantt({
                       <BarraEvento
                         key={e.id}
                         evento={e}
+                        aspetti={aspetti}
                         sinistraPct={p.sinistraPct}
                         larghezzaPct={p.larghezzaPct}
                         riga={e.riga}

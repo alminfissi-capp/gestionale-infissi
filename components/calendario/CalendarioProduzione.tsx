@@ -1,7 +1,7 @@
 // components/calendario/CalendarioProduzione.tsx
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent,
@@ -11,14 +11,15 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { fasciaGriglia, minutiDaOra, oraDaMinuti, snapMinuti } from '@/lib/calendario'
 import { spostaEvento } from '@/actions/calendario'
-import { ASPETTO_TIPO, TIPI_PRODUZIONE } from '@/types/calendario'
 import GrigliaGantt from './GrigliaGantt'
 import DialogEvento, { type NuovoEvento } from './DialogEvento'
 import CodaDaPianificare, { PREFISSO_VOCE } from './CodaDaPianificare'
 import DialogSceltaCommessa from './DialogSceltaCommessa'
 import ListaGiorniMobile from './ListaGiorniMobile'
 import StampaGantt from './StampaGantt'
-import type { Chiusura, EventoConContesto, OrariLavoro } from '@/types/calendario'
+import type {
+  AspettiTipo, Chiusura, EventoConContesto, OrariLavoro, TipoAttivita,
+} from '@/types/calendario'
 import type { CommessaOpzione } from '@/types/produzione'
 
 export const NOMI_MESI = [
@@ -30,6 +31,7 @@ export default function CalendarioProduzione({
   anno,
   mese,
   eventi,
+  tipi,
   orari,
   chiusure,
   commesse,
@@ -38,6 +40,8 @@ export default function CalendarioProduzione({
   anno: number
   mese: number
   eventi: EventoConContesto[]
+  /** Anagrafica dei tipi: etichette, colori e giorni da evidenziare. */
+  tipi: TipoAttivita[]
   orari: OrariLavoro
   chiusure: Chiusura[]
   /** Commesse aperte: colonna laterale, scelta da slot e selettore del dialog. */
@@ -49,6 +53,18 @@ export default function CalendarioProduzione({
   const [eventoAperto, setEventoAperto] = useState<EventoConContesto | null>(null)
   const [nuovo, setNuovo] = useState<NuovoEvento | null>(null)
   const [slotScelta, setSlotScelta] = useState<{ data: string; ora: string } | null>(null)
+
+  const tipiProduzione = useMemo(
+    () => tipi.filter((t) => t.ambito === 'produzione'),
+    [tipi]
+  )
+  const aspetti: AspettiTipo = useMemo(
+    () => Object.fromEntries(
+      tipi.map((t) => [t.chiave, { label: t.etichetta, sfondo: t.sfondo, testo: t.testo }])
+    ),
+    [tipi]
+  )
+  const tipoPredefinito = tipiProduzione[0]?.chiave ?? 'lavorazione'
 
   // La larghezza della pista sta nello stato e non in una ref: serve anche in
   // fase di render, per dire alle barre quanti minuti vale un pixel.
@@ -151,13 +167,13 @@ export default function CalendarioProduzione({
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex flex-wrap gap-2 text-[11px]">
-            {TIPI_PRODUZIONE.map((tipo) => (
-              <span key={tipo} className="flex items-center gap-1">
+            {tipiProduzione.map((tipo) => (
+              <span key={tipo.id} className="flex items-center gap-1">
                 <span
                   className="inline-block h-3 w-3 rounded-sm"
-                  style={{ backgroundColor: ASPETTO_TIPO[tipo].sfondo }}
+                  style={{ backgroundColor: tipo.sfondo }}
                 />
-                {ASPETTO_TIPO[tipo].label}
+                {tipo.etichetta}
               </span>
             ))}
           </div>
@@ -173,7 +189,7 @@ export default function CalendarioProduzione({
                   data: new Date().toISOString().slice(0, 10),
                   ora_inizio: '08:00',
                   ora_fine: '17:30',
-                  tipo: 'lavorazione',
+                  tipo: tipoPredefinito,
                 })
               }
             >
@@ -197,6 +213,7 @@ export default function CalendarioProduzione({
                 anno={anno}
                 mese={mese}
                 eventi={eventi}
+                tipi={tipiProduzione}
                 orari={orari}
                 chiusure={chiusure}
                 onApriEvento={setEventoAperto}
@@ -218,6 +235,7 @@ export default function CalendarioProduzione({
           anno={anno}
           mese={mese}
           eventi={eventi}
+          aspetti={aspetti}
           orari={orari}
           chiusure={chiusure}
           onApriEvento={setEventoAperto}
@@ -236,7 +254,7 @@ export default function CalendarioProduzione({
               data: slotScelta.data,
               ora_inizio: slotScelta.ora,
               ora_fine: `${String(Math.min(Number(h) + 1, 23)).padStart(2, '0')}:${m}`,
-              tipo: 'lavorazione',
+              tipo: tipoPredefinito,
               commessa_id: commessa?.id ?? null,
               cliente_nome: commessa?.cliente_nome ?? null,
             })
@@ -249,6 +267,7 @@ export default function CalendarioProduzione({
         <DialogEvento
           evento={eventoAperto}
           nuovo={nuovo}
+          tipi={tipiProduzione}
           commesse={commesse}
           onClose={() => {
             setEventoAperto(null)

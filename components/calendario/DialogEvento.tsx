@@ -16,8 +16,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { createEvento, updateEvento, deleteEvento } from '@/actions/calendario'
-import { ASPETTO_TIPO, TIPI_PRODUZIONE } from '@/types/calendario'
-import type { EventoConContesto, EventoInput, TipoEvento } from '@/types/calendario'
+
+import type { EventoConContesto, EventoInput, TipoAttivita } from '@/types/calendario'
 import type { CommessaOpzione } from '@/types/produzione'
 
 /** Valori di partenza quando il dialog si apre su uno slot vuoto o da un rilascio. */
@@ -25,7 +25,8 @@ export type NuovoEvento = {
   data: string
   ora_inizio: string
   ora_fine: string
-  tipo: TipoEvento
+  /** Chiave del tipo scelto in anagrafica. */
+  tipo: string
   commessa_id?: string | null
   cliente_nome?: string | null
   fornitore_id?: string | null
@@ -37,18 +38,23 @@ const soloOreMinuti = (ora: string) => ora.slice(0, 5)
 export default function DialogEvento({
   evento,
   nuovo,
+  tipi,
   commesse,
   onClose,
 }: {
   evento: EventoConContesto | null
   nuovo: NuovoEvento | null
+  /** Tipi di ambito produzione, come li ha personalizzati l'organizzazione. */
+  tipi: TipoAttivita[]
   commesse: CommessaOpzione[]
   onClose: () => void
 }) {
   const router = useRouter()
   const inModifica = evento !== null
 
-  const [tipo, setTipo] = useState<TipoEvento>(evento?.tipo ?? nuovo?.tipo ?? 'lavorazione')
+  const [tipo, setTipo] = useState<string>(
+    evento?.tipo ?? nuovo?.tipo ?? tipi[0]?.chiave ?? 'lavorazione'
+  )
   const [data, setData] = useState(evento?.data ?? nuovo?.data ?? '')
   const [oraInizio, setOraInizio] = useState(
     soloOreMinuti(evento?.ora_inizio ?? nuovo?.ora_inizio ?? '08:00')
@@ -139,14 +145,14 @@ export default function DialogEvento({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="evento-tipo">Tipo</Label>
-            <Select value={tipo} onValueChange={(v) => setTipo(v as TipoEvento)}>
+            <Select value={tipo} onValueChange={setTipo}>
               <SelectTrigger id="evento-tipo">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TIPI_PRODUZIONE.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {ASPETTO_TIPO[t].label}
+                {tipi.map((t) => (
+                  <SelectItem key={t.id} value={t.chiave}>
+                    {t.etichetta}
                   </SelectItem>
                 ))}
               </SelectContent>

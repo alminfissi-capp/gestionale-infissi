@@ -1,10 +1,10 @@
 // components/calendario/ListaGiorniMobile.tsx
 'use client'
 
-import { ASPETTO_TIPO } from '@/types/calendario'
+import { aspettoDi } from '@/types/calendario'
 import { etichettaEvento, statoGiorno } from '@/lib/calendario'
 import { giorniDelMese } from './GrigliaGantt'
-import type { Chiusura, EventoConContesto, OrariLavoro } from '@/types/calendario'
+import type { AspettiTipo, Chiusura, EventoConContesto, OrariLavoro } from '@/types/calendario'
 
 const soloOreMinuti = (ora: string) => ora.slice(0, 5)
 
@@ -12,6 +12,7 @@ export default function ListaGiorniMobile({
   anno,
   mese,
   eventi,
+  aspetti,
   orari,
   chiusure,
   onApriEvento,
@@ -19,6 +20,7 @@ export default function ListaGiorniMobile({
   anno: number
   mese: number
   eventi: EventoConContesto[]
+  aspetti: AspettiTipo
   orari: OrariLavoro
   chiusure: Chiusura[]
   onApriEvento?: (evento: EventoConContesto) => void
@@ -53,14 +55,14 @@ export default function ListaGiorniMobile({
                     onClick={onApriEvento ? () => onApriEvento(e) : undefined}
                     className="flex items-center gap-2 rounded-md px-2 py-1 text-xs"
                     style={{
-                      backgroundColor: ASPETTO_TIPO[e.tipo].sfondo,
-                      color: ASPETTO_TIPO[e.tipo].testo,
+                      backgroundColor: aspettoDi(aspetti, e.tipo).sfondo,
+                      color: aspettoDi(aspetti, e.tipo).testo,
                     }}
                   >
                     <span className="shrink-0 font-mono">
                       {soloOreMinuti(e.ora_inizio)}–{soloOreMinuti(e.ora_fine)}
                     </span>
-                    <span className="truncate font-medium">{etichettaEvento(e)}</span>
+                    <span className="truncate font-medium">{etichettaEvento(e, aspetti)}</span>
                   </li>
                 ))}
               </ul>
