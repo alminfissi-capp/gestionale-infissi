@@ -22,6 +22,8 @@ export type Settings = {
   num_anno: number
   num_padding: number
   firma_default: string | null
+  /** Sette elementi, indice 0 = lunedì. Vedi types/calendario.ts */
+  orari_lavoro: unknown
   created_at: string
   updated_at: string
 }
