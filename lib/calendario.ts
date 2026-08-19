@@ -1,5 +1,6 @@
 // lib/calendario.ts
-import type { Chiusura, OrariLavoro } from '@/types/calendario'
+import { ASPETTO_TIPO } from '@/types/calendario'
+import type { Chiusura, OrariLavoro, TipoEvento } from '@/types/calendario'
 
 /** 'HH:MM' o 'HH:MM:SS' → minuti dalla mezzanotte. */
 export function minutiDaOra(ora: string): number {
@@ -140,4 +141,79 @@ export function impilaEventi<T extends Impilabile>(eventi: T[]): EventoImpilato<
 /** Arrotonda i minuti al passo della griglia, per lo snap del trascinamento. */
 export function snapMinuti(minuti: number, passo = 30): number {
   return Math.round(minuti / passo) * passo
+}
+
+type Etichettabile = {
+  tipo: TipoEvento
+  titolo: string | null
+  cliente_nome: string | null
+  fornitore_nome: string | null
+}
+
+/**
+ * Testo della barra, nella forma usata sul foglio appeso in officina:
+ * "Ricez. Vetri METALVETRO ---SPAGNA---".
+ */
+export function etichettaEvento(evento: Etichettabile): string {
+  const cliente = evento.cliente_nome?.trim()
+  if (cliente) {
+    const parti = [ASPETTO_TIPO[evento.tipo].label]
+    const fornitore = evento.fornitore_nome?.trim()
+    if (fornitore) parti.push(fornitore)
+    return `${parti.join(' ')} ---${cliente}---`
+  }
+
+  const titolo = evento.titolo?.trim()
+  if (titolo) return titolo
+
+  return ASPETTO_TIPO[evento.tipo].label
+}
+
+/** Somma giorni a una data 'YYYY-MM-DD' restando in fuso locale. */
+function aggiungiGiorni(data: string, giorni: number): string {
+  const d = new Date(`${data}T00:00:00`)
+  d.setDate(d.getDate() + giorni)
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
+}
+
+export type GiornoCatena = { data: string; ora_inizio: string; ora_fine: string }
+
+/**
+ * Espande una lavorazione continuativa in una riga per giorno lavorativo.
+ * I giorni chiusi vengono saltati e non consumano il conteggio; se un giorno
+ * chiude prima dell'orario richiesto, la giornata si accorcia.
+ * Il limite di 200 iterazioni evita di girare a vuoto se tutto e' chiuso.
+ */
+export function espandiCatena(
+  dataInizio: string,
+  numeroGiorni: number,
+  oraInizio: string,
+  oraFine: string,
+  orari: OrariLavoro,
+  chiusure: Chiusura[]
+): GiornoCatena[] {
+  const giorni: GiornoCatena[] = []
+  let data = dataInizio
+  let tentativi = 0
+
+  while (giorni.length < numeroGiorni && tentativi < 200) {
+    tentativi++
+    const stato = statoGiorno(data, orari, chiusure)
+    if (stato.aperto) {
+      const fine = Math.min(minutiDaOra(oraFine), minutiDaOra(stato.chiusura))
+      const inizio = Math.max(minutiDaOra(oraInizio), minutiDaOra(stato.apertura))
+      if (fine > inizio) {
+        giorni.push({
+          data,
+          ora_inizio: oraDaMinuti(inizio),
+          ora_fine: oraDaMinuti(fine),
+        })
+      }
+    }
+    data = aggiungiGiorni(data, 1)
+  }
+
+  return giorni
 }
