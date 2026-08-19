@@ -12,6 +12,7 @@ import {
   statoGiorno,
 } from '@/lib/calendario'
 import BarraEvento, { ALTEZZA_BARRA } from './BarraEvento'
+import { ASPETTO_TIPO } from '@/types/calendario'
 import type { Chiusura, EventoConContesto, OrariLavoro } from '@/types/calendario'
 
 const ALTEZZA_MINIMA_RIGA = 34
@@ -170,6 +171,21 @@ export default function GrigliaGantt({
                       }}
                     />
                   )}
+                  {/* Connettore delle lavorazioni continuative: lega
+                      visivamente i giorni della stessa catena. */}
+                  {impilati
+                    .filter((ev) => ev.catena_id)
+                    .map((ev) => (
+                      <div
+                        key={`catena-${ev.id}`}
+                        className="absolute inset-y-0 w-1"
+                        style={{
+                          left: `${posizioneBarra(ev.ora_inizio, ev.ora_fine, fascia).sinistraPct}%`,
+                          backgroundColor: ASPETTO_TIPO[ev.tipo].sfondo,
+                          opacity: 0.55,
+                        }}
+                      />
+                    ))}
                   {impilati.map((e) => {
                     const p = posizioneBarra(e.ora_inizio, e.ora_fine, fascia)
                     return (
