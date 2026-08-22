@@ -108,8 +108,13 @@ describe('calcolaSemaforo', () => {
     })
   })
 
-  it('solo una bloccata accende il rosso e spegne il giallo', () => {
-    expect(con(['bloccato', 'programmato'])).toEqual({ verde: false, giallo: false, rosso: true })
+  it('una bloccata senza nessuno al lavoro accende giallo e rosso', () => {
+    expect(con(['bloccato', 'programmato'])).toEqual({ verde: false, giallo: true, rosso: true })
+  })
+
+  it('il rosso non spegne mai il giallo: e‘ il verde a farlo', () => {
+    expect(con(['bloccato'])).toMatchObject({ giallo: true })
+    expect(con(['bloccato', 'in_corso'])).toMatchObject({ giallo: false })
   })
 })
 

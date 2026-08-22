@@ -72,17 +72,21 @@ export function calcolaAvanzamento(
 }
 
 /**
- * Le tre luci del semaforo di commessa. Verde: qualcuno ci sta lavorando
- * adesso. Rosso: qualcosa e' fermo per un problema. Giallo: stand-by, cioe'
- * nessuno ha ancora toccato niente. Verde e rosso possono stare accesi
- * insieme — due attivita' in corso e una bloccata sono esattamente questo.
+ * Le tre luci del semaforo di commessa.
+ *
+ * Verde: qualcuno ci sta lavorando adesso. Giallo: nessuno ci sta lavorando,
+ * la commessa e' ferma in stand-by. Sono l'una il contrario dell'altra, e una
+ * delle due e' sempre accesa.
+ *
+ * Rosso: c'e' qualcosa di bloccato. E' una luce a se', non spegne le altre —
+ * un blocco mentre nessuno lavora da' giallo e rosso, un blocco mentre altri
+ * lavorano da' verde e rosso.
  */
 export type Semaforo = { verde: boolean; giallo: boolean; rosso: boolean }
 
 export function calcolaSemaforo(avanzamento: Avanzamento): Semaforo {
   const verde = avanzamento.inCorso > 0
-  const rosso = avanzamento.bloccate > 0
-  return { verde, rosso, giallo: !verde && !rosso }
+  return { verde, giallo: !verde, rosso: avanzamento.bloccate > 0 }
 }
 
 /**
