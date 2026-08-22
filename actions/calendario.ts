@@ -13,7 +13,7 @@ import { filtraClienti } from '@/lib/ricerca-clienti'
 import {
   ANNO_RICORRENTE, ASPETTO_TIPO, aspettoDi, ORARI_LAVORO_DEFAULT, TIPI_DEFAULT,
 } from '@/types/calendario'
-import { STATI_COMMESSA_APERTI } from '@/types/produzione'
+import { STATI_COMMESSA_PRODUZIONE } from '@/types/produzione'
 import type { CommessaOpzione } from '@/types/produzione'
 import type {
   AspettiTipo,
@@ -441,7 +441,7 @@ export async function getCommesseAperte(): Promise<CommessaOpzione[]> {
     .from('commesse')
     .select('id, numero_commessa, cliente_nome')
     .eq('organization_id', orgId)
-    .in('stato', STATI_COMMESSA_APERTI)
+    .in('stato', STATI_COMMESSA_PRODUZIONE)
     .order('numero_commessa', { ascending: true })
 
   if (error) throw new Error(error.message)

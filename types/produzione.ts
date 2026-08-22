@@ -10,23 +10,18 @@ export const STATI_ORDINE: { value: StatoOrdine; label: string }[] = [
   { value: 'annullato',   label: 'Annullato' },
 ]
 
-/** Stati commessa considerati "aperti" in Produzione: default del cruscotto. */
-export const STATI_COMMESSA_APERTI: StatoCommessa[] = [
-  'in_attesa',
+/**
+ * Gli stati di chi e' davvero entrato in produzione: elenco delle card,
+ * colonna delle commesse da programmare sul calendario. 'in_attesa' non c'e':
+ * e' il limbo di chi ha accettato il preventivo ma non ha ancora versato
+ * l'acconto. La commessa parte quando la si porta a 'da_iniziare'.
+ */
+export const STATI_COMMESSA_PRODUZIONE: StatoCommessa[] = [
   'da_iniziare',
   'in_lavorazione',
   'da_consegnare',
   'parzialmente_consegnato',
 ]
-
-/**
- * Gli stati di chi e' davvero entrato in produzione. 'in_attesa' non c'e':
- * e' il limbo di chi ha accettato il preventivo ma non ha ancora versato
- * l'acconto. La commessa parte quando la si porta a 'da_iniziare', ed e'
- * allora che nasce la sua card in Produzione.
- */
-export const STATI_COMMESSA_PRODUZIONE: StatoCommessa[] =
-  STATI_COMMESSA_APERTI.filter((s) => s !== 'in_attesa')
 
 /** Il limbo: confermata dal cliente, non ancora pagata, quindi non partita. */
 export const STATO_COMMESSA_LIMBO: StatoCommessa = 'in_attesa'
