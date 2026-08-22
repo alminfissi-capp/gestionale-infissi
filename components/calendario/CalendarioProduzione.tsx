@@ -3,10 +3,11 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent,
 } from '@dnd-kit/core'
-import { ChevronLeft, ChevronRight, Plus, Printer } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Plus, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { fasciaGriglia, minutiDaOra, oraDaMinuti, snapMinuti } from '@/lib/calendario'
@@ -154,6 +155,13 @@ export default function CalendarioProduzione({
 
       <div className="no-stampa flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
+          {/* Si arriva qui da /produzione: il tasto riporta all'elenco commesse */}
+          <Button asChild variant="ghost" size="sm" className="gap-1.5 px-2">
+            <Link href="/produzione">
+              <ArrowLeft className="h-4 w-4" />
+              Produzione
+            </Link>
+          </Button>
           <Button variant="outline" size="sm" onClick={() => vaiA(-1)} disabled={inCorso}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
