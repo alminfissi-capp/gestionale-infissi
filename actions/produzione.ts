@@ -9,7 +9,9 @@ import {
   normalizzaNumeroOrdine,
   prossimoNumeroOrdine,
 } from '@/lib/produzione'
-import { STATI_COMMESSA_APERTI, TIPI_DOCUMENTO_PRODUZIONE_VALUES } from '@/types/produzione'
+import {
+  STATI_COMMESSA_PRODUZIONE, STATO_COMMESSA_LIMBO, TIPI_DOCUMENTO_PRODUZIONE_VALUES,
+} from '@/types/produzione'
 import type {
   OrdineCompleto,
   OrdineConCommessa,
@@ -185,7 +187,7 @@ export async function getTuttiGliOrdini(): Promise<OrdineConContesto[]> {
 }
 
 export async function getCruscottoProduzione(
-  stati: StatoCommessa[] = STATI_COMMESSA_APERTI,
+  stati: StatoCommessa[] = STATI_COMMESSA_PRODUZIONE,
   archiviate = false
 ): Promise<{ daFare: OrdineConCommessa[]; commesse: CommessaProduzione[] }> {
   const supabase = await createClient()
@@ -198,6 +200,9 @@ export async function getCruscottoProduzione(
     .select('id, numero_commessa, cliente_nome, stato, data_conferma')
     .eq('organization_id', orgId)
     .eq('archiviata', archiviate)
+    // Il limbo non entra in Produzione da nessuna porta, nemmeno passando
+    // uno `stati` che lo comprende: finche' non c'e' l'acconto non si parte.
+    .neq('stato', STATO_COMMESSA_LIMBO)
   if (!archiviate) query = query.in('stato', stati)
   const { data: commesse } = await query.order('data_conferma', { ascending: false })
 

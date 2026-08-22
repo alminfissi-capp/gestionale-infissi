@@ -19,6 +19,18 @@ export const STATI_COMMESSA_APERTI: StatoCommessa[] = [
   'parzialmente_consegnato',
 ]
 
+/**
+ * Gli stati di chi e' davvero entrato in produzione. 'in_attesa' non c'e':
+ * e' il limbo di chi ha accettato il preventivo ma non ha ancora versato
+ * l'acconto. La commessa parte quando la si porta a 'da_iniziare', ed e'
+ * allora che nasce la sua card in Produzione.
+ */
+export const STATI_COMMESSA_PRODUZIONE: StatoCommessa[] =
+  STATI_COMMESSA_APERTI.filter((s) => s !== 'in_attesa')
+
+/** Il limbo: confermata dal cliente, non ancora pagata, quindi non partita. */
+export const STATO_COMMESSA_LIMBO: StatoCommessa = 'in_attesa'
+
 /** Tipi documento di competenza della Produzione (Commesse mostra gli altri). */
 export const TIPI_DOCUMENTO_PRODUZIONE: { value: string; label: string }[] = [
   { value: 'disegno',          label: 'Disegno' },
