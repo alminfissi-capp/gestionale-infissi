@@ -391,25 +391,41 @@ export async function getEventiCommessa(commessaId: string): Promise<EventoConCo
   return (data ?? []).map((r) => appiattisci(r as unknown as RigaGrezza))
 }
 
+/** Come torna un'attivita' dopo che le si e' cambiato stato. */
+export type PatchAttivita = {
+  stato: StatoEvento
+  avviato_at: string | null
+  secondi_lavorati: number
+}
+
 /**
  * Avanzamento di una singola attivita' (i tasti play/stop/blocco/completata).
  * Non tocca date ne' orari: la programmazione resta quella del calendario.
+ *
+ * Il cronometro lo muove la funzione Postgres `set_stato_attivita`, cosi' il
+ * tempo lo misura l'orologio del database: 'in_corso' apre la sessione, gli
+ * altri tre stati la chiudono sommando i secondi.
  */
-export async function setStatoEvento(id: string, stato: StatoEvento): Promise<void> {
+export async function setStatoEvento(
+  id: string,
+  stato: StatoEvento
+): Promise<PatchAttivita> {
   await requireAccesso('produzione', 'scrittura')
+  if (stato === 'annullato') throw new Error('Stato non gestito dai tasti attività')
   const supabase = await createClient()
-  const orgId = await getOrgId()
 
-  const { error } = await supabase
-    .from('eventi_calendario')
-    .update({ stato, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .eq('organization_id', orgId)
+  // Niente filtro su organization_id: ci pensa la policy RLS della tabella,
+  // e la funzione gira con i permessi di chi chiama.
+  const { data, error } = await supabase
+    .rpc('set_stato_attivita', { p_id: id, p_stato: stato })
+    .select('stato, avviato_at, secondi_lavorati')
+    .maybeSingle()
   if (error) throw new Error(error.message)
+  if (!data) throw new Error('Attività non trovata')
 
-  revalidatePath('/commesse')
   revalidatePath('/produzione')
   revalidatePath('/calendario')
+  return data as PatchAttivita
 }
 
 /**

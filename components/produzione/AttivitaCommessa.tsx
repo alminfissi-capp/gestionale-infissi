@@ -1,10 +1,11 @@
 // components/produzione/AttivitaCommessa.tsx
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Ban, Check, Loader2, Pencil, Play, Plus, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import DialogEvento, { type NuovoEvento } from '@/components/calendario/DialogEvento'
+import { formattaDurata } from '@/lib/avanzamento'
 import { aspettoDi, STATO_EVENTO_LABEL } from '@/types/calendario'
 import type { EventoConContesto, StatoEvento, TipoAttivita } from '@/types/calendario'
 import type { CommessaOpzione } from '@/types/produzione'
@@ -20,6 +21,17 @@ import type { AttivitaCommessa as StatoAttivita } from '@/hooks/useAttivitaComme
 const giornoBreve = (data: string): string => {
   const [, m, g] = data.split('-')
   return `${g}/${m}`
+}
+
+/**
+ * Tempo lavorato: quello gia' accumulato piu' la sessione aperta adesso.
+ * `ora` arriva dal battito del componente, cosi' il numero sale da solo.
+ */
+const secondiLavorati = (evento: EventoConContesto, ora: number): number => {
+  const aperta = evento.avviato_at
+    ? Math.max(0, (ora - new Date(evento.avviato_at).getTime()) / 1000)
+    : 0
+  return evento.secondi_lavorati + aperta
 }
 
 const oreBrevi = (evento: EventoConContesto): string =>
@@ -50,6 +62,15 @@ export default function AttivitaCommessa({
   const { eventi, tipi, aspetti, caricamento, salvando, cambiaStato, ricarica } = attivita
   const [inModifica, setInModifica] = useState<EventoConContesto | null>(null)
   const [nuovo, setNuovo] = useState<NuovoEvento | null>(null)
+
+  // Un solo battito per tutta la lista, e solo mentre un cronometro corre.
+  const [ora, setOra] = useState(() => Date.now())
+  const qualcunoInCorso = eventi.some((e) => e.avviato_at !== null)
+  useEffect(() => {
+    if (!qualcunoInCorso) return
+    const battito = setInterval(() => setOra(Date.now()), 1000)
+    return () => clearInterval(battito)
+  }, [qualcunoInCorso])
 
   const tipiProduzione = tipi.filter((t) => t.ambito === 'produzione' && !t.sistema)
 
@@ -134,6 +155,15 @@ export default function AttivitaCommessa({
                     </span>
                   )}
                 </div>
+
+                {(evento.avviato_at !== null || evento.secondi_lavorati > 0) && (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded bg-black/15 px-1.5 py-0.5 font-mono text-[11px]">
+                    {evento.avviato_at !== null && (
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
+                    )}
+                    {formattaDurata(secondiLavorati(evento, ora))}
+                  </span>
+                )}
 
                 <div className="flex shrink-0 items-center gap-0.5">
                   {AZIONI.map(({ stato, icona: Icona, titolo }) => {

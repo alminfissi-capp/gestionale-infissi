@@ -1,6 +1,8 @@
 // lib/avanzamento.test.ts
 import { describe, it, expect } from 'vitest'
-import { calcolaAvanzamento, AVANZAMENTO_VUOTO } from '@/lib/avanzamento'
+import {
+  calcolaAvanzamento, calcolaSemaforo, formattaDurata, AVANZAMENTO_VUOTO,
+} from '@/lib/avanzamento'
 import type { AspettiTipo } from '@/types/calendario'
 
 const ASPETTI: AspettiTipo = {
@@ -24,6 +26,8 @@ describe('calcolaAvanzamento', () => {
     expect(a.totale).toBe(4)
     expect(a.completate).toBe(1)
     expect(a.percentuale).toBe(25)
+    expect(a.inCorso).toBe(1)
+    expect(a.bloccate).toBe(1)
   })
 
   it('la stessa attività completata su cinque fasi vale 20%', () => {
@@ -79,5 +83,53 @@ describe('calcolaAvanzamento', () => {
       { tipo: 'lavorazione', stato: 'programmato' },
     ], ASPETTI)
     expect(a.percentuale).toBe(33)
+  })
+})
+
+describe('calcolaSemaforo', () => {
+  const con = (stati: string[]) =>
+    calcolaSemaforo(calcolaAvanzamento(stati.map((stato) => ({ tipo: 'posa', stato })), ASPETTI))
+
+  it('senza attività resta in stand-by', () => {
+    expect(calcolaSemaforo(AVANZAMENTO_VUOTO)).toEqual({ verde: false, giallo: true, rosso: false })
+  })
+
+  it('con tutto ancora da fare resta in stand-by', () => {
+    expect(con(['programmato', 'programmato'])).toEqual({ verde: false, giallo: true, rosso: false })
+  })
+
+  it('una attività in corso accende il verde e spegne il giallo', () => {
+    expect(con(['in_corso', 'programmato'])).toEqual({ verde: true, giallo: false, rosso: false })
+  })
+
+  it('due in corso e una bloccata tengono accesi verde e rosso insieme', () => {
+    expect(con(['in_corso', 'in_corso', 'bloccato'])).toEqual({
+      verde: true, giallo: false, rosso: true,
+    })
+  })
+
+  it('solo una bloccata accende il rosso e spegne il giallo', () => {
+    expect(con(['bloccato', 'programmato'])).toEqual({ verde: false, giallo: false, rosso: true })
+  })
+})
+
+describe('formattaDurata', () => {
+  it('sotto il minuto mostra i secondi', () => {
+    expect(formattaDurata(0)).toBe('0s')
+    expect(formattaDurata(45)).toBe('45s')
+  })
+
+  it('sopra il minuto mostra i minuti interi', () => {
+    expect(formattaDurata(60)).toBe('1m')
+    expect(formattaDurata(12 * 60 + 59)).toBe('12m')
+  })
+
+  it('sopra l’ora mostra ore e minuti a due cifre', () => {
+    expect(formattaDurata(3600)).toBe('1h 00m')
+    expect(formattaDurata(2 * 3600 + 5 * 60)).toBe('2h 05m')
+  })
+
+  it('non va sotto zero con i secondi negativi', () => {
+    expect(formattaDurata(-10)).toBe('0s')
   })
 })

@@ -18,6 +18,10 @@ export type FettaAvanzamento = {
 export type Avanzamento = {
   totale: number
   completate: number
+  /** Quante sono in corso adesso: e' la luce verde del semaforo. */
+  inCorso: number
+  /** Quante sono bloccate: e' la luce rossa. */
+  bloccate: number
   /** Intero 0-100, arrotondato. */
   percentuale: number
   fette: FettaAvanzamento[]
@@ -27,6 +31,8 @@ export type Avanzamento = {
 export const AVANZAMENTO_VUOTO: Avanzamento = {
   totale: 0,
   completate: 0,
+  inCorso: 0,
+  bloccate: 0,
   percentuale: 0,
   fette: [],
 }
@@ -58,7 +64,36 @@ export function calcolaAvanzamento(
   return {
     totale: fette.length,
     completate,
+    inCorso: fasi.filter((a) => a.stato === 'in_corso').length,
+    bloccate: fasi.filter((a) => a.stato === 'bloccato').length,
     percentuale: Math.round((completate / fette.length) * 100),
     fette,
   }
+}
+
+/**
+ * Le tre luci del semaforo di commessa. Verde: qualcuno ci sta lavorando
+ * adesso. Rosso: qualcosa e' fermo per un problema. Giallo: stand-by, cioe'
+ * nessuno ha ancora toccato niente. Verde e rosso possono stare accesi
+ * insieme — due attivita' in corso e una bloccata sono esattamente questo.
+ */
+export type Semaforo = { verde: boolean; giallo: boolean; rosso: boolean }
+
+export function calcolaSemaforo(avanzamento: Avanzamento): Semaforo {
+  const verde = avanzamento.inCorso > 0
+  const rosso = avanzamento.bloccate > 0
+  return { verde, rosso, giallo: !verde && !rosso }
+}
+
+/**
+ * Durata in forma leggibile: `2h 05m`, `12m`, `45s`. I secondi si mostrano
+ * solo sotto il minuto, altrimenti la riga balla a ogni battito.
+ */
+export function formattaDurata(secondi: number): string {
+  const totale = Math.max(0, Math.floor(secondi))
+  if (totale < 60) return `${totale}s`
+  const minuti = Math.floor(totale / 60)
+  if (minuti < 60) return `${minuti}m`
+  const ore = Math.floor(minuti / 60)
+  return `${ore}h ${String(minuti % 60).padStart(2, '0')}m`
 }

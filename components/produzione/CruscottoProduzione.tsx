@@ -15,6 +15,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import GraficoAvanzamento from '@/components/produzione/GraficoAvanzamento'
+import SemaforoCommessa from '@/components/produzione/SemaforoCommessa'
 import { setArchiviataCommessa } from '@/actions/produzione'
 import type { OrdineConCommessa, CommessaProduzione } from '@/types/produzione'
 
@@ -307,6 +308,7 @@ export default function CruscottoProduzione({ daFare, commesse, statoFiltro, arc
                     </div>
                   </div>
                   {/* Avanzamento delle fasi: a colpo d'occhio, coi colori delle attività */}
+                  <SemaforoCommessa avanzamento={c.avanzamento} />
                   <GraficoAvanzamento avanzamento={c.avanzamento} dimensione={46} spessore={7} />
                 </Link>
                 <button

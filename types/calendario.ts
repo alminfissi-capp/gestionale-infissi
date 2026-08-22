@@ -176,6 +176,10 @@ export type EventoCalendario = {
   visibile_produzione: boolean
   visibile_amministrazione: boolean
   stato: StatoEvento
+  /** Valorizzato solo mentre il cronometro corre. */
+  avviato_at: string | null
+  /** Tempo gia' accumulato nelle sessioni chiuse, in secondi. */
+  secondi_lavorati: number
   avvisato_email_at: string | null
   avvisato_whatsapp_at: string | null
   created_by: string | null

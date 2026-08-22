@@ -66,13 +66,27 @@ export function useAttivitaCommessa(commessaId: string): AttivitaCommessa {
     async (evento: EventoConContesto, stato: StatoEvento) => {
       if (evento.stato === stato) return
       setSalvando(evento.id)
-      // Ottimistico: il tasto deve rispondere subito, in officina si tocca al volo
-      setEventi((prec) => prec.map((e) => (e.id === evento.id ? { ...e, stato } : e)))
+      // Ottimistico: il tasto deve rispondere subito, in officina si tocca al
+      // volo. Anche il cronometro parte (o si ferma) qui, poi la risposta del
+      // database rimette i secondi veri.
+      const provvisorio = {
+        stato,
+        avviato_at: stato === 'in_corso' ? new Date().toISOString() : null,
+      }
+      setEventi((prec) => prec.map((e) => (e.id === evento.id ? { ...e, ...provvisorio } : e)))
       try {
-        await setStatoEvento(evento.id, stato)
+        const patch = await setStatoEvento(evento.id, stato)
+        setEventi((prec) => prec.map((e) => (e.id === evento.id ? { ...e, ...patch } : e)))
       } catch (err) {
         setEventi((prec) =>
-          prec.map((e) => (e.id === evento.id ? { ...e, stato: evento.stato } : e))
+          prec.map((e) => (e.id === evento.id
+            ? {
+                ...e,
+                stato: evento.stato,
+                avviato_at: evento.avviato_at,
+                secondi_lavorati: evento.secondi_lavorati,
+              }
+            : e))
         )
         toast.error(err instanceof Error ? err.message : 'Errore nel salvataggio')
       } finally {
