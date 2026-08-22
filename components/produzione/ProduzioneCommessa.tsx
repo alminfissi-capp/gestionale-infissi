@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/select'
 import DialogOrdine from './DialogOrdine'
 import DocumentiProduzione from './DocumentiProduzione'
+import AttivitaCommessa from './AttivitaCommessa'
 import DialogVisualizzatore from './DialogVisualizzatore'
 import OrdinePDF from './OrdinePDF'
 import type { IntestazionePDF } from './OrdinePDF'
@@ -280,6 +281,13 @@ export default function ProduzioneCommessa({
       </section>
 
       <DocumentiProduzione commessaId={commessa.id} documenti={documenti} />
+
+      {/* Fasi di lavorazione programmate: le stesse righe del calendario */}
+      <AttivitaCommessa
+        commessaId={commessa.id}
+        numeroCommessa={commessa.numero_commessa}
+        clienteNome={commessa.cliente_nome}
+      />
 
       <DialogOrdine
         open={open}

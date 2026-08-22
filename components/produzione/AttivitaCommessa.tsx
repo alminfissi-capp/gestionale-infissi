@@ -1,4 +1,4 @@
-// components/commesse/AttivitaCommessa.tsx
+// components/produzione/AttivitaCommessa.tsx
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
@@ -42,13 +42,10 @@ export default function AttivitaCommessa({
   commessaId,
   numeroCommessa,
   clienteNome,
-  attivo = true,
 }: {
   commessaId: string
   numeroCommessa: string | null
   clienteNome: string
-  /** Il riquadro vive dentro un dialog: carica solo quando è davvero aperto. */
-  attivo?: boolean
 }) {
   const [eventi, setEventi] = useState<EventoConContesto[]>([])
   const [tipi, setTipi] = useState<TipoAttivita[]>([])
@@ -70,10 +67,8 @@ export default function AttivitaCommessa({
   }, [commessaId])
 
   useEffect(() => {
-    if (!attivo) return
-    setCaricamento(true)
     void ricarica()
-  }, [attivo, ricarica])
+  }, [ricarica])
 
   // Gli stessi colori del calendario: la legenda appesa in officina resta vera.
   const aspetti: AspettiTipo = Object.fromEntries(
@@ -129,25 +124,22 @@ export default function AttivitaCommessa({
   }
 
   return (
-    <section className="rounded-lg border p-4 space-y-3 bg-white">
+    <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
-          Attività
-        </p>
-        <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={apriNuova}>
-          <Plus className="h-3.5 w-3.5" />
-          Aggiungi
+        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Attività</h2>
+        <Button size="sm" className="gap-2" onClick={apriNuova}>
+          <Plus className="h-4 w-4" /> Nuova attività
         </Button>
       </div>
 
       {caricamento ? (
-        <p className="flex items-center gap-2 text-sm text-gray-400">
+        <p className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           Caricamento…
         </p>
       ) : eventi.length === 0 ? (
-        <p className="text-sm text-gray-400 italic">
-          Nessuna attività programmata per questa commessa
+        <p className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+          Nessuna attività programmata per questa commessa.
         </p>
       ) : (
         <ul className="space-y-1.5">
@@ -158,7 +150,7 @@ export default function AttivitaCommessa({
             return (
               <li
                 key={evento.id}
-                className="flex items-center gap-2 rounded-md px-2 py-1.5 shadow-sm"
+                className="flex items-center gap-2 rounded-md px-2.5 py-2 shadow-sm"
                 style={{
                   backgroundColor: aspetto.sfondo,
                   color: aspetto.testo,
@@ -169,7 +161,7 @@ export default function AttivitaCommessa({
                   <span className="shrink-0 font-mono text-[11px] opacity-80">
                     {giornoBreve(evento.data)} · {oreBrevi(evento)}
                   </span>
-                  <span className={`truncate text-xs font-semibold ${chiusa ? 'line-through' : ''}`}>
+                  <span className={`truncate text-sm font-semibold ${chiusa ? 'line-through' : ''}`}>
                     {aspetto.label}
                   </span>
                   {evento.note && (
@@ -194,11 +186,11 @@ export default function AttivitaCommessa({
                         aria-pressed={attiva}
                         disabled={salvando === evento.id}
                         onClick={() => cambiaStato(evento, stato)}
-                        className={`rounded p-1 transition-colors hover:bg-black/15 disabled:opacity-50 ${
+                        className={`rounded p-1.5 transition-colors hover:bg-black/15 disabled:opacity-50 ${
                           attiva ? 'bg-black/20 ring-1 ring-current' : 'opacity-70 hover:opacity-100'
                         }`}
                       >
-                        <Icona className="h-3.5 w-3.5" />
+                        <Icona className="h-4 w-4" />
                       </button>
                     )
                   })}
@@ -208,9 +200,9 @@ export default function AttivitaCommessa({
                     aria-label="Modifica attività"
                     disabled={soloLettura}
                     onClick={() => setInModifica(evento)}
-                    className="ml-1 rounded p-1 opacity-70 transition-colors hover:bg-black/15 hover:opacity-100 disabled:opacity-30"
+                    className="ml-1 rounded p-1.5 opacity-70 transition-colors hover:bg-black/15 hover:opacity-100 disabled:opacity-30"
                   >
-                    <Pencil className="h-3.5 w-3.5" />
+                    <Pencil className="h-4 w-4" />
                   </button>
                 </div>
               </li>
