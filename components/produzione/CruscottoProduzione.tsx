@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import GraficoAvanzamento from '@/components/produzione/GraficoAvanzamento'
 import { setArchiviataCommessa } from '@/actions/produzione'
 import type { OrdineConCommessa, CommessaProduzione } from '@/types/produzione'
 
@@ -285,24 +286,28 @@ export default function CruscottoProduzione({ daFare, commesse, statoFiltro, arc
                 key={c.id}
                 className="relative rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900"
               >
-                <Link href={`/produzione/${c.id}`} className="block p-3 pr-10">
-                  <p className="text-sm font-medium truncate text-gray-900 dark:text-gray-100">
-                    {c.numero_commessa || 'Senza numero'}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{c.cliente_nome}</p>
-                  <div className="mt-2 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                    <span className="inline-flex items-center gap-1">
-                      <Package className="h-3.5 w-3.5" /> {c.ordini_aperti}
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <FileText className="h-3.5 w-3.5" /> {c.documenti}
-                    </span>
-                    {c.ordini_in_ritardo > 0 && (
-                      <span className="inline-flex items-center gap-1 text-red-600">
-                        <AlertTriangle className="h-3.5 w-3.5" /> {c.ordini_in_ritardo}
+                <Link href={`/produzione/${c.id}`} className="flex items-center gap-3 p-3 pr-10">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate text-gray-900 dark:text-gray-100">
+                      {c.numero_commessa || 'Senza numero'}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{c.cliente_nome}</p>
+                    <div className="mt-2 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="inline-flex items-center gap-1">
+                        <Package className="h-3.5 w-3.5" /> {c.ordini_aperti}
                       </span>
-                    )}
+                      <span className="inline-flex items-center gap-1">
+                        <FileText className="h-3.5 w-3.5" /> {c.documenti}
+                      </span>
+                      {c.ordini_in_ritardo > 0 && (
+                        <span className="inline-flex items-center gap-1 text-red-600">
+                          <AlertTriangle className="h-3.5 w-3.5" /> {c.ordini_in_ritardo}
+                        </span>
+                      )}
+                    </div>
                   </div>
+                  {/* Avanzamento delle fasi: a colpo d'occhio, coi colori delle attività */}
+                  <GraficoAvanzamento avanzamento={c.avanzamento} dimensione={46} spessore={7} />
                 </Link>
                 <button
                   onClick={() => toggleArchivia(c.id, !archiviate)}

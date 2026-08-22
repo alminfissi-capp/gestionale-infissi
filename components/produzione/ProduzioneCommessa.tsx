@@ -13,10 +13,12 @@ import {
 import DialogOrdine from './DialogOrdine'
 import DocumentiProduzione from './DocumentiProduzione'
 import AttivitaCommessa from './AttivitaCommessa'
+import GraficoAvanzamento from './GraficoAvanzamento'
 import DialogVisualizzatore from './DialogVisualizzatore'
 import OrdinePDF from './OrdinePDF'
 import type { IntestazionePDF } from './OrdinePDF'
 import StatoInvioOrdine from '@/components/produzione/StatoInvioOrdine'
+import { useAttivitaCommessa } from '@/hooks/useAttivitaCommessa'
 import { formatEuro } from '@/lib/pricing'
 import { formattaNumeroOrdine } from '@/lib/produzione'
 import { deleteOrdine, setStatoOrdine } from '@/actions/produzione'
@@ -43,6 +45,9 @@ export default function ProduzioneCommessa({
   commessa, ordini, fornitori, numeroProposto, documenti, intestazione, tracking,
 }: Props) {
   const router = useRouter()
+  // Attivita' e avanzamento vengono dallo stesso stato: l'anello si muove
+  // nell'istante in cui si spunta "completata".
+  const attivita = useAttivitaCommessa(commessa.id)
   const [open, setOpen] = useState(false)
   const [inModifica, setInModifica] = useState<OrdineCompleto | null>(null)
   const [viewer, setViewer] = useState<{ url: string; nome: string } | null>(null)
@@ -280,13 +285,32 @@ export default function ProduzioneCommessa({
         )}
       </section>
 
-      <DocumentiProduzione commessaId={commessa.id} documenti={documenti} />
+      {/* Documenti a tre quarti, anello di avanzamento nel quadrato accanto */}
+      <div className="grid gap-4 lg:grid-cols-4">
+        <div className="lg:col-span-3">
+          <DocumentiProduzione commessaId={commessa.id} documenti={documenti} />
+        </div>
+        <div className="lg:col-span-1">
+          <div className="flex aspect-square flex-col items-center justify-center gap-3 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+              Avanzamento
+            </h2>
+            <GraficoAvanzamento
+              avanzamento={attivita.avanzamento}
+              dimensione={150}
+              spessore={20}
+              etichetta
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Fasi di lavorazione programmate: le stesse righe del calendario */}
       <AttivitaCommessa
         commessaId={commessa.id}
         numeroCommessa={commessa.numero_commessa}
         clienteNome={commessa.cliente_nome}
+        attivita={attivita}
       />
 
       <DialogOrdine

@@ -1,4 +1,5 @@
 import type { StatoCommessa } from '@/types/commessa'
+import type { Avanzamento } from '@/lib/avanzamento'
 
 export type StatoOrdine = 'da_ordinare' | 'ordinato' | 'arrivato' | 'annullato'
 
@@ -132,6 +133,8 @@ export type CommessaProduzione = {
   ordini_aperti: number
   ordini_in_ritardo: number
   documenti: number
+  /** Fasi programmate e quante ne sono state completate. */
+  avanzamento: Avanzamento
 }
 
 export type TipoEventoTracking =

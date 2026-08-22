@@ -1,17 +1,14 @@
 // components/produzione/AttivitaCommessa.tsx
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { toast } from 'sonner'
+import { useState } from 'react'
 import { Ban, Check, Loader2, Pencil, Play, Plus, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import DialogEvento, { type NuovoEvento } from '@/components/calendario/DialogEvento'
-import { getEventiCommessa, getTipiAttivita, setStatoEvento } from '@/actions/calendario'
 import { aspettoDi, STATO_EVENTO_LABEL } from '@/types/calendario'
-import type {
-  AspettiTipo, EventoConContesto, StatoEvento, TipoAttivita,
-} from '@/types/calendario'
+import type { EventoConContesto, StatoEvento, TipoAttivita } from '@/types/calendario'
 import type { CommessaOpzione } from '@/types/produzione'
+import type { AttivitaCommessa as StatoAttivita } from '@/hooks/useAttivitaCommessa'
 
 /**
  * Le attività di una commessa sono le stesse righe del calendario della
@@ -42,38 +39,17 @@ export default function AttivitaCommessa({
   commessaId,
   numeroCommessa,
   clienteNome,
+  attivita,
 }: {
   commessaId: string
   numeroCommessa: string | null
   clienteNome: string
+  /** Stato condiviso con l'anello di avanzamento (`useAttivitaCommessa`). */
+  attivita: StatoAttivita
 }) {
-  const [eventi, setEventi] = useState<EventoConContesto[]>([])
-  const [tipi, setTipi] = useState<TipoAttivita[]>([])
-  const [caricamento, setCaricamento] = useState(true)
-  const [salvando, setSalvando] = useState<string | null>(null)
+  const { eventi, tipi, aspetti, caricamento, salvando, cambiaStato, ricarica } = attivita
   const [inModifica, setInModifica] = useState<EventoConContesto | null>(null)
   const [nuovo, setNuovo] = useState<NuovoEvento | null>(null)
-
-  const ricarica = useCallback(async () => {
-    try {
-      const [e, t] = await Promise.all([getEventiCommessa(commessaId), getTipiAttivita()])
-      setEventi(e)
-      setTipi(t)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Errore nel caricamento delle attività')
-    } finally {
-      setCaricamento(false)
-    }
-  }, [commessaId])
-
-  useEffect(() => {
-    void ricarica()
-  }, [ricarica])
-
-  // Gli stessi colori del calendario: la legenda appesa in officina resta vera.
-  const aspetti: AspettiTipo = Object.fromEntries(
-    tipi.map((t) => [t.chiave, { label: t.etichetta, sfondo: t.sfondo, testo: t.testo }])
-  )
 
   const tipiProduzione = tipi.filter((t) => t.ambito === 'produzione' && !t.sistema)
 
@@ -82,21 +58,6 @@ export default function AttivitaCommessa({
     numero_commessa: numeroCommessa ?? '',
     cliente_nome: clienteNome,
   }]
-
-  const cambiaStato = async (evento: EventoConContesto, stato: StatoEvento) => {
-    if (evento.stato === stato) return
-    setSalvando(evento.id)
-    // Ottimistico: il tasto deve rispondere subito, in officina si tocca al volo
-    setEventi((prec) => prec.map((e) => (e.id === evento.id ? { ...e, stato } : e)))
-    try {
-      await setStatoEvento(evento.id, stato)
-    } catch (err) {
-      setEventi((prec) => prec.map((e) => (e.id === evento.id ? { ...e, stato: evento.stato } : e)))
-      toast.error(err instanceof Error ? err.message : 'Errore nel salvataggio')
-    } finally {
-      setSalvando(null)
-    }
-  }
 
   const apriNuova = () => {
     setNuovo({

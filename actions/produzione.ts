@@ -21,6 +21,8 @@ import type {
   CommessaProduzione,
 } from '@/types/produzione'
 import type { StatoCommessa } from '@/types/commessa'
+import { calcolaAvanzamento, AVANZAMENTO_VUOTO } from '@/lib/avanzamento'
+import { getAspettiTipo } from '@/actions/calendario'
 
 type FornitoreOpzione = { id: string; nome: string; email: string | null }
 
@@ -202,7 +204,7 @@ export async function getCruscottoProduzione(
   if (!commesse || commesse.length === 0) return { daFare: [], commesse: [] }
   const commessaIds = commesse.map((c) => c.id)
 
-  const [{ data: ordini }, { data: documenti }, fornitori] = await Promise.all([
+  const [{ data: ordini }, { data: documenti }, { data: attivita }, aspetti, fornitori] = await Promise.all([
     supabase
       .from('ordini_fornitore')
       .select('*')
@@ -214,6 +216,16 @@ export async function getCruscottoProduzione(
       .select('commessa_id, tipo_documento')
       .eq('organization_id', orgId)
       .in('commessa_id', commessaIds),
+    // Le fasi programmate: l'anello di avanzamento sulla card nasce da qui.
+    supabase
+      .from('eventi_calendario')
+      .select('commessa_id, tipo, stato')
+      .eq('organization_id', orgId)
+      .in('commessa_id', commessaIds)
+      .neq('stato', 'annullato')
+      .order('data', { ascending: true })
+      .order('ora_inizio', { ascending: true }),
+    getAspettiTipo(),
     getFornitoriPerOrdine(),
   ])
 
@@ -247,6 +259,14 @@ export async function getCruscottoProduzione(
         })
         .sort((a, b) => Number(b.in_ritardo) - Number(a.in_ritardo))
 
+  const attivitaPerCommessa = new Map<string, { tipo: string; stato: string }[]>()
+  for (const a of attivita ?? []) {
+    if (!a.commessa_id) continue
+    const precedenti = attivitaPerCommessa.get(a.commessa_id) ?? []
+    precedenti.push({ tipo: a.tipo, stato: a.stato })
+    attivitaPerCommessa.set(a.commessa_id, precedenti)
+  }
+
   const docProduzione = (documenti ?? []).filter((d) =>
     TIPI_DOCUMENTO_PRODUZIONE_VALUES.includes(d.tipo_documento)
   )
@@ -262,6 +282,9 @@ export async function getCruscottoProduzione(
       ordini_aperti: suoi.filter((o) => o.stato !== 'arrivato').length,
       ordini_in_ritardo: suoi.filter((o) => o.in_ritardo).length,
       documenti: docProduzione.filter((d) => d.commessa_id === c.id).length,
+      avanzamento: attivitaPerCommessa.has(c.id)
+        ? calcolaAvanzamento(attivitaPerCommessa.get(c.id) ?? [], aspetti)
+        : AVANZAMENTO_VUOTO,
     }
   })
 
