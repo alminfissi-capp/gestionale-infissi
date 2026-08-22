@@ -130,7 +130,27 @@ export const TIPI_DEFAULT: {
   { chiave: 'scadenza',        ambito: 'amministrazione', evidenzia_giorno: false, sistema: true  },
 ]
 
-export type StatoEvento = 'programmato' | 'completato' | 'annullato'
+/**
+ * Avanzamento dell'attivita'. I tasti nel riquadro Attivita' della commessa
+ * scrivono qui: un'attivita' parte, si ferma, resta bloccata, si chiude.
+ * 'annullato' non nasce dai tasti: e' la sepoltura di un evento che non si
+ * deve piu' disegnare.
+ */
+export type StatoEvento =
+  | 'programmato'
+  | 'in_corso'
+  | 'bloccato'
+  | 'completato'
+  | 'annullato'
+
+/** Etichetta e colore dello stato, per i badge fuori dal calendario. */
+export const STATO_EVENTO_LABEL: Record<StatoEvento, string> = {
+  programmato: 'Programmata',
+  in_corso:    'In corso',
+  bloccato:    'Bloccata',
+  completato:  'Completata',
+  annullato:   'Annullata',
+}
 
 export type EventoCalendario = {
   id: string

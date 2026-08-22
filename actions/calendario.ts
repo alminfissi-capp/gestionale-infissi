@@ -7,6 +7,7 @@ import { revalidatePath, revalidateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
 import { getMyPermissions, requireAccesso } from '@/lib/permessi'
+import type { ModuloApp, TipoAccesso } from '@/types/permessi'
 import { getSettings } from '@/actions/impostazioni'
 import { aggiungiGiorni, espandiCatena, messaggioAppuntamento } from '@/lib/calendario'
 import { filtraClienti } from '@/lib/ricerca-clienti'
@@ -25,6 +26,7 @@ import type {
   OrarioGiorno,
   EventoConContesto,
   EventoInput,
+  StatoEvento,
 } from '@/types/calendario'
 
 const RE_ORA = /^([01]\d|2[0-3]):([0-5]\d)$/
@@ -177,6 +179,21 @@ export async function deleteChiusura(id: string): Promise<void> {
   revalidatePath('/calendario')
 }
 
+/**
+ * Le attivita' si toccano da tre parti: il calendario della Produzione, quello
+ * dell'Amministrazione e il riquadro dentro la commessa. Sono la stessa riga,
+ * quindi basta il permesso di uno qualsiasi di quei moduli.
+ */
+const MODULI_ATTIVITA: ModuloApp[] = ['produzione', 'commesse', 'calendario']
+
+async function requireAttivita(min: TipoAccesso = 'lettura'): Promise<void> {
+  const { permessi } = await getMyPermissions()
+  const ok = MODULI_ATTIVITA.some((m) =>
+    min === 'lettura' ? permessi[m] !== 'nessuno' : permessi[m] === 'scrittura'
+  )
+  if (!ok) throw new Error('Non hai i permessi per gestire le attività')
+}
+
 /** Colonne da leggere con i join che servono all'etichetta della barra. */
 const SELECT_EVENTO = `
   *,
@@ -229,7 +246,7 @@ export async function getEventiProduzione(
  * lavorativo, tutte con lo stesso catena_id, saltando i giorni chiusi.
  */
 export async function createEvento(input: EventoInput, giorni = 1): Promise<void> {
-  await requireAccesso('produzione', 'scrittura')
+  await requireAttivita('scrittura')
   const supabase = await createClient()
   const orgId = await getOrgId()
   const { data: { user } } = await supabase.auth.getUser()
@@ -278,7 +295,7 @@ export async function updateEvento(
   id: string,
   patch: Partial<EventoInput>
 ): Promise<void> {
-  await requireAccesso('produzione', 'scrittura')
+  await requireAttivita('scrittura')
   const supabase = await createClient()
   const orgId = await getOrgId()
 
@@ -327,7 +344,7 @@ export async function spostaEvento(
  * lavorazione continuativa a cui appartiene.
  */
 export async function deleteEvento(id: string, tuttaLaCatena = false): Promise<void> {
-  await requireAccesso('produzione', 'scrittura')
+  await requireAttivita('scrittura')
   const supabase = await createClient()
   const orgId = await getOrgId()
 
@@ -359,6 +376,54 @@ export async function deleteEvento(id: string, tuttaLaCatena = false): Promise<v
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
 
+  revalidatePath('/produzione')
+  revalidatePath('/calendario')
+}
+
+/* ------------------------------------------------------------------ *
+ * Attivita' dentro la commessa                                       *
+ * ------------------------------------------------------------------ */
+
+/**
+ * Le attivita' di una commessa, in ordine di calendario. Sono le stesse righe
+ * che si vedono sul Gantt: programmarne una qui o la' e' lo stesso gesto.
+ * Gli annullati restano nel database ma non si elencano.
+ */
+export async function getEventiCommessa(commessaId: string): Promise<EventoConContesto[]> {
+  await requireAttivita()
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { data, error } = await supabase
+    .from('eventi_calendario')
+    .select(SELECT_EVENTO)
+    .eq('organization_id', orgId)
+    .eq('commessa_id', commessaId)
+    .neq('stato', 'annullato')
+    .order('data', { ascending: true })
+    .order('ora_inizio', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((r) => appiattisci(r as unknown as RigaGrezza))
+}
+
+/**
+ * Avanzamento di una singola attivita' (i tasti play/stop/blocco/completata).
+ * Non tocca date ne' orari: la programmazione resta quella del calendario.
+ */
+export async function setStatoEvento(id: string, stato: StatoEvento): Promise<void> {
+  await requireAttivita('scrittura')
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const { error } = await supabase
+    .from('eventi_calendario')
+    .update({ stato, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/commesse')
   revalidatePath('/produzione')
   revalidatePath('/calendario')
 }

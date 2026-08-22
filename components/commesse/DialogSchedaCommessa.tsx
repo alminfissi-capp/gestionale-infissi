@@ -32,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import DialogResoconto from '@/components/commesse/DialogResoconto'
+import AttivitaCommessa from '@/components/commesse/AttivitaCommessa'
 import { createClient } from '@/lib/supabase/client'
 import {
   updateCommessa,
@@ -1072,6 +1073,14 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                 {saldoZero ? 'Pagato ✓' : saldoPositivo ? 'Da pagare' : 'Sovrapagato'}
               </div>
             </section>
+
+            {/* Attività — le stesse righe del calendario della Produzione */}
+            <AttivitaCommessa
+              commessaId={commessa.id}
+              numeroCommessa={commessa.numero_commessa}
+              clienteNome={commessa.cliente_nome}
+              attivo={open}
+            />
 
             {/* Dati aggiuntivi (solo in edit mode) */}
             {editMode && (
