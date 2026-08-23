@@ -1,6 +1,6 @@
 'use client'
 
-import { Activity, FileText, User, Briefcase, Coins, Ruler, ChevronRight } from 'lucide-react'
+import { Activity, FileText, User, Briefcase, Coins } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import {
@@ -215,19 +215,6 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
           </ul>
         )}
       </div>
-
-      {/* ── Rilievo misure ── */}
-      <Link
-        href="/rilievo"
-        className="flex items-center gap-4 bg-white rounded-lg shadow-sm border border-teal-200 p-5 hover:bg-teal-50 transition-colors"
-      >
-        <Ruler className="h-7 w-7 text-teal-600 shrink-0" />
-        <div className="flex-1">
-          <h2 className="text-base font-semibold text-teal-700">Rilievo misure cantiere</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Nuovo rilievo · Elenco · Impostazioni</p>
-        </div>
-        <ChevronRight className="h-5 w-5 text-teal-400 shrink-0" />
-      </Link>
     </div>
   )
 }
