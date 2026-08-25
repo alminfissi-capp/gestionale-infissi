@@ -15,6 +15,7 @@ export type StatRow = {
   totale: number
   data_conferma: string | null
   blocco: string | null // nome del blocco/gruppo commesse di appartenenza
+  stato: string         // stato commessa: decide se il residuo è un credito (STATI_CREDITO)
 }
 
 export type AccontoRow = {
@@ -356,10 +357,52 @@ export function aggregaUscitePerCategoria(
   return { fette, totale }
 }
 
+// Stati di commessa il cui residuo conta come credito, nell'ordine del flusso di lavoro.
+// Elenco in POSITIVO: uno stato nuovo resta fuori finché non lo si aggiunge qui, che è il
+// comportamento sicuro. Fuori solo 'in_attesa': accettata ma non formalizzata, è già
+// scartata a monte da tutte le statistiche.
+// 'concluso' significa consegnato e pagato, quindi in teoria residuo zero: sta nella lista
+// proprio perché un importo diverso da zero lì dentro è il sintomo di uno stato messo per
+// sbaglio, e va visto invece di sparire.
+export const STATI_CREDITO = [
+  'da_iniziare',
+  'in_lavorazione',
+  'da_consegnare',
+  'consegnato',
+  'parzialmente_consegnato',
+  'concluso',
+  'bloccato',
+  'annullato',
+] as const
+
+export type StatoCredito = (typeof STATI_CREDITO)[number]
+
+export const LABEL_STATO_CREDITO: Record<StatoCredito, string> = {
+  da_iniziare: 'Da iniziare',
+  in_lavorazione: 'In lavorazione',
+  da_consegnare: 'Da consegnare',
+  consegnato: 'Consegnato',
+  parzialmente_consegnato: 'Parz. consegnato',
+  concluso: 'Concluso',
+  bloccato: 'Bloccato',
+  annullato: 'Annullato',
+}
+
+const SET_STATI_CREDITO: ReadonlySet<string> = new Set(STATI_CREDITO)
+
+// Una riga del dettaglio "Da commesse", aperto dalla tendina nel riquadro crediti.
+export type CreditoPerStato = {
+  stato: StatoCredito
+  label: string
+  importo: number
+  numero: number // quante commesse hanno ancora un residuo in quello stato
+}
+
 // Posizione dell'azienda a una certa data: quanto resta da incassare e quanto da pagare.
 // Indipendente dal selettore anno della pagina.
 export type RiepilogoFinanziario = {
   creditiCommesse: number
+  creditiPerStato: CreditoPerStato[] // dettaglio di creditiCommesse: le righe sommano al totale
   creditiAltri: number // incassi in attesa: entrate che non nascono da una commessa
   crediti: number      // totale
   debitiScaduti: number
@@ -388,12 +431,28 @@ export function riepilogoCreditiDebiti(
   }
 
   // Residuo per commessa con floor a zero: una commessa incassata in eccesso non deve
-  // mascherare il credito di un'altra.
+  // mascherare il credito di un'altra. Le commesse fuori da STATI_CREDITO non entrano né
+  // nel totale né nel dettaglio, così le righe della tendina sommano sempre al totale.
   let creditiCommesse = 0
+  const perStato = new Map<StatoCredito, { importo: number; numero: number }>()
   for (const c of commesse) {
+    if (!SET_STATI_CREDITO.has(c.stato)) continue
     const residuo = (Number(c.totale) || 0) - (incassatoPerCommessa.get(c.id) ?? 0)
-    if (residuo > 0) creditiCommesse += residuo
+    if (residuo <= 0) continue
+    creditiCommesse += residuo
+    const stato = c.stato as StatoCredito
+    const riga = perStato.get(stato) ?? { importo: 0, numero: 0 }
+    riga.importo += residuo
+    riga.numero += 1
+    perStato.set(stato, riga)
   }
+
+  // Ordine di STATI_CREDITO, non per importo: il dettaglio si legge come il flusso di
+  // lavoro. Gli stati senza residuo restano fuori: una riga a zero non dice nulla.
+  const creditiPerStato: CreditoPerStato[] = STATI_CREDITO.flatMap((stato) => {
+    const riga = perStato.get(stato)
+    return riga ? [{ stato, label: LABEL_STATO_CREDITO[stato], ...riga }] : []
+  })
 
   let creditiAltri = 0
   for (const a of altriCrediti) {
@@ -439,6 +498,7 @@ export function riepilogoCreditiDebiti(
 
   return {
     creditiCommesse,
+    creditiPerStato,
     creditiAltri,
     crediti,
     debitiScaduti,

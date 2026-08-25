@@ -92,9 +92,9 @@ describe('aggregaFlussoMese', () => {
 const OGGI = '2026-08-16'
 
 const commesseRiep: StatRow[] = [
-  { id: 'c1', cliente_nome: 'Rossi', totale: 10000, data_conferma: '2026-02-01', blocco: '2026' },
-  { id: 'c2', cliente_nome: 'Bianchi', totale: 5000, data_conferma: '2026-03-01', blocco: '2026' },
-  { id: 'c3', cliente_nome: 'Verdi', totale: 2000, data_conferma: '2025-11-01', blocco: '2025' },
+  { id: 'c1', cliente_nome: 'Rossi', totale: 10000, data_conferma: '2026-02-01', blocco: '2026', stato: 'in_lavorazione' },
+  { id: 'c2', cliente_nome: 'Bianchi', totale: 5000, data_conferma: '2026-03-01', blocco: '2026', stato: 'consegnato' },
+  { id: 'c3', cliente_nome: 'Verdi', totale: 2000, data_conferma: '2025-11-01', blocco: '2025', stato: 'da_iniziare' },
 ]
 
 const accontiRiep: AccontoRow[] = [
@@ -176,10 +176,80 @@ describe('riepilogoCreditiDebiti', () => {
     expect(r.posizioneNetta).toBe(6250) // 6850 - 600
   })
 
+  it('divide i crediti da commesse per stato, e le righe sommano al totale', () => {
+    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], [], [], OGGI)
+    // ordine del flusso di lavoro, non per importo
+    expect(r.creditiPerStato).toEqual([
+      { stato: 'da_iniziare', label: 'Da iniziare', importo: 2000, numero: 1 },
+      { stato: 'in_lavorazione', label: 'In lavorazione', importo: 6000, numero: 1 },
+    ])
+    // c2 è incassata in eccesso: niente riga "Consegnato"
+    const somma = r.creditiPerStato.reduce((s, x) => s + x.importo, 0)
+    expect(somma).toBe(r.creditiCommesse)
+  })
+
+  it('tiene fuori dai crediti gli stati che non sono in STATI_CREDITO', () => {
+    const commesse: StatRow[] = [
+      { id: 'v2', cliente_nome: 'Gialli', totale: 1000, data_conferma: '2026-01-01', blocco: '2026', stato: 'in_attesa' },
+      { id: 'v3', cliente_nome: 'Blu', totale: 500, data_conferma: '2026-01-01', blocco: '2026', stato: 'bloccato' },
+    ]
+    const r = riepilogoCreditiDebiti(commesse, [], [], [], [], OGGI)
+    expect(r.creditiCommesse).toBe(500)
+    expect(r.creditiPerStato).toEqual([
+      { stato: 'bloccato', label: 'Bloccato', importo: 500, numero: 1 },
+    ])
+  })
+
+  // Una commessa conclusa dovrebbe essere pagata: se ha ancora un residuo è un errore di
+  // stato, e va mostrato invece di sparire dai conti.
+  it('mostra il residuo delle commesse concluse invece di ignorarlo', () => {
+    const commesse: StatRow[] = [
+      { id: 'z1', cliente_nome: 'Neri', totale: 3000, data_conferma: '2026-01-01', blocco: '2026', stato: 'concluso' },
+      { id: 'z2', cliente_nome: 'Blu', totale: 500, data_conferma: '2026-01-01', blocco: '2026', stato: 'in_lavorazione' },
+    ]
+    const r = riepilogoCreditiDebiti(commesse, [], [], [], [], OGGI)
+    expect(r.creditiCommesse).toBe(3500)
+    expect(r.creditiPerStato).toEqual([
+      { stato: 'in_lavorazione', label: 'In lavorazione', importo: 500, numero: 1 },
+      { stato: 'concluso', label: 'Concluso', importo: 3000, numero: 1 },
+    ])
+  })
+
+  it('non dà una riga alle commesse concluse e saldate', () => {
+    const commesse: StatRow[] = [
+      { id: 'z1', cliente_nome: 'Neri', totale: 3000, data_conferma: '2026-01-01', blocco: '2026', stato: 'concluso' },
+    ]
+    const acconti: AccontoRow[] = [{ commessa_id: 'z1', importo: 3000, data_pagamento: '2026-02-01' }]
+    const r = riepilogoCreditiDebiti(commesse, acconti, [], [], [], OGGI)
+    expect(r.creditiCommesse).toBe(0)
+    expect(r.creditiPerStato).toEqual([])
+  })
+
+  it('somma nella stessa riga le commesse con lo stesso stato, contandole', () => {
+    const commesse: StatRow[] = [
+      { id: 'p1', cliente_nome: 'Uno', totale: 1000, data_conferma: '2026-01-01', blocco: '2026', stato: 'parzialmente_consegnato' },
+      { id: 'p2', cliente_nome: 'Due', totale: 400, data_conferma: '2026-01-01', blocco: '2026', stato: 'parzialmente_consegnato' },
+      { id: 'p3', cliente_nome: 'Tre', totale: 900, data_conferma: '2026-01-01', blocco: '2026', stato: 'parzialmente_consegnato' },
+    ]
+    const acconti: AccontoRow[] = [{ commessa_id: 'p3', importo: 900, data_pagamento: '2026-02-01' }]
+    const r = riepilogoCreditiDebiti(commesse, acconti, [], [], [], OGGI)
+    // p3 è saldata: non conta né come importo né come numero
+    expect(r.creditiPerStato).toEqual([
+      { stato: 'parzialmente_consegnato', label: 'Parz. consegnato', importo: 1400, numero: 2 },
+    ])
+  })
+
+  it("somma le commesse di tutti i blocchi, non solo dell'anno corrente", () => {
+    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], [], [], OGGI)
+    // c3 è del blocco 2025 ed è dentro comunque
+    expect(r.creditiPerStato.find((x) => x.stato === 'da_iniziare')?.importo).toBe(2000)
+  })
+
   it('regge liste vuote', () => {
     const r = riepilogoCreditiDebiti([], [], [], [], [], OGGI)
     expect(r).toEqual({
       creditiCommesse: 0,
+      creditiPerStato: [],
       creditiAltri: 0,
       crediti: 0,
       debitiScaduti: 0,
@@ -278,9 +348,9 @@ describe('aggregaUscitePerCategoria', () => {
 // e una "Kind Moritz", costringevano a cercare due volte invertendo le parole.
 describe('resocontoCliente e clientiUnici — ordine delle parole', () => {
   const commesseKind: StatRow[] = [
-    { id: 'k1', cliente_nome: 'Moritz Kind', totale: 33583.76, data_conferma: '2025-05-19', blocco: '2025' },
-    { id: 'k2', cliente_nome: 'Kind Moritz', totale: 5770.60, data_conferma: '2026-08-10', blocco: '2026' },
-    { id: 'x1', cliente_nome: 'Mario Rossi', totale: 1000, data_conferma: '2026-01-10', blocco: '2026' },
+    { id: 'k1', cliente_nome: 'Moritz Kind', totale: 33583.76, data_conferma: '2025-05-19', blocco: '2025', stato: 'concluso' },
+    { id: 'k2', cliente_nome: 'Kind Moritz', totale: 5770.60, data_conferma: '2026-08-10', blocco: '2026', stato: 'in_lavorazione' },
+    { id: 'x1', cliente_nome: 'Mario Rossi', totale: 1000, data_conferma: '2026-01-10', blocco: '2026', stato: 'consegnato' },
   ]
 
   it('raccoglie le commesse del cliente comunque siano ordinate le parole', () => {
@@ -307,7 +377,7 @@ describe('resocontoCliente e clientiUnici — ordine delle parole', () => {
 
   it('ignora maiuscole e accenti', () => {
     const conAccento: StatRow[] = [
-      { id: 'a1', cliente_nome: "Nicolò D'Angelò", totale: 500, data_conferma: '2026-01-01', blocco: '2026' },
+      { id: 'a1', cliente_nome: "Nicolò D'Angelò", totale: 500, data_conferma: '2026-01-01', blocco: '2026', stato: 'consegnato' },
     ]
     expect(resocontoCliente(conAccento, [], "d'angelo nicolo").totale.numero).toBe(1)
   })

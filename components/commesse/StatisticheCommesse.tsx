@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, BarChart3, TrendingUp } from 'lucide-react'
+import { ArrowLeft, BarChart3, ChevronDown, TrendingUp } from 'lucide-react'
 import {
   ResponsiveContainer, ComposedChart, BarChart, Bar, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
@@ -78,6 +78,8 @@ export default function StatisticheCommesse({ dati }: Props) {
   const annoDefault = anni.includes(annoCorrente) ? annoCorrente : (anni[0] ?? annoCorrente)
   const [anno, setAnno] = useState<string>(annoDefault)
   const [vistaCosti, setVistaCosti] = useState<VistaCosti>('impilato')
+  // Tendina del dettaglio "Da commesse": chiusa di default, il riquadro resta una sintesi
+  const [dettaglioCommesse, setDettaglioCommesse] = useState(false)
 
   const datiMese = useMemo(() => aggregaMese(commesse, anno), [commesse, anno])
   const datiFlusso = useMemo(
@@ -341,16 +343,47 @@ export default function StatisticheCommesse({ dati }: Props) {
               <div className="rounded-lg border border-sky-100 bg-sky-50 p-3">
                 <p className="text-xs uppercase tracking-wide text-sky-700 font-medium">Crediti da incassare</p>
                 <p className="text-2xl font-bold text-sky-700 mt-1">{formatEuro(riepilogo.crediti)}</p>
-                <dl className="mt-2 space-y-1 text-sm">
-                  <div className="flex justify-between text-gray-700">
-                    <dt>Da commesse</dt>
-                    <dd>{formatEuro(riepilogo.creditiCommesse)}</dd>
+                <div className="mt-2 space-y-1 text-sm">
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setDettaglioCommesse((v) => !v)}
+                      aria-expanded={dettaglioCommesse}
+                      className="w-full flex items-center justify-between gap-2 text-gray-700 hover:text-sky-800 transition-colors"
+                    >
+                      <span className="flex items-center gap-1">
+                        <ChevronDown
+                          className={`h-3.5 w-3.5 text-sky-600 transition-transform ${dettaglioCommesse ? '' : '-rotate-90'}`}
+                        />
+                        Da commesse
+                      </span>
+                      <span>{formatEuro(riepilogo.creditiCommesse)}</span>
+                    </button>
+                    {dettaglioCommesse && (
+                      riepilogo.creditiPerStato.length === 0 ? (
+                        <p className="ml-5 mt-1 border-l border-sky-200 pl-2 text-xs text-gray-500">
+                          Nessuna commessa con saldo residuo
+                        </p>
+                      ) : (
+                        <ul className="ml-5 mt-1 space-y-0.5 border-l border-sky-200 pl-2 text-xs">
+                          {riepilogo.creditiPerStato.map((riga) => (
+                            <li key={riga.stato} className="flex justify-between gap-2 text-gray-600">
+                              <span>
+                                {riga.label}
+                                <span className="text-gray-400"> · {riga.numero}</span>
+                              </span>
+                              <span className="font-medium text-gray-700">{formatEuro(riga.importo)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )
+                    )}
                   </div>
                   <div className="flex justify-between text-gray-700">
-                    <dt>Altri crediti</dt>
-                    <dd>{formatEuro(riepilogo.creditiAltri)}</dd>
+                    <span>Altri crediti</span>
+                    <span>{formatEuro(riepilogo.creditiAltri)}</span>
                   </div>
-                </dl>
+                </div>
                 <p className="text-xs text-gray-500 mt-2">
                   Saldo residuo delle commesse più gli incassi in attesa non legati a commesse
                 </p>

@@ -71,6 +71,7 @@ export default async function StatisticheCommessePage() {
     totale: Number(c.totale) || 0,
     data_conferma: c.data_conferma,
     blocco: c.gruppo_id ? (nomeBlocco.get(c.gruppo_id) ?? null) : null,
+    stato: c.stato ?? '',
   }))
 
   // Acconti esclusi se la commessa collegata è "in attesa".
