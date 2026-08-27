@@ -16,7 +16,8 @@ export type ContoCorrente = {
   id: string
   organization_id: string
   nome: string
-  saldo_attuale: number
+  saldo_attuale: number // disponibilità, fido incluso: è il numero che l'utente legge in banca
+  fido_accordato: number
   ordine: number
   created_at: string
   updated_at: string
@@ -25,6 +26,7 @@ export type ContoCorrente = {
 export type ContoCorrenteInput = {
   nome: string
   saldo_attuale: number
+  fido_accordato: number
 }
 
 // 'tassa' aggiunta il 2026-08-17: le imposte e i contributi sono un costo che va
@@ -231,4 +233,64 @@ export type IncassoAttesa = {
   ordine: number
   created_at: string
   updated_at: string
+}
+
+// ── Linee di credito e anticipi fattura ──────────────────────────────────────
+// `tipo` è text senza vincolo DB, come CategoriaScadenza: le etichette stanno in un
+// Record, così il compilatore segnala ogni punto da completare quando la lista cresce.
+export type TipoLineaCredito = 'anticipo_fatture' | 'sbf' | 'castelletto' | 'altro'
+
+export const LABEL_TIPO_LINEA: Record<TipoLineaCredito, string> = {
+  anticipo_fatture: 'Anticipo fatture',
+  sbf: 'Salvo buon fine',
+  castelletto: 'Castelletto',
+  altro: 'Altro',
+}
+
+export type LineaCredito = {
+  id: string
+  organization_id: string
+  nome: string
+  tipo: TipoLineaCredito
+  accordato: number
+  ordine: number
+  created_at: string
+  updated_at: string
+}
+
+export type LineaCreditoInput = {
+  nome: string
+  tipo: TipoLineaCredito
+  accordato: number
+}
+
+export type AnticipoFattura = {
+  id: string
+  organization_id: string
+  linea_id: string
+  commessa_id: string | null
+  descrizione: string
+  importo: number
+  data_erogazione: string | null
+  data_scadenza: string | null
+  rimborsato: boolean
+  rimborsato_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type AnticipoFatturaInput = {
+  linea_id: string
+  commessa_id: string | null
+  descrizione: string
+  importo: number
+  data_erogazione: string | null
+  data_scadenza: string | null
+}
+
+// Commessa collegabile a un anticipo: etichetta pronta e residuo da incassare.
+export type OpzioneCommessa = {
+  id: string
+  etichetta: string // "C-2026-014 — Rossi Mario"
+  residuo: number
 }
