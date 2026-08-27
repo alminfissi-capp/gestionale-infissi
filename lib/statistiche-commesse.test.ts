@@ -12,6 +12,10 @@ import {
   type ScadenzaRow,
   type StatRow,
 } from '@/lib/statistiche-commesse'
+import { riepilogoBanche, type RiepilogoBanche } from '@/lib/banche'
+
+// Nessuna banca: il caso di chi non ha ancora compilato i fidi.
+const nessunaBanca: RiepilogoBanche = riepilogoBanche([], [], [], {}, '2026-08-27')
 
 const acconti: AccontoRow[] = [
   { commessa_id: 'c1', importo: 1000, data_pagamento: '2026-01-15' },
@@ -114,7 +118,7 @@ const scadenzeRiep: ScadenzaRow[] = [
 
 describe('riepilogoCreditiDebiti', () => {
   it('somma i crediti come residuo per commessa, senza compensare fra commesse', () => {
-    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], [], [], OGGI)
+    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], [], [], OGGI, nessunaBanca)
     // c1: 10000-4000 = 6000 · c2: -2000 → 0 (non riduce c1) · c3: 2000
     expect(r.creditiCommesse).toBe(8000)
     expect(r.crediti).toBe(8000)
@@ -126,14 +130,14 @@ describe('riepilogoCreditiDebiti', () => {
       { importo: 500, incassato: false },
       { importo: 9999, incassato: true }, // già incassato: non è più un credito
     ]
-    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, altri, [], [], OGGI)
+    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, altri, [], [], OGGI, nessunaBanca)
     expect(r.creditiCommesse).toBe(8000)
     expect(r.creditiAltri).toBe(3500)
     expect(r.crediti).toBe(11500)
   })
 
   it('divide i debiti per orizzonte rispetto a oggi', () => {
-    const r = riepilogoCreditiDebiti([], [], [], scadenzeRiep, [], OGGI)
+    const r = riepilogoCreditiDebiti([], [], [], scadenzeRiep, [], OGGI, nessunaBanca)
     expect(r.debitiScaduti).toBe(300)
     expect(r.debitiAnno).toBe(800) // 100 di oggi + 700 di fine anno
     expect(r.debitiFuturi).toBe(900)
@@ -143,18 +147,18 @@ describe('riepilogoCreditiDebiti', () => {
   it('una scadenza in data odierna non è ancora scaduta', () => {
     const r = riepilogoCreditiDebiti([], [], [], [
       { data_scadenza: OGGI, importo: 100, pagato: false, annullata: false, categoria: 'assegno' },
-    ], [], OGGI)
+    ], [], OGGI, nessunaBanca)
     expect(r.debitiScaduti).toBe(0)
     expect(r.debitiAnno).toBe(100)
   })
 
   it('esclude dai debiti le scadenze pagate e quelle annullate', () => {
-    const r = riepilogoCreditiDebiti([], [], [], scadenzeRiep, [], OGGI)
+    const r = riepilogoCreditiDebiti([], [], [], scadenzeRiep, [], OGGI, nessunaBanca)
     expect(r.debitiTotali).toBe(2050) // 300+800+900+50, senza 999 e 888
   })
 
   it('tiene le rate future fuori dalla posizione netta', () => {
-    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], scadenzeRiep, [], OGGI)
+    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], scadenzeRiep, [], OGGI, nessunaBanca)
     // 8000 - (300 + 800 + 50) = 6850
     expect(r.posizioneNetta).toBe(6850)
   })
@@ -165,19 +169,19 @@ describe('riepilogoCreditiDebiti', () => {
       { dovuto: 1500, pagato: 1500 }, // saldato
       { dovuto: 900, pagato: 1100 },  // pagato in anticipo → 0, non compensa gli altri
     ]
-    const r = riepilogoCreditiDebiti([], [], [], [], conti, OGGI)
+    const r = riepilogoCreditiDebiti([], [], [], [], conti, OGGI, nessunaBanca)
     expect(r.debitiDipendenti).toBe(800)
   })
 
   it('include gli stipendi arretrati nel totale e nella posizione netta', () => {
     const conti: ContoDipendenteRow[] = [{ dovuto: 1000, pagato: 400 }] // 600
-    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], scadenzeRiep, conti, OGGI)
+    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], scadenzeRiep, conti, OGGI, nessunaBanca)
     expect(r.debitiTotali).toBe(2650)   // 2050 + 600
     expect(r.posizioneNetta).toBe(6250) // 6850 - 600
   })
 
   it('divide i crediti da commesse per stato, e le righe sommano al totale', () => {
-    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], [], [], OGGI)
+    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], [], [], OGGI, nessunaBanca)
     // ordine del flusso di lavoro, non per importo
     expect(r.creditiPerStato).toEqual([
       { stato: 'da_iniziare', label: 'Da iniziare', importo: 2000, numero: 1 },
@@ -193,7 +197,7 @@ describe('riepilogoCreditiDebiti', () => {
       { id: 'v2', cliente_nome: 'Gialli', totale: 1000, data_conferma: '2026-01-01', blocco: '2026', stato: 'in_attesa' },
       { id: 'v3', cliente_nome: 'Blu', totale: 500, data_conferma: '2026-01-01', blocco: '2026', stato: 'bloccato' },
     ]
-    const r = riepilogoCreditiDebiti(commesse, [], [], [], [], OGGI)
+    const r = riepilogoCreditiDebiti(commesse, [], [], [], [], OGGI, nessunaBanca)
     expect(r.creditiCommesse).toBe(500)
     expect(r.creditiPerStato).toEqual([
       { stato: 'bloccato', label: 'Bloccato', importo: 500, numero: 1 },
@@ -207,7 +211,7 @@ describe('riepilogoCreditiDebiti', () => {
       { id: 'z1', cliente_nome: 'Neri', totale: 3000, data_conferma: '2026-01-01', blocco: '2026', stato: 'concluso' },
       { id: 'z2', cliente_nome: 'Blu', totale: 500, data_conferma: '2026-01-01', blocco: '2026', stato: 'in_lavorazione' },
     ]
-    const r = riepilogoCreditiDebiti(commesse, [], [], [], [], OGGI)
+    const r = riepilogoCreditiDebiti(commesse, [], [], [], [], OGGI, nessunaBanca)
     expect(r.creditiCommesse).toBe(3500)
     expect(r.creditiPerStato).toEqual([
       { stato: 'in_lavorazione', label: 'In lavorazione', importo: 500, numero: 1 },
@@ -220,7 +224,7 @@ describe('riepilogoCreditiDebiti', () => {
       { id: 'z1', cliente_nome: 'Neri', totale: 3000, data_conferma: '2026-01-01', blocco: '2026', stato: 'concluso' },
     ]
     const acconti: AccontoRow[] = [{ commessa_id: 'z1', importo: 3000, data_pagamento: '2026-02-01' }]
-    const r = riepilogoCreditiDebiti(commesse, acconti, [], [], [], OGGI)
+    const r = riepilogoCreditiDebiti(commesse, acconti, [], [], [], OGGI, nessunaBanca)
     expect(r.creditiCommesse).toBe(0)
     expect(r.creditiPerStato).toEqual([])
   })
@@ -232,7 +236,7 @@ describe('riepilogoCreditiDebiti', () => {
       { id: 'p3', cliente_nome: 'Tre', totale: 900, data_conferma: '2026-01-01', blocco: '2026', stato: 'parzialmente_consegnato' },
     ]
     const acconti: AccontoRow[] = [{ commessa_id: 'p3', importo: 900, data_pagamento: '2026-02-01' }]
-    const r = riepilogoCreditiDebiti(commesse, acconti, [], [], [], OGGI)
+    const r = riepilogoCreditiDebiti(commesse, acconti, [], [], [], OGGI, nessunaBanca)
     // p3 è saldata: non conta né come importo né come numero
     expect(r.creditiPerStato).toEqual([
       { stato: 'parzialmente_consegnato', label: 'Parz. consegnato', importo: 1400, numero: 2 },
@@ -240,13 +244,13 @@ describe('riepilogoCreditiDebiti', () => {
   })
 
   it("somma le commesse di tutti i blocchi, non solo dell'anno corrente", () => {
-    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], [], [], OGGI)
+    const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], [], [], OGGI, nessunaBanca)
     // c3 è del blocco 2025 ed è dentro comunque
     expect(r.creditiPerStato.find((x) => x.stato === 'da_iniziare')?.importo).toBe(2000)
   })
 
   it('regge liste vuote', () => {
-    const r = riepilogoCreditiDebiti([], [], [], [], [], OGGI)
+    const r = riepilogoCreditiDebiti([], [], [], [], [], OGGI, nessunaBanca)
     expect(r).toEqual({
       creditiCommesse: 0,
       creditiPerStato: [],
@@ -257,9 +261,53 @@ describe('riepilogoCreditiDebiti', () => {
       debitiFuturi: 0,
       debitiDaProgrammare: 0,
       debitiDipendenti: 0,
+      debitiBanche: 0,
+      debitiPerBanca: { conti: [], linee: [] },
       debitiTotali: 0,
       posizioneNetta: 0,
+      residuoFidi: 0,
     })
+  })
+})
+
+describe('riepilogoCreditiDebiti — debiti bancari', () => {
+  const banche = riepilogoBanche(
+    [{ id: 'cc', nome: 'Intesa', accordato: 40000, disponibile: 10000 }], // 30.000 di cassa
+    [{ id: 'l1', nome: 'Anticipo Intesa', tipo: 'anticipo_fatture', accordato: 100000 }],
+    [{ id: 'a1', linea_id: 'l1', commessa_id: null, descrizione: '', importo: 15000, data_scadenza: null, rimborsato: false }],
+    {},
+    '2026-08-27',
+  )
+
+  it('somma il fido utilizzato ai debiti totali', () => {
+    const senza = riepilogoCreditiDebiti([], [], [], [], [], '2026-08-27', nessunaBanca)
+    const con = riepilogoCreditiDebiti([], [], [], [], [], '2026-08-27', banche)
+    expect(con.debitiBanche).toBe(45000)
+    expect(con.debitiTotali - senza.debitiTotali).toBe(45000)
+  })
+
+  it('il fido utilizzato pesa sulla posizione netta', () => {
+    const senza = riepilogoCreditiDebiti([], [], [], [], [], '2026-08-27', nessunaBanca)
+    const con = riepilogoCreditiDebiti([], [], [], [], [], '2026-08-27', banche)
+    expect(senza.posizioneNetta - con.posizioneNetta).toBe(45000)
+  })
+
+  it('il dettaglio somma sempre al totale e scarta le righe a zero', () => {
+    const r = riepilogoCreditiDebiti([], [], [], [], [], '2026-08-27', banche)
+    const somma =
+      r.debitiPerBanca.conti.reduce((s, c) => s + c.utilizzato, 0) +
+      r.debitiPerBanca.linee.reduce((s, l) => s + l.utilizzato, 0)
+    expect(somma).toBe(r.debitiBanche)
+    expect(r.debitiPerBanca.conti.every((c) => c.utilizzato > 0)).toBe(true)
+    expect(r.debitiPerBanca.linee.every((l) => l.utilizzato > 0)).toBe(true)
+  })
+
+  it('senza banche il riepilogo resta identico a prima', () => {
+    const r = riepilogoCreditiDebiti([], [], [], [], [], '2026-08-27', nessunaBanca)
+    expect(r.debitiBanche).toBe(0)
+    expect(r.debitiPerBanca.conti).toEqual([])
+    expect(r.debitiPerBanca.linee).toEqual([])
+    expect(r.residuoFidi).toBe(0)
   })
 })
 

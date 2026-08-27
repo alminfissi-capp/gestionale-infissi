@@ -20,6 +20,7 @@ import {
   riepilogoCreditiDebiti, aggregaUscitePerCategoria,
   type DatiStatistiche, type CategoriaUscita,
 } from '@/lib/statistiche-commesse'
+import { riepilogoBanche } from '@/lib/banche'
 
 const COLORS = {
   valore: '#0d9488',   // teal-600
@@ -72,6 +73,7 @@ export default function StatisticheCommesse({ dati }: Props) {
   const {
     commesse, acconti, anni, costiCommesse, scadenze, oggi,
     altriCrediti, pagamentiDipendenti, contiDipendenti,
+    contiBanca, lineeCredito, anticipi, infoCommesse,
   } = dati
 
   const annoCorrente = String(new Date().getFullYear())
@@ -86,9 +88,13 @@ export default function StatisticheCommesse({ dati }: Props) {
     () => aggregaFlussoMese(acconti, scadenze, pagamentiDipendenti, anno),
     [acconti, scadenze, pagamentiDipendenti, anno],
   )
+  const banche = useMemo(
+    () => riepilogoBanche(contiBanca, lineeCredito, anticipi, infoCommesse, oggi),
+    [contiBanca, lineeCredito, anticipi, infoCommesse, oggi],
+  )
   const riepilogo = useMemo(
-    () => riepilogoCreditiDebiti(commesse, acconti, altriCrediti, scadenze, contiDipendenti, oggi),
-    [commesse, acconti, altriCrediti, scadenze, contiDipendenti, oggi],
+    () => riepilogoCreditiDebiti(commesse, acconti, altriCrediti, scadenze, contiDipendenti, oggi, banche),
+    [commesse, acconti, altriCrediti, scadenze, contiDipendenti, oggi, banche],
   )
   const uscite = useMemo(
     () => aggregaUscitePerCategoria(scadenze, pagamentiDipendenti, anno),

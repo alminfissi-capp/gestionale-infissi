@@ -8,6 +8,10 @@
 //   dal blocco della commessa collegata.
 
 import { normalizzaTesto } from '@/lib/ricerca-clienti'
+import type {
+  RiepilogoBanche, UtilizzoBanca,
+  ContoBancaRow, LineaCreditoRow, AnticipoRow, InfoCommessa,
+} from '@/lib/banche'
 
 export type StatRow = {
   id: string
@@ -75,6 +79,10 @@ export type DatiStatistiche = {
   altriCrediti: AltroCreditoRow[] // incassi in attesa, non legati a commesse
   pagamentiDipendenti: PagamentoDipendenteRow[] // stipendi già versati
   contiDipendenti: ContoDipendenteRow[] // dovuto/pagato per persona
+  contiBanca: ContoBancaRow[] // conti correnti con la loro disponibilità e il fido
+  lineeCredito: LineaCreditoRow[]
+  anticipi: AnticipoRow[] // compresi i rimborsati: è riepilogoBanche a scartarli
+  infoCommesse: Record<string, InfoCommessa> // etichetta + residuo per gli anticipi
 }
 
 export type PuntoMese = { mese: string; valore: number; numero: number }
@@ -410,8 +418,14 @@ export type RiepilogoFinanziario = {
   debitiFuturi: number
   debitiDaProgrammare: number
   debitiDipendenti: number
+  debitiBanche: number // fido di cassa utilizzato + anticipi fattura aperti
+  debitiPerBanca: {    // dettaglio della riga "Banche": le righe sommano a debitiBanche
+    conti: UtilizzoBanca[]
+    linee: UtilizzoBanca[]
+  }
   debitiTotali: number
   posizioneNetta: number
+  residuoFidi: number  // margine ancora disponibile, testo di servizio
 }
 
 // `oggi` arriva dal server come 'YYYY-MM-DD': le date ISO si confrontano come stringhe
@@ -423,6 +437,7 @@ export function riepilogoCreditiDebiti(
   scadenze: ScadenzaRow[],
   contiDipendenti: ContoDipendenteRow[],
   oggi: string,
+  banche: RiepilogoBanche,
 ): RiepilogoFinanziario {
   const incassatoPerCommessa = new Map<string, number>()
   for (const a of acconti) {
@@ -489,12 +504,23 @@ export function riepilogoCreditiDebiti(
     }
   }
 
+  // L'esposizione bancaria arriva già calcolata da riepilogoBanche: qui si somma e basta,
+  // così le due funzioni restano indipendenti e testabili da sole.
+  const debitiBanche = banche.utilizzatoTotale
+  const debitiPerBanca = {
+    conti: banche.conti.filter((c) => c.utilizzato > 0),
+    linee: banche.linee.filter((l) => l.utilizzato > 0),
+  }
+
   const debitiTotali =
-    debitiScaduti + debitiAnno + debitiFuturi + debitiDaProgrammare + debitiDipendenti
+    debitiScaduti + debitiAnno + debitiFuturi + debitiDaProgrammare + debitiDipendenti +
+    debitiBanche
   // Le rate oltre l'anno restano fuori dal netto: risponde a "reggo quest'anno?".
-  // Gli stipendi arretrati invece ci entrano: sono dovuti adesso.
+  // Gli stipendi arretrati e il fido invece ci entrano: sono dovuti adesso, e la banca
+  // può rientrare quando vuole.
   const posizioneNetta =
-    crediti - (debitiScaduti + debitiAnno + debitiDaProgrammare + debitiDipendenti)
+    crediti -
+    (debitiScaduti + debitiAnno + debitiDaProgrammare + debitiDipendenti + debitiBanche)
 
   return {
     creditiCommesse,
@@ -506,7 +532,10 @@ export function riepilogoCreditiDebiti(
     debitiFuturi,
     debitiDaProgrammare,
     debitiDipendenti,
+    debitiBanche,
+    debitiPerBanca,
     debitiTotali,
     posizioneNetta,
+    residuoFidi: banche.residuoTotale,
   }
 }

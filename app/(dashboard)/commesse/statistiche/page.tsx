@@ -5,6 +5,7 @@ import type {
   StatRow, AccontoRow, CostoCommessaRow, ScadenzaRow,
   AltroCreditoRow, PagamentoDipendenteRow, ContoDipendenteRow,
 } from '@/lib/statistiche-commesse'
+import type { ContoBancaRow, LineaCreditoRow, AnticipoRow, InfoCommessa } from '@/lib/banche'
 import { calcolaCostiPreventivo, type ArticoloCosti } from '@/lib/preventivo-costi'
 
 export default async function StatisticheCommessePage() {
@@ -15,11 +16,12 @@ export default async function StatisticheCommessePage() {
     { data: commesseRaw }, { data: accontiRaw }, { data: gruppiRaw }, { data: junctionRaw },
     { data: scadenzeRaw }, { data: altriCreditiRaw }, { data: busteRaw },
     { data: pagDipRaw }, { data: movAltriRaw },
+    { data: contiRaw }, { data: lineeRaw }, { data: anticipiRaw },
   ] =
     await Promise.all([
       supabase
         .from('commesse')
-        .select('id, cliente_nome, totale, data_conferma, gruppo_id, preventivo_id, stato, costo_materiali_manuale, costo_manodopera_manuale, utile_manuale')
+        .select('id, numero_commessa, cliente_nome, totale, data_conferma, gruppo_id, preventivo_id, stato, costo_materiali_manuale, costo_manodopera_manuale, utile_manuale')
         .eq('organization_id', orgId),
       supabase
         .from('acconti_commessa')
@@ -53,6 +55,18 @@ export default async function StatisticheCommessePage() {
       supabase
         .from('movimenti_altro_dipendente')
         .select('altro_dipendente_id, importo, data_pagamento, tipo')
+        .eq('organization_id', orgId),
+      supabase
+        .from('conti_correnti')
+        .select('id, nome, saldo_attuale, fido_accordato')
+        .eq('organization_id', orgId),
+      supabase
+        .from('linee_credito')
+        .select('id, nome, tipo, accordato')
+        .eq('organization_id', orgId),
+      supabase
+        .from('anticipi_fattura')
+        .select('id, linea_id, commessa_id, descrizione, importo, data_scadenza, rimborsato')
         .eq('organization_id', orgId),
     ])
 
@@ -234,6 +248,45 @@ export default async function StatisticheCommessePage() {
   }
   const contiDipendenti: ContoDipendenteRow[] = [...contiPerPersona.values()]
 
+  const contiBanca: ContoBancaRow[] = (contiRaw ?? []).map((c) => ({
+    id: c.id,
+    nome: c.nome,
+    disponibile: Number(c.saldo_attuale) || 0,
+    accordato: Number(c.fido_accordato) || 0,
+  }))
+
+  const lineeCredito: LineaCreditoRow[] = (lineeRaw ?? []).map((l) => ({
+    id: l.id,
+    nome: l.nome,
+    tipo: l.tipo,
+    accordato: Number(l.accordato) || 0,
+  }))
+
+  const anticipi: AnticipoRow[] = (anticipiRaw ?? []).map((a) => ({
+    id: a.id,
+    linea_id: a.linea_id,
+    commessa_id: a.commessa_id,
+    descrizione: a.descrizione ?? '',
+    importo: Number(a.importo) || 0,
+    data_scadenza: a.data_scadenza,
+    rimborsato: !!a.rimborsato,
+  }))
+
+  // Etichetta e residuo delle commesse collegate agli anticipi. Si costruisce su
+  // commesseRaw, NON su commesseValide: un anticipo può puntare a una commessa
+  // "in attesa", che è esclusa dalle statistiche ma il cui debito con la banca esiste.
+  const incassatoTot = new Map<string, number>()
+  for (const a of accontiRaw ?? []) {
+    incassatoTot.set(a.commessa_id, (incassatoTot.get(a.commessa_id) ?? 0) + (Number(a.importo) || 0))
+  }
+  const infoCommesse: Record<string, InfoCommessa> = {}
+  for (const c of commesseRaw ?? []) {
+    infoCommesse[c.id] = {
+      etichetta: `${c.numero_commessa} — ${c.cliente_nome ?? ''}`.trim(),
+      residuo: Math.max(0, (Number(c.totale) || 0) - (incassatoTot.get(c.id) ?? 0)),
+    }
+  }
+
   // Data locale italiana, non UTC: dopo mezzanotte a Roma il server UTC è ancora al
   // giorno prima e sposterebbe il confine dello "scaduto". 'en-CA' formatta YYYY-MM-DD.
   const oggi = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome' }).format(new Date())
@@ -243,6 +296,7 @@ export default async function StatisticheCommessePage() {
       dati={{
         commesse, acconti, anni, costiCommesse, scadenze, oggi,
         altriCrediti, pagamentiDipendenti, contiDipendenti,
+        contiBanca, lineeCredito, anticipi, infoCommesse,
       }}
     />
   )
