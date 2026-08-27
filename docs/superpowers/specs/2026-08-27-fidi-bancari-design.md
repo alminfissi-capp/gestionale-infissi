@@ -234,7 +234,7 @@ export type UtilizzoBanca = {
 }
 
 export type RiepilogoBanche = {
-  conti: UtilizzoBanca[]        // solo quelli con accordato > 0
+  conti: UtilizzoBanca[]        // quelli con un fido accordato o con uno scoperto in corso
   linee: UtilizzoBanca[]
   liquiditaPropria: number      // Σ max(0, disponibile − accordato) sui conti
   fidoCassaUtilizzato: number
@@ -260,8 +260,11 @@ export function riepilogoBanche(
 un giorno fra server UTC e ora italiana. È la stessa regola già in vigore in
 `riepilogoCreditiDebiti`.
 
-I conti con `accordato = 0` restano fuori dagli array di dettaglio (una riga di fido a zero
-non dice niente) ma la loro disponibilità entra tutta in `liquiditaPropria`. Gli anticipi
+Restano fuori dagli array di dettaglio solo i conti che non hanno niente da dire: né un fido
+accordato né uno scoperto in corso. La loro disponibilità entra comunque tutta in
+`liquiditaPropria`. **Un conto senza fido ma in rosso ci deve stare**: altrimenti il suo
+scoperto finisce nel totale senza una riga che lo spieghi, e salta l'invariante "le righe
+del dettaglio sommano sempre al totale". C'è un test apposta che lo difende. Gli anticipi
 rimborsati non entrano mai in `utilizzato`, e nemmeno negli array di dettaglio: lo storico si
 consulta nel blocco Calcoli con un interruttore "mostra i rimborsati", non passa da qui.
 
@@ -358,6 +361,13 @@ solo le commesse selezionate per i Calcoli, non tutte. Va aggiunta un'action
 `getCommessePerAnticipo()` che restituisce `OpzioneCommessa[]` (id, etichetta, residuo)
 leggendo `commesse` e `acconti_commessa`. Serve a due cose insieme — l'elenco del dialog e
 il residuo mostrato accanto all'anticipo — così la formula del residuo resta in un posto solo.
+
+**Le commesse `in_attesa` restano selezionabili**, a differenza di quanto fanno le
+statistiche, che le escludono da ogni calcolo. Non è una dimenticanza: il debito verso la
+banca esiste comunque, e la ricerca di etichetta e residuo comprende di proposito anche le
+commesse in attesa, altrimenti un anticipo collegato a una di esse perderebbe il nome e non
+sarebbe più ricollegabile. Chi in futuro volesse filtrarle deve tenere presente che il
+filtro va messo solo sull'elenco del dialog, mai sulla ricerca.
 
 ## Impostazioni — `/impostazioni`
 

@@ -2264,8 +2264,14 @@ Expected: PASS, tutti i file. Segnare il numero totale di test.
 
 - [ ] **Step 2: Lint e build**
 
-Run: `npm run lint`
-Expected: nessun warning (zero unused vars: è la regola del progetto).
+Run: `npx eslint` **sui soli file toccati da questo lavoro**, non sull'intero repository.
+
+`npm run lint` senza argomenti tira dentro anche i file generati e non versionati (`public/sw.js` minificato, `.next/`) e file pre-esistenti mai toccati qui: sul repository pulito, prima di questo lavoro, riportava già 35 errori e 1708 warning. Non è un criterio utilizzabile, e non va "sistemato" qui.
+
+Expected: nessun errore e nessun warning sui file di questo lavoro.
+
+Run: `npm run build`
+Expected: build completata.
 
 Run: `npm run build`
 Expected: build completata. Se fallisce per `RESEND_API_KEY` mancante, è un problema pre-esistente della route email: impostare una chiave fittizia in `.env.local` e ripetere.
