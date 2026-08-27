@@ -24,6 +24,9 @@ export default function BloccoFidi({ linee, anticipi, commesse, oggi }: Props) {
   const [mostraRimborsati, setMostraRimborsati] = useState(false)
   const [dialogAperto, setDialogAperto] = useState(false)
   const [inModifica, setInModifica] = useState<AnticipoFattura | null>(null)
+  const [pendingId, setPendingId] = useState<string | null>(null)
+
+  const perId = useMemo(() => new Map(anticipi.map((a) => [a.id, a])), [anticipi])
 
   const infoCommesse = useMemo(() => {
     const map: Record<string, InfoCommessa> = {}
@@ -54,21 +57,27 @@ export default function BloccoFidi({ linee, anticipi, commesse, oggi }: Props) {
   }, [anticipi])
 
   const handleRimborso = async (a: AnticipoFattura, valore: boolean) => {
+    setPendingId(a.id)
     try {
       await setAnticipoRimborsato(a.id, valore)
       router.refresh()
     } catch {
       toast.error('Errore nel salvataggio')
+    } finally {
+      setPendingId(null)
     }
   }
 
   const handleElimina = async (a: AnticipoFattura) => {
     if (!confirm('Eliminare questo anticipo?')) return
+    setPendingId(a.id)
     try {
       await deleteAnticipo(a.id)
       router.refresh()
     } catch {
       toast.error("Errore nell'eliminazione")
+    } finally {
+      setPendingId(null)
     }
   }
 
@@ -121,7 +130,9 @@ export default function BloccoFidi({ linee, anticipi, commesse, oggi }: Props) {
 
               <ul className="mt-2 space-y-1">
                 {l.anticipi.map((a) => {
-                  const originale = anticipi.find((x) => x.id === a.id)!
+                  const originale = perId.get(a.id)
+                  if (!originale) return null
+                  const inCorso = pendingId === a.id
                   return (
                     <li
                       key={a.id}
@@ -132,26 +143,28 @@ export default function BloccoFidi({ linee, anticipi, commesse, oggi }: Props) {
                       <Checkbox
                         checked={false}
                         onCheckedChange={() => handleRimborso(originale, true)}
+                        disabled={inCorso}
                         title="Segna come rimborsato"
+                        aria-label="Segna come rimborsato"
                       />
                       <span className="flex-1 min-w-0 truncate text-gray-700">
                         {a.etichettaCommessa ?? (a.descrizione || 'Anticipo')}
-                        {a.data_scadenza && (
-                          <span className={a.scaduto ? 'text-rose-600' : 'text-gray-400'}>
-                            {' '}· scad. {a.data_scadenza}
-                          </span>
-                        )}
                       </span>
+                      {a.data_scadenza && (
+                        <span className={`shrink-0 ${a.scaduto ? 'text-rose-600' : 'text-gray-400'}`}>
+                          scad. {a.data_scadenza}
+                        </span>
+                      )}
                       {a.residuoCommessa !== null && (
                         <span className="text-xs text-gray-500 shrink-0">
                           il cliente deve {formatEuro(a.residuoCommessa)}
                         </span>
                       )}
                       <span className="font-semibold text-gray-800 shrink-0">{formatEuro(a.importo)}</span>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700 shrink-0" title="Modifica" onClick={() => apri(originale)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700 shrink-0" disabled={inCorso} title="Modifica" aria-label="Modifica anticipo" onClick={() => apri(originale)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-300 hover:text-red-500 shrink-0" title="Elimina" onClick={() => handleElimina(originale)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-300 hover:text-red-500 shrink-0" disabled={inCorso} title="Elimina" aria-label="Elimina anticipo" onClick={() => handleElimina(originale)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                       {a.daChiudere && !a.scaduto && (
@@ -163,13 +176,25 @@ export default function BloccoFidi({ linee, anticipi, commesse, oggi }: Props) {
                   )
                 })}
 
-                {mostraRimborsati && chiusi.map((a) => (
-                  <li key={a.id} className="flex flex-wrap items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-400 line-through">
-                    <Checkbox checked onCheckedChange={() => handleRimborso(a, false)} title="Riapri l'anticipo" />
-                    <span className="flex-1 min-w-0 truncate">{a.descrizione || 'Anticipo'}</span>
-                    <span className="shrink-0">{formatEuro(a.importo)}</span>
-                  </li>
-                ))}
+                {mostraRimborsati && chiusi.length > 0 && (
+                  <li className="px-2 pt-2 text-xs text-gray-400">Rimborsati</li>
+                )}
+                {mostraRimborsati && chiusi.map((a) => {
+                  const inCorso = pendingId === a.id
+                  return (
+                    <li key={a.id} className="flex flex-wrap items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-400 line-through">
+                      <Checkbox
+                        checked
+                        onCheckedChange={() => handleRimborso(a, false)}
+                        disabled={inCorso}
+                        title="Riapri l'anticipo"
+                        aria-label="Riapri l'anticipo"
+                      />
+                      <span className="flex-1 min-w-0 truncate">{a.descrizione || 'Anticipo'}</span>
+                      <span className="shrink-0">{formatEuro(a.importo)}</span>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           )

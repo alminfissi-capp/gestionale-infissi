@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select'
 import { ComboboxField } from '@/components/ui/combobox-field'
 import { createAnticipo, updateAnticipo } from '@/actions/banche'
-import { formatEuro } from '@/lib/pricing'
+import { formatEuro, parseImporto } from '@/lib/pricing'
 import type { AnticipoFattura, LineaCredito, OpzioneCommessa } from '@/types/commessa'
 
 interface Props {
@@ -23,11 +23,6 @@ interface Props {
   linee: LineaCredito[]
   commesse: OpzioneCommessa[]
   anticipo: AnticipoFattura | null // null = nuovo
-}
-
-const parseImporto = (s: string) => {
-  const v = parseFloat((s ?? '').replace(',', '.'))
-  return isNaN(v) ? 0 : v
 }
 
 export default function DialogAnticipo({ open, onOpenChange, linee, commesse, anticipo }: Props) {
