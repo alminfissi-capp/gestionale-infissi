@@ -27,6 +27,7 @@ import {
 import { toggleCalcoliScadenza } from '@/actions/scadenze'
 import { updateSaldoConto } from '@/actions/conti'
 import { formatEuro, parseImporto, formatImporto } from '@/lib/pricing'
+import { utilizzoConto } from '@/lib/banche'
 import type { CommessaCompleta, GruppoCommesse, RigaCalcolo, Scadenza, ContoCorrente } from '@/types/commessa'
 
 interface Props {
@@ -213,6 +214,23 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
       righeItems.reduce((s, r) => s + parseImporto(importiStr[r.id] ?? ''), 0) +
       contiItems.reduce((s, c) => s + parseImporto(contiSaldiStr[c.id] ?? ''), 0),
     [righeItems, importiStr, contiItems, contiSaldiStr]
+  )
+
+  // Quanta parte della liquidità è soldi della banca. Si usa lo stesso utilizzoConto
+  // delle statistiche: la formula del fido sta in un posto solo.
+  const fidoUtilizzato = useMemo(
+    () =>
+      contiItems.reduce(
+        (s, c) =>
+          s + utilizzoConto({
+            id: c.id,
+            nome: c.nome,
+            disponibile: parseImporto(contiSaldiStr[c.id] ?? ''),
+            accordato: c.fido_accordato,
+          }).utilizzato,
+        0,
+      ),
+    [contiItems, contiSaldiStr],
   )
 
   return (
@@ -404,13 +422,18 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
                 <span className="flex-1 min-w-0 flex items-center gap-1.5 text-sm font-medium text-gray-700 truncate">
                   <Landmark className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                   {c.nome}
+                  {c.fido_accordato > 0 && (
+                    <span className="text-xs font-normal text-gray-400 shrink-0">
+                      fido {formatEuro(c.fido_accordato)}
+                    </span>
+                  )}
                 </span>
                 <div className="relative w-[140px] shrink-0">
                   <Input
                     type="text"
                     inputMode="decimal"
                     value={contiSaldiStr[c.id] ?? ''}
-                    placeholder="0,00"
+                    placeholder="Disponibilità"
                     onChange={(e) => setContiSaldiStr((cur) => ({ ...cur, [c.id]: e.target.value }))}
                     onBlur={() => handleSalvaSaldoConto(c)}
                     onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
@@ -467,9 +490,17 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
         )}
 
         {/* Footer liquidità corrente */}
-        <div className="flex items-center justify-between px-4 py-3 border-t-2 border-emerald-200 bg-emerald-50/60">
-          <span className="text-sm font-semibold text-emerald-900">Liquidità corrente</span>
-          <span className="text-lg font-bold text-emerald-800 pr-12">{formatEuro(liquidita)}</span>
+        <div className="border-t-2 border-emerald-200 bg-emerald-50/60">
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className="text-sm font-semibold text-emerald-900">Liquidità corrente</span>
+            <span className="text-lg font-bold text-emerald-800 pr-12">{formatEuro(liquidita)}</span>
+          </div>
+          {fidoUtilizzato > 0 && (
+            <p className="px-4 pb-3 -mt-1 text-xs text-emerald-900/70">
+              di cui <span className="font-medium text-amber-700">{formatEuro(fidoUtilizzato)}</span> di
+              fido bancario — soldi tuoi: {formatEuro(liquidita - fidoUtilizzato)}
+            </p>
+          )}
         </div>
       </div>
     </div>
