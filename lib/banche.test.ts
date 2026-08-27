@@ -171,6 +171,18 @@ describe('riepilogoBanche — linee e anticipi', () => {
     expect(r.anticipiDaChiudere).toBe(1)
   })
 
+  it('commessa collegata ma non ancora saldata: nessun promemoria', () => {
+    const commesse: Record<string, InfoCommessa> = {
+      c1: { etichetta: 'C-2026-014 — Rossi', residuo: 500 },
+    }
+    const r = riepilogoBanche([], [linea()], [anticipo({ commessa_id: 'c1' })], commesse, OGGI)
+    const a = r.linee[0].anticipi[0]
+    expect(a.residuoCommessa).toBe(500)
+    expect(a.etichettaCommessa).toBe('C-2026-014 — Rossi')
+    expect(a.daChiudere).toBe(false)
+    expect(r.anticipiDaChiudere).toBe(0)
+  })
+
   it('scaduto solo se la data è passata: oggi non è scaduto', () => {
     const ieri = riepilogoBanche([], [linea()], [anticipo({ data_scadenza: '2026-08-26' })], {}, OGGI)
     const stessoGiorno = riepilogoBanche([], [linea()], [anticipo({ data_scadenza: OGGI })], {}, OGGI)
@@ -192,6 +204,13 @@ describe('riepilogoBanche — linee e anticipi', () => {
     )
     expect(r.anticipiScaduti).toBe(0)
     expect(r.anticipiDaChiudere).toBe(0)
+    expect(r.linee[0].anticipi).toHaveLength(0)
+  })
+
+  it('anticipo che punta a una linea inesistente: resta fuori da tutti i totali', () => {
+    const r = riepilogoBanche([], [linea({ id: 'l1' })], [anticipo({ linea_id: 'l-sconosciuta' })], {}, OGGI)
+    expect(r.lineeUtilizzato).toBe(0)
+    expect(r.utilizzatoTotale).toBe(0)
     expect(r.linee[0].anticipi).toHaveLength(0)
   })
 

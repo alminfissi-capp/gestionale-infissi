@@ -54,7 +54,7 @@ export type UtilizzoBanca = {
 }
 
 export type RiepilogoBanche = {
-  conti: UtilizzoBanca[] // solo quelli con un fido accordato
+  conti: UtilizzoBanca[] // quelli con un fido accordato o con uno scoperto in corso
   linee: UtilizzoBanca[]
   liquiditaPropria: number // Σ max(0, disponibile − accordato) sui conti
   fidoCassaUtilizzato: number
@@ -117,6 +117,11 @@ export function riepilogoBanche(
   // ── Anticipi aperti, raggruppati per linea ──
   // I rimborsati non sono più debito e liberano il plafond: escono subito, e con loro
   // escono anche i loro contatori. Lo storico si consulta nell'interfaccia, non qui.
+  // Si assume che ogni anticipo punti a una linea presente in `linee`: la FK è
+  // ON DELETE CASCADE e le due liste arrivano dalla stessa organizzazione. Se
+  // l'assunzione saltasse, l'anticipo orfano sparirebbe da ogni totale senza un
+  // rumore — il test "anticipo orfano" qui sotto fissa questo comportamento perché
+  // resti una scelta consapevole e non una sorpresa.
   const apertiPerLinea = new Map<string, AnticipoCalcolato[]>()
   let anticipiScaduti = 0
   let anticipiDaChiudere = 0
@@ -145,6 +150,10 @@ export function riepilogoBanche(
   }
 
   // ── Linee: si scrivono gli anticipi, utilizzato e disponibile si ricavano ──
+  // A differenza dei conti, qui non si filtra nulla: una linea di credito è
+  // un'entità che l'utente ha configurato apposta, e vale sempre la pena mostrarla
+  // (la schermata Calcoli elenca anche le linee inutilizzate). Un conto senza fido
+  // invece non ha niente a che fare con questa funzionalità.
   let lineeUtilizzato = 0
   const lineeUso: UtilizzoBanca[] = linee.map((l) => {
     const accordato = num(l.accordato)
