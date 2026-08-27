@@ -82,6 +82,8 @@ export default function StatisticheCommesse({ dati }: Props) {
   const [vistaCosti, setVistaCosti] = useState<VistaCosti>('impilato')
   // Tendina del dettaglio "Da commesse": chiusa di default, il riquadro resta una sintesi
   const [dettaglioCommesse, setDettaglioCommesse] = useState(false)
+  // Tendina del dettaglio "Banche": chiusa di default, come quella dei crediti
+  const [dettaglioBanche, setDettaglioBanche] = useState(false)
 
   const datiMese = useMemo(() => aggregaMese(commesse, anno), [commesse, anno])
   const datiFlusso = useMemo(
@@ -420,6 +422,56 @@ export default function StatisticheCommesse({ dati }: Props) {
                       <dd>{formatEuro(riepilogo.debitiDipendenti)}</dd>
                     </div>
                   )}
+                  {riepilogo.debitiBanche > 0 && (
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setDettaglioBanche((v) => !v)}
+                        aria-expanded={dettaglioBanche}
+                        className="w-full flex items-center justify-between gap-2 text-gray-700 hover:text-gray-900 transition-colors"
+                      >
+                        <span className="flex items-center gap-1">
+                          <ChevronDown
+                            className={`h-3.5 w-3.5 text-gray-500 transition-transform ${dettaglioBanche ? '' : '-rotate-90'}`}
+                          />
+                          Banche (fido utilizzato)
+                        </span>
+                        <span>{formatEuro(riepilogo.debitiBanche)}</span>
+                      </button>
+                      {dettaglioBanche && (
+                        <ul className="ml-5 mt-1 space-y-0.5 border-l border-gray-200 pl-2 text-xs">
+                          {riepilogo.debitiPerBanca.conti.map((c) => (
+                            <li key={c.id} className="flex justify-between gap-2 text-gray-600">
+                              <span>{c.nome}<span className="text-gray-400"> · fido di cassa</span></span>
+                              <span className="font-medium text-gray-700">{formatEuro(c.utilizzato)}</span>
+                            </li>
+                          ))}
+                          {riepilogo.debitiPerBanca.linee.map((l) => (
+                            <li key={l.id} className="text-gray-600">
+                              <div className="flex justify-between gap-2">
+                                <span>{l.nome}</span>
+                                <span className="font-medium text-gray-700">{formatEuro(l.utilizzato)}</span>
+                              </div>
+                              <ul className="ml-2 border-l border-gray-100 pl-2 text-[11px] text-gray-500">
+                                {l.anticipi.map((a) => (
+                                  <li key={a.id} className="flex justify-between gap-2">
+                                    <span className={a.scaduto ? 'text-rose-600' : undefined}>
+                                      {a.etichettaCommessa ?? (a.descrizione || 'Anticipo')}
+                                      {a.data_scadenza && <span className="text-gray-400"> · scad. {a.data_scadenza}</span>}
+                                    </span>
+                                    <span>{formatEuro(a.importo)}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </li>
+                          ))}
+                          <li className="pt-1 text-gray-400">
+                            margine ancora disponibile: {formatEuro(riepilogo.residuoFidi)}
+                          </li>
+                        </ul>
+                      )}
+                    </div>
+                  )}
                   <div className="flex justify-between text-gray-500">
                     <dt>Rate oltre il {annoOggi}</dt>
                     <dd>{formatEuro(riepilogo.debitiFuturi)}</dd>
@@ -437,7 +489,8 @@ export default function StatisticheCommesse({ dati }: Props) {
                     Posizione netta {annoOggi}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Crediti meno i debiti da saldare entro l&apos;anno, stipendi arretrati compresi; le rate future restano escluse
+                    Crediti meno i debiti da saldare entro l&apos;anno: stipendi arretrati e fido
+                    bancario compresi, le rate future escluse
                   </p>
                 </div>
                 <p className={`text-2xl font-bold ${riepilogo.posizioneNetta >= 0 ? 'text-green-700' : 'text-rose-700'}`}>
