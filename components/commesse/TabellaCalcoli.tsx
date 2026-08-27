@@ -216,9 +216,10 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
     [righeItems, importiStr, contiItems, contiSaldiStr]
   )
 
-  // Quanta parte della liquidità è soldi della banca. Si usa lo stesso utilizzoConto
-  // delle statistiche: la formula del fido sta in un posto solo.
-  const fidoUtilizzato = useMemo(
+  // Quanta parte della liquidità è soldi della banca: NON l'utilizzato (quello è
+  // il debito, e sta fra i debiti in Statistiche) ma il fido ancora disponibile,
+  // cioè la fetta della disponibilità che spenderesti prendendola a prestito.
+  const quotaFido = useMemo(
     () =>
       contiItems.reduce(
         (s, c) =>
@@ -227,7 +228,7 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
             nome: c.nome,
             disponibile: parseImporto(contiSaldiStr[c.id] ?? ''),
             accordato: c.fido_accordato,
-          }).utilizzato,
+          }).residuo,
         0,
       ),
     [contiItems, contiSaldiStr],
@@ -424,7 +425,7 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
                   {c.nome}
                   {c.fido_accordato > 0 && (
                     <span className="text-xs font-normal text-gray-400 shrink-0">
-                      fido {formatEuro(c.fido_accordato)}
+                      fido accordato {formatEuro(c.fido_accordato)}
                     </span>
                   )}
                 </span>
@@ -495,10 +496,10 @@ export default function TabellaCalcoli({ commesse, gruppi, righe, scadenze, cont
             <span className="text-sm font-semibold text-emerald-900">Liquidità corrente</span>
             <span className="text-lg font-bold text-emerald-800 pr-12">{formatEuro(liquidita)}</span>
           </div>
-          {fidoUtilizzato > 0 && (
+          {quotaFido > 0 && (
             <p className="px-4 pb-3 -mt-1 text-xs text-emerald-900/70">
-              di cui <span className="font-medium text-amber-700">{formatEuro(fidoUtilizzato)}</span> di
-              fido bancario — soldi tuoi: {formatEuro(liquidita - fidoUtilizzato)}
+              di cui <span className="font-medium text-amber-700">{formatEuro(quotaFido)}</span> di
+              fido bancario — soldi tuoi: {formatEuro(liquidita - quotaFido)}
             </p>
           )}
         </div>
