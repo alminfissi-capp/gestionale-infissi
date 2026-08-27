@@ -167,6 +167,21 @@ Il prezzo, accettato consapevolmente: gli anticipi non compaiono nello scadenzar
 calendario, né nel grafico incassi/pagamenti mensile. Chi in futuro volesse portarceli deve
 **spostare** il conteggio, non aggiungerlo, altrimenti ogni anticipo pesa doppio sui debiti.
 
+## L'anticipo non è un costo
+
+Restituire un anticipo non impoverisce l'azienda: quei soldi erano già suoi, la banca li ha
+solo passati prima. È un'operazione finanziaria, non un'uscita di gestione.
+
+Conseguenza pratica: gli anticipi **non entrano mai** in `aggregaUscitePerCategoria`, nel
+grafico a torta delle uscite, nell'analisi costi/utili né nel margine di commessa. Oggi ci
+restano fuori da soli, perché non generano righe in `scadenze` — ma è un effetto collaterale
+della struttura, non una regola scritta, quindi eccola scritta: se un domani gli anticipi
+arrivassero nello scadenzario, dovrebbero comunque restare fuori dai costi.
+
+Gli **interessi e le commissioni** dell'anticipo, quelli sì che sono un costo. Restano fuori
+da questo lavoro: si vedranno più avanti, quando saranno chiare le condizioni applicate
+dalla banca. Nel frattempo continuano a essere registrati come scadenze, com'è già oggi.
+
 ## Chiusura dell'anticipo: a mano, col suggerimento
 
 `rimborsato` si spunta a mano, come `scadenze.pagato`. Il software non chiude mai da solo:
@@ -379,3 +394,6 @@ perché si muovono ogni settimana. Le due cose non vanno mescolate nella stessa 
   disponibilità del conto la aggiorna l'utente, anche dopo l'accredito di un anticipo.
 - **Interessi, commissioni e competenze bancarie.** Restano scadenze come oggi.
 - **Chiusura automatica dell'anticipo dal saldo della commessa.** Solo il suggerimento.
+- **Interessi e commissioni sugli anticipi.** Sono un costo, ma le condizioni della banca
+  non sono ancora chiare: si affronteranno in un lavoro a parte. Fino ad allora restano
+  scadenze come oggi.
