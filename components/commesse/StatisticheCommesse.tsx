@@ -64,6 +64,13 @@ function labelNumero(v: LabelVal): string {
   return n > 0 ? String(n) : ''
 }
 
+// Le date arrivano come 'YYYY-MM-DD' dal server. Si formattano all'italiana solo
+// per mostrarle: i confronti restano sulle stringhe ISO, che si ordinano da sole.
+function formatData(iso: string): string {
+  const [a, m, g] = iso.split('-')
+  return `${g}/${m}/${a}`
+}
+
 interface Props {
   dati: DatiStatistiche
 }
@@ -357,6 +364,7 @@ export default function StatisticheCommesse({ dati }: Props) {
                       type="button"
                       onClick={() => setDettaglioCommesse((v) => !v)}
                       aria-expanded={dettaglioCommesse}
+                      aria-controls="dettaglio-crediti-commesse"
                       className="w-full flex items-center justify-between gap-2 text-gray-700 hover:text-sky-800 transition-colors"
                     >
                       <span className="flex items-center gap-1">
@@ -369,11 +377,11 @@ export default function StatisticheCommesse({ dati }: Props) {
                     </button>
                     {dettaglioCommesse && (
                       riepilogo.creditiPerStato.length === 0 ? (
-                        <p className="ml-5 mt-1 border-l border-sky-200 pl-2 text-xs text-gray-500">
+                        <p id="dettaglio-crediti-commesse" className="ml-5 mt-1 border-l border-sky-200 pl-2 text-xs text-gray-500">
                           Nessuna commessa con saldo residuo
                         </p>
                       ) : (
-                        <ul className="ml-5 mt-1 space-y-0.5 border-l border-sky-200 pl-2 text-xs">
+                        <ul id="dettaglio-crediti-commesse" className="ml-5 mt-1 space-y-0.5 border-l border-sky-200 pl-2 text-xs">
                           {riepilogo.creditiPerStato.map((riga) => (
                             <li key={riga.stato} className="flex justify-between gap-2 text-gray-600">
                               <span>
@@ -399,27 +407,27 @@ export default function StatisticheCommesse({ dati }: Props) {
 
               <div className="rounded-lg border border-gray-200 p-3">
                 <p className="text-xs uppercase tracking-wide text-gray-600 font-medium">Debiti da pagare</p>
-                <dl className="mt-2 space-y-1 text-sm">
+                <div className="mt-2 space-y-1 text-sm">
                   {riepilogo.debitiScaduti > 0 && (
                     <div className="flex justify-between text-rose-700 font-medium">
-                      <dt>Già scaduto</dt>
-                      <dd>{formatEuro(riepilogo.debitiScaduti)}</dd>
+                      <span>Già scaduto</span>
+                      <span>{formatEuro(riepilogo.debitiScaduti)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-gray-700">
-                    <dt>Entro il {annoOggi}</dt>
-                    <dd>{formatEuro(riepilogo.debitiAnno)}</dd>
+                    <span>Entro il {annoOggi}</span>
+                    <span>{formatEuro(riepilogo.debitiAnno)}</span>
                   </div>
                   {riepilogo.debitiDaProgrammare > 0 && (
                     <div className="flex justify-between text-gray-700">
-                      <dt>Da programmare</dt>
-                      <dd>{formatEuro(riepilogo.debitiDaProgrammare)}</dd>
+                      <span>Da programmare</span>
+                      <span>{formatEuro(riepilogo.debitiDaProgrammare)}</span>
                     </div>
                   )}
                   {riepilogo.debitiDipendenti > 0 && (
                     <div className="flex justify-between text-gray-700">
-                      <dt>Stipendi da versare</dt>
-                      <dd>{formatEuro(riepilogo.debitiDipendenti)}</dd>
+                      <span>Stipendi da versare</span>
+                      <span>{formatEuro(riepilogo.debitiDipendenti)}</span>
                     </div>
                   )}
                   {riepilogo.debitiBanche > 0 && (
@@ -428,6 +436,7 @@ export default function StatisticheCommesse({ dati }: Props) {
                         type="button"
                         onClick={() => setDettaglioBanche((v) => !v)}
                         aria-expanded={dettaglioBanche}
+                        aria-controls="dettaglio-banche"
                         className="w-full flex items-center justify-between gap-2 text-gray-700 hover:text-gray-900 transition-colors"
                       >
                         <span className="flex items-center gap-1">
@@ -439,7 +448,7 @@ export default function StatisticheCommesse({ dati }: Props) {
                         <span>{formatEuro(riepilogo.debitiBanche)}</span>
                       </button>
                       {dettaglioBanche && (
-                        <ul className="ml-5 mt-1 space-y-0.5 border-l border-gray-200 pl-2 text-xs">
+                        <ul id="dettaglio-banche" className="ml-5 mt-1 space-y-0.5 border-l border-gray-200 pl-2 text-xs">
                           {riepilogo.debitiPerBanca.conti.map((c) => (
                             <li key={c.id} className="flex justify-between gap-2 text-gray-600">
                               <span>{c.nome}<span className="text-gray-400"> · fido di cassa</span></span>
@@ -457,7 +466,12 @@ export default function StatisticheCommesse({ dati }: Props) {
                                   <li key={a.id} className="flex justify-between gap-2">
                                     <span className={a.scaduto ? 'text-rose-600' : undefined}>
                                       {a.etichettaCommessa ?? (a.descrizione || 'Anticipo')}
-                                      {a.data_scadenza && <span className="text-gray-400"> · scad. {a.data_scadenza}</span>}
+                                      {a.data_scadenza && (
+                                        <span className={a.scaduto ? 'text-rose-600' : 'text-gray-400'}>
+                                          {' '}· scad. {formatData(a.data_scadenza)}
+                                          {a.scaduto && ' · scaduto'}
+                                        </span>
+                                      )}
                                     </span>
                                     <span>{formatEuro(a.importo)}</span>
                                   </li>
@@ -473,14 +487,14 @@ export default function StatisticheCommesse({ dati }: Props) {
                     </div>
                   )}
                   <div className="flex justify-between text-gray-500">
-                    <dt>Rate oltre il {annoOggi}</dt>
-                    <dd>{formatEuro(riepilogo.debitiFuturi)}</dd>
+                    <span>Rate oltre il {annoOggi}</span>
+                    <span>{formatEuro(riepilogo.debitiFuturi)}</span>
                   </div>
                   <div className="flex justify-between border-t pt-1 mt-1 font-semibold text-gray-800">
-                    <dt>Totale</dt>
-                    <dd>{formatEuro(riepilogo.debitiTotali)}</dd>
+                    <span>Totale</span>
+                    <span>{formatEuro(riepilogo.debitiTotali)}</span>
                   </div>
-                </dl>
+                </div>
               </div>
 
               <div className="sm:col-span-2 rounded-lg border p-3 flex flex-wrap items-baseline justify-between gap-2">
