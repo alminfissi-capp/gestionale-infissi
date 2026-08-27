@@ -81,7 +81,11 @@ export type DatiStatistiche = {
   contiDipendenti: ContoDipendenteRow[] // dovuto/pagato per persona
   contiBanca: ContoBancaRow[] // conti correnti con la loro disponibilità e il fido
   lineeCredito: LineaCreditoRow[]
-  anticipi: AnticipoRow[] // compresi i rimborsati: è riepilogoBanche a scartarli
+  // La pagina Statistiche passa qui solo gli anticipi aperti (li filtra già nella query,
+  // non avendo che farsene dei rimborsati). `riepilogoBanche` scarta comunque i rimborsati,
+  // quindi passarli tutti — come fa la pagina Calcoli, che le serve per il suo interruttore
+  // "mostra i rimborsati" — resta corretto.
+  anticipi: AnticipoRow[]
   infoCommesse: Record<string, InfoCommessa> // etichetta + residuo per gli anticipi
 }
 

@@ -12,6 +12,14 @@ import { setAnticipoRimborsato, deleteAnticipo } from '@/actions/banche'
 import DialogAnticipo from './DialogAnticipo'
 import type { AnticipoFattura, LineaCredito, OpzioneCommessa } from '@/types/commessa'
 
+// Le date arrivano come 'YYYY-MM-DD' dal server. Si formattano all'italiana solo per
+// mostrarle: i confronti restano sulle stringhe ISO, che si ordinano da sole. Niente
+// `new Date(...)`, che su una data senza ora sposta il giorno cambiando fuso.
+function formatData(iso: string): string {
+  const [a, m, g] = iso.split('-')
+  return `${g}/${m}/${a}`
+}
+
 interface Props {
   linee: LineaCredito[]
   anticipi: AnticipoFattura[] // compresi i rimborsati
@@ -152,7 +160,7 @@ export default function BloccoFidi({ linee, anticipi, commesse, oggi }: Props) {
                       </span>
                       {a.data_scadenza && (
                         <span className={`shrink-0 ${a.scaduto ? 'text-rose-600' : 'text-gray-400'}`}>
-                          scad. {a.data_scadenza}
+                          scad. {formatData(a.data_scadenza)}{a.scaduto && ' · scaduto'}
                         </span>
                       )}
                       {a.residuoCommessa !== null && (
