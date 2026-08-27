@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { X } from 'lucide-react'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -28,14 +29,23 @@ interface Props {
 export default function DialogAnticipo({ open, onOpenChange, linee, commesse, anticipo }: Props) {
   const router = useRouter()
   const [lineaId, setLineaId] = useState(anticipo?.linea_id ?? linee[0]?.id ?? '')
-  const [commessaId, setCommessaId] = useState(anticipo?.commessa_id ?? '')
+  const [commesseIds, setCommesseIds] = useState<string[]>(anticipo?.commesse_ids ?? [])
   const [descrizione, setDescrizione] = useState(anticipo?.descrizione ?? '')
   const [importo, setImporto] = useState(anticipo ? String(anticipo.importo) : '')
   const [erogazione, setErogazione] = useState(anticipo?.data_erogazione ?? '')
   const [scadenza, setScadenza] = useState(anticipo?.data_scadenza ?? '')
   const [saving, setSaving] = useState(false)
 
-  const selezionata = commesse.find((c) => c.id === commessaId)
+  // Una fattura può coprire più commesse: si sommano i loro residui, così si vede
+  // subito quanto il cliente deve ancora rispetto a quanto si deve alla banca.
+  const selezionate = commesseIds.flatMap((id) => commesse.find((c) => c.id === id) ?? [])
+  const residuoTotale = selezionate.reduce((s, c) => s + c.residuo, 0)
+  const disponibili = commesse.filter((c) => !commesseIds.includes(c.id))
+
+  const aggiungiCommessa = (id: string) => {
+    if (!id || commesseIds.includes(id)) return
+    setCommesseIds((cur) => [...cur, id])
+  }
 
   const handleSalva = async () => {
     if (!lineaId) { toast.error('Scegli la linea di credito'); return }
@@ -45,7 +55,7 @@ export default function DialogAnticipo({ open, onOpenChange, linee, commesse, an
     try {
       const input = {
         linea_id: lineaId,
-        commessa_id: commessaId || null,
+        commesse_ids: commesseIds,
         descrizione,
         importo: valore,
         data_erogazione: erogazione || null,
@@ -84,17 +94,46 @@ export default function DialogAnticipo({ open, onOpenChange, linee, commesse, an
           </div>
 
           <div className="space-y-1.5">
-            <Label>Commessa</Label>
+            <Label>Commesse</Label>
+            {selezionate.length > 0 && (
+              <ul className="space-y-1">
+                {selezionate.map((c) => (
+                  <li
+                    key={c.id}
+                    className="flex items-center gap-2 rounded border bg-gray-50/60 px-2 py-1.5 text-sm"
+                  >
+                    <span className="flex-1 min-w-0 truncate text-gray-700">{c.etichetta}</span>
+                    <span className="shrink-0 text-xs text-gray-500">
+                      deve {formatEuro(c.residuo)}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 text-gray-300 hover:text-red-500"
+                      title="Togli questa commessa"
+                      aria-label={`Togli ${c.etichetta}`}
+                      onClick={() => setCommesseIds((cur) => cur.filter((x) => x !== c.id))}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
             <ComboboxField
-              options={commesse.map((c) => ({ value: c.id, label: c.etichetta }))}
-              value={commessaId}
-              onChange={setCommessaId}
-              placeholder="Nessuna commessa collegata"
+              key={commesseIds.length}
+              options={disponibili.map((c) => ({ value: c.id, label: c.etichetta }))}
+              value=""
+              onChange={aggiungiCommessa}
+              placeholder={selezionate.length > 0 ? 'Aggiungi un’altra commessa…' : 'Nessuna commessa collegata'}
               searchPlaceholder="Cerca per numero o cliente…"
             />
-            {selezionata && (
+            {selezionate.length > 0 && (
               <p className="text-xs text-gray-500">
-                Il cliente deve ancora saldare {formatEuro(selezionata.residuo)}
+                {selezionate.length === 1
+                  ? `Il cliente deve ancora saldare ${formatEuro(residuoTotale)}`
+                  : `In tutto il cliente deve ancora saldare ${formatEuro(residuoTotale)} su ${selezionate.length} commesse`}
               </p>
             )}
           </div>

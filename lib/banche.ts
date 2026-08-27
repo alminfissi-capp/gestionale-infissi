@@ -25,7 +25,10 @@ export type LineaCreditoRow = {
 export type AnticipoRow = {
   id: string
   linea_id: string
-  commessa_id: string | null
+  // Un anticipo può coprire più commesse: una sola fattura emessa per più lavori.
+  // L'importo non si spezza fra loro — la banca anticipa la fattura, non il singolo
+  // lavoro — quindi le commesse servono solo a sommare quanto il cliente deve ancora.
+  commesse_ids: string[]
   descrizione: string
   importo: number
   data_scadenza: string | null // 'YYYY-MM-DD'
@@ -37,10 +40,12 @@ export type AnticipoRow = {
 export type InfoCommessa = { etichetta: string; residuo: number }
 
 export type AnticipoCalcolato = AnticipoRow & {
-  etichettaCommessa: string | null
-  residuoCommessa: number | null
+  // Solo le commesse effettivamente trovate in `commesse`: se una manca (per esempio
+  // perché è stata cancellata) sparisce da qui, e `daChiudere` non si accende.
+  commesse: { id: string; etichetta: string; residuo: number }[]
+  residuoCommesse: number | null // somma dei residui noti; null se non se ne conosce nessuna
   scaduto: boolean
-  daChiudere: boolean // la commessa risulta saldata: promemoria, non azione
+  daChiudere: boolean // tutte le commesse collegate risultano saldate: promemoria, non azione
 }
 
 export type UtilizzoBanca = {
@@ -128,19 +133,30 @@ export function riepilogoBanche(
 
   for (const a of anticipi) {
     if (a.rimborsato) continue
-    const info = a.commessa_id ? commesse[a.commessa_id] : undefined
-    const residuoCommessa = info ? info.residuo : null
+    const ids = a.commesse_ids ?? []
+    const collegate = ids.flatMap((id) => {
+      const info = commesse[id]
+      return info ? [{ id, etichetta: info.etichetta, residuo: info.residuo }] : []
+    })
+    const residuoCommesse = collegate.length > 0
+      ? collegate.reduce((s, c) => s + num(c.residuo), 0)
+      : null
     const scaduto = !!a.data_scadenza && a.data_scadenza < oggi
     // Promemoria, non azione: finché non si spunta "rimborsato" l'anticipo resta
     // nei debiti e occupa il plafond.
-    const daChiudere = residuoCommessa !== null && residuoCommessa <= 0
+    // Si accende solo se TUTTE le commesse collegate sono note e insieme non devono
+    // più niente: con una fattura che copre più lavori, la banca rientra quando il
+    // cliente ha saldato tutto, non il primo pezzo. Se anche una sola commessa non
+    // si trova, non si può dire che sia saldata e il promemoria resta spento.
+    const tutteNote = ids.length > 0 && collegate.length === ids.length
+    const daChiudere = tutteNote && (residuoCommesse ?? 0) <= 0
     if (scaduto) anticipiScaduti += 1
     if (daChiudere) anticipiDaChiudere += 1
     const calcolato: AnticipoCalcolato = {
       ...a,
       importo: num(a.importo),
-      etichettaCommessa: info ? info.etichetta : null,
-      residuoCommessa,
+      commesse: collegate,
+      residuoCommesse,
       scaduto,
       daChiudere,
     }

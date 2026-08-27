@@ -16,7 +16,7 @@ export default async function StatisticheCommessePage() {
     { data: commesseRaw }, { data: accontiRaw }, { data: gruppiRaw }, { data: junctionRaw },
     { data: scadenzeRaw }, { data: altriCreditiRaw }, { data: busteRaw },
     { data: pagDipRaw }, { data: movAltriRaw },
-    { data: contiRaw }, { data: lineeRaw }, { data: anticipiRaw },
+    { data: contiRaw }, { data: lineeRaw }, { data: anticipiRaw }, { data: legamiRaw },
   ] =
     await Promise.all([
       supabase
@@ -70,9 +70,15 @@ export default async function StatisticheCommessePage() {
       // tutti significherebbe accumulare righe morte man mano che gli anticipi vengono saldati.
       supabase
         .from('anticipi_fattura')
-        .select('id, linea_id, commessa_id, descrizione, importo, data_scadenza, rimborsato')
+        .select('id, linea_id, descrizione, importo, data_scadenza, rimborsato')
         .eq('organization_id', orgId)
         .eq('rimborsato', false),
+      // I legami anticipo↔commesse: un anticipo può coprire più commesse, perché
+      // una sola fattura può essere emessa per più lavori.
+      supabase
+        .from('anticipi_commesse')
+        .select('anticipo_id, commessa_id')
+        .eq('organization_id', orgId),
     ])
 
   // Mappa gruppo_id → nome blocco (es. "2025", "2026")
@@ -267,10 +273,17 @@ export default async function StatisticheCommessePage() {
     accordato: Number(l.accordato) || 0,
   }))
 
+  const commessePerAnticipo = new Map<string, string[]>()
+  for (const l of legamiRaw ?? []) {
+    const list = commessePerAnticipo.get(l.anticipo_id) ?? []
+    list.push(l.commessa_id)
+    commessePerAnticipo.set(l.anticipo_id, list)
+  }
+
   const anticipi: AnticipoRow[] = (anticipiRaw ?? []).map((a) => ({
     id: a.id,
     linea_id: a.linea_id,
-    commessa_id: a.commessa_id,
+    commesse_ids: commessePerAnticipo.get(a.id) ?? [],
     descrizione: a.descrizione ?? '',
     importo: Number(a.importo) || 0,
     data_scadenza: a.data_scadenza,

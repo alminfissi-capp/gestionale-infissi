@@ -268,7 +268,9 @@ export type AnticipoFattura = {
   id: string
   organization_id: string
   linea_id: string
-  commessa_id: string | null
+  // Più commesse per un anticipo: una sola fattura emessa per più lavori.
+  // I legami stanno nella tabella `anticipi_commesse`.
+  commesse_ids: string[]
   descrizione: string
   importo: number
   data_erogazione: string | null
@@ -281,7 +283,7 @@ export type AnticipoFattura = {
 
 export type AnticipoFatturaInput = {
   linea_id: string
-  commessa_id: string | null
+  commesse_ids: string[]
   descrizione: string
   importo: number
   data_erogazione: string | null

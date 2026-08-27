@@ -274,7 +274,7 @@ describe('riepilogoCreditiDebiti — debiti bancari', () => {
   const banche = riepilogoBanche(
     [{ id: 'cc', nome: 'Intesa', accordato: 40000, disponibile: 10000 }], // 30.000 di cassa
     [{ id: 'l1', nome: 'Anticipo Intesa', tipo: 'anticipo_fatture', accordato: 100000 }],
-    [{ id: 'a1', linea_id: 'l1', commessa_id: null, descrizione: '', importo: 15000, data_scadenza: null, rimborsato: false }],
+    [{ id: 'a1', linea_id: 'l1', commesse_ids: [], descrizione: '', importo: 15000, data_scadenza: null, rimborsato: false }],
     {},
     '2026-08-27',
   )

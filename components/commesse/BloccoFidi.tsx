@@ -12,6 +12,13 @@ import { setAnticipoRimborsato, deleteAnticipo } from '@/actions/banche'
 import DialogAnticipo from './DialogAnticipo'
 import type { AnticipoFattura, LineaCredito, OpzioneCommessa } from '@/types/commessa'
 
+// Un anticipo può coprire più commesse: si elencano tutte, perché il residuo mostrato
+// accanto è la loro somma e senza i nomi non si capirebbe di chi.
+function etichettaAnticipo(a: { commesse: { etichetta: string }[]; descrizione: string }): string {
+  if (a.commesse.length > 0) return a.commesse.map((c) => c.etichetta).join(' + ')
+  return a.descrizione || 'Anticipo'
+}
+
 // Le date arrivano come 'YYYY-MM-DD' dal server. Si formattano all'italiana solo per
 // mostrarle: i confronti restano sulle stringhe ISO, che si ordinano da sole. Niente
 // `new Date(...)`, che su una data senza ora sposta il giorno cambiando fuso.
@@ -47,7 +54,7 @@ export default function BloccoFidi({ linee, anticipi, commesse, oggi }: Props) {
       id: l.id, nome: l.nome, tipo: l.tipo, accordato: l.accordato,
     }))
     const righeAnticipi: AnticipoRow[] = anticipi.map((a) => ({
-      id: a.id, linea_id: a.linea_id, commessa_id: a.commessa_id, descrizione: a.descrizione,
+      id: a.id, linea_id: a.linea_id, commesse_ids: a.commesse_ids, descrizione: a.descrizione,
       importo: a.importo, data_scadenza: a.data_scadenza, rimborsato: a.rimborsato,
     }))
     return riepilogoBanche([], righeLinee, righeAnticipi, infoCommesse, oggi)
@@ -156,16 +163,16 @@ export default function BloccoFidi({ linee, anticipi, commesse, oggi }: Props) {
                         aria-label="Segna come rimborsato"
                       />
                       <span className="flex-1 min-w-0 truncate text-gray-700">
-                        {a.etichettaCommessa ?? (a.descrizione || 'Anticipo')}
+                        {etichettaAnticipo(a)}
                       </span>
                       {a.data_scadenza && (
                         <span className={`shrink-0 ${a.scaduto ? 'text-rose-600' : 'text-gray-400'}`}>
                           scad. {formatData(a.data_scadenza)}{a.scaduto && ' · scaduto'}
                         </span>
                       )}
-                      {a.residuoCommessa !== null && (
+                      {a.residuoCommesse !== null && (
                         <span className="text-xs text-gray-500 shrink-0">
-                          il cliente deve {formatEuro(a.residuoCommessa)}
+                          il cliente deve {formatEuro(a.residuoCommesse)}
                         </span>
                       )}
                       <span className="font-semibold text-gray-800 shrink-0">{formatEuro(a.importo)}</span>

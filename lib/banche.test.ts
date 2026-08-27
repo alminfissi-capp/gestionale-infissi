@@ -101,7 +101,7 @@ const linea = (over: Partial<LineaCreditoRow> = {}): LineaCreditoRow => ({
 const anticipo = (over: Partial<AnticipoRow> = {}): AnticipoRow => ({
   id: 'a1',
   linea_id: 'l1',
-  commessa_id: null,
+  commesse_ids: [],
   descrizione: '',
   importo: 15000,
   data_scadenza: null,
@@ -152,10 +152,10 @@ describe('riepilogoBanche — linee e anticipi', () => {
   })
 
   it('commessa sconosciuta: niente residuo e niente promemoria', () => {
-    const r = riepilogoBanche([], [linea()], [anticipo({ commessa_id: 'ignota' })], {}, OGGI)
+    const r = riepilogoBanche([], [linea()], [anticipo({ commesse_ids: ['ignota'] })], {}, OGGI)
     const a = r.linee[0].anticipi[0]
-    expect(a.residuoCommessa).toBeNull()
-    expect(a.etichettaCommessa).toBeNull()
+    expect(a.residuoCommesse).toBeNull()
+    expect(a.commesse).toEqual([])
     expect(a.daChiudere).toBe(false)
   })
 
@@ -163,10 +163,10 @@ describe('riepilogoBanche — linee e anticipi', () => {
     const commesse: Record<string, InfoCommessa> = {
       c1: { etichetta: 'C-2026-014 — Rossi', residuo: 0 },
     }
-    const r = riepilogoBanche([], [linea()], [anticipo({ commessa_id: 'c1' })], commesse, OGGI)
+    const r = riepilogoBanche([], [linea()], [anticipo({ commesse_ids: ['c1'] })], commesse, OGGI)
     const a = r.linee[0].anticipi[0]
     expect(a.daChiudere).toBe(true)
-    expect(a.etichettaCommessa).toBe('C-2026-014 — Rossi')
+    expect(a.commesse.map((c) => c.etichetta)).toEqual(['C-2026-014 — Rossi'])
     expect(r.lineeUtilizzato).toBe(15000)
     expect(r.anticipiDaChiudere).toBe(1)
   })
@@ -175,12 +175,74 @@ describe('riepilogoBanche — linee e anticipi', () => {
     const commesse: Record<string, InfoCommessa> = {
       c1: { etichetta: 'C-2026-014 — Rossi', residuo: 500 },
     }
-    const r = riepilogoBanche([], [linea()], [anticipo({ commessa_id: 'c1' })], commesse, OGGI)
+    const r = riepilogoBanche([], [linea()], [anticipo({ commesse_ids: ['c1'] })], commesse, OGGI)
     const a = r.linee[0].anticipi[0]
-    expect(a.residuoCommessa).toBe(500)
-    expect(a.etichettaCommessa).toBe('C-2026-014 — Rossi')
+    expect(a.residuoCommesse).toBe(500)
+    expect(a.commesse.map((c) => c.etichetta)).toEqual(['C-2026-014 — Rossi'])
     expect(a.daChiudere).toBe(false)
     expect(r.anticipiDaChiudere).toBe(0)
+  })
+
+  // Una fattura sola emessa per più lavori: l'anticipo copre più commesse insieme.
+  const dueCommesse: Record<string, InfoCommessa> = {
+    c1: { etichetta: 'C-2026-014 — Rossi', residuo: 500 },
+    c2: { etichetta: 'C-2026-015 — Bianchi', residuo: 300 },
+  }
+
+  it('più commesse collegate: il residuo è la somma, e le mostra tutte', () => {
+    const r = riepilogoBanche(
+      [], [linea()], [anticipo({ commesse_ids: ['c1', 'c2'] })], dueCommesse, OGGI,
+    )
+    const a = r.linee[0].anticipi[0]
+    expect(a.residuoCommesse).toBe(800)
+    expect(a.commesse.map((c) => c.etichetta))
+      .toEqual(['C-2026-014 — Rossi', 'C-2026-015 — Bianchi'])
+    expect(a.daChiudere).toBe(false)
+  })
+
+  it('più commesse: il promemoria si accende solo quando le ha saldate tutte', () => {
+    const unaSola: Record<string, InfoCommessa> = {
+      c1: { etichetta: 'C-2026-014 — Rossi', residuo: 0 },
+      c2: { etichetta: 'C-2026-015 — Bianchi', residuo: 300 },
+    }
+    const parziale = riepilogoBanche(
+      [], [linea()], [anticipo({ commesse_ids: ['c1', 'c2'] })], unaSola, OGGI,
+    )
+    expect(parziale.linee[0].anticipi[0].residuoCommesse).toBe(300)
+    expect(parziale.linee[0].anticipi[0].daChiudere).toBe(false)
+    expect(parziale.anticipiDaChiudere).toBe(0)
+
+    const tutte: Record<string, InfoCommessa> = {
+      c1: { etichetta: 'C-2026-014 — Rossi', residuo: 0 },
+      c2: { etichetta: 'C-2026-015 — Bianchi', residuo: 0 },
+    }
+    const saldato = riepilogoBanche(
+      [], [linea()], [anticipo({ commesse_ids: ['c1', 'c2'] })], tutte, OGGI,
+    )
+    expect(saldato.linee[0].anticipi[0].daChiudere).toBe(true)
+    expect(saldato.anticipiDaChiudere).toBe(1)
+  })
+
+  it('una commessa collegata non si trova: niente promemoria, nemmeno se le altre sono saldate', () => {
+    const soloUna: Record<string, InfoCommessa> = {
+      c1: { etichetta: 'C-2026-014 — Rossi', residuo: 0 },
+    }
+    const r = riepilogoBanche(
+      [], [linea()], [anticipo({ commesse_ids: ['c1', 'sparita'] })], soloUna, OGGI,
+    )
+    const a = r.linee[0].anticipi[0]
+    expect(a.commesse).toHaveLength(1)
+    expect(a.residuoCommesse).toBe(0)
+    // Non si può dire che sia tutto saldato se di una commessa non si sa niente.
+    expect(a.daChiudere).toBe(false)
+  })
+
+  it('anticipo senza nessuna commessa: nessun residuo e nessun promemoria', () => {
+    const r = riepilogoBanche([], [linea()], [anticipo({ commesse_ids: [] })], dueCommesse, OGGI)
+    const a = r.linee[0].anticipi[0]
+    expect(a.commesse).toEqual([])
+    expect(a.residuoCommesse).toBeNull()
+    expect(a.daChiudere).toBe(false)
   })
 
   it('scaduto solo se la data è passata: oggi non è scaduto', () => {
@@ -199,7 +261,7 @@ describe('riepilogoBanche — linee e anticipi', () => {
     const r = riepilogoBanche(
       [],
       [linea()],
-      [anticipo({ commessa_id: 'c1', data_scadenza: '2026-01-01', rimborsato: true })],
+      [anticipo({ commesse_ids: ['c1'], data_scadenza: '2026-01-01', rimborsato: true })],
       commesse, OGGI,
     )
     expect(r.anticipiScaduti).toBe(0)

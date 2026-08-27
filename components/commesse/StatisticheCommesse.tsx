@@ -465,7 +465,9 @@ export default function StatisticheCommesse({ dati }: Props) {
                                 {l.anticipi.map((a) => (
                                   <li key={a.id} className="flex justify-between gap-2">
                                     <span className={a.scaduto ? 'text-rose-600' : undefined}>
-                                      {a.etichettaCommessa ?? (a.descrizione || 'Anticipo')}
+                                      {a.commesse.length > 0
+                                        ? a.commesse.map((c) => c.etichetta).join(' + ')
+                                        : (a.descrizione || 'Anticipo')}
                                       {a.data_scadenza && (
                                         <span className={a.scaduto ? 'text-rose-600' : 'text-gray-400'}>
                                           {' '}· scad. {formatData(a.data_scadenza)}
