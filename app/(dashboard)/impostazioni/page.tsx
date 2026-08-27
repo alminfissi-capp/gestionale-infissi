@@ -13,6 +13,8 @@ import FormValiditaPreventivo from '@/components/impostazioni/FormValiditaPreven
 import ThemeToggle from '@/components/impostazioni/ThemeToggle'
 import SezioneFirmaDefault from '@/components/impostazioni/SezioneFirmaDefault'
 import FormConti from '@/components/impostazioni/FormConti'
+import { getLineeCredito, getAnticipi } from '@/actions/banche'
+import FormLineeCredito from '@/components/impostazioni/FormLineeCredito'
 import { getOrariLavoro, getChiusure, getTipiAttivita } from '@/actions/calendario'
 import FormOrariLavoro from '@/components/impostazioni/FormOrariLavoro'
 import FormChiusure from '@/components/impostazioni/FormChiusure'
@@ -29,14 +31,23 @@ export default async function ImpostazioniPage() {
     .eq('id', user!.id)
     .single()
 
-  const [settings, templates, conti, orariLavoro, chiusure, tipiAttivita] = await Promise.all([
-    getSettings(),
-    getNoteTemplates(),
-    getConti(),
-    getOrariLavoro(),
-    getChiusure(),
-    getTipiAttivita(),
-  ])
+  const [settings, templates, conti, orariLavoro, chiusure, tipiAttivita, linee, anticipi] =
+    await Promise.all([
+      getSettings(),
+      getNoteTemplates(),
+      getConti(),
+      getOrariLavoro(),
+      getChiusure(),
+      getTipiAttivita(),
+      getLineeCredito(),
+      getAnticipi(),
+    ])
+
+  // Quanti anticipi porterebbe via la cancellazione di una linea (ON DELETE CASCADE).
+  const conteggioAnticipi: Record<string, number> = {}
+  for (const a of anticipi) {
+    conteggioAnticipi[a.linea_id] = (conteggioAnticipi[a.linea_id] ?? 0) + 1
+  }
 
   // Genera URL firmato per il logo se presente
   const logoSignedUrl = settings?.logo_url
@@ -78,11 +89,28 @@ export default async function ImpostazioniPage() {
         <CardHeader>
           <CardTitle>Conti correnti</CardTitle>
           <CardDescription>
-            Banche/conti su cui vengono addebitate le scadenze. Il saldo concorre alla liquidità nei Calcoli.
+            Banche/conti su cui vengono addebitate le scadenze. La disponibilità (fido incluso)
+            concorre alla liquidità nei Calcoli; il fido accordato serve a capire quanta parte
+            di quella disponibilità è debito verso la banca.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <FormConti initialConti={conti} />
+        </CardContent>
+      </Card>
+
+      {/* Linee di credito */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Linee di credito</CardTitle>
+          <CardDescription>
+            Anticipo fatture, salvo buon fine, castelletto: qui si registra solo il plafond
+            accordato. I singoli anticipi si inseriscono dai Calcoli, e da lì si ricavano
+            utilizzato e disponibile.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FormLineeCredito initialLinee={linee} conteggioAnticipi={conteggioAnticipi} />
         </CardContent>
       </Card>
 

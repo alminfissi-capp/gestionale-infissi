@@ -13,8 +13,13 @@ interface Props {
 }
 
 // Riga con snapshot dei valori salvati (per salvare solo se cambiato al blur)
-type ContoRow = ContoCorrente & { nomeSalvato: string; saldoSalvato: number }
-const toRow = (c: ContoCorrente): ContoRow => ({ ...c, nomeSalvato: c.nome, saldoSalvato: c.saldo_attuale })
+type ContoRow = ContoCorrente & { nomeSalvato: string; saldoSalvato: number; fidoSalvato: number }
+const toRow = (c: ContoCorrente): ContoRow => ({
+  ...c,
+  nomeSalvato: c.nome,
+  saldoSalvato: c.saldo_attuale,
+  fidoSalvato: c.fido_accordato,
+})
 
 const parseSaldo = (s: string) => {
   const v = parseFloat((s ?? '').replace(',', '.'))
@@ -26,8 +31,12 @@ export default function FormConti({ initialConti }: Props) {
   const [saldiStr, setSaldiStr] = useState<Record<string, string>>(() =>
     Object.fromEntries(initialConti.map((c) => [c.id, String(c.saldo_attuale)]))
   )
+  const [fidiStr, setFidiStr] = useState<Record<string, string>>(() =>
+    Object.fromEntries(initialConti.map((c) => [c.id, String(c.fido_accordato)]))
+  )
   const [nuovoNome, setNuovoNome] = useState('')
   const [nuovoSaldo, setNuovoSaldo] = useState('')
+  const [nuovoFido, setNuovoFido] = useState('')
   const [adding, setAdding] = useState(false)
 
   const handleNomeChange = (id: string, nome: string) =>
@@ -37,12 +46,19 @@ export default function FormConti({ initialConti }: Props) {
     const conto = conti.find((c) => c.id === id)
     if (!conto) return
     const saldo = parseSaldo(saldiStr[id] ?? '')
-    if (conto.nome.trim() === conto.nomeSalvato && saldo === conto.saldoSalvato) return
+    const fido = parseSaldo(fidiStr[id] ?? '')
+    if (
+      conto.nome.trim() === conto.nomeSalvato &&
+      saldo === conto.saldoSalvato &&
+      fido === conto.fidoSalvato
+    ) return
     if (!conto.nome.trim()) { toast.error('Il nome del conto è obbligatorio'); return }
     try {
-      await updateConto(id, { nome: conto.nome, saldo_attuale: saldo })
+      await updateConto(id, { nome: conto.nome, saldo_attuale: saldo, fido_accordato: fido })
       setConti((cur) =>
-        cur.map((c) => (c.id === id ? { ...c, saldo_attuale: saldo, nomeSalvato: c.nome.trim(), saldoSalvato: saldo } : c))
+        cur.map((c) => (c.id === id
+          ? { ...c, saldo_attuale: saldo, fido_accordato: fido, nomeSalvato: c.nome.trim(), saldoSalvato: saldo, fidoSalvato: fido }
+          : c))
       )
     } catch {
       toast.error('Errore nel salvataggio')
@@ -66,15 +82,18 @@ export default function FormConti({ initialConti }: Props) {
     setAdding(true)
     try {
       const saldo = parseSaldo(nuovoSaldo)
-      const { id } = await createConto({ nome: nuovoNome, saldo_attuale: saldo })
+      const fido = parseSaldo(nuovoFido)
+      const { id } = await createConto({ nome: nuovoNome, saldo_attuale: saldo, fido_accordato: fido })
       const nuovo: ContoCorrente = {
-        id, organization_id: '', nome: nuovoNome.trim(), saldo_attuale: saldo,
+        id, organization_id: '', nome: nuovoNome.trim(), saldo_attuale: saldo, fido_accordato: fido,
         ordine: 0, created_at: '', updated_at: '',
       }
       setConti((cur) => [...cur, toRow(nuovo)])
       setSaldiStr((cur) => ({ ...cur, [id]: String(saldo) }))
+      setFidiStr((cur) => ({ ...cur, [id]: String(fido) }))
       setNuovoNome('')
       setNuovoSaldo('')
+      setNuovoFido('')
       toast.success('Conto aggiunto')
     } catch {
       toast.error("Errore nell'aggiunta del conto")
@@ -92,7 +111,10 @@ export default function FormConti({ initialConti }: Props) {
       )}
 
       {conti.map((c) => {
-        const dirty = c.nome.trim() !== c.nomeSalvato || parseSaldo(saldiStr[c.id] ?? '') !== c.saldoSalvato
+        const dirty =
+          c.nome.trim() !== c.nomeSalvato ||
+          parseSaldo(saldiStr[c.id] ?? '') !== c.saldoSalvato ||
+          parseSaldo(fidiStr[c.id] ?? '') !== c.fidoSalvato
         return (
           <div key={c.id} className="flex items-center gap-2">
             <Input
@@ -107,8 +129,22 @@ export default function FormConti({ initialConti }: Props) {
                 type="number"
                 step={0.01}
                 value={saldiStr[c.id] ?? ''}
-                placeholder="0,00"
+                placeholder="Disponibilità 0,00"
                 onChange={(e) => setSaldiStr((cur) => ({ ...cur, [c.id]: e.target.value }))}
+                onBlur={() => handleSalva(c.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                className="text-right pr-7"
+              />
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">€</span>
+            </div>
+            <div className="relative w-36 shrink-0">
+              <Input
+                type="number"
+                step={0.01}
+                value={fidiStr[c.id] ?? ''}
+                placeholder="Fido 0,00"
+                title="Fido accordato dalla banca"
+                onChange={(e) => setFidiStr((cur) => ({ ...cur, [c.id]: e.target.value }))}
                 onBlur={() => handleSalva(c.id)}
                 onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                 className="text-right pr-7"
@@ -152,8 +188,21 @@ export default function FormConti({ initialConti }: Props) {
             type="number"
             step={0.01}
             value={nuovoSaldo}
-            placeholder="Saldo 0,00"
+            placeholder="Disponibilità 0,00"
             onChange={(e) => setNuovoSaldo(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
+            className="text-right pr-7"
+          />
+          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">€</span>
+        </div>
+        <div className="relative w-36 shrink-0">
+          <Input
+            type="number"
+            step={0.01}
+            value={nuovoFido}
+            placeholder="Fido 0,00"
+            title="Fido accordato dalla banca"
+            onChange={(e) => setNuovoFido(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
             className="text-right pr-7"
           />
