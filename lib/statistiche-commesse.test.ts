@@ -157,6 +157,50 @@ describe('riepilogoCreditiDebiti', () => {
     expect(r.debitiTotali).toBe(2050) // 300+800+900+50, senza 999 e 888
   })
 
+  // Lettura trasversale: le rate dei finanziamenti stanno già dentro le righe per
+  // orizzonte, questo blocco le ritrova ovunque siano senza sommarsi al totale.
+  describe('finanziamenti (lettura trasversale)', () => {
+    const misto: ScadenzaRow[] = [
+      { data_scadenza: '2026-07-01', importo: 712, pagato: false, annullata: false, categoria: 'finanziamento' },  // scaduta
+      { data_scadenza: '2026-12-01', importo: 2000, pagato: false, annullata: false, categoria: 'finanziamento' }, // entro l'anno
+      { data_scadenza: '2028-05-01', importo: 9000, pagato: false, annullata: false, categoria: 'finanziamento' }, // oltre
+      { data_scadenza: '2031-08-28', importo: 1000, pagato: false, annullata: false, categoria: 'finanziamento' }, // oltre, l'ultima
+      { data_scadenza: '2026-12-02', importo: 5000, pagato: false, annullata: false, categoria: 'assegno' },       // altra categoria
+      { data_scadenza: '2026-06-01', importo: 400, pagato: true, annullata: false, categoria: 'finanziamento' },   // già pagata
+      { data_scadenza: '2026-06-02', importo: 300, pagato: false, annullata: true, categoria: 'finanziamento' },   // annullata
+    ]
+
+    it('somma solo le rate aperte di categoria finanziamento, ovunque cadano', () => {
+      const r = riepilogoCreditiDebiti([], [], [], misto, [], OGGI, nessunaBanca)
+      expect(r.finanziamenti.totale).toBe(12712)     // 712 + 2000 + 9000 + 1000
+      expect(r.finanziamenti.numeroRate).toBe(4)     // fuori la pagata e l'annullata
+      expect(r.finanziamenti.scaduti).toBe(712)
+      expect(r.finanziamenti.anno).toBe(2000)
+      expect(r.finanziamenti.futuri).toBe(10000)     // 9000 + 1000
+      expect(r.finanziamenti.ultimaRata).toBe('2031-08-28')
+    })
+
+    it('la ripartizione somma sempre al totale dei finanziamenti', () => {
+      const r = riepilogoCreditiDebiti([], [], [], misto, [], OGGI, nessunaBanca)
+      const f = r.finanziamenti
+      expect(f.scaduti + f.anno + f.futuri + f.daProgrammare).toBe(f.totale)
+    })
+
+    it('non si somma ai debiti: le rate sono già nelle righe per orizzonte', () => {
+      const r = riepilogoCreditiDebiti([], [], [], misto, [], OGGI, nessunaBanca)
+      // 712 scaduti + (2000+5000) entro l'anno + 10000 oltre = 17712
+      expect(r.debitiTotali).toBe(17712)
+      expect(r.finanziamenti.totale).toBe(12712) // dentro quei 17712, non in più
+    })
+
+    it('senza finanziamenti resta tutto a zero e senza ultima rata', () => {
+      const r = riepilogoCreditiDebiti([], [], [], scadenzeRiep, [], OGGI, nessunaBanca)
+      expect(r.finanziamenti.totale).toBe(0)
+      expect(r.finanziamenti.numeroRate).toBe(0)
+      expect(r.finanziamenti.ultimaRata).toBeNull()
+    })
+  })
+
   it('tiene le rate future fuori dalla posizione netta', () => {
     const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], scadenzeRiep, [], OGGI, nessunaBanca)
     // 8000 - (300 + 800 + 50) = 6850
@@ -261,6 +305,10 @@ describe('riepilogoCreditiDebiti', () => {
       debitiFuturi: 0,
       debitiDaProgrammare: 0,
       debitiDipendenti: 0,
+      finanziamenti: {
+        totale: 0, scaduti: 0, anno: 0, futuri: 0, daProgrammare: 0,
+        numeroRate: 0, ultimaRata: null,
+      },
       debitiBanche: 0,
       debitiPerBanca: { conti: [], linee: [] },
       debitiTotali: 0,

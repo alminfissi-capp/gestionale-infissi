@@ -64,6 +64,13 @@ function labelNumero(v: LabelVal): string {
   return n > 0 ? String(n) : ''
 }
 
+// Filo puntinato fra la descrizione e l'importo: su righe con importi di lunghezza
+// diversa l'occhio perde la corrispondenza, e in un riquadro di soldi sbagliare riga
+// significa leggere il numero di un'altra voce.
+function Filo() {
+  return <span aria-hidden="true" className="mx-2 flex-1 border-b border-dotted border-gray-300" />
+}
+
 // Le date arrivano come 'YYYY-MM-DD' dal server. Si formattano all'italiana solo
 // per mostrarle: i confronti restano sulle stringhe ISO, che si ordinano da sole.
 function formatData(iso: string): string {
@@ -91,6 +98,8 @@ export default function StatisticheCommesse({ dati }: Props) {
   const [dettaglioCommesse, setDettaglioCommesse] = useState(false)
   // Tendina del dettaglio "Banche": chiusa di default, come quella dei crediti
   const [dettaglioBanche, setDettaglioBanche] = useState(false)
+  // Tendina dei finanziamenti: lettura trasversale sotto il totale, chiusa di default
+  const [dettaglioFinanziamenti, setDettaglioFinanziamenti] = useState(false)
 
   const datiMese = useMemo(() => aggregaMese(commesse, anno), [commesse, anno])
   const datiFlusso = useMemo(
@@ -409,25 +418,29 @@ export default function StatisticheCommesse({ dati }: Props) {
                 <p className="text-xs uppercase tracking-wide text-gray-600 font-medium">Debiti da pagare</p>
                 <div className="mt-2 space-y-1 text-sm">
                   {riepilogo.debitiScaduti > 0 && (
-                    <div className="flex justify-between text-rose-700 font-medium">
-                      <span>Già scaduto</span>
-                      <span>{formatEuro(riepilogo.debitiScaduti)}</span>
+                    <div className="flex items-baseline text-rose-700 font-medium">
+                      <span className="shrink-0">Già scaduto</span>
+                      <Filo />
+                      <span className="shrink-0">{formatEuro(riepilogo.debitiScaduti)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-gray-700">
-                    <span>Entro il {annoOggi}</span>
-                    <span>{formatEuro(riepilogo.debitiAnno)}</span>
+                  <div className="flex items-baseline text-gray-700">
+                    <span className="shrink-0">Entro il {annoOggi}</span>
+                    <Filo />
+                    <span className="shrink-0">{formatEuro(riepilogo.debitiAnno)}</span>
                   </div>
                   {riepilogo.debitiDaProgrammare > 0 && (
-                    <div className="flex justify-between text-gray-700">
-                      <span>Da programmare</span>
-                      <span>{formatEuro(riepilogo.debitiDaProgrammare)}</span>
+                    <div className="flex items-baseline text-gray-700">
+                      <span className="shrink-0">Da programmare</span>
+                      <Filo />
+                      <span className="shrink-0">{formatEuro(riepilogo.debitiDaProgrammare)}</span>
                     </div>
                   )}
                   {riepilogo.debitiDipendenti > 0 && (
-                    <div className="flex justify-between text-gray-700">
-                      <span>Stipendi da versare</span>
-                      <span>{formatEuro(riepilogo.debitiDipendenti)}</span>
+                    <div className="flex items-baseline text-gray-700">
+                      <span className="shrink-0">Stipendi da versare</span>
+                      <Filo />
+                      <span className="shrink-0">{formatEuro(riepilogo.debitiDipendenti)}</span>
                     </div>
                   )}
                   {riepilogo.debitiBanche > 0 && (
@@ -437,15 +450,16 @@ export default function StatisticheCommesse({ dati }: Props) {
                         onClick={() => setDettaglioBanche((v) => !v)}
                         aria-expanded={dettaglioBanche}
                         aria-controls="dettaglio-banche"
-                        className="w-full flex items-center justify-between gap-2 text-gray-700 hover:text-gray-900 transition-colors"
+                        className="w-full flex items-baseline text-gray-700 hover:text-gray-900 transition-colors"
                       >
-                        <span className="flex items-center gap-1">
+                        <span className="flex shrink-0 items-center gap-1">
                           <ChevronDown
                             className={`h-3.5 w-3.5 text-gray-500 transition-transform ${dettaglioBanche ? '' : '-rotate-90'}`}
                           />
                           Banche (fido utilizzato)
                         </span>
-                        <span>{formatEuro(riepilogo.debitiBanche)}</span>
+                        <Filo />
+                        <span className="shrink-0">{formatEuro(riepilogo.debitiBanche)}</span>
                       </button>
                       {dettaglioBanche && (
                         <ul id="dettaglio-banche" className="ml-5 mt-1 space-y-0.5 border-l border-gray-200 pl-2 text-xs">
@@ -490,14 +504,82 @@ export default function StatisticheCommesse({ dati }: Props) {
                       )}
                     </div>
                   )}
-                  <div className="flex justify-between text-gray-500">
-                    <span>Rate oltre il {annoOggi}</span>
-                    <span>{formatEuro(riepilogo.debitiFuturi)}</span>
+                  <div className="flex items-baseline text-gray-500">
+                    <span className="shrink-0">Rate oltre il {annoOggi}</span>
+                    <Filo />
+                    <span className="shrink-0">{formatEuro(riepilogo.debitiFuturi)}</span>
                   </div>
-                  <div className="flex justify-between border-t pt-1 mt-1 font-semibold text-gray-800">
-                    <span>Totale</span>
-                    <span>{formatEuro(riepilogo.debitiTotali)}</span>
+                  <div className="flex items-baseline border-t pt-1 mt-1 font-semibold text-gray-800">
+                    <span className="shrink-0">Totale</span>
+                    <Filo />
+                    <span className="shrink-0">{formatEuro(riepilogo.debitiTotali)}</span>
                   </div>
+
+                  {/* Lettura trasversale: le rate dei finanziamenti sono già dentro le
+                      righe qui sopra, quindi questa voce NON si somma al totale. Sta
+                      sotto la riga di chiusura proprio per non farsi leggere come una
+                      voce del conto. */}
+                  {riepilogo.finanziamenti.totale > 0 && (
+                    <div className="mt-2 border-t border-dashed border-gray-200 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setDettaglioFinanziamenti((v) => !v)}
+                        aria-expanded={dettaglioFinanziamenti}
+                        aria-controls="dettaglio-finanziamenti"
+                        className="w-full flex items-baseline text-xs text-violet-700 hover:text-violet-900 transition-colors"
+                      >
+                        <span className="flex shrink-0 items-center gap-1">
+                          <ChevronDown
+                            className={`h-3.5 w-3.5 transition-transform ${dettaglioFinanziamenti ? '' : '-rotate-90'}`}
+                          />
+                          di cui finanziamenti
+                        </span>
+                        <Filo />
+                        <span className="shrink-0 font-medium">
+                          {formatEuro(riepilogo.finanziamenti.totale)}
+                        </span>
+                      </button>
+                      {dettaglioFinanziamenti && (
+                        <ul
+                          id="dettaglio-finanziamenti"
+                          className="ml-5 mt-1 space-y-0.5 border-l border-violet-200 pl-2 text-xs text-gray-600"
+                        >
+                          {riepilogo.finanziamenti.scaduti > 0 && (
+                            <li className="flex items-baseline text-rose-700">
+                              <span className="shrink-0">Già scaduto</span>
+                              <Filo />
+                              <span className="shrink-0">{formatEuro(riepilogo.finanziamenti.scaduti)}</span>
+                            </li>
+                          )}
+                          <li className="flex items-baseline">
+                            <span className="shrink-0">Entro il {annoOggi}</span>
+                            <Filo />
+                            <span className="shrink-0">{formatEuro(riepilogo.finanziamenti.anno)}</span>
+                          </li>
+                          {riepilogo.finanziamenti.daProgrammare > 0 && (
+                            <li className="flex items-baseline">
+                              <span className="shrink-0">Da programmare</span>
+                              <Filo />
+                              <span className="shrink-0">{formatEuro(riepilogo.finanziamenti.daProgrammare)}</span>
+                            </li>
+                          )}
+                          <li className="flex items-baseline">
+                            <span className="shrink-0">Rate oltre il {annoOggi}</span>
+                            <Filo />
+                            <span className="shrink-0">{formatEuro(riepilogo.finanziamenti.futuri)}</span>
+                          </li>
+                          <li className="pt-1 text-gray-400">
+                            {riepilogo.finanziamenti.numeroRate} rate ancora da pagare
+                            {riepilogo.finanziamenti.ultimaRata &&
+                              `, l'ultima il ${formatData(riepilogo.finanziamenti.ultimaRata)}`}
+                          </li>
+                          <li className="text-gray-400">
+                            Sono già compresi nelle righe qui sopra: non si sommano al totale.
+                          </li>
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -422,6 +422,19 @@ export type RiepilogoFinanziario = {
   debitiFuturi: number
   debitiDaProgrammare: number
   debitiDipendenti: number
+  // Lettura TRASVERSALE dei finanziamenti: le loro rate sono già dentro le righe per
+  // orizzonte qui sopra, quindi questo blocco NON va sommato al totale. Serve a dare
+  // i due numeri che le righe per orizzonte nascondono: quanto pesano in tutto e
+  // quanto ne cade entro l'anno, mescolato agli assegni.
+  finanziamenti: {
+    totale: number
+    scaduti: number
+    anno: number
+    futuri: number
+    daProgrammare: number
+    numeroRate: number
+    ultimaRata: string | null // 'YYYY-MM-DD' della rata aperta più lontana
+  }
   debitiBanche: number // fido di cassa utilizzato + anticipi fattura aperti
   debitiPerBanca: {    // dettaglio della riga "Banche": le righe sommano a debitiBanche
     conti: UtilizzoBanca[]
@@ -494,17 +507,35 @@ export function riepilogoCreditiDebiti(
   let debitiFuturi = 0
   let debitiDaProgrammare = 0
 
+  // Stessa passata, due letture: per orizzonte (le righe del riquadro) e per i soli
+  // finanziamenti (la riga trasversale sotto il totale).
+  let finTotale = 0, finScaduti = 0, finAnno = 0, finFuturi = 0, finDaProgrammare = 0
+  let finRate = 0
+  let finUltima: string | null = null
+
   for (const s of scadenze) {
     if (s.pagato || s.annullata) continue
     const importo = Number(s.importo) || 0
+    const eFinanziamento = s.categoria === 'finanziamento'
+    if (eFinanziamento) {
+      finTotale += importo
+      finRate += 1
+      if (s.data_scadenza && (finUltima === null || s.data_scadenza > finUltima)) {
+        finUltima = s.data_scadenza
+      }
+    }
     if (!s.data_scadenza) {
       debitiDaProgrammare += importo
+      if (eFinanziamento) finDaProgrammare += importo
     } else if (s.data_scadenza < oggi) {
       debitiScaduti += importo
+      if (eFinanziamento) finScaduti += importo
     } else if (annoStr(s.data_scadenza) === annoOggi) {
       debitiAnno += importo
+      if (eFinanziamento) finAnno += importo
     } else {
       debitiFuturi += importo
+      if (eFinanziamento) finFuturi += importo
     }
   }
 
@@ -539,6 +570,15 @@ export function riepilogoCreditiDebiti(
     debitiFuturi,
     debitiDaProgrammare,
     debitiDipendenti,
+    finanziamenti: {
+      totale: finTotale,
+      scaduti: finScaduti,
+      anno: finAnno,
+      futuri: finFuturi,
+      daProgrammare: finDaProgrammare,
+      numeroRate: finRate,
+      ultimaRata: finUltima,
+    },
     debitiBanche,
     debitiPerBanca,
     debitiTotali,
