@@ -64,10 +64,15 @@ export default async function StatisticheCommessePage() {
         .from('linee_credito')
         .select('id, nome, tipo, accordato')
         .eq('organization_id', orgId),
+      // A differenza della pagina Calcoli (che ha un toggle "mostra rimborsati" e quindi
+      // carica tutto), qui gli anticipi finiscono solo dentro riepilogoBanche, che scarta
+      // i rimborsati alla prima riga del suo ciclo: non serve mai mostrarli, e caricarli
+      // tutti significherebbe accumulare righe morte man mano che gli anticipi vengono saldati.
       supabase
         .from('anticipi_fattura')
         .select('id, linea_id, commessa_id, descrizione, importo, data_scadenza, rimborsato')
-        .eq('organization_id', orgId),
+        .eq('organization_id', orgId)
+        .eq('rimborsato', false),
     ])
 
   // Mappa gruppo_id → nome blocco (es. "2025", "2026")

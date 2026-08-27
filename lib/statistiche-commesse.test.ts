@@ -302,6 +302,31 @@ describe('riepilogoCreditiDebiti — debiti bancari', () => {
     expect(r.debitiPerBanca.linee.every((l) => l.utilizzato > 0)).toBe(true)
   })
 
+  it('una linea o un conto senza utilizzo non compare nel dettaglio, e il totale non cambia', () => {
+    // Un conto sano (fido accordato mai toccato) e una linea configurata ma senza
+    // anticipi: riepilogoBanche li tiene entrambi (hanno un fido/plafond da mostrare
+    // su Calcoli), ma sul box dei debiti non devono comparire righe a zero.
+    const conSaniEZero = riepilogoBanche(
+      [
+        { id: 'sano', nome: 'Conto Sano', accordato: 20000, disponibile: 20000 }, // utilizzato 0
+        { id: 'rosso', nome: 'Conto Rosso', accordato: 40000, disponibile: 10000 }, // utilizzato 30000
+      ],
+      [{ id: 'linea-vuota', nome: 'Linea Vuota', tipo: 'anticipo_fatture', accordato: 50000 }], // nessun anticipo → utilizzato 0
+      [],
+      {},
+      '2026-08-27',
+    )
+    expect(conSaniEZero.conti).toHaveLength(2)
+    expect(conSaniEZero.linee).toHaveLength(1)
+
+    const r = riepilogoCreditiDebiti([], [], [], [], [], '2026-08-27', conSaniEZero)
+
+    expect(r.debitiPerBanca.conti).toHaveLength(1)
+    expect(r.debitiPerBanca.conti[0].id).toBe('rosso')
+    expect(r.debitiPerBanca.linee).toHaveLength(0)
+    expect(r.debitiBanche).toBe(30000) // il totale non cambia: il conto sano non ci contribuiva comunque
+  })
+
   it('senza banche il riepilogo resta identico a prima', () => {
     const r = riepilogoCreditiDebiti([], [], [], [], [], '2026-08-27', nessunaBanca)
     expect(r.debitiBanche).toBe(0)
