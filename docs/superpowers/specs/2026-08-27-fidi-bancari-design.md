@@ -1,7 +1,16 @@
 # Fidi bancari e anticipi fattura — Design
 
 Data: 2026-08-27
-Stato: approvato dall'utente, pronto per il piano di implementazione
+Stato: implementato e in produzione
+
+> **Aggiornamento dello stesso giorno, dopo il rilascio.** Un anticipo può coprire **più
+> commesse**: capita spesso di emettere una sola fattura per più lavori. Il legame è passato
+> da `anticipi_fattura.commessa_id` (colonna singola, poi travasata ed eliminata) alla
+> tabella `anticipi_commesse`, molti-a-molti. L'importo **non** si spezza fra le commesse —
+> la banca anticipa la fattura, non il singolo lavoro — quindi le commesse collegate servono
+> solo a sommare quanto il cliente deve ancora. Il promemoria "il cliente ha saldato" si
+> accende **solo quando tutte** le commesse collegate sono note e insieme non devono più
+> nulla. Dove qui sotto si legge "la commessa collegata" al singolare, vale ora il plurale.
 
 ## Obiettivo
 
