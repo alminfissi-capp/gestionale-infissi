@@ -355,8 +355,9 @@ I conti correnti restano dove sono, nel blocco Giacenze, con la sola etichetta c
 
 Per il residuo delle commesse collegate serve una query dedicata: la pagina Calcoli carica
 solo le commesse selezionate per i Calcoli, non tutte. Va aggiunta un'action
-`getInfoCommesseAnticipi(ids)` che, dati gli id degli anticipi aperti, restituisce
-`Record<string, InfoCommessa>` leggendo `commesse` e `acconti_commessa`.
+`getCommessePerAnticipo()` che restituisce `OpzioneCommessa[]` (id, etichetta, residuo)
+leggendo `commesse` e `acconti_commessa`. Serve a due cose insieme — l'elenco del dialog e
+il residuo mostrato accanto all'anticipo — così la formula del residuo resta in un posto solo.
 
 ## Impostazioni — `/impostazioni`
 
@@ -377,7 +378,7 @@ perché si muovono ogni settimana. Le due cose non vanno mescolate nella stessa 
 
 `actions/banche.ts` (nuovo): `getLineeCredito`, `createLineaCredito`, `updateLineaCredito`,
 `deleteLineaCredito`, `getAnticipi`, `createAnticipo`, `updateAnticipo`,
-`setAnticipoRimborsato`, `deleteAnticipo`, `getInfoCommesseAnticipi`. Ogni funzione con
+`setAnticipoRimborsato`, `deleteAnticipo`, `getCommessePerAnticipo`. Ogni funzione con
 `createClient()` + `getOrgId()` e filtro `organization_id`, e
 `revalidatePath('/impostazioni')` + `revalidatePath('/commesse', 'layout')` come fa
 `actions/conti.ts`.
