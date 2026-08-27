@@ -272,7 +272,11 @@ export type AnticipoFattura = {
   // I legami stanno nella tabella `anticipi_commesse`.
   commesse_ids: string[]
   descrizione: string
-  importo: number
+  importo: number // quanto la banca ha erogato
+  // Acconti del cliente che la banca ha trattenuto per rientrare, scelti a mano.
+  // I legami stanno in `anticipi_acconti`; `scalato` è la loro somma.
+  acconti_ids: string[]
+  scalato: number
   data_erogazione: string | null
   data_scadenza: string | null
   rimborsato: boolean
@@ -284,10 +288,24 @@ export type AnticipoFattura = {
 export type AnticipoFatturaInput = {
   linea_id: string
   commesse_ids: string[]
+  acconti_ids: string[]
   descrizione: string
   importo: number
   data_erogazione: string | null
   data_scadenza: string | null
+}
+
+// Un acconto del cliente, come si vede scegliendo cosa la banca ha trattenuto.
+export type AccontoSelezionabile = {
+  id: string
+  commessa_id: string
+  etichettaCommessa: string
+  importo: number
+  data_pagamento: string
+  metodo_pagamento: string
+  // id dell'anticipo che se l'è già preso, se c'è: un acconto rientra su un solo
+  // anticipo, altrimenti gli stessi soldi verrebbero scalati due volte.
+  anticipo_id: string | null
 }
 
 // Commessa collegabile a un anticipo: etichetta pronta e residuo da incassare.

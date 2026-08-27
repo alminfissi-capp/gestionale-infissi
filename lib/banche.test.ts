@@ -104,6 +104,7 @@ const anticipo = (over: Partial<AnticipoRow> = {}): AnticipoRow => ({
   commesse_ids: [],
   descrizione: '',
   importo: 15000,
+  scalato: 0,
   data_scadenza: null,
   rimborsato: false,
   ...over,
@@ -159,16 +160,20 @@ describe('riepilogoBanche — linee e anticipi', () => {
     expect(a.daChiudere).toBe(false)
   })
 
-  it('commessa saldata: promemoria acceso, ma l’anticipo resta nei debiti', () => {
+  // Il promemoria NON dipende dal saldo delle commesse: la banca a volte trattiene
+  // l'acconto per rientrare, a volte no. Finché non si spuntano gli acconti trattenuti,
+  // alla banca si deve ancora tutto, anche se il cliente ha già pagato.
+  it('cliente che ha saldato ma banca che non ha trattenuto: si deve ancora tutto', () => {
     const commesse: Record<string, InfoCommessa> = {
       c1: { etichetta: 'C-2026-014 — Rossi', residuo: 0 },
     }
     const r = riepilogoBanche([], [linea()], [anticipo({ commesse_ids: ['c1'] })], commesse, OGGI)
     const a = r.linee[0].anticipi[0]
-    expect(a.daChiudere).toBe(true)
-    expect(a.commesse.map((c) => c.etichetta)).toEqual(['C-2026-014 — Rossi'])
+    expect(a.residuoCommesse).toBe(0)
+    expect(a.daRestituire).toBe(15000)
+    expect(a.daChiudere).toBe(false)
     expect(r.lineeUtilizzato).toBe(15000)
-    expect(r.anticipiDaChiudere).toBe(1)
+    expect(r.anticipiDaChiudere).toBe(0)
   })
 
   it('commessa collegata ma non ancora saldata: nessun promemoria', () => {
@@ -200,27 +205,16 @@ describe('riepilogoBanche — linee e anticipi', () => {
     expect(a.daChiudere).toBe(false)
   })
 
-  it('più commesse: il promemoria si accende solo quando le ha saldate tutte', () => {
+  it('più commesse: si sommano i residui, ma non decidono il promemoria', () => {
     const unaSola: Record<string, InfoCommessa> = {
       c1: { etichetta: 'C-2026-014 — Rossi', residuo: 0 },
       c2: { etichetta: 'C-2026-015 — Bianchi', residuo: 300 },
     }
-    const parziale = riepilogoBanche(
+    const r = riepilogoBanche(
       [], [linea()], [anticipo({ commesse_ids: ['c1', 'c2'] })], unaSola, OGGI,
     )
-    expect(parziale.linee[0].anticipi[0].residuoCommesse).toBe(300)
-    expect(parziale.linee[0].anticipi[0].daChiudere).toBe(false)
-    expect(parziale.anticipiDaChiudere).toBe(0)
-
-    const tutte: Record<string, InfoCommessa> = {
-      c1: { etichetta: 'C-2026-014 — Rossi', residuo: 0 },
-      c2: { etichetta: 'C-2026-015 — Bianchi', residuo: 0 },
-    }
-    const saldato = riepilogoBanche(
-      [], [linea()], [anticipo({ commesse_ids: ['c1', 'c2'] })], tutte, OGGI,
-    )
-    expect(saldato.linee[0].anticipi[0].daChiudere).toBe(true)
-    expect(saldato.anticipiDaChiudere).toBe(1)
+    expect(r.linee[0].anticipi[0].residuoCommesse).toBe(300)
+    expect(r.linee[0].anticipi[0].daChiudere).toBe(false)
   })
 
   it('una commessa collegata non si trova: niente promemoria, nemmeno se le altre sono saldate', () => {
@@ -233,7 +227,6 @@ describe('riepilogoBanche — linee e anticipi', () => {
     const a = r.linee[0].anticipi[0]
     expect(a.commesse).toHaveLength(1)
     expect(a.residuoCommesse).toBe(0)
-    // Non si può dire che sia tutto saldato se di una commessa non si sa niente.
     expect(a.daChiudere).toBe(false)
   })
 
@@ -243,6 +236,48 @@ describe('riepilogoBanche — linee e anticipi', () => {
     expect(a.commesse).toEqual([])
     expect(a.residuoCommesse).toBeNull()
     expect(a.daChiudere).toBe(false)
+  })
+
+  // ── Rientri parziali: gli acconti che la banca trattiene scalano il debito ──
+  it('acconti trattenuti: 10.000 erogati con 4.000 rientrati pesano 6.000', () => {
+    const r = riepilogoBanche(
+      [], [linea()], [anticipo({ importo: 10000, scalato: 4000 })], {}, OGGI,
+    )
+    const a = r.linee[0].anticipi[0]
+    expect(a.importo).toBe(10000)
+    expect(a.scalato).toBe(4000)
+    expect(a.daRestituire).toBe(6000)
+    expect(a.daChiudere).toBe(false)
+  })
+
+  it('il plafond si libera man mano che la banca rientra', () => {
+    const r = riepilogoBanche(
+      [], [linea({ accordato: 100000 })], [anticipo({ importo: 10000, scalato: 4000 })], {}, OGGI,
+    )
+    expect(r.lineeUtilizzato).toBe(6000)
+    expect(r.linee[0].disponibile).toBe(94000)
+  })
+
+  it('acconti che superano l’erogato: niente da restituire, mai un credito', () => {
+    const r = riepilogoBanche(
+      [], [linea()], [anticipo({ importo: 10000, scalato: 12000 })], {}, OGGI,
+    )
+    const a = r.linee[0].anticipi[0]
+    expect(a.daRestituire).toBe(0)
+    expect(r.lineeUtilizzato).toBe(0)
+    expect(a.daChiudere).toBe(true)
+  })
+
+  it('rientro completo: promemoria acceso, ma resta nei debiti a zero finché non si archivia', () => {
+    const r = riepilogoBanche(
+      [], [linea()], [anticipo({ importo: 10000, scalato: 10000 })], {}, OGGI,
+    )
+    const a = r.linee[0].anticipi[0]
+    expect(a.daRestituire).toBe(0)
+    expect(a.daChiudere).toBe(true)
+    expect(r.anticipiDaChiudere).toBe(1)
+    // Sta ancora nell'elenco: la spunta "rimborsato" la mette una persona.
+    expect(r.linee[0].anticipi).toHaveLength(1)
   })
 
   it('scaduto solo se la data è passata: oggi non è scaduto', () => {

@@ -55,7 +55,7 @@ export default function BloccoFidi({ linee, anticipi, commesse, oggi }: Props) {
     }))
     const righeAnticipi: AnticipoRow[] = anticipi.map((a) => ({
       id: a.id, linea_id: a.linea_id, commesse_ids: a.commesse_ids, descrizione: a.descrizione,
-      importo: a.importo, data_scadenza: a.data_scadenza, rimborsato: a.rimborsato,
+      importo: a.importo, scalato: a.scalato, data_scadenza: a.data_scadenza, rimborsato: a.rimborsato,
     }))
     return riepilogoBanche([], righeLinee, righeAnticipi, infoCommesse, oggi)
   }, [linee, anticipi, infoCommesse, oggi])
@@ -175,7 +175,14 @@ export default function BloccoFidi({ linee, anticipi, commesse, oggi }: Props) {
                           il cliente deve {formatEuro(a.residuoCommesse)}
                         </span>
                       )}
-                      <span className="font-semibold text-gray-800 shrink-0">{formatEuro(a.importo)}</span>
+                      <span className="shrink-0 text-right">
+                        <span className="font-semibold text-gray-800">{formatEuro(a.daRestituire)}</span>
+                        {a.scalato > 0 && (
+                          <span className="block text-[11px] text-emerald-700">
+                            rientrati {formatEuro(a.scalato)} su {formatEuro(a.importo)}
+                          </span>
+                        )}
+                      </span>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700 shrink-0" disabled={inCorso} title="Modifica" aria-label="Modifica anticipo" onClick={() => apri(originale)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>

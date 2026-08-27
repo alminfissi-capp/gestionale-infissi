@@ -475,7 +475,9 @@ export default function StatisticheCommesse({ dati }: Props) {
                                         </span>
                                       )}
                                     </span>
-                                    <span>{formatEuro(a.importo)}</span>
+                                    {/* Quello che resta da restituire, non l'erogato:
+                                        gli acconti trattenuti sono già rientrati. */}
+                                    <span>{formatEuro(a.daRestituire)}</span>
                                   </li>
                                 ))}
                               </ul>

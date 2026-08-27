@@ -6,7 +6,7 @@ import { getOrgId } from '@/lib/auth'
 import type {
   LineaCredito, LineaCreditoInput,
   AnticipoFattura, AnticipoFatturaInput,
-  OpzioneCommessa,
+  OpzioneCommessa, AccontoSelezionabile,
 } from '@/types/commessa'
 
 function revalida() {
@@ -83,7 +83,11 @@ export async function deleteLineaCredito(id: string): Promise<void> {
 export async function getAnticipi(): Promise<AnticipoFattura[]> {
   const supabase = await createClient()
   const orgId = await getOrgId()
-  const [{ data, error }, { data: legami, error: errLegami }] = await Promise.all([
+  const [
+    { data, error },
+    { data: legami, error: errLegami },
+    { data: legamiAcconti, error: errAcconti },
+  ] = await Promise.all([
     supabase
       .from('anticipi_fattura')
       .select('*')
@@ -93,9 +97,39 @@ export async function getAnticipi(): Promise<AnticipoFattura[]> {
       .from('anticipi_commesse')
       .select('anticipo_id, commessa_id')
       .eq('organization_id', orgId),
+    supabase
+      .from('anticipi_acconti')
+      .select('anticipo_id, acconto_id')
+      .eq('organization_id', orgId),
   ])
   if (error) throw new Error(error.message)
   if (errLegami) throw new Error(errLegami.message)
+  if (errAcconti) throw new Error(errAcconti.message)
+
+  // Gli importi degli acconti trattenuti: si leggono solo quelli collegati, non tutti.
+  const idsAcconti = (legamiAcconti ?? []).map((l) => l.acconto_id)
+  const importoAcconto = new Map<string, number>()
+  if (idsAcconti.length > 0) {
+    const { data: acconti, error: errImporti } = await supabase
+      .from('acconti_commessa')
+      .select('id, importo')
+      .eq('organization_id', orgId)
+      .in('id', idsAcconti)
+    if (errImporti) throw new Error(errImporti.message)
+    for (const a of acconti ?? []) importoAcconto.set(a.id, Number(a.importo) || 0)
+  }
+
+  const accontiPerAnticipo = new Map<string, string[]>()
+  const scalatoPerAnticipo = new Map<string, number>()
+  for (const l of legamiAcconti ?? []) {
+    const list = accontiPerAnticipo.get(l.anticipo_id) ?? []
+    list.push(l.acconto_id)
+    accontiPerAnticipo.set(l.anticipo_id, list)
+    scalatoPerAnticipo.set(
+      l.anticipo_id,
+      (scalatoPerAnticipo.get(l.anticipo_id) ?? 0) + (importoAcconto.get(l.acconto_id) ?? 0),
+    )
+  }
 
   const commessePerAnticipo = new Map<string, string[]>()
   for (const l of legami ?? []) {
@@ -108,6 +142,8 @@ export async function getAnticipi(): Promise<AnticipoFattura[]> {
     ...a,
     importo: Number(a.importo) || 0,
     commesse_ids: commessePerAnticipo.get(a.id) ?? [],
+    acconti_ids: accontiPerAnticipo.get(a.id) ?? [],
+    scalato: scalatoPerAnticipo.get(a.id) ?? 0,
   })) as AnticipoFattura[]
 }
 
@@ -142,6 +178,38 @@ async function salvaLegamiCommesse(
   if (errIns) throw new Error(errIns.message)
 }
 
+/**
+ * Riscrive gli acconti trattenuti dalla banca per questo anticipo.
+ * Un acconto rientra su un solo anticipo: la chiave primaria di `anticipi_acconti`
+ * è il solo `acconto_id`, quindi provare a rubarlo a un altro anticipo fallisce —
+ * ed è giusto che fallisca, perché gli stessi soldi non possono rientrare due volte.
+ */
+async function salvaLegamiAcconti(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+  anticipoId: string,
+  accontiIds: string[],
+): Promise<void> {
+  const { error: errDel } = await supabase
+    .from('anticipi_acconti')
+    .delete()
+    .eq('anticipo_id', anticipoId)
+    .eq('organization_id', orgId)
+  if (errDel) throw new Error(errDel.message)
+
+  const unici = [...new Set(accontiIds.filter(Boolean))]
+  if (unici.length === 0) return
+
+  const { error: errIns } = await supabase
+    .from('anticipi_acconti')
+    .insert(unici.map((acconto_id) => ({
+      acconto_id,
+      anticipo_id: anticipoId,
+      organization_id: orgId,
+    })))
+  if (errIns) throw new Error(errIns.message)
+}
+
 export async function createAnticipo(input: AnticipoFatturaInput): Promise<{ id: string }> {
   const supabase = await createClient()
   const orgId = await getOrgId()
@@ -159,6 +227,7 @@ export async function createAnticipo(input: AnticipoFatturaInput): Promise<{ id:
     .single()
   if (error) throw new Error(error.message)
   await salvaLegamiCommesse(supabase, orgId, data.id, input.commesse_ids)
+  await salvaLegamiAcconti(supabase, orgId, data.id, input.acconti_ids)
   revalida()
   return { id: data.id }
 }
@@ -180,6 +249,7 @@ export async function updateAnticipo(id: string, input: AnticipoFatturaInput): P
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
   await salvaLegamiCommesse(supabase, orgId, id, input.commesse_ids)
+  await salvaLegamiAcconti(supabase, orgId, id, input.acconti_ids)
   revalida()
 }
 
@@ -244,5 +314,64 @@ export async function getCommessePerAnticipo(): Promise<OpzioneCommessa[]> {
     // Stesso floor a zero del riepilogo crediti: una commessa incassata in eccesso
     // vale zero, non un numero negativo.
     residuo: Math.max(0, (Number(c.totale) || 0) - (incassato.get(c.id) ?? 0)),
+  }))
+}
+
+// ── Acconti selezionabili per un anticipo ───────────────────────────────────
+// Gli acconti già incassati sulle commesse collegate: da qui si spuntano quelli che
+// la banca ha trattenuto per rientrare. Si carica su richiesta, quando nel dialog
+// cambiano le commesse: caricarli tutti in pagina vorrebbe dire portarsi dietro anni
+// di incassi per niente.
+export async function getAccontiPerCommesse(
+  commesseIds: string[],
+): Promise<AccontoSelezionabile[]> {
+  const ids = [...new Set(commesseIds.filter(Boolean))]
+  if (ids.length === 0) return []
+
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const [{ data: acconti, error }, { data: commesse, error: errCommesse }] = await Promise.all([
+    supabase
+      .from('acconti_commessa')
+      .select('id, commessa_id, importo, data_pagamento, metodo_pagamento')
+      .eq('organization_id', orgId)
+      .in('commessa_id', ids)
+      .order('data_pagamento', { ascending: false }),
+    supabase
+      .from('commesse')
+      .select('id, numero_commessa, cliente_nome')
+      .eq('organization_id', orgId)
+      .in('id', ids),
+  ])
+  if (error) throw new Error(error.message)
+  if (errCommesse) throw new Error(errCommesse.message)
+
+  const etichetta = new Map<string, string>()
+  for (const c of commesse ?? []) {
+    etichetta.set(c.id, `${c.numero_commessa} — ${c.cliente_nome ?? ''}`.trim())
+  }
+
+  // A quale anticipo è già stato assegnato ciascuno di questi acconti, se lo è.
+  const assegnati = new Map<string, string>()
+  const idsAcconti = (acconti ?? []).map((a) => a.id)
+  if (idsAcconti.length > 0) {
+    const { data: legami, error: errLegami } = await supabase
+      .from('anticipi_acconti')
+      .select('acconto_id, anticipo_id')
+      .eq('organization_id', orgId)
+      .in('acconto_id', idsAcconti)
+    if (errLegami) throw new Error(errLegami.message)
+    for (const l of legami ?? []) assegnati.set(l.acconto_id, l.anticipo_id)
+  }
+
+  return (acconti ?? []).map((a) => ({
+    id: a.id,
+    commessa_id: a.commessa_id,
+    etichettaCommessa: etichetta.get(a.commessa_id) ?? '',
+    importo: Number(a.importo) || 0,
+    data_pagamento: a.data_pagamento,
+    metodo_pagamento: a.metodo_pagamento ?? '',
+    anticipo_id: assegnati.get(a.id) ?? null,
   }))
 }

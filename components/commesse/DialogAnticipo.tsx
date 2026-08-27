@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
@@ -14,9 +14,19 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { ComboboxField } from '@/components/ui/combobox-field'
-import { createAnticipo, updateAnticipo } from '@/actions/banche'
+import { createAnticipo, updateAnticipo, getAccontiPerCommesse } from '@/actions/banche'
 import { formatEuro, parseImporto } from '@/lib/pricing'
-import type { AnticipoFattura, LineaCredito, OpzioneCommessa } from '@/types/commessa'
+import type {
+  AnticipoFattura, LineaCredito, OpzioneCommessa, AccontoSelezionabile,
+} from '@/types/commessa'
+import { Checkbox } from '@/components/ui/checkbox'
+
+// Le date arrivano come 'YYYY-MM-DD' dal server: si formattano all'italiana solo per
+// mostrarle, senza `new Date(...)`, che su una data senza ora sposta il giorno col fuso.
+function formatData(iso: string): string {
+  const [a, m, g] = iso.split('-')
+  return `${g}/${m}/${a}`
+}
 
 interface Props {
   open: boolean
@@ -35,6 +45,43 @@ export default function DialogAnticipo({ open, onOpenChange, linee, commesse, an
   const [erogazione, setErogazione] = useState(anticipo?.data_erogazione ?? '')
   const [scadenza, setScadenza] = useState(anticipo?.data_scadenza ?? '')
   const [saving, setSaving] = useState(false)
+  // Gli acconti che la banca ha trattenuto per rientrare: scelta manuale, perché
+  // non sempre la banca li trattiene.
+  const [accontiIds, setAccontiIds] = useState<string[]>(anticipo?.acconti_ids ?? [])
+  const [acconti, setAcconti] = useState<AccontoSelezionabile[]>([])
+  const [caricandoAcconti, setCaricandoAcconti] = useState(false)
+
+  // Si ricaricano quando cambiano le commesse collegate: gli acconti da cui scegliere
+  // sono quelli incassati su quelle commesse.
+  useEffect(() => {
+    if (commesseIds.length === 0) {
+      setAcconti([])
+      return
+    }
+    let annullato = false
+    setCaricandoAcconti(true)
+    getAccontiPerCommesse(commesseIds)
+      .then((elenco) => {
+        if (annullato) return
+        setAcconti(elenco)
+        // Se una commessa viene tolta, i suoi acconti non sono più scegliibili:
+        // vanno anche deselezionati, altrimenti resterebbero scalati di nascosto.
+        const presenti = new Set(elenco.map((a) => a.id))
+        setAccontiIds((cur) => cur.filter((id) => presenti.has(id)))
+      })
+      .catch(() => {
+        if (!annullato) toast.error('Errore nel caricamento degli acconti')
+      })
+      .finally(() => {
+        if (!annullato) setCaricandoAcconti(false)
+      })
+    return () => { annullato = true }
+  }, [commesseIds])
+
+  const scalato = acconti
+    .filter((a) => accontiIds.includes(a.id))
+    .reduce((s, a) => s + a.importo, 0)
+  const daRestituire = Math.max(0, parseImporto(importo) - scalato)
 
   // Una fattura può coprire più commesse: si sommano i loro residui, così si vede
   // subito quanto il cliente deve ancora rispetto a quanto si deve alla banca.
@@ -56,6 +103,7 @@ export default function DialogAnticipo({ open, onOpenChange, linee, commesse, an
       const input = {
         linea_id: lineaId,
         commesse_ids: commesseIds,
+        acconti_ids: accontiIds,
         descrizione,
         importo: valore,
         data_erogazione: erogazione || null,
@@ -168,6 +216,73 @@ export default function DialogAnticipo({ open, onOpenChange, linee, commesse, an
               placeholder="Es. fattura 214/2026"
               onChange={(e) => setDescrizione(e.target.value)}
             />
+          </div>
+
+          {/* Rientri: quali acconti del cliente la banca ha trattenuto */}
+          <div className="space-y-1.5 border-t pt-3">
+            <Label>Acconti trattenuti dalla banca</Label>
+            <p className="text-xs text-gray-500">
+              Spunta gli acconti che la banca ha trattenuto per rientrare: scalano quello
+              che le devi. Se un acconto lo hai incassato tu, lascialo com&apos;è.
+            </p>
+
+            {commesseIds.length === 0 ? (
+              <p className="text-xs text-gray-400">
+                Collega prima una commessa: gli acconti da scegliere sono i suoi.
+              </p>
+            ) : caricandoAcconti ? (
+              <p className="text-xs text-gray-400">Carico gli acconti…</p>
+            ) : acconti.length === 0 ? (
+              <p className="text-xs text-gray-400">
+                Nessun acconto ancora incassato su queste commesse.
+              </p>
+            ) : (
+              <ul className="max-h-44 space-y-1 overflow-y-auto rounded border p-1">
+                {acconti.map((a) => {
+                  // Un acconto rientra su un solo anticipo: se se l'è già preso un altro,
+                  // qui non si può spuntare, altrimenti gli stessi soldi rientrerebbero due volte.
+                  const altrove = a.anticipo_id !== null && a.anticipo_id !== anticipo?.id
+                  const scelto = accontiIds.includes(a.id)
+                  return (
+                    <li
+                      key={a.id}
+                      className={`flex items-center gap-2 rounded px-2 py-1.5 text-sm ${
+                        altrove ? 'opacity-50' : scelto ? 'bg-emerald-50' : ''
+                      }`}
+                    >
+                      <Checkbox
+                        checked={scelto}
+                        disabled={altrove}
+                        aria-label={`Acconto del ${formatData(a.data_pagamento)} da ${formatEuro(a.importo)}`}
+                        onCheckedChange={(v) =>
+                          setAccontiIds((cur) =>
+                            v === true ? [...cur, a.id] : cur.filter((x) => x !== a.id),
+                          )
+                        }
+                      />
+                      <span className="flex-1 min-w-0 truncate">
+                        <span className="text-gray-700">{formatData(a.data_pagamento)}</span>
+                        <span className="text-gray-400"> · {a.etichettaCommessa}</span>
+                        {altrove && (
+                          <span className="text-amber-700"> · già su un altro anticipo</span>
+                        )}
+                      </span>
+                      <span className="shrink-0 font-medium text-gray-800">
+                        {formatEuro(a.importo)}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+
+            {scalato > 0 && (
+              <p className="text-xs text-gray-600">
+                Rientrati <span className="font-medium text-emerald-700">{formatEuro(scalato)}</span>
+                {' '}· resta da restituire alla banca{' '}
+                <span className="font-semibold text-amber-700">{formatEuro(daRestituire)}</span>
+              </p>
+            )}
           </div>
         </div>
 

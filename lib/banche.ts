@@ -30,7 +30,11 @@ export type AnticipoRow = {
   // lavoro — quindi le commesse servono solo a sommare quanto il cliente deve ancora.
   commesse_ids: string[]
   descrizione: string
-  importo: number
+  importo: number // quanto la banca ha erogato
+  // Somma degli acconti del cliente che la banca ha trattenuto per rientrare.
+  // Il collegamento è sempre una scelta manuale: la banca a volte trattiene
+  // l'acconto, a volte no, e indovinarlo falserebbe il debito.
+  scalato: number
   data_scadenza: string | null // 'YYYY-MM-DD'
   rimborsato: boolean
 }
@@ -44,8 +48,9 @@ export type AnticipoCalcolato = AnticipoRow & {
   // perché è stata cancellata) sparisce da qui, e `daChiudere` non si accende.
   commesse: { id: string; etichetta: string; residuo: number }[]
   residuoCommesse: number | null // somma dei residui noti; null se non se ne conosce nessuna
+  daRestituire: number // importo − scalato, mai negativo: è questo che pesa sui debiti
   scaduto: boolean
-  daChiudere: boolean // tutte le commesse collegate risultano saldate: promemoria, non azione
+  daChiudere: boolean // non resta più niente da restituire: promemoria, non azione
 }
 
 export type UtilizzoBanca = {
@@ -141,22 +146,26 @@ export function riepilogoBanche(
     const residuoCommesse = collegate.length > 0
       ? collegate.reduce((s, c) => s + num(c.residuo), 0)
       : null
+    // Quello che pesa sui debiti e occupa il plafond è il residuo, non l'erogato:
+    // gli acconti che la banca ha trattenuto sono già rientrati.
+    const daRestituire = Math.max(0, num(a.importo) - num(a.scalato))
     const scaduto = !!a.data_scadenza && a.data_scadenza < oggi
     // Promemoria, non azione: finché non si spunta "rimborsato" l'anticipo resta
     // nei debiti e occupa il plafond.
-    // Si accende solo se TUTTE le commesse collegate sono note e insieme non devono
-    // più niente: con una fattura che copre più lavori, la banca rientra quando il
-    // cliente ha saldato tutto, non il primo pezzo. Se anche una sola commessa non
-    // si trova, non si può dire che sia saldata e il promemoria resta spento.
-    const tutteNote = ids.length > 0 && collegate.length === ids.length
-    const daChiudere = tutteNote && (residuoCommesse ?? 0) <= 0
+    // Si accende quando non resta niente da restituire, cioè quando gli acconti
+    // spuntati coprono l'erogato. NON basta che il cliente abbia saldato le commesse:
+    // se la banca non ha trattenuto quegli acconti, alla banca si deve ancora tutto,
+    // e un promemoria acceso lì sarebbe una bugia.
+    const daChiudere = num(a.importo) > 0 && daRestituire <= 0
     if (scaduto) anticipiScaduti += 1
     if (daChiudere) anticipiDaChiudere += 1
     const calcolato: AnticipoCalcolato = {
       ...a,
       importo: num(a.importo),
+      scalato: num(a.scalato),
       commesse: collegate,
       residuoCommesse,
+      daRestituire,
       scaduto,
       daChiudere,
     }
@@ -174,7 +183,7 @@ export function riepilogoBanche(
   const lineeUso: UtilizzoBanca[] = linee.map((l) => {
     const accordato = num(l.accordato)
     const aperti = apertiPerLinea.get(l.id) ?? []
-    const utilizzato = aperti.reduce((s, a) => s + a.importo, 0)
+    const utilizzato = aperti.reduce((s, a) => s + a.daRestituire, 0)
     const disponibile = Math.max(0, accordato - utilizzato)
     lineeUtilizzato += utilizzato
     return {

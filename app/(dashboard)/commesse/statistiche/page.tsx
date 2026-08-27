@@ -16,7 +16,7 @@ export default async function StatisticheCommessePage() {
     { data: commesseRaw }, { data: accontiRaw }, { data: gruppiRaw }, { data: junctionRaw },
     { data: scadenzeRaw }, { data: altriCreditiRaw }, { data: busteRaw },
     { data: pagDipRaw }, { data: movAltriRaw },
-    { data: contiRaw }, { data: lineeRaw }, { data: anticipiRaw }, { data: legamiRaw },
+    { data: contiRaw }, { data: lineeRaw }, { data: anticipiRaw }, { data: legamiRaw }, { data: legamiAccontiRaw },
   ] =
     await Promise.all([
       supabase
@@ -24,8 +24,9 @@ export default async function StatisticheCommessePage() {
         .select('id, numero_commessa, cliente_nome, totale, data_conferma, gruppo_id, preventivo_id, stato, costo_materiali_manuale, costo_manodopera_manuale, utile_manuale')
         .eq('organization_id', orgId),
       supabase
+        // `id` serve a sapere quali acconti la banca ha trattenuto sugli anticipi.
         .from('acconti_commessa')
-        .select('commessa_id, importo, data_pagamento')
+        .select('id, commessa_id, importo, data_pagamento')
         .eq('organization_id', orgId),
       supabase
         .from('gruppi_commesse')
@@ -78,6 +79,11 @@ export default async function StatisticheCommessePage() {
       supabase
         .from('anticipi_commesse')
         .select('anticipo_id, commessa_id')
+        .eq('organization_id', orgId),
+      // Gli acconti che la banca ha trattenuto per rientrare: scalano il debito.
+      supabase
+        .from('anticipi_acconti')
+        .select('anticipo_id, acconto_id')
         .eq('organization_id', orgId),
     ])
 
@@ -280,12 +286,25 @@ export default async function StatisticheCommessePage() {
     commessePerAnticipo.set(l.anticipo_id, list)
   }
 
+  // Quanto è già rientrato per ogni anticipo. Gli importi si prendono dagli acconti
+  // già caricati in pagina: sono gli stessi che alimentano i crediti da commessa.
+  const importoAcconto = new Map<string, number>()
+  for (const a of accontiRaw ?? []) importoAcconto.set(a.id, Number(a.importo) || 0)
+  const scalatoPerAnticipo = new Map<string, number>()
+  for (const l of legamiAccontiRaw ?? []) {
+    scalatoPerAnticipo.set(
+      l.anticipo_id,
+      (scalatoPerAnticipo.get(l.anticipo_id) ?? 0) + (importoAcconto.get(l.acconto_id) ?? 0),
+    )
+  }
+
   const anticipi: AnticipoRow[] = (anticipiRaw ?? []).map((a) => ({
     id: a.id,
     linea_id: a.linea_id,
     commesse_ids: commessePerAnticipo.get(a.id) ?? [],
     descrizione: a.descrizione ?? '',
     importo: Number(a.importo) || 0,
+    scalato: scalatoPerAnticipo.get(a.id) ?? 0,
     data_scadenza: a.data_scadenza,
     rimborsato: !!a.rimborsato,
   }))
