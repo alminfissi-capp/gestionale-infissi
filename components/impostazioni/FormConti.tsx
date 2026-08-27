@@ -26,6 +26,9 @@ const parseSaldo = (s: string) => {
   return isNaN(v) ? 0 : v
 }
 
+// Un fido negativo non significa niente e falserebbe il calcolo dell'utilizzato.
+const parseFido = (s: string) => Math.max(0, parseSaldo(s))
+
 export default function FormConti({ initialConti }: Props) {
   const [conti, setConti] = useState<ContoRow[]>(() => initialConti.map(toRow))
   const [saldiStr, setSaldiStr] = useState<Record<string, string>>(() =>
@@ -45,8 +48,15 @@ export default function FormConti({ initialConti }: Props) {
   const handleSalva = async (id: string) => {
     const conto = conti.find((c) => c.id === id)
     if (!conto) return
+    // Campo svuotato (spesso per sbaglio, selezionando e cancellando): non si salva
+    // zero in silenzio, si ripristina il valore salvato e si lascia stare.
+    if ((saldiStr[id] ?? '').trim() === '' || (fidiStr[id] ?? '').trim() === '') {
+      setSaldiStr((cur) => ({ ...cur, [id]: String(conto.saldoSalvato) }))
+      setFidiStr((cur) => ({ ...cur, [id]: String(conto.fidoSalvato) }))
+      return
+    }
     const saldo = parseSaldo(saldiStr[id] ?? '')
-    const fido = parseSaldo(fidiStr[id] ?? '')
+    const fido = parseFido(fidiStr[id] ?? '')
     if (
       conto.nome.trim() === conto.nomeSalvato &&
       saldo === conto.saldoSalvato &&
@@ -82,7 +92,7 @@ export default function FormConti({ initialConti }: Props) {
     setAdding(true)
     try {
       const saldo = parseSaldo(nuovoSaldo)
-      const fido = parseSaldo(nuovoFido)
+      const fido = parseFido(nuovoFido)
       const { id } = await createConto({ nome: nuovoNome, saldo_attuale: saldo, fido_accordato: fido })
       const nuovo: ContoCorrente = {
         id, organization_id: '', nome: nuovoNome.trim(), saldo_attuale: saldo, fido_accordato: fido,
@@ -110,11 +120,21 @@ export default function FormConti({ initialConti }: Props) {
         </p>
       )}
 
+      {conti.length > 0 && (
+        <div className="flex items-center gap-2 text-xs text-gray-500 px-0.5">
+          <span className="flex-1">Banca / conto</span>
+          <span className="w-36 shrink-0 text-right">Disponibilità</span>
+          <span className="w-36 shrink-0 text-right">Fido accordato</span>
+          <span className="w-9 shrink-0" />
+          <span className="w-9 shrink-0" />
+        </div>
+      )}
+
       {conti.map((c) => {
         const dirty =
           c.nome.trim() !== c.nomeSalvato ||
           parseSaldo(saldiStr[c.id] ?? '') !== c.saldoSalvato ||
-          parseSaldo(fidiStr[c.id] ?? '') !== c.fidoSalvato
+          parseFido(fidiStr[c.id] ?? '') !== c.fidoSalvato
         return (
           <div key={c.id} className="flex items-center gap-2">
             <Input
@@ -130,6 +150,7 @@ export default function FormConti({ initialConti }: Props) {
                 step={0.01}
                 value={saldiStr[c.id] ?? ''}
                 placeholder="Disponibilità 0,00"
+                aria-label="Disponibilità"
                 onChange={(e) => setSaldiStr((cur) => ({ ...cur, [c.id]: e.target.value }))}
                 onBlur={() => handleSalva(c.id)}
                 onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
@@ -144,6 +165,8 @@ export default function FormConti({ initialConti }: Props) {
                 value={fidiStr[c.id] ?? ''}
                 placeholder="Fido 0,00"
                 title="Fido accordato dalla banca"
+                aria-label="Fido accordato"
+                min={0}
                 onChange={(e) => setFidiStr((cur) => ({ ...cur, [c.id]: e.target.value }))}
                 onBlur={() => handleSalva(c.id)}
                 onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
@@ -189,6 +212,7 @@ export default function FormConti({ initialConti }: Props) {
             step={0.01}
             value={nuovoSaldo}
             placeholder="Disponibilità 0,00"
+            aria-label="Disponibilità"
             onChange={(e) => setNuovoSaldo(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
             className="text-right pr-7"
@@ -202,6 +226,8 @@ export default function FormConti({ initialConti }: Props) {
             value={nuovoFido}
             placeholder="Fido 0,00"
             title="Fido accordato dalla banca"
+            aria-label="Fido accordato"
+            min={0}
             onChange={(e) => setNuovoFido(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
             className="text-right pr-7"

@@ -28,6 +28,9 @@ const parseImporto = (s: string) => {
   return isNaN(v) ? 0 : v
 }
 
+// Un plafond negativo non significa niente e falserebbe il calcolo dell'utilizzato.
+const parsePlafond = (s: string) => Math.max(0, parseImporto(s))
+
 const TIPI = Object.keys(LABEL_TIPO_LINEA) as TipoLineaCredito[]
 
 export default function FormLineeCredito({ initialLinee, conteggioAnticipi }: Props) {
@@ -40,16 +43,23 @@ export default function FormLineeCredito({ initialLinee, conteggioAnticipi }: Pr
   const [nuovoAccordato, setNuovoAccordato] = useState('')
   const [adding, setAdding] = useState(false)
 
-  const handleSalva = async (id: string) => {
+  const handleSalva = async (id: string, override?: { tipo?: TipoLineaCredito }) => {
     const l = linee.find((x) => x.id === id)
     if (!l) return
-    const accordato = parseImporto(importiStr[id] ?? '')
-    if (l.nome.trim() === l.nomeSalvato && l.tipo === l.tipoSalvato && accordato === l.accordatoSalvato) return
+    // Campo svuotato (spesso per sbaglio, selezionando e cancellando): non si salva
+    // zero in silenzio, si ripristina il valore salvato e si lascia stare.
+    if ((importiStr[id] ?? '').trim() === '') {
+      setImportiStr((cur) => ({ ...cur, [id]: String(l.accordatoSalvato) }))
+      return
+    }
+    const tipo = override?.tipo ?? l.tipo
+    const accordato = parsePlafond(importiStr[id] ?? '')
+    if (l.nome.trim() === l.nomeSalvato && tipo === l.tipoSalvato && accordato === l.accordatoSalvato) return
     if (!l.nome.trim()) { toast.error('Il nome della linea è obbligatorio'); return }
     try {
-      await updateLineaCredito(id, { nome: l.nome, tipo: l.tipo, accordato })
+      await updateLineaCredito(id, { nome: l.nome, tipo, accordato })
       setLinee((cur) => cur.map((x) => (x.id === id
-        ? { ...x, accordato, nomeSalvato: x.nome.trim(), tipoSalvato: x.tipo, accordatoSalvato: accordato }
+        ? { ...x, tipo, accordato, nomeSalvato: x.nome.trim(), tipoSalvato: tipo, accordatoSalvato: accordato }
         : x)))
     } catch {
       toast.error('Errore nel salvataggio')
@@ -77,7 +87,7 @@ export default function FormLineeCredito({ initialLinee, conteggioAnticipi }: Pr
     if (!nuovoNome.trim()) { toast.error('Inserisci il nome della linea'); return }
     setAdding(true)
     try {
-      const accordato = parseImporto(nuovoAccordato)
+      const accordato = parsePlafond(nuovoAccordato)
       const { id } = await createLineaCredito({ nome: nuovoNome, tipo: nuovoTipo, accordato })
       const nuova: LineaCredito = {
         id, organization_id: '', nome: nuovoNome.trim(), tipo: nuovoTipo, accordato,
@@ -103,11 +113,21 @@ export default function FormLineeCredito({ initialLinee, conteggioAnticipi }: Pr
         </p>
       )}
 
+      {linee.length > 0 && (
+        <div className="flex items-center gap-2 text-xs text-gray-500 px-0.5">
+          <span className="flex-1">Linea</span>
+          <span className="w-44 shrink-0">Tipo</span>
+          <span className="w-36 shrink-0 text-right">Plafond</span>
+          <span className="w-9 shrink-0" />
+          <span className="w-9 shrink-0" />
+        </div>
+      )}
+
       {linee.map((l) => {
         const dirty =
           l.nome.trim() !== l.nomeSalvato ||
           l.tipo !== l.tipoSalvato ||
-          parseImporto(importiStr[l.id] ?? '') !== l.accordatoSalvato
+          parsePlafond(importiStr[l.id] ?? '') !== l.accordatoSalvato
         return (
           <div key={l.id} className="flex items-center gap-2">
             <Input
@@ -120,7 +140,12 @@ export default function FormLineeCredito({ initialLinee, conteggioAnticipi }: Pr
             <Select
               value={l.tipo}
               onValueChange={(v) => {
-                setLinee((cur) => cur.map((x) => (x.id === l.id ? { ...x, tipo: v as TipoLineaCredito } : x)))
+                const tipo = v as TipoLineaCredito
+                setLinee((cur) => cur.map((x) => (x.id === l.id ? { ...x, tipo } : x)))
+                // Il Select non ha un blur come gli input: senza questo salvataggio,
+                // cambiare solo il tipo lascerebbe la riga sporca e la modifica
+                // andrebbe persa uscendo dalla pagina.
+                void handleSalva(l.id, { tipo })
               }}
             >
               <SelectTrigger className="w-44 shrink-0">
@@ -138,6 +163,8 @@ export default function FormLineeCredito({ initialLinee, conteggioAnticipi }: Pr
                 step={0.01}
                 value={importiStr[l.id] ?? ''}
                 placeholder="Plafond 0,00"
+                aria-label="Plafond accordato"
+                min={0}
                 onChange={(e) => setImportiStr((cur) => ({ ...cur, [l.id]: e.target.value }))}
                 onBlur={() => handleSalva(l.id)}
                 onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
@@ -192,6 +219,8 @@ export default function FormLineeCredito({ initialLinee, conteggioAnticipi }: Pr
             step={0.01}
             value={nuovoAccordato}
             placeholder="Plafond 0,00"
+            aria-label="Plafond accordato"
+            min={0}
             onChange={(e) => setNuovoAccordato(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
             className="text-right pr-7"
