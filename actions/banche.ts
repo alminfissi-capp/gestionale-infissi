@@ -3,6 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { getOrgId } from '@/lib/auth'
+import { getMyPermissions } from '@/lib/permessi'
+import { aggiungiGiorni } from '@/lib/calendario'
 import type {
   LineaCredito, LineaCreditoInput,
   AnticipoFattura, AnticipoFatturaInput,
@@ -374,4 +376,110 @@ export async function getAccontiPerCommesse(
     metodo_pagamento: a.metodo_pagamento ?? '',
     anticipo_id: assegnati.get(a.id) ?? null,
   }))
+}
+
+// ── Anticipi in scadenza, per il riquadro in dashboard ──────────────────────
+// Solo un promemoria: non tocca nessun totale. Il debito dell'anticipo resta
+// contato una volta sola, nella riga "Banche" dei debiti — portarlo anche fra le
+// scadenze lo farebbe pesare doppio, ed è la ragione per cui l'anticipo non
+// genera una riga in `scadenze`.
+export type AnticipoInScadenza = {
+  id: string
+  data_scadenza: string // 'YYYY-MM-DD'
+  daRestituire: number
+  etichetta: string
+  scaduto: boolean
+}
+
+export async function getAnticipiInScadenza(giorni = 7): Promise<AnticipoInScadenza[]> {
+  // Gli anticipi appartengono al modulo Commesse: chi non ce l'ha non li vede,
+  // e il riquadro semplicemente non disegna la sezione.
+  const { isAdmin, permessi } = await getMyPermissions()
+  if (!isAdmin && permessi.commesse === 'nessuno') return []
+
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const oggi = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome' }).format(new Date())
+  const limite = aggiungiGiorni(oggi, giorni)
+
+  // Anche i già scaduti, non solo i prossimi: se la banca doveva rientrare la
+  // settimana scorsa è ancora più utile averlo davanti entrando.
+  const { data: righe, error } = await supabase
+    .from('anticipi_fattura')
+    .select('id, importo, data_scadenza')
+    .eq('organization_id', orgId)
+    .eq('rimborsato', false)
+    .not('data_scadenza', 'is', null)
+    .lte('data_scadenza', limite)
+    .order('data_scadenza', { ascending: true })
+  if (error) throw new Error(error.message)
+  if (!righe || righe.length === 0) return []
+
+  const ids = righe.map((r) => r.id)
+
+  const [{ data: legamiAcconti }, { data: legamiCommesse }] = await Promise.all([
+    supabase
+      .from('anticipi_acconti')
+      .select('anticipo_id, acconto_id')
+      .eq('organization_id', orgId)
+      .in('anticipo_id', ids),
+    supabase
+      .from('anticipi_commesse')
+      .select('anticipo_id, commessa_id')
+      .eq('organization_id', orgId)
+      .in('anticipo_id', ids),
+  ])
+
+  // Quanto è già rientrato: senza questo un anticipo quasi restituito
+  // suonerebbe l'allarme per l'intero erogato.
+  const idsAcconti = (legamiAcconti ?? []).map((l) => l.acconto_id)
+  const importoAcconto = new Map<string, number>()
+  if (idsAcconti.length > 0) {
+    const { data: acconti } = await supabase
+      .from('acconti_commessa')
+      .select('id, importo')
+      .eq('organization_id', orgId)
+      .in('id', idsAcconti)
+    for (const a of acconti ?? []) importoAcconto.set(a.id, Number(a.importo) || 0)
+  }
+  const scalato = new Map<string, number>()
+  for (const l of legamiAcconti ?? []) {
+    scalato.set(l.anticipo_id, (scalato.get(l.anticipo_id) ?? 0) + (importoAcconto.get(l.acconto_id) ?? 0))
+  }
+
+  const idsCommesse = [...new Set((legamiCommesse ?? []).map((l) => l.commessa_id))]
+  const etichettaCommessa = new Map<string, string>()
+  if (idsCommesse.length > 0) {
+    const { data: commesse } = await supabase
+      .from('commesse')
+      .select('id, numero_commessa, cliente_nome')
+      .eq('organization_id', orgId)
+      .in('id', idsCommesse)
+    for (const c of commesse ?? []) {
+      etichettaCommessa.set(c.id, `${c.numero_commessa} — ${c.cliente_nome ?? ''}`.trim())
+    }
+  }
+  const etichettePerAnticipo = new Map<string, string[]>()
+  for (const l of legamiCommesse ?? []) {
+    const et = etichettaCommessa.get(l.commessa_id)
+    if (!et) continue
+    const list = etichettePerAnticipo.get(l.anticipo_id) ?? []
+    list.push(et)
+    etichettePerAnticipo.set(l.anticipo_id, list)
+  }
+
+  return righe.flatMap((r) => {
+    const daRestituire = Math.max(0, (Number(r.importo) || 0) - (scalato.get(r.id) ?? 0))
+    // Niente da restituire, niente promemoria: resta solo da archiviarlo.
+    if (daRestituire <= 0) return []
+    const etichette = etichettePerAnticipo.get(r.id) ?? []
+    return [{
+      id: r.id,
+      data_scadenza: r.data_scadenza as string,
+      daRestituire,
+      etichetta: etichette.length > 0 ? etichette.join(' + ') : 'Anticipo fattura',
+      scaduto: (r.data_scadenza as string) < oggi,
+    }]
+  })
 }
