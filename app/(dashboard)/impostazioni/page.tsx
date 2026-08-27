@@ -3,7 +3,7 @@ import { getSettings, getNoteTemplates, getLogoSignedUrl } from '@/actions/impos
 import { getConti } from '@/actions/conti'
 import { requireAccesso } from '@/lib/permessi'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import FormAzienda from '@/components/impostazioni/FormAzienda'
 import UploadLogo from '@/components/impostazioni/UploadLogo'
 import TemplateNote from '@/components/impostazioni/TemplateNote'
@@ -73,46 +73,15 @@ export default async function ImpostazioniPage() {
         <p className="text-sm text-muted-foreground mt-1">Configura i dati aziendali e le preferenze del gestionale.</p>
       </div>
 
-      {/* Tema */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Tema</CardTitle>
-          <CardDescription>Scegli il tema dell&apos;interfaccia.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ThemeToggle />
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="dati" className="gap-6">
+        <TabsList>
+          <TabsTrigger value="dati">Dati</TabsTrigger>
+          <TabsTrigger value="produzione">Produzione</TabsTrigger>
+          <TabsTrigger value="altro">Preventivi e altro</TabsTrigger>
+        </TabsList>
 
-      {/* Conti correnti */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Conti correnti</CardTitle>
-          <CardDescription>
-            Banche/conti su cui vengono addebitate le scadenze. La disponibilità (fido incluso)
-            concorre alla liquidità nei Calcoli; il fido accordato serve a capire quanta parte
-            di quella disponibilità è debito verso la banca.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FormConti initialConti={conti} />
-        </CardContent>
-      </Card>
-
-      {/* Linee di credito */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Linee di credito</CardTitle>
-          <CardDescription>
-            Anticipo fatture, salvo buon fine, castelletto: qui si registra solo il plafond
-            accordato. I singoli anticipi si inseriscono dai Calcoli, e da lì si ricavano
-            utilizzato e disponibile.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FormLineeCredito initialLinee={linee} conteggioAnticipi={conteggioAnticipi} />
-        </CardContent>
-      </Card>
+        {/* ── Dati: chi è l'azienda, logo e firma compresi ── */}
+        <TabsContent value="dati" className="space-y-6">
 
       {/* Dati aziendali */}
       <Card>
@@ -157,6 +126,11 @@ export default async function ImpostazioniPage() {
         </CardContent>
       </Card>
 
+        </TabsContent>
+
+        {/* ── Produzione: quando si lavora e cosa si programma ── */}
+        <TabsContent value="produzione" className="space-y-6">
+
       {/* Orari di lavoro */}
       <Card>
         <CardHeader>
@@ -199,7 +173,51 @@ export default async function ImpostazioniPage() {
         </CardContent>
       </Card>
 
-      <Separator />
+        </TabsContent>
+
+        {/* ── Preventivi e altro: tutto il resto ── */}
+        <TabsContent value="altro" className="space-y-6">
+
+      {/* Tema */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Tema</CardTitle>
+          <CardDescription>Scegli il tema dell&apos;interfaccia.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ThemeToggle />
+        </CardContent>
+      </Card>
+
+      {/* Conti correnti */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Conti correnti</CardTitle>
+          <CardDescription>
+            Banche/conti su cui vengono addebitate le scadenze. La disponibilità (fido incluso)
+            concorre alla liquidità nei Calcoli; il fido accordato serve a capire quanta parte
+            di quella disponibilità è debito verso la banca.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FormConti initialConti={conti} />
+        </CardContent>
+      </Card>
+
+      {/* Linee di credito */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Linee di credito</CardTitle>
+          <CardDescription>
+            Anticipo fatture, salvo buon fine, castelletto: qui si registra solo il plafond
+            accordato. I singoli anticipi si inseriscono dai Calcoli, e da lì si ricavano
+            utilizzato e disponibile.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FormLineeCredito initialLinee={linee} conteggioAnticipi={conteggioAnticipi} />
+        </CardContent>
+      </Card>
 
       {/* Template note */}
       <Card>
@@ -260,6 +278,9 @@ export default async function ImpostazioniPage() {
           />
         </CardContent>
       </Card>
+
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
