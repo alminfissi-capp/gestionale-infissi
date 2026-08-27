@@ -77,6 +77,7 @@ export default async function ImpostazioniPage() {
         <TabsList>
           <TabsTrigger value="dati">Dati</TabsTrigger>
           <TabsTrigger value="produzione">Produzione</TabsTrigger>
+          <TabsTrigger value="banca">Banca</TabsTrigger>
           <TabsTrigger value="altro">Preventivi e altro</TabsTrigger>
         </TabsList>
 
@@ -175,19 +176,8 @@ export default async function ImpostazioniPage() {
 
         </TabsContent>
 
-        {/* ── Preventivi e altro: tutto il resto ── */}
-        <TabsContent value="altro" className="space-y-6">
-
-      {/* Tema */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Tema</CardTitle>
-          <CardDescription>Scegli il tema dell&apos;interfaccia.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ThemeToggle />
-        </CardContent>
-      </Card>
+        {/* ── Banca: conti, fidi e linee di credito ── */}
+        <TabsContent value="banca" className="space-y-6">
 
       {/* Conti correnti */}
       <Card>
@@ -216,6 +206,22 @@ export default async function ImpostazioniPage() {
         </CardHeader>
         <CardContent>
           <FormLineeCredito initialLinee={linee} conteggioAnticipi={conteggioAnticipi} />
+        </CardContent>
+      </Card>
+
+        </TabsContent>
+
+        {/* ── Preventivi e altro: tutto il resto ── */}
+        <TabsContent value="altro" className="space-y-6">
+
+      {/* Tema */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Tema</CardTitle>
+          <CardDescription>Scegli il tema dell&apos;interfaccia.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ThemeToggle />
         </CardContent>
       </Card>
 
