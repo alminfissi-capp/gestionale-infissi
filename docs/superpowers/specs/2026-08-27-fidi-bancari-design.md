@@ -11,6 +11,16 @@ Stato: implementato e in produzione
 > solo a sommare quanto il cliente deve ancora. Il promemoria "il cliente ha saldato" si
 > accende **solo quando tutte** le commesse collegate sono note e insieme non devono più
 > nulla. Dove qui sotto si legge "la commessa collegata" al singolare, vale ora il plurale.
+>
+> **Secondo aggiornamento, stesso giorno: rientri parziali.** Gli acconti che la banca
+> trattiene per rientrare si spuntano a mano nel dialog dell'anticipo (tabella
+> `anticipi_acconti`, un acconto su un solo anticipo) e **scalano il debito**: quello che
+> pesa sui debiti e occupa il plafond è `daRestituire = max(0, importo − scalato)`, non
+> l'erogato. Di conseguenza **il promemoria giallo ha cambiato significato**: si accende
+> quando non resta niente da restituire, non più quando il cliente ha saldato le commesse.
+> Quel vecchio segnale era fuorviante — se la banca non ha trattenuto gli acconti, alla
+> banca si deve ancora tutto. Il residuo delle commesse resta mostrato, ma come
+> informazione, non come invito a chiudere.
 
 ## Obiettivo
 
