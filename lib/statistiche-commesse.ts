@@ -519,12 +519,15 @@ export function riepilogoCreditiDebiti(
   const debitiTotali =
     debitiScaduti + debitiAnno + debitiFuturi + debitiDaProgrammare + debitiDipendenti +
     debitiBanche
-  // Le rate oltre l'anno restano fuori dal netto: risponde a "reggo quest'anno?".
-  // Gli stipendi arretrati e il fido invece ci entrano: sono dovuti adesso, e la banca
-  // può rientrare quando vuole.
+  // Il netto risponde a "reggo quest'anno?", quindi ci entra solo ciò che va saldato
+  // entro l'anno. Restano fuori le rate oltre l'anno e **l'esposizione bancaria**: fido
+  // di cassa e anticipi sono debiti senza una scadenza da rispettare — il fido è
+  // rotativo, l'anticipo si chiude quando il cliente paga la fattura. Metterli dentro
+  // faceva leggere come emergenza un'esposizione fisiologica. Restano comunque nel
+  // totale debiti e nella loro riga col dettaglio. Gli stipendi arretrati invece sì:
+  // quelli sono dovuti adesso.
   const posizioneNetta =
-    crediti -
-    (debitiScaduti + debitiAnno + debitiDaProgrammare + debitiDipendenti + debitiBanche)
+    crediti - (debitiScaduti + debitiAnno + debitiDaProgrammare + debitiDipendenti)
 
   return {
     creditiCommesse,

@@ -286,10 +286,13 @@ describe('riepilogoCreditiDebiti — debiti bancari', () => {
     expect(con.debitiTotali - senza.debitiTotali).toBe(45000)
   })
 
-  it('il fido utilizzato pesa sulla posizione netta', () => {
+  // L'esposizione bancaria è un debito senza scadenza da rispettare: sta nel totale,
+  // ma non abbassa il netto, che risponde a "reggo quest'anno?".
+  it('il fido utilizzato NON pesa sulla posizione netta', () => {
     const senza = riepilogoCreditiDebiti([], [], [], [], [], '2026-08-27', nessunaBanca)
     const con = riepilogoCreditiDebiti([], [], [], [], [], '2026-08-27', banche)
-    expect(senza.posizioneNetta - con.posizioneNetta).toBe(45000)
+    expect(con.debitiBanche).toBe(45000)
+    expect(con.posizioneNetta).toBe(senza.posizioneNetta)
   })
 
   it('il dettaglio somma sempre al totale e scarta le righe a zero', () => {

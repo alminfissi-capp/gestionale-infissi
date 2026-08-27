@@ -507,8 +507,9 @@ export default function StatisticheCommesse({ dati }: Props) {
                     Posizione netta {annoOggi}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Crediti meno i debiti da saldare entro l&apos;anno: stipendi arretrati e fido
-                    bancario compresi, le rate future escluse
+                    Crediti meno i debiti da saldare entro l&apos;anno, stipendi arretrati compresi.
+                    Restano fuori le rate oltre l&apos;anno e l&apos;esposizione bancaria, che non
+                    ha una scadenza da rispettare
                   </p>
                 </div>
                 <p className={`text-2xl font-bold ${riepilogo.posizioneNetta >= 0 ? 'text-green-700' : 'text-rose-700'}`}>
