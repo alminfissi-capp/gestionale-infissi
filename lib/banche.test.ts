@@ -3,6 +3,9 @@ import {
   utilizzoConto,
   riepilogoBanche,
   type ContoBancaRow,
+  type LineaCreditoRow,
+  type AnticipoRow,
+  type InfoCommessa,
 } from '@/lib/banche'
 
 const conto = (over: Partial<ContoBancaRow> = {}): ContoBancaRow => ({
@@ -65,5 +68,122 @@ describe('riepilogoBanche — conti correnti', () => {
     expect(r.residuoTotale).toBe(0)
     expect(r.conti).toEqual([])
     expect(r.linee).toEqual([])
+  })
+})
+
+const linea = (over: Partial<LineaCreditoRow> = {}): LineaCreditoRow => ({
+  id: 'l1',
+  nome: 'Anticipo fatture Intesa',
+  tipo: 'anticipo_fatture',
+  accordato: 100000,
+  ...over,
+})
+
+const anticipo = (over: Partial<AnticipoRow> = {}): AnticipoRow => ({
+  id: 'a1',
+  linea_id: 'l1',
+  commessa_id: null,
+  descrizione: '',
+  importo: 15000,
+  data_scadenza: null,
+  rimborsato: false,
+  ...over,
+})
+
+const OGGI = '2026-08-27'
+
+describe('riepilogoBanche — linee e anticipi', () => {
+  it('utilizzato = somma degli anticipi aperti, disponibile = plafond meno utilizzato', () => {
+    const r = riepilogoBanche(
+      [],
+      [linea()],
+      [anticipo({ id: 'a1', importo: 15000 }), anticipo({ id: 'a2', importo: 20000 })],
+      {}, OGGI,
+    )
+    expect(r.lineeUtilizzato).toBe(35000)
+    expect(r.linee[0].disponibile).toBe(65000)
+    expect(r.linee[0].residuo).toBe(65000)
+    expect(r.utilizzatoTotale).toBe(35000)
+  })
+
+  it('un anticipo rimborsato non è più debito e libera il plafond', () => {
+    const r = riepilogoBanche(
+      [],
+      [linea()],
+      [anticipo({ id: 'a1', importo: 15000, rimborsato: true }), anticipo({ id: 'a2', importo: 20000 })],
+      {}, OGGI,
+    )
+    expect(r.lineeUtilizzato).toBe(20000)
+    expect(r.linee[0].disponibile).toBe(80000)
+    expect(r.linee[0].anticipi).toHaveLength(1)
+    expect(r.linee[0].anticipi[0].id).toBe('a2')
+  })
+
+  it('anticipi oltre il plafond: disponibile a zero, mai negativo', () => {
+    const r = riepilogoBanche([], [linea({ accordato: 10000 })], [anticipo({ importo: 15000 })], {}, OGGI)
+    expect(r.linee[0].utilizzato).toBe(15000)
+    expect(r.linee[0].disponibile).toBe(0)
+    expect(r.residuoTotale).toBe(0)
+  })
+
+  it('linea senza anticipi: utilizzato zero, disponibile pari al plafond', () => {
+    const r = riepilogoBanche([], [linea()], [], {}, OGGI)
+    expect(r.linee[0].utilizzato).toBe(0)
+    expect(r.linee[0].disponibile).toBe(100000)
+  })
+
+  it('commessa sconosciuta: niente residuo e niente promemoria', () => {
+    const r = riepilogoBanche([], [linea()], [anticipo({ commessa_id: 'ignota' })], {}, OGGI)
+    const a = r.linee[0].anticipi[0]
+    expect(a.residuoCommessa).toBeNull()
+    expect(a.etichettaCommessa).toBeNull()
+    expect(a.daChiudere).toBe(false)
+  })
+
+  it('commessa saldata: promemoria acceso, ma l’anticipo resta nei debiti', () => {
+    const commesse: Record<string, InfoCommessa> = {
+      c1: { etichetta: 'C-2026-014 — Rossi', residuo: 0 },
+    }
+    const r = riepilogoBanche([], [linea()], [anticipo({ commessa_id: 'c1' })], commesse, OGGI)
+    const a = r.linee[0].anticipi[0]
+    expect(a.daChiudere).toBe(true)
+    expect(a.etichettaCommessa).toBe('C-2026-014 — Rossi')
+    expect(r.lineeUtilizzato).toBe(15000)
+    expect(r.anticipiDaChiudere).toBe(1)
+  })
+
+  it('scaduto solo se la data è passata: oggi non è scaduto', () => {
+    const ieri = riepilogoBanche([], [linea()], [anticipo({ data_scadenza: '2026-08-26' })], {}, OGGI)
+    const stessoGiorno = riepilogoBanche([], [linea()], [anticipo({ data_scadenza: OGGI })], {}, OGGI)
+    expect(ieri.linee[0].anticipi[0].scaduto).toBe(true)
+    expect(ieri.anticipiScaduti).toBe(1)
+    expect(stessoGiorno.linee[0].anticipi[0].scaduto).toBe(false)
+    expect(stessoGiorno.anticipiScaduti).toBe(0)
+  })
+
+  it('un anticipo rimborsato non è né scaduto né da chiudere: è chiuso', () => {
+    const commesse: Record<string, InfoCommessa> = {
+      c1: { etichetta: 'C-2026-014 — Rossi', residuo: 0 },
+    }
+    const r = riepilogoBanche(
+      [],
+      [linea()],
+      [anticipo({ commessa_id: 'c1', data_scadenza: '2026-01-01', rimborsato: true })],
+      commesse, OGGI,
+    )
+    expect(r.anticipiScaduti).toBe(0)
+    expect(r.anticipiDaChiudere).toBe(0)
+    expect(r.linee[0].anticipi).toHaveLength(0)
+  })
+
+  it('conti e linee si sommano nel totale e nel residuo', () => {
+    const r = riepilogoBanche(
+      [conto({ accordato: 40000, disponibile: 10000 })],
+      [linea({ accordato: 100000 })],
+      [anticipo({ importo: 20000 })],
+      {}, OGGI,
+    )
+    expect(r.utilizzatoTotale).toBe(50000)   // 30.000 di cassa + 20.000 di anticipi
+    expect(r.residuoTotale).toBe(90000)      // 10.000 + 80.000
   })
 })

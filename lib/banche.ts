@@ -112,18 +112,68 @@ export function riepilogoBanche(
     })
   }
 
-  const utilizzatoTotale = fidoCassaUtilizzato
-  const residuoTotale = contiUso.reduce((s, c) => s + c.residuo, 0)
+  // ── Anticipi aperti, raggruppati per linea ──
+  // I rimborsati non sono più debito e liberano il plafond: escono subito, e con loro
+  // escono anche i loro contatori. Lo storico si consulta nell'interfaccia, non qui.
+  const apertiPerLinea = new Map<string, AnticipoCalcolato[]>()
+  let anticipiScaduti = 0
+  let anticipiDaChiudere = 0
+
+  for (const a of anticipi) {
+    if (a.rimborsato) continue
+    const info = a.commessa_id ? commesse[a.commessa_id] : undefined
+    const residuoCommessa = info ? info.residuo : null
+    const scaduto = !!a.data_scadenza && a.data_scadenza < oggi
+    // Promemoria, non azione: finché non si spunta "rimborsato" l'anticipo resta
+    // nei debiti e occupa il plafond.
+    const daChiudere = residuoCommessa !== null && residuoCommessa <= 0
+    if (scaduto) anticipiScaduti += 1
+    if (daChiudere) anticipiDaChiudere += 1
+    const calcolato: AnticipoCalcolato = {
+      ...a,
+      importo: num(a.importo),
+      etichettaCommessa: info ? info.etichetta : null,
+      residuoCommessa,
+      scaduto,
+      daChiudere,
+    }
+    const list = apertiPerLinea.get(a.linea_id) ?? []
+    list.push(calcolato)
+    apertiPerLinea.set(a.linea_id, list)
+  }
+
+  // ── Linee: si scrivono gli anticipi, utilizzato e disponibile si ricavano ──
+  let lineeUtilizzato = 0
+  const lineeUso: UtilizzoBanca[] = linee.map((l) => {
+    const accordato = num(l.accordato)
+    const aperti = apertiPerLinea.get(l.id) ?? []
+    const utilizzato = aperti.reduce((s, a) => s + a.importo, 0)
+    const disponibile = Math.max(0, accordato - utilizzato)
+    lineeUtilizzato += utilizzato
+    return {
+      id: l.id,
+      nome: l.nome,
+      accordato,
+      disponibile,
+      utilizzato,
+      residuo: disponibile,
+      anticipi: aperti,
+    }
+  })
+
+  const utilizzatoTotale = fidoCassaUtilizzato + lineeUtilizzato
+  const residuoTotale =
+    contiUso.reduce((s, c) => s + c.residuo, 0) + lineeUso.reduce((s, l) => s + l.residuo, 0)
 
   return {
     conti: contiUso,
-    linee: [],
+    linee: lineeUso,
     liquiditaPropria,
     fidoCassaUtilizzato,
-    lineeUtilizzato: 0,
+    lineeUtilizzato,
     utilizzatoTotale,
     residuoTotale,
-    anticipiScaduti: 0,
-    anticipiDaChiudere: 0,
+    anticipiScaduti,
+    anticipiDaChiudere,
   }
 }
