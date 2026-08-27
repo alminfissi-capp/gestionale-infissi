@@ -65,7 +65,7 @@ export type RiepilogoBanche = {
   anticipiDaChiudere: number
 }
 
-const num = (v: number) => (Number.isFinite(Number(v)) ? Number(v) : 0)
+const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
 
 // Floor per singola entità, come per i crediti da commessa e i conti dipendenti:
 // un conto in attivo non deve mascherare il rosso di un altro.
@@ -98,9 +98,11 @@ export function riepilogoBanche(
     const { utilizzato, propria, residuo } = utilizzoConto(c)
     liquiditaPropria += propria
     fidoCassaUtilizzato += utilizzato
-    // Una riga di fido a zero non dice niente: resta fuori dal dettaglio, ma la sua
-    // disponibilità è già entrata in liquiditaPropria.
-    if (num(c.accordato) <= 0) continue
+    // Fuori dal dettaglio solo i conti che non hanno niente da dire: né un fido
+    // accordato né uno scoperto in corso. Un conto senza fido ma in rosso ci deve
+    // stare, altrimenti il suo scoperto entra nel totale senza una riga che lo
+    // spieghi e il dettaglio non torna più col totale.
+    if (num(c.accordato) <= 0 && utilizzato <= 0) continue
     contiUso.push({
       id: c.id,
       nome: c.nome,

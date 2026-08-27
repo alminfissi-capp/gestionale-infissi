@@ -37,6 +37,13 @@ describe('utilizzoConto', () => {
     expect(r.propria).toBe(5000)
     expect(r.residuo).toBe(0)
   })
+
+  it('conto in pari col fido: niente utilizzato e niente soldi propri', () => {
+    const r = utilizzoConto(conto({ accordato: 40000, disponibile: 40000 }))
+    expect(r.utilizzato).toBe(0)
+    expect(r.propria).toBe(0)
+    expect(r.residuo).toBe(40000)
+  })
 })
 
 describe('riepilogoBanche — conti correnti', () => {
@@ -68,6 +75,18 @@ describe('riepilogoBanche — conti correnti', () => {
     expect(r.residuoTotale).toBe(0)
     expect(r.conti).toEqual([])
     expect(r.linee).toEqual([])
+  })
+
+  it('conto senza fido ma in rosso: entra nel dettaglio, altrimenti il totale non torna', () => {
+    const r = riepilogoBanche(
+      [conto({ id: 'x', accordato: 0, disponibile: -500 })],
+      [], [], {}, '2026-08-27',
+    )
+    expect(r.fidoCassaUtilizzato).toBe(500)
+    expect(r.conti).toHaveLength(1)
+    expect(r.conti[0].utilizzato).toBe(500)
+    // L'invariante che questo test difende: le righe del dettaglio sommano sempre al totale
+    expect(r.conti.reduce((s, c) => s + c.utilizzato, 0)).toBe(r.fidoCassaUtilizzato)
   })
 })
 
