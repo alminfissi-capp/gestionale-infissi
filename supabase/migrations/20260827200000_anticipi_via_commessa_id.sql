@@ -1,0 +1,13 @@
+-- Tolta la vecchia colonna a commessa singola: i legami vivono ormai tutti in
+-- `anticipi_commesse`, che ne regge più di uno per anticipo.
+--
+-- Il travaso è stato fatto e verificato dalla migrazione 20260827180000 e ripetuto
+-- (idempotente, ON CONFLICT DO NOTHING) subito dopo il deploy del codice nuovo, per
+-- recuperare eventuali anticipi inseriti nella finestra in cui girava ancora il
+-- codice vecchio. Controllo eseguito prima di questo DROP: nessun legame rimasto
+-- fuori dalla tabella nuova.
+--
+-- L'ordine conta e non va invertito se un giorno si rifà da zero: prima si pubblica
+-- il codice che non legge più la colonna, poi la si toglie. Al contrario si rompe
+-- la pagina Statistiche, che la selezionava per nome.
+ALTER TABLE anticipi_fattura DROP COLUMN IF EXISTS commessa_id;
