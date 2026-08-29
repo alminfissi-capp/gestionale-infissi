@@ -77,6 +77,8 @@ export type RigaScadenzaProps = {
   /** Assente nel blocco "da programmare": la riga e' gia' lì */
   onSpostaInLimbo?: (s: Scadenza) => void
   copying: boolean
+  /** Riga appena raggiunta dalla ricerca: anello colorato finche' non si scorre altrove */
+  evidenziata?: boolean
   /**
    * Riga del blocco "da programmare": niente colonna del giorno, niente copie
    * nei mesi successivi (non c'e' una data da cui contare) e la spunta verde
@@ -89,7 +91,8 @@ export default function RigaScadenza({
   s, contoNome, fotoUrl, uploading, setCameraRef, setFileRef, onClickCamera, onClickFile,
   onTogglePagato, onToggleCalcoli, onToggleAnnullata, inCalendario = false,
   onToggleCalendario, onDelete, onFotoSelected, onOpenFoto, onEdit,
-  onCopia, onApriPiano, onSpostaInLimbo, copying, daProgrammare = false,
+  onCopia, onApriPiano, onSpostaInLimbo, copying, evidenziata = false,
+  daProgrammare = false,
 }: RigaScadenzaProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: s.id })
@@ -107,9 +110,12 @@ export default function RigaScadenza({
   return (
     <div
       ref={setNodeRef}
+      id={`scadenza-${s.id}`}
       style={style}
       {...attributes}
       className={`flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2.5 border-l-4 ${
+        evidenziata ? 'ring-2 ring-inset ring-rose-400' : ''
+      } ${
         s.annullata ? 'border-l-gray-300' : CAT_BORDER[s.categoria]
       } ${
         isDragging

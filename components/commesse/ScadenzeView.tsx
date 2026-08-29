@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Plus, ChevronDown, Trash2 } from 'lucide-react'
+import { Plus, ChevronDown, Trash2, Search } from 'lucide-react'
 import {
   DndContext,
   closestCenter,
@@ -35,6 +35,7 @@ import { useScadenzeRighe } from '@/hooks/useScadenzeRighe'
 import { formatEuro } from '@/lib/pricing'
 import VisualizzatoreDocumento from '@/components/ui/VisualizzatoreDocumento'
 import DialogScadenza, { CADENZE } from './DialogScadenza'
+import DialogRicercaScadenze from './DialogRicercaScadenze'
 import RigaScadenza from './RigaScadenza'
 import type { Scadenza, ContoCorrente } from '@/types/commessa'
 
@@ -286,6 +287,30 @@ export default function ScadenzeView({
   // Dialog "genera piano" / "ripeti utenza"
   const [piano, setPiano] = useState<Scadenza | null>(null)
 
+  // Ricerca nell'anno: la finestra elenca i risultati mentre si digita e il
+  // clic su un risultato apre il mese giusto e porta alla riga
+  const [ricerca, setRicerca] = useState(false)
+  const [evidenziata, setEvidenziata] = useState<string | null>(null)
+
+  const vaiAllaScadenza = (s: Scadenza) => {
+    if (s.data_scadenza) openMonth(meseDi(s.data_scadenza))
+    setRicerca(false)
+    setEvidenziata(s.id)
+  }
+
+  // Lo scorrimento aspetta che la fisarmonica abbia disegnato la riga;
+  // l'anello si spegne da solo per non lasciare l'elenco marcato a vita
+  useEffect(() => {
+    if (!evidenziata) return
+    const vai = setTimeout(() => {
+      document
+        .getElementById(`scadenza-${evidenziata}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 80)
+    const spegni = setTimeout(() => setEvidenziata(null), 4000)
+    return () => { clearTimeout(vai); clearTimeout(spegni) }
+  }, [evidenziata])
+
   // Raggruppa per mese
   const perMese = useMemo(() => {
     const map = new Map<number, Scadenza[]>()
@@ -349,6 +374,16 @@ export default function ScadenzeView({
             <span className="text-gray-400"> · {totali.annullate} annullate</span>
           )}
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 shrink-0"
+          onClick={() => setRicerca(true)}
+          title="Cerca una scadenza nell'anno"
+        >
+          <Search className="h-4 w-4 sm:mr-1.5" />
+          <span className="hidden sm:inline">Cerca</span>
+        </Button>
         <div className="text-base">
           <span className="text-gray-700 font-semibold">Totale: {formatEuro(totali.totale)}</span>
           {totali.daPagare > 0 ? (
@@ -432,6 +467,7 @@ export default function ScadenzeView({
                         onEdit={(sc) => setDialog({ scadenza: sc, defaultData: sc.data_scadenza ?? defaultData })}
                         onCopia={handleCopia}
                         onApriPiano={(sc) => setPiano(sc)}
+                        evidenziata={evidenziata === s.id}
                         copying={copyingId === s.id}
                       />
                     ))}
@@ -443,6 +479,19 @@ export default function ScadenzeView({
         })}
       </div>
       </DndContext>
+
+      {/* Ricerca a testo libero dentro l'anno. Montata solo da aperta: ogni
+          ricerca riparte con la casella vuota */}
+      {ricerca && (
+        <DialogRicercaScadenze
+          open
+          onOpenChange={setRicerca}
+          anno={anno}
+          scadenze={items}
+          contoNome={contoNome}
+          onVaiA={vaiAllaScadenza}
+        />
+      )}
 
       {/* Dialog add/edit */}
       {dialog && (
