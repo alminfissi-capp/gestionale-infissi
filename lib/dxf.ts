@@ -1,7 +1,7 @@
 function toRad(deg: number) { return (deg * Math.PI) / 180 }
 
 function arcPath(cx: number, cy: number, r: number, startDeg: number, endDeg: number): string {
-  let start = startDeg % 360
+  const start = startDeg % 360
   let end = endDeg % 360
   if (end <= start) end += 360
   const large = end - start > 180 ? 1 : 0

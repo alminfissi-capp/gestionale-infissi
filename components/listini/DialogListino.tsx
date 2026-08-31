@@ -269,7 +269,7 @@ export default function DialogListino({
             <p className="text-sm font-medium text-gray-700 mb-1">Accessori</p>
             <p className="text-xs text-gray-400 mb-3">
               Configura gruppi di accessori opzionali selezionabili nel preventivo.
-              Ogni gruppo può essere "Multiplo" (selezione multipla) o "Unico" (una sola scelta).
+              Ogni gruppo può essere &quot;Multiplo&quot; (selezione multipla) o &quot;Unico&quot; (una sola scelta).
             </p>
             <FormAccessoriGriglia
               key={accessoriKey}

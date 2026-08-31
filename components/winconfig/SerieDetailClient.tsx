@@ -77,7 +77,7 @@ function TabProfili({ serie }: { serie: WcSerieCompleta }) {
           </thead>
           <tbody>
             {righe.length === 0 && (
-              <tr><td colSpan={8} className="text-center py-6 text-slate-400 text-xs italic">Nessun profilo. Clicca "Aggiungi".</td></tr>
+              <tr><td colSpan={8} className="text-center py-6 text-slate-400 text-xs italic">Nessun profilo. Clicca &quot;Aggiungi&quot;.</td></tr>
             )}
             {righe.map(r => (
               <tr key={r._key} className="border-t border-slate-100">

@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Non e' codice nostro: `pdf.worker.min.mjs` e' la libreria pdf.js copiata
+    // dentro public/, `sw.js` lo rigenera Serwist a ogni build (ed e' gitignorato).
+    // Lintarli produceva 1647 problemi su 1743, seppellendo quelli veri.
+    "public/**",
   ]),
   {
     rules: {
