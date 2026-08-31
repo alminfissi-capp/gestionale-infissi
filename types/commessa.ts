@@ -116,6 +116,12 @@ export type Commessa = {
   reparti: Reparto[]
   gruppo_id: string | null
   in_calcoli: boolean
+  // Vendite online (e-commerce, eBay): commessa contabile senza lavorazione.
+  // Vedi types SezioneAnonima / VenditaAnonima piu' sotto.
+  anonima: boolean
+  sezione_anonima_id: string | null
+  canale: string | null
+  aliquota_iva: number | null
   incasso_previsto: number | null
   costo_materiali_manuale: number | null
   costo_manodopera_manuale: number | null
@@ -313,4 +319,59 @@ export type OpzioneCommessa = {
   id: string
   etichetta: string // "C-2026-014 — Rossi Mario"
   residuo: number
+}
+
+// ── Commesse anonime: vendite e-commerce ed eBay ─────────────────────────────
+// Sono ricavi a tutti gli effetti ma non sono lavori: nessuna scheda in
+// produzione, nessun appuntamento, nessun saldo residuo. Tecnicamente ognuna e'
+// una riga di `commesse` con `anonima = true` piu' il suo unico acconto.
+
+export type CanaleVendita = 'ebay' | 'ecommerce' | 'altro'
+
+export const CANALI_VENDITA: { value: CanaleVendita; label: string }[] = [
+  { value: 'ebay', label: 'eBay' },
+  { value: 'ecommerce', label: 'E-commerce' },
+  { value: 'altro', label: 'Altro' },
+]
+
+/** Raccoglitore di vendite dentro un blocco anno. Creato a richiesta. */
+export type SezioneAnonima = {
+  id: string
+  organization_id: string
+  gruppo_id: string
+  nome: string
+  ordine: number
+  created_at: string
+  updated_at: string
+}
+
+/** Una vendita come la legge l'interfaccia: i due record gia' ricomposti. */
+export type VenditaAnonima = {
+  id: string // id della commessa sottostante
+  sezione_id: string
+  data: string // 'YYYY-MM-DD'
+  descrizione: string
+  canale: CanaleVendita
+  metodo_pagamento: MetodoPagamento
+  lordo: number
+  aliquota_iva: number
+  imponibile: number
+  iva: number
+  materiale: number
+  manodopera: number
+  utile: number
+}
+
+export type SezioneConVendite = SezioneAnonima & { vendite: VenditaAnonima[] }
+
+export type VenditaAnonimaInput = {
+  sezione_id: string
+  data: string
+  descrizione: string
+  canale: CanaleVendita
+  metodo_pagamento: MetodoPagamento
+  lordo: number
+  aliquota_iva: number
+  materiale: number
+  manodopera: number
 }
