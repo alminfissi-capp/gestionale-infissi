@@ -24,6 +24,11 @@ const LS_KEY = 'rilievo-ui-blocchi-v1'
 export function useRilievoUiBlocchi() {
   const [blocchi, setBlocchi] = useState<BloccoUIConfig[]>(DEFAULTS)
 
+  // Qui l'effetto ci vuole, ed e' l'unico posto dove `set-state-in-effect` e'
+  // disattivato di proposito. I colori salvati stanno in localStorage, che sul
+  // server non esiste: leggerli durante il render darebbe DEFAULTS lato server e
+  // valori salvati lato client, cioe' un errore di idratazione. Si parte dai
+  // default e si applica il salvato subito dopo il primo montaggio.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(LS_KEY)
@@ -35,6 +40,7 @@ export function useRilievoUiBlocchi() {
         return s ? { ...def, colore: s.colore, ordine: s.ordine } : def
       })
       merged.sort((a, b) => a.ordine - b.ordine)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- vedi il commento sopra
       setBlocchi(merged)
     } catch { /* ignore */ }
   }, [])

@@ -75,19 +75,26 @@ interface Props {
 export default function DialogAllegaCatalogo({ open, onClose, preventivoId, correnti }: Props) {
   const router = useRouter()
   const [cataloghi, setCataloghi] = useState<Catalogo[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Set<string>>(new Set(correnti))
   const [isPending, startTransition] = useTransition()
 
+  // La selezione torna ai valori correnti a ogni apertura. Durante il render, e
+  // non in un effetto con `correnti` fra le dipendenze: quello e' un array nuovo
+  // a ogni render del genitore, e faceva ripartire la fetch in continuazione.
+  const [eraAperto, setEraAperto] = useState(open)
+  if (eraAperto !== open) {
+    setEraAperto(open)
+    if (open) setSelected(new Set(correnti))
+  }
+
   useEffect(() => {
     if (!open) return
-    setSelected(new Set(correnti))
-    setLoading(true)
     getCataloghi().then((data) => {
       setCataloghi(data)
       setLoading(false)
     })
-  }, [open, correnti])
+  }, [open])
 
   function toggle(id: string) {
     setSelected((prev) => {

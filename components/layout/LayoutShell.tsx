@@ -26,9 +26,14 @@ export default function LayoutShell({ children, logoUrl, denominazione, permessi
   const [mobileOpen, setMobileOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
 
-  useEffect(() => {
+  // Chiusura del drawer al cambio rotta. Fatto durante il render invece che in
+  // un effetto: React applica il nuovo stato prima di dipingere, quindi il menu
+  // non fa in tempo a comparire aperto sulla pagina nuova.
+  const [rottaPrecedente, setRottaPrecedente] = useState(pathname)
+  if (rottaPrecedente !== pathname) {
+    setRottaPrecedente(pathname)
     setMobileOpen(false)
-  }, [pathname])
+  }
 
   // Espone la larghezza della sidebar a :root così i dialog in portale
   // (fuori da questo albero) possono posizionarsi accanto al menu.

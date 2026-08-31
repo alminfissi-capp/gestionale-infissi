@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { X, Check, ChevronsUpDown, GitFork, Grid3X3 } from 'lucide-react'
 import {
   Dialog,
@@ -97,12 +97,17 @@ export default function DialogVoceVeloce({
   const [splitMm, setSplitMm] = useState<string>('500')
   const { getColore } = useRilievoUiBlocchi()
 
-  useEffect(() => {
+  // Il dialog resta montato: a ogni apertura il form riparte dai valori giusti.
+  // Solo all'apertura, non a ogni cambio di `initialValues`: cambiandolo mentre
+  // il dialog e' aperto si cancellava quello che l'utente stava scrivendo.
+  const [eraAperto, setEraAperto] = useState(open)
+  if (eraAperto !== open) {
+    setEraAperto(open)
     if (open) {
       setForm(initialValues ?? VOCE_VUOTA)
       setSelectedVanoId(null)
     }
-  }, [open, initialValues])
+  }
 
   const set = <K extends keyof VoceInput>(k: K, v: VoceInput[K]) =>
     setForm((prev) => ({ ...prev, [k]: v }))

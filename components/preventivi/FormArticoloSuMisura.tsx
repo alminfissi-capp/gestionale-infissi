@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -94,15 +94,19 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
   const [aliquotaIva, setAliquotaIva] = useState<number | null>(initialValues?.aliquota_iva ?? null)
   const [note, setNote] = useState<string>(initialValues?.note ?? '')
 
-  // Reset accessori quando cambia listino
-  useEffect(() => {
+  // Cambiando listino, accessori e finitura di prima non esistono piu'. Durante
+  // il render, cosi' non c'e' un frame in cui il form mostra valori del listino
+  // precedente.
+  const [listinoPrecedente, setListinoPrecedente] = useState(listinoId)
+  if (listinoPrecedente !== listinoId) {
+    setListinoPrecedente(listinoId)
     if (!initialValues) {
       setAccessoriSel({})
       setFinituraId('__none__')
       setLarghezza('')
       setAltezza('')
     }
-  }, [listinoId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   // ── Calcoli ───────────────────────────────────────────────────────────────
   const larghezzaN = parseFloat(larghezza) || 0

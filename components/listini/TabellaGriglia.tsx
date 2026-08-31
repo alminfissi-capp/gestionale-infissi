@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { formatEuro } from '@/lib/pricing'
 import type { GrigliaData } from '@/types/listino'
 
@@ -10,9 +10,14 @@ function PriceCell({ value, onChange }: { value: number | undefined; onChange: (
   const [local, setLocal] = useState(() => toLocal(value))
   const [focused, setFocused] = useState(false)
 
-  useEffect(() => {
+  // Risincronizza dal prop quando la cella non ha il fuoco, cosi' non si
+  // sovrascrive quello che l'utente sta digitando. Durante il render invece
+  // che in un effetto: evita il lampeggio del valore vecchio per un frame.
+  const [sync, setSync] = useState({ valore: value, fuoco: focused })
+  if (sync.valore !== value || sync.fuoco !== focused) {
+    setSync({ valore: value, fuoco: focused })
     if (!focused) setLocal(toLocal(value))
-  }, [value, focused])
+  }
 
   return (
     <input

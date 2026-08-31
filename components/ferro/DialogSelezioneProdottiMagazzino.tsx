@@ -28,29 +28,37 @@ type Props = {
 const LIMIT = 60
 
 export default function DialogSelezioneProdottiMagazzino({ open, onClose, linkedIds, onConfirm }: Props) {
-  const [prodotti, setProdotti] = useState<ProdottoMagazzino[]>([])
+  const [risultati, setRisultati] = useState<ProdottoMagazzino[]>([])
   const [loading, setLoading] = useState(false)
   const [cerca, setCerca] = useState('')
   const [selezionati, setSelezionati] = useState<Set<string>>(new Set())
+
+  // Sotto i due caratteri non si cerca, e i risultati di prima non devono
+  // restare a schermo. Derivato dal testo cercato invece che azzerato in un
+  // effetto: non c'e' un frame in cui si vedono risultati che non c'entrano.
+  const prodotti = cerca.trim().length < 2 ? [] : risultati
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Reset state when dialog opens
-  useEffect(() => {
-    if (!open) return
-    setSelezionati(new Set())
-    setCerca('')
-    setProdotti([])
-  }, [open])
+  // Il dialog resta montato fra un'apertura e l'altra: senza questo si
+  // riaprirebbe con la ricerca e le spunte di prima. Fatto durante il render,
+  // cosi' la prima pittura mostra gia' il dialog pulito.
+  const [eraAperto, setEraAperto] = useState(open)
+  if (eraAperto !== open) {
+    setEraAperto(open)
+    if (open) {
+      setSelezionati(new Set())
+      setCerca('')
+      setRisultati([])
+    }
+  }
 
   // Server-side search with debounce
   useEffect(() => {
     if (!open) return
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
-    if (cerca.trim().length < 2) {
-      setProdotti([])
-      return
-    }
+    // I risultati vecchi li nasconde gia' `prodotti`, qui basta non cercare.
+    if (cerca.trim().length < 2) return
 
     debounceRef.current = setTimeout(async () => {
       setLoading(true)
@@ -65,7 +73,7 @@ export default function DialogSelezioneProdottiMagazzino({ open, onClose, linked
         .limit(LIMIT)
 
       if (data) {
-        setProdotti(data.map(p => ({
+        setRisultati(data.map(p => ({
           id: p.id,
           codice: p.codice,
           descrizione: p.descrizione,
@@ -84,7 +92,8 @@ export default function DialogSelezioneProdottiMagazzino({ open, onClose, linked
     if (linkedIds.includes(id)) return
     setSelezionati(prev => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
   }
