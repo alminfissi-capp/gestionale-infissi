@@ -8,7 +8,6 @@ import { ArrowLeft, Plus, Trash2, Save, Printer, ChevronDown, ChevronUp, Copy } 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { savePreventivoScorrevoli } from '@/actions/preventivi-scorrevoli'
 import { calcolaTotali, getNrAntePrisma, formatEuroScorrevoli } from '@/lib/scorrevoli-pricing'
 import type { ScorevoliListino } from '@/actions/scorrevoli'
@@ -361,26 +360,39 @@ function RigaForm({
 
 // ─── Pannello totali ──────────────────────────────────────────────────────────
 
-function PannelloTotali({
-  preventivo,
-  listino,
-  onChange,
-}: {
-  preventivo: PreventivoScorrevoli
-  listino: ScorevoliListino
-  onChange: (p: PreventivoScorrevoli) => void
-}) {
-  const totali = calcolaTotali(listino, preventivo)
-  const hasPrisma = preventivo.righe.some((r) => r.modello === 'prisma')
+type ChiavePct = keyof Pick<
+  PreventivoScorrevoli,
+  'sconto_vetrata_prisma' | 'sconto_optional' | 'trasporto' | 'iva'
+>
 
-  const Riga = ({ label, value, bold, accent }: { label: string; value: string; bold?: boolean; accent?: boolean }) => (
+function Riga({
+  label, value, bold, accent,
+}: { label: string; value: string; bold?: boolean; accent?: boolean }) {
+  return (
     <div className={`flex justify-between py-1 text-sm ${bold ? 'font-semibold' : ''} ${accent ? 'text-teal-700' : ''}`}>
       <span className="text-gray-600">{label}</span>
       <span>€ {value}</span>
     </div>
   )
+}
 
-  const PctField = ({ label, valKey }: { label: string; valKey: keyof Pick<PreventivoScorrevoli, 'sconto_vetrata_prisma' | 'sconto_optional' | 'trasporto' | 'iva'> }) => (
+/**
+ * Definito qui fuori, non dentro il render di PannelloTotali.
+ *
+ * Stando dentro, React lo vedeva come un tipo di componente diverso a ogni
+ * render e rimontava l'<Input>: il campo perdeva il fuoco dopo ogni cifra
+ * digitata, e per scrivere "22" bisognava rientrarci col mouse. Per questo
+ * `preventivo` e `onChange` arrivano come prop invece che dalla closure.
+ */
+function PctField({
+  label, valKey, preventivo, onChange,
+}: {
+  label: string
+  valKey: ChiavePct
+  preventivo: PreventivoScorrevoli
+  onChange: (p: PreventivoScorrevoli) => void
+}) {
+  return (
     <div className="flex items-center justify-between text-sm py-1">
       <span className="text-gray-600">{label}</span>
       <div className="flex items-center gap-1">
@@ -397,6 +409,19 @@ function PannelloTotali({
       </div>
     </div>
   )
+}
+
+function PannelloTotali({
+  preventivo,
+  listino,
+  onChange,
+}: {
+  preventivo: PreventivoScorrevoli
+  listino: ScorevoliListino
+  onChange: (p: PreventivoScorrevoli) => void
+}) {
+  const totali = calcolaTotali(listino, preventivo)
+  const hasPrisma = preventivo.righe.some((r) => r.modello === 'prisma')
 
   return (
     <div className="sticky top-4 border rounded-lg bg-white p-4 space-y-3">
@@ -404,10 +429,10 @@ function PannelloTotali({
 
       {/* Parametri editabili */}
       <div className="text-xs text-gray-400 font-medium uppercase tracking-wide">Sconti e parametri</div>
-      {hasPrisma && <PctField label="Sconto vetrata Prisma" valKey="sconto_vetrata_prisma" />}
-      <PctField label="Sconto optional" valKey="sconto_optional" />
-      <PctField label="Trasporto" valKey="trasporto" />
-      <PctField label="IVA" valKey="iva" />
+      {hasPrisma && <PctField label="Sconto vetrata Prisma" valKey="sconto_vetrata_prisma" preventivo={preventivo} onChange={onChange} />}
+      <PctField label="Sconto optional" valKey="sconto_optional" preventivo={preventivo} onChange={onChange} />
+      <PctField label="Trasporto" valKey="trasporto" preventivo={preventivo} onChange={onChange} />
+      <PctField label="IVA" valKey="iva" preventivo={preventivo} onChange={onChange} />
 
       {/* Totali calcolati */}
       <div className="border-t pt-2">
