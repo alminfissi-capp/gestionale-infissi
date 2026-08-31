@@ -41,6 +41,14 @@
 - Niente letture di `ref.current` in render né scritture su ref-prop (React Compiler).
 - Commenti in italiano, che spiegano il *perché*, non il *cosa*.
 
+**Cancello di verifica per-task:** `npx tsc --noEmit` deve essere pulito. **Non**
+usare `npm run lint` come cancello di ogni task: impiega minuti e parte gia' da
+**1743 problemi (35 errori) pre-esistenti**, in `actions/firma.ts`,
+`actions/firma-pubblica.ts`, `app/(dashboard)/preventivi/scorrevoli/FormPreventivo.tsx`
+e nei file generati. Misurato il 2026-08-31 con e senza le modifiche: identico. Il
+lint si controlla una volta sola nel Task 11, e il criterio e' *nessun problema
+nuovo rispetto a quel baseline*, non "zero".
+
 ---
 
 ### Task 1: Migration del database
@@ -781,8 +789,8 @@ export async function deleteVenditaAnonima(id: string): Promise<void> {
 
 - [ ] **Step 2: Verificare tipi e lint**
 
-Run: `npx tsc --noEmit && npm run lint`
-Expected: nessun errore, nessun warning.
+Run: `npx tsc --noEmit`
+Expected: nessun errore.
 
 - [ ] **Step 3: Commit**
 
@@ -889,7 +897,7 @@ export default function DialogSezioneAnonima({ gruppoId, sezione, onClose }: Pro
 
 - [ ] **Step 2: Verificare tipi e lint**
 
-Run: `npx tsc --noEmit && npm run lint`
+Run: `npx tsc --noEmit`
 Expected: nessun errore.
 
 - [ ] **Step 3: Commit**
@@ -1176,7 +1184,7 @@ export default function DialogVenditaAnonima({ sezioneId, vendita, onClose }: Pr
 
 - [ ] **Step 2: Verificare tipi e lint**
 
-Run: `npx tsc --noEmit && npm run lint`
+Run: `npx tsc --noEmit`
 Expected: nessun errore.
 
 - [ ] **Step 3: Commit**
@@ -1600,8 +1608,8 @@ export default function SezioniAnonime({ gruppoId, sezioni }: Props) {
 
 - [ ] **Step 3: Verificare tipi e lint**
 
-Run: `npx tsc --noEmit && npm run lint`
-Expected: nessun errore, nessun warning su variabili non usate.
+Run: `npx tsc --noEmit`
+Expected: nessun errore.
 
 - [ ] **Step 4: Commit**
 
@@ -1665,7 +1673,7 @@ Nella funzione `CommesseTable`, sostituire il blocco `const [commesse, …] = aw
 
 - [ ] **Step 3: Verificare tipi, lint e avvio**
 
-Run: `npx tsc --noEmit && npm run lint`
+Run: `npx tsc --noEmit`
 Expected: nessun errore.
 
 Run: `npm run dev`, aprire un blocco anno da `/commesse`.
@@ -1806,7 +1814,7 @@ Nella query `.from('acconti_commessa')` subito sotto, cambiare la select in join
 
 - [ ] **Step 6: Verificare tipi e lint**
 
-Run: `npx tsc --noEmit && npm run lint`
+Run: `npx tsc --noEmit`
 Expected: nessun errore.
 
 Il join `commesse!inner(...)` puo' far dedurre a Supabase un array al posto di un
@@ -1965,8 +1973,8 @@ e nella costruzione di `commesse: StatRow[]` (riga ~119), aggiungere il campo do
 
 - [ ] **Step 6: Verificare tutta la suite, tipi e lint**
 
-Run: `npm test && npx tsc --noEmit && npm run lint`
-Expected: tutti i test passano (i 357 esistenti più i nuovi), nessun errore di tipo, nessun warning.
+Run: `npm test && npx tsc --noEmit`
+Expected: tutti i test passano (i 357 esistenti più i nuovi), nessun errore di tipo.
 
 - [ ] **Step 7: Commit**
 
@@ -1987,7 +1995,10 @@ Run: `npm test`
 Expected: tutti i file di test passano.
 
 Run: `npm run lint`
-Expected: nessun warning.
+Expected: **1743 problemi (35 errori, 1708 warning)** — lo stesso baseline pre-esistente.
+Un numero piu' alto significa che questa funzione ne ha aggiunti: cercare i problemi
+sui file nuovi (`lib/vendite-anonime.ts`, `actions/vendite-anonime.ts`, i tre
+componenti) e sui file modificati, e correggere solo quelli.
 
 Run: `npm run build`
 Expected: build completata. Se fallisce per `RESEND_API_KEY` mancante, è un problema pre-esistente: impostare una chiave fittizia in `.env.local` e ripetere.
