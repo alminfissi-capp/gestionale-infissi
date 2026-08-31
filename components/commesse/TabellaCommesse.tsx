@@ -592,14 +592,14 @@ export default function TabellaCommesse({
     const q = search.toLowerCase().trim()
     if (!q) return items
     return items.filter((c) => matchSearch(c, q))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [items, search])
 
   const filteredPending = useMemo(() => {
     const q = search.toLowerCase().trim()
     if (!q) return pendingItems
     return pendingItems.filter((c) => matchSearch(c, q))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [pendingItems, search])
 
   const totali = useMemo(() => {

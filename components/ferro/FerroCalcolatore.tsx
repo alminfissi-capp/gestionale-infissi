@@ -397,13 +397,13 @@ export default function FerroCalcolatore({ mode = 'full' }: { mode?: 'full' | 'c
     },
   })
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   const spCrud  = useMemo<TableCrud>(() => ({ items: sezioniPiene,   ...makeCrud('ferro_sezioni_piene',   setSPRaw)  }), [sezioniPiene])
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   const scCrud  = useMemo<TableCrud>(() => ({ items: sezioniColonna, ...makeCrud('ferro_sezioni_colonna', setSCRaw)  }), [sezioniColonna])
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   const binCrud = useMemo<TableCrud>(() => ({ items: binari,         ...makeCrud('ferro_binari',          setBinRaw) }), [binari])
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   const acCrud  = useMemo<TableCrud>(() => ({ items: accessori,      ...makeCrud('ferro_accessori',       setACRaw)  }), [accessori])
 
   const cambioTipo = (t: string) => {

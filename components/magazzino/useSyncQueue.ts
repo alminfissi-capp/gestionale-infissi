@@ -269,7 +269,7 @@ export function useSyncQueue(orgId: string, onJobComplete: () => void) {
     isOwner.current = false
     setAmIOwner(false)
     setRows({})  // reset immediato, non aspetta Realtime
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [orgId, supabase])
 
   return {

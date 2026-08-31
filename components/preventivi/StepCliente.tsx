@@ -49,13 +49,16 @@ export default function StepCliente({
   const [telPrefisso, setTelPrefisso] = useState(parsedTel.prefisso)
   const [telNumero, setTelNumero] = useState(parsedTel.numero)
 
-  // Risincronizza quando viene selezionato un cliente diverso
-  useEffect(() => {
+  // Risincronizza quando viene selezionato un cliente diverso. Durante il
+  // render invece che in un effetto: il campo mostra subito il telefono giusto,
+  // senza un frame con quello del cliente precedente.
+  const [telPrecedente, setTelPrecedente] = useState(clienteSnapshot.telefono)
+  if (telPrecedente !== clienteSnapshot.telefono) {
+    setTelPrecedente(clienteSnapshot.telefono)
     const p = parseTelefono(clienteSnapshot.telefono)
     setTelPrefisso(p.prefisso)
     setTelNumero(p.numero)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clienteSnapshot.telefono])
+  }
   const handleClienteSelect = (id: string) => {
     if (id === '__manual__') {
       onClienteIdChange(null)

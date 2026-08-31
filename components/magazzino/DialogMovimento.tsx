@@ -99,7 +99,7 @@ export default function DialogMovimento({ open, onOpenChange, prodotti, fornitor
     const prezzo = calcolaPrezzo(selectedFinitura, selectedProdotto?.peso_al_metro ?? null, l)
     setPrezzoUnitario(prezzo.toFixed(4))
     setPrezzoAutoCalc(true)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [selectedFinitura, lunghezza, isProfilo, selectedProdotto?.peso_al_metro])
 
   useEffect(() => {
