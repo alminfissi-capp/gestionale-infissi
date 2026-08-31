@@ -37,6 +37,9 @@ export async function getCommesse(gruppoId: string): Promise<CommessaCompleta[]>
       .select('*')
       .eq('organization_id', orgId)
       .eq('gruppo_id', gruppoId)
+      // Le vendite anonime hanno il loro riquadro in cima alla pagina: qui
+      // sotto ci vanno solo le commesse vere.
+      .eq('anonima', false)
       .order('ordine', { ascending: true }),
     supabase
       .from('acconti_commessa')
@@ -95,6 +98,9 @@ export async function getAllCommesse(): Promise<CommessaCompleta[]> {
       .from('commesse')
       .select('*')
       .eq('organization_id', orgId)
+      // Alimenta la cache offline e lo slot Calcoli: le vendite anonime sono
+      // gia' saldate e non servono a nessuna delle due.
+      .eq('anonima', false)
       .order('ordine', { ascending: true }),
     supabase
       .from('acconti_commessa')

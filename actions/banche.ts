@@ -296,6 +296,8 @@ export async function getCommessePerAnticipo(): Promise<OpzioneCommessa[]> {
       .from('commesse')
       .select('id, numero_commessa, cliente_nome, totale')
       .eq('organization_id', orgId)
+      // Saldo zero per costruzione: non c'e' niente da anticipare.
+      .eq('anonima', false)
       .order('numero_commessa', { ascending: false }),
     supabase
       .from('acconti_commessa')
@@ -344,6 +346,8 @@ export async function getAccontiPerCommesse(
       .from('commesse')
       .select('id, numero_commessa, cliente_nome')
       .eq('organization_id', orgId)
+      // La banca non anticipa una vendita eBay gia' incassata.
+      .eq('anonima', false)
       .in('id', ids),
   ])
   if (error) throw new Error(error.message)
@@ -367,15 +371,19 @@ export async function getAccontiPerCommesse(
     for (const l of legami ?? []) assegnati.set(l.acconto_id, l.anticipo_id)
   }
 
-  return (acconti ?? []).map((a) => ({
-    id: a.id,
-    commessa_id: a.commessa_id,
-    etichettaCommessa: etichetta.get(a.commessa_id) ?? '',
-    importo: Number(a.importo) || 0,
-    data_pagamento: a.data_pagamento,
-    metodo_pagamento: a.metodo_pagamento ?? '',
-    anticipo_id: assegnati.get(a.id) ?? null,
-  }))
+  return (acconti ?? [])
+    // Un acconto senza etichetta appartiene a una vendita anonima, tolta sopra:
+    // la banca non rientra su un incasso che non ha mai anticipato.
+    .filter((a) => etichetta.has(a.commessa_id))
+    .map((a) => ({
+      id: a.id,
+      commessa_id: a.commessa_id,
+      etichettaCommessa: etichetta.get(a.commessa_id) ?? '',
+      importo: Number(a.importo) || 0,
+      data_pagamento: a.data_pagamento,
+      metodo_pagamento: a.metodo_pagamento ?? '',
+      anticipo_id: assegnati.get(a.id) ?? null,
+    }))
 }
 
 // ── Anticipi in scadenza, per il riquadro in dashboard ──────────────────────

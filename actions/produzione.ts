@@ -129,6 +129,8 @@ export async function getCommessePerOrdine(): Promise<CommessaOpzione[]> {
     .from('commesse')
     .select('id, numero_commessa, cliente_nome')
     .eq('organization_id', orgId)
+    // Una vendita online non si ordina a un fornitore: non ha lavorazione.
+    .eq('anonima', false)
     .order('data_conferma', { ascending: false })
   return (data ?? []) as CommessaOpzione[]
 }
@@ -199,6 +201,8 @@ export async function getCruscottoProduzione(
     .from('commesse')
     .select('id, numero_commessa, cliente_nome, stato, data_conferma')
     .eq('organization_id', orgId)
+    // Commesse solo contabili: nessuna scheda in produzione.
+    .eq('anonima', false)
     .eq('archiviata', archiviate)
     // Il limbo non entra in Produzione da nessuna porta, nemmeno passando
     // uno `stati` che lo comprende: finche' non c'e' l'acconto non si parte.

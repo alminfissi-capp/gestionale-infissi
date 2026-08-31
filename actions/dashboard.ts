@@ -101,12 +101,16 @@ export async function getDashboardData(): Promise<DashboardData> {
       .from('commesse')
       .select('id, cliente_nome, numero_commessa, created_at')
       .eq('organization_id', orgId)
+      // Solo il feed: i totali della dashboard devono continuare a comprendere
+      // le vendite online. Qui sommergerebbero le dieci righe disponibili.
+      .eq('anonima', false)
       .order('created_at', { ascending: false })
       .limit(10),
     supabase
       .from('acconti_commessa')
-      .select('id, importo, created_at, commesse(id, cliente_nome)')
+      .select('id, importo, created_at, commesse!inner(id, cliente_nome, anonima)')
       .eq('organization_id', orgId)
+      .eq('commesse.anonima', false)
       .order('created_at', { ascending: false })
       .limit(10),
     supabase

@@ -441,6 +441,9 @@ export async function getCommesseAperte(): Promise<CommessaOpzione[]> {
     .from('commesse')
     .select('id, numero_commessa, cliente_nome')
     .eq('organization_id', orgId)
+    // Cintura di sicurezza: le anonime nascono 'concluso' e sono gia' fuori da
+    // STATI_COMMESSA_PRODUZIONE, ma lo stato e' un campo che si puo' cambiare.
+    .eq('anonima', false)
     .in('stato', STATI_COMMESSA_PRODUZIONE)
     .order('numero_commessa', { ascending: true })
 
