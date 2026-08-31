@@ -81,9 +81,14 @@ RLS abilitata con le quattro policy del modulo
 anonima             BOOLEAN NOT NULL DEFAULT FALSE
 sezione_anonima_id  UUID → sezioni_anonime(id) ON DELETE CASCADE
 canale              TEXT
+aliquota_iva        NUMERIC(5,2)
 ```
 
 Indici: `(organization_id, anonima)` e `(sezione_anonima_id)`.
+
+`aliquota_iva` è memorizzata invece di essere ricavata da `iva_totale /
+imponibile`: il rapporto fra due importi già arrotondati non ridà sempre
+l'aliquota digitata, e riaprire una vendita mostrerebbe 22,01 al posto di 22.
 
 `anonima` è una colonna a sé e non un valore di `stato` o di `reparti`: deve
 poter essere filtrata senza dipendere da campi che l'utente modifica.
