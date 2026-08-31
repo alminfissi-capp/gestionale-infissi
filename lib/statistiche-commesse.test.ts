@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   aggregaFlussoMese,
   aggregaUscitePerCategoria,
+  contaCommesseSenzaPreventivo,
   riepilogoCreditiDebiti,
   resocontoCliente,
   clientiUnici,
@@ -510,5 +511,34 @@ describe('resocontoCliente e clientiUnici — ordine delle parole', () => {
     const nomi = clientiUnici(commesseKind)
     expect(nomi).toHaveLength(2)
     expect(nomi.filter((n) => n.toLowerCase().includes('kind'))).toHaveLength(1)
+  })
+})
+
+describe('vendite anonime fuori dalle statistiche per commessa', () => {
+  const commessaVera = {
+    id: 'c1', cliente_nome: 'Rossi Mario', totale: 1000,
+    data_conferma: '2026-03-10', blocco: '2026', stato: 'concluso', anonima: false,
+  }
+  const venditaAnonima = {
+    id: 'a1', cliente_nome: 'eBay', totale: 244,
+    data_conferma: '2026-03-11', blocco: '2026', stato: 'concluso', anonima: true,
+  }
+
+  it('non conta le anonime fra le commesse senza preventivo', () => {
+    expect(contaCommesseSenzaPreventivo([commessaVera, venditaAnonima], [], '2026')).toBe(1)
+  })
+
+  it('non mette le sezioni anonime fra i clienti', () => {
+    expect(clientiUnici([commessaVera, venditaAnonima])).toEqual(['Rossi Mario'])
+  })
+
+  it('non attribuisce a un cliente il fatturato delle anonime omonime', () => {
+    const { totale } = resocontoCliente(
+      [commessaVera, { ...venditaAnonima, cliente_nome: 'Rossi Mario' }],
+      [],
+      'Rossi Mario',
+    )
+    expect(totale.numero).toBe(1)
+    expect(totale.fatturato).toBe(1000)
   })
 })

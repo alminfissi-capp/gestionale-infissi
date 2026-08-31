@@ -20,6 +20,9 @@ export type StatRow = {
   data_conferma: string | null
   blocco: string | null // nome del blocco/gruppo commesse di appartenenza
   stato: string         // stato commessa: decide se il residuo è un credito (STATI_CREDITO)
+  // Vendita e-commerce/eBay: entra nei totali economici ma non nelle letture
+  // "per commessa vera" (preventivi mancanti, clienti, resoconto). Assente = commessa vera.
+  anonima?: boolean
 }
 
 export type AccontoRow = {
@@ -197,7 +200,9 @@ export function contaCommesseSenzaPreventivo(
   anno: string,
 ): number {
   const conPreventivo = new Set(costi.filter((c) => c.blocco === anno).map((c) => c.commessa_id))
-  const totBlocco = commesse.filter((c) => c.blocco === anno).length
+  // Le anonime non hanno preventivo per definizione: contarle qui direbbe che
+  // mancano decine di preventivi che nessuno ha mai dovuto fare.
+  const totBlocco = commesse.filter((c) => c.blocco === anno && !c.anonima).length
   return Math.max(0, totBlocco - conPreventivo.size)
 }
 
@@ -218,6 +223,8 @@ function chiaveCliente(nome: string): string {
 export function clientiUnici(commesse: StatRow[]): string[] {
   const map = new Map<string, string>()
   for (const c of commesse) {
+    // Il nome di una vendita anonima e' quello della sezione ("eBay"), non un cliente
+    if (c.anonima) continue
     const nome = (c.cliente_nome ?? '').trim()
     if (!nome) continue
     const key = chiaveCliente(nome)
@@ -243,8 +250,10 @@ export function resocontoCliente(
   cliente: string,
 ): { righe: RigaResoconto[]; totale: RigaResoconto } {
   const target = chiaveCliente(cliente)
+  // Le anonime portano il nome della sezione ("eBay"): se coincidesse con quello
+  // di un cliente vero, gli attribuirebbero fatturato che non e' suo.
   const commesseCliente = commesse.filter(
-    (c) => chiaveCliente(c.cliente_nome ?? '') === target,
+    (c) => !c.anonima && chiaveCliente(c.cliente_nome ?? '') === target,
   )
   const bloccoPerCommessa = new Map<string, string>()
   const perBlocco = new Map<string, RigaResoconto>()

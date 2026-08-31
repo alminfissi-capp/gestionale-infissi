@@ -26,7 +26,7 @@ export default async function StatisticheCommessePage() {
     await Promise.all([
       selectAll((da, a) => supabase
         .from('commesse')
-        .select('id, numero_commessa, cliente_nome, totale, data_conferma, gruppo_id, preventivo_id, stato, costo_materiali_manuale, costo_manodopera_manuale, utile_manuale')
+        .select('id, numero_commessa, cliente_nome, totale, data_conferma, gruppo_id, preventivo_id, stato, anonima, costo_materiali_manuale, costo_manodopera_manuale, utile_manuale')
         .eq('organization_id', orgId)
         .order('id').range(da, a)),
       selectAll((da, a) => supabase
@@ -123,6 +123,7 @@ export default async function StatisticheCommessePage() {
     data_conferma: c.data_conferma,
     blocco: c.gruppo_id ? (nomeBlocco.get(c.gruppo_id) ?? null) : null,
     stato: c.stato ?? '',
+    anonima: Boolean(c.anonima),
   }))
 
   // Acconti esclusi se la commessa collegata è "in attesa".
