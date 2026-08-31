@@ -60,7 +60,7 @@ export async function avviaFirmaPreventivo(
   shareToken: string,
   telefono: string,
   pdfBase64: string,
-  pdfName: string
+  _pdfName: string
 ): Promise<{ signingUrl: string }> {
   const service = createServiceClient()
 

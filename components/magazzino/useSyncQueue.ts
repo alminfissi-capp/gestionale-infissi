@@ -172,7 +172,7 @@ export function useSyncQueue(orgId: string, onJobComplete: () => void) {
       isOwner.current = false
       setAmIOwner(false)
     }
-  }, [orgId, supabase])
+  }, [orgId, supabase, clientId])
 
   // ─── API pubblica ──────────────────────────────────────────────────────────
   const enqueue = useCallback(async (items: QueueItem[]) => {

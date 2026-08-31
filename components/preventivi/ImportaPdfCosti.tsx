@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { parsePdfCosti } from '@/lib/parsePdfCosti'
-import { formatEuro } from '@/lib/pricing'
 import type { ArticoloWizard } from '@/types/preventivo'
 
 interface Props {

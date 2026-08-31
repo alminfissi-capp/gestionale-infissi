@@ -39,7 +39,6 @@ export async function richiediFirmaPreventivo(
 
   const buffer = await pdfFile.arrayBuffer()
   const pdfBase64 = Buffer.from(buffer).toString('base64')
-  const pdfName = pdfFile.name || `Preventivo_${prev.numero || prev.id}.pdf`
 
   // Token univoco per identificare questo processo di firma nel callback
   const { randomUUID } = await import('crypto')

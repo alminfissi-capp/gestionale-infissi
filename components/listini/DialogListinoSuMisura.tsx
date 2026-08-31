@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { ListinoSuMisuraCompleto, FinituraSuMisura, GruppoAccessoriSuMisura, AccessorioSuMisura } from '@/types/listino'
+import type { ListinoSuMisuraCompleto, FinituraSuMisura, AccessorioSuMisura } from '@/types/listino'
 
 interface Props {
   open: boolean
@@ -220,7 +220,7 @@ export default function DialogListinoSuMisura({ open, onOpenChange, categoriaId,
         immagine_url: immagineUrl,
         attivo,
         finiture: finiture.map((f, i) => ({ ...f, ordine: i })),
-        gruppi_accessori: gruppi.map((g, gi) => ({
+        gruppi_accessori: gruppi.map((g) => ({
           nome: g.nome,
           tipo_scelta: g.tipo_scelta,
           accessori: g.accessori.map((a, ai) => ({ ...a, ordine: ai })),

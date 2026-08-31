@@ -269,7 +269,7 @@ function DbTable({ items, categories, priceLbl = '€/barra (6m)', onAdd, onUpda
 /* ── DISTINTA HTML ────────────────────────────────────────────────────────── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildDistinta(p: any): string {
-  const { tipo, geo, colonne, telaio, correnti, barreV, pannello, binario, vern, mano, accSel, margine, calc, sezioniPiene, sezioniColonna, binari, accessori, cliente } = p
+  const { tipo, geo, colonne, telaio, correnti, barreV, pannello, binario, mano, accSel, margine, calc, sezioniPiene, sezioniColonna, binari, accessori, cliente } = p
   const nAnte = tipo === 'cancellata' ? 1 : geo.nAnte
   const antaW_cm = (geo.larghezza / nAnte).toFixed(0)
   const getPP = (id: string) => sezioniPiene.find((s: DbItem) => s.id === id)?.prezzo ?? 0

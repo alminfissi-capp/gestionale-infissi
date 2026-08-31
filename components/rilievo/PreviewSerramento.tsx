@@ -435,7 +435,6 @@ export default function PreviewSerramento({
     return nCols === 1 ? 'right' : (idx < nCols / 2 ? 'right' : 'left')
   }
 
-  const CYCLE_MANIGLIA: PosManiglia[] = ['right', 'left', 'top', 'bottom']
 
   function handleSvgClick(e: React.MouseEvent<SVGSVGElement>) {
     if (!canClickVano || !vaniTree) return

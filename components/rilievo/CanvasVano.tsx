@@ -842,7 +842,6 @@ export default function CanvasVano({ vano }: Props) {
             const N = ante.num
             const rw = ante.riporto ? bw : 0
             const antaW = (W - rw * (N - 1)) / N
-            const sw = s(1.5)
             const wipClipId = 'ab-wip'
             const ANTA_GAP_WIP = 2
             const diAntaWip = di + ANTA_GAP_WIP

@@ -48,7 +48,7 @@ export default function GestioneUtenti({ initialUtenti }: Props) {
   const [utenti, setUtenti] = useState(initialUtenti)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
 
   // Form nuovo utente
   const [email, setEmail] = useState('')

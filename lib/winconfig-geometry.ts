@@ -8,7 +8,6 @@
 // ============================================================
 
 import type {
-  ConfigWinConfig,
   DistintaWinConfig,
   FormaSerramento,
   LatoInclinazione,
@@ -109,7 +108,6 @@ function calcolaDistintaProfili(
   const Hmedia = (Hsx + Hdx) / 2
   const isFuoriSquadro = forma === 'fuori_squadro'
   const isInclinatoTesta = isFuoriSquadro && latoInclinazione === 'testa'
-  const isInclinatoBase  = isFuoriSquadro && latoInclinazione === 'base'
 
   const sfrido_nodo   = serie.sfrido_nodo_mm ?? 0
   const sfrido_angolo = serie.sfrido_angolo_mm ?? 0
@@ -238,7 +236,7 @@ function calcolaDistintaRiempimenti(
   L: number,
   Hsx: number,
   Hdx: number,
-  nAnte: number
+  _nAnte: number
 ): RigaDistintaRiempimento[] {
   if (!riempimento) return []
 

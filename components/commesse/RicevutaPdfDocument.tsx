@@ -4,7 +4,6 @@ import { formatEuro } from '@/lib/pricing'
 import type { CommessaCompleta, AccontoCommessa, MetodoPagamento } from '@/types/commessa'
 import type { Settings } from '@/types/impostazioni'
 
-const TEAL      = '#0E8F9C'
 const GRAY_BDR  = '#D1D5DB'
 const GRAY_LIGHT = '#F9FAFB'
 const GRAY_TEXT = '#6B7280'

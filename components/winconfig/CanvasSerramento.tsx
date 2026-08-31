@@ -17,7 +17,6 @@ type Props = {
 
 const PADDING = 40
 const LABEL_H = 24
-const ARROW_SIZE = 6
 
 export default function CanvasSerramento({
   forma,
@@ -30,7 +29,6 @@ export default function CanvasSerramento({
   nAnte,
   className,
 }: Props) {
-  const Hmedia = (altezza_sx_mm + altezza_dx_mm) / 2
   const isFuoriSquadro = forma === 'fuori_squadro' && altezza_sx_mm !== altezza_dx_mm
 
   // Scala: fit in 280×260 px

@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -14,12 +13,9 @@ import { Trash2, Plus, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { upsertProfili, upsertAccessori, upsertColori, upsertRiempimenti } from '@/actions/winconfig'
 import type {
-  WcSerieCompleta, WcProfilo, WcAccessorio, WcColore, WcRiempimento,
-  TipoProfilo, UnitaAccessorio, TipoSovrapprezzo, TipoRiempimento,
-  RegolaQty, WcProfiloInput, WcAccessorioInput, WcColoreInput, WcRiempimentoInput,
+  WcSerieCompleta,
+  TipoProfilo, UnitaAccessorio, TipoSovrapprezzo, TipoRiempimento, WcProfiloInput, WcAccessorioInput, WcColoreInput, WcRiempimentoInput,
 } from '@/types/winconfig'
-import { formatEuro } from '@/lib/pricing'
-
 type Props = { serie: WcSerieCompleta }
 
 // ---- PROFILI ----

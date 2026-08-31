@@ -16,7 +16,7 @@ type Step = 'idle' | 'extracting' | 'review' | 'done' | 'error'
 
 export default function ImportPDF({ onParsed }: Props) {
   const [step, setStep] = useState<Step>('idle')
-  const [rawText, setRawText] = useState('')
+  const [, setRawText] = useState('')
   const [csvText, setCsvText] = useState('')
   const [parseErrors, setParseErrors] = useState<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)

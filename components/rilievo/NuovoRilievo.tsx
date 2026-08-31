@@ -37,10 +37,6 @@ export default function NuovoRilievo({ clienti }: Props) {
   const [clienteId, setClienteId] = useState<string | null>(null)
   const [snapshot, setSnapshot] = useState<ClienteSnapshot>(SNAPSHOT_VUOTO)
 
-  const nomeCliente = snapshot.tipo === 'azienda'
-    ? snapshot.ragione_sociale
-    : [snapshot.nome, snapshot.cognome].filter(Boolean).join(' ')
-
   const clienteValido = snapshot.tipo === 'azienda'
     ? !!snapshot.ragione_sociale?.trim()
     : !!(snapshot.nome?.trim() || snapshot.cognome?.trim())

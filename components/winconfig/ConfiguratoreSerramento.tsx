@@ -7,11 +7,10 @@ import { Label } from '@/components/ui/label'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import type {
   FormaSerramento, LatoInclinazione, TipoApertura, VersoApertura,
-  WcSerieCompleta, WcColore, WcRiempimento, ConfigWinConfig,
+  WcSerieCompleta, WcRiempimento, ConfigWinConfig,
 } from '@/types/winconfig'
 import { calcolaWinConfig } from '@/lib/winconfig-geometry'
 import { formatEuro } from '@/lib/pricing'

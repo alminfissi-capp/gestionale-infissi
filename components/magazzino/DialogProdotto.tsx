@@ -10,9 +10,6 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { ComboboxField } from '@/components/ui/combobox-field'
 import UploadFile from './UploadFile'
@@ -131,6 +128,11 @@ export default function DialogProdotto({ open, onOpenChange, prodotto, categorie
     setNewVariantNome('')
     setNewVariantCodice('')
     setShowDxfViewer(false)
+    // `categorie` serve solo per la ricerca qui sopra e sta fuori dalle
+    // dipendenze di proposito: e' un array che il genitore ricrea a ogni render,
+    // e come dipendenza rifarebbe partire questo reset mentre il dialog e'
+    // aperto, cancellando quello che l'utente sta scrivendo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, prodotto])
 
   // Reset categoria_id se cambia macro (solo in creazione)

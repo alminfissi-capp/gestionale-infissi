@@ -2,7 +2,7 @@
 
 import { createElement, useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { Printer, ChevronLeft, ThumbsUp, ThumbsDown, Loader2, FileSignature } from 'lucide-react'
+import { Printer, ChevronLeft, ThumbsDown, Loader2, FileSignature } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatEuro } from '@/lib/pricing'
