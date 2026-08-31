@@ -70,7 +70,7 @@ export default function SezioniAnonime({ gruppoId, sezioni }: Props) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-indigo-700 flex items-center gap-2 uppercase tracking-wide">
           <ShoppingCart className="h-4 w-4" />

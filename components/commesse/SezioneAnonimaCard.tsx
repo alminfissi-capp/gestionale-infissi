@@ -76,23 +76,23 @@ export default function SezioneAnonimaCard({
   const mesi = raggruppaPerMese(sezione.vendite)
 
   return (
-    <Card className="border-indigo-200 bg-indigo-50/40">
-      <CardHeader className="pb-3 space-y-3">
+    <Card className="gap-2 py-3 border-indigo-200 bg-indigo-50/40">
+      <CardHeader className="px-3 pb-0 gap-2">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="text-lg font-semibold text-gray-900 truncate">{sezione.nome}</h3>
-            <p className="text-xs text-gray-500">
+            <h3 className="text-base font-semibold text-gray-900 truncate leading-tight">{sezione.nome}</h3>
+            <p className="text-xs text-gray-500 leading-tight">
               {tot.numero} {tot.numero === 1 ? 'vendita' : 'vendite'} · commesse anonime
             </p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <Button variant="ghost" size="sm" className="h-8 text-indigo-700" onClick={onNuovaVendita}>
+            <Button variant="ghost" size="sm" className="h-7 text-indigo-700" onClick={onNuovaVendita}>
               <Plus className="h-4 w-4 mr-1" />
               Nuova vendita
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button variant="ghost" size="icon" className="h-7 w-7">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -112,7 +112,7 @@ export default function SezioneAnonimaCard({
         </div>
 
         {/* Totali della sezione */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-sm">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-sm">
           <Totale etichetta="Incassato" valore={formatEuro(tot.lordo)} />
           <Totale etichetta="Imponibile" valore={formatEuro(tot.imponibile)} />
           <Totale etichetta="Materiale" valore={formatEuro(tot.materiale)} />
@@ -125,9 +125,9 @@ export default function SezioneAnonimaCard({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-2">
+      <CardContent className="px-3 space-y-1.5">
         {mesi.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">
+          <p className="text-sm text-gray-400 text-center py-3">
             Nessuna vendita registrata in questa sezione.
           </p>
         ) : (
@@ -139,7 +139,7 @@ export default function SezioneAnonimaCard({
                 <button
                   type="button"
                   onClick={() => toggle(m.chiave)}
-                  className="w-full flex items-center gap-2 px-2 sm:px-3 py-2 bg-gray-50/70 border-b text-left"
+                  className="w-full flex items-center gap-2 px-2 sm:px-3 py-1.5 bg-gray-50/70 border-b text-left"
                 >
                   <ChevronDown
                     className={`h-4 w-4 text-gray-400 transition-transform ${aperto ? '' : '-rotate-90'}`}
@@ -157,20 +157,20 @@ export default function SezioneAnonimaCard({
                 {aperto && (
                   <div className="divide-y">
                     {m.righe.map((v) => (
-                      <div key={v.id} className="flex items-center gap-2 px-2 sm:px-3 py-2">
+                      <div key={v.id} className="flex items-center gap-2 px-2 sm:px-3 py-1.5">
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-800 truncate">
+                          <p className="text-sm font-medium text-gray-800 truncate leading-tight">
                             {v.descrizione || '(senza descrizione)'}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 leading-tight">
                             {formatData(v.data)} · {LABEL_CANALE.get(v.canale) ?? v.canale}
                             {' · '}
                             {v.metodo_pagamento}
                           </p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-sm font-semibold text-gray-900">{formatEuro(v.lordo)}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-sm font-semibold text-gray-900 leading-tight">{formatEuro(v.lordo)}</p>
+                          <p className="text-xs text-gray-500 leading-tight">
                             mat. {formatEuro(v.materiale)} · mano. {formatEuro(v.manodopera)}
                           </p>
                         </div>
@@ -219,9 +219,9 @@ function Totale({
   etichetta, valore, classe = 'text-gray-900',
 }: { etichetta: string; valore: string; classe?: string }) {
   return (
-    <div className="rounded-md bg-white border px-2 py-1.5">
-      <p className="text-[10px] uppercase tracking-wide text-gray-400">{etichetta}</p>
-      <p className={`text-sm font-bold ${classe}`}>{valore}</p>
+    <div className="rounded-md bg-white border px-2 py-1">
+      <p className="text-[10px] uppercase tracking-wide text-gray-400 leading-none">{etichetta}</p>
+      <p className={`text-sm font-bold leading-tight ${classe}`}>{valore}</p>
     </div>
   )
 }
