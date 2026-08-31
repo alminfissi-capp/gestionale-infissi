@@ -10,6 +10,8 @@ import { getConti } from '@/actions/conti'
 import { getFornitori } from '@/actions/magazzino'
 import { getClienti } from '@/actions/clienti'
 import TabellaCommesse from '@/components/commesse/TabellaCommesse'
+import SezioniAnonime from '@/components/commesse/SezioniAnonime'
+import { getSezioniAnonime } from '@/actions/vendite-anonime'
 import ScadenzeView from '@/components/commesse/ScadenzeView'
 import { getScadenzeInCalendario } from '@/actions/calendario'
 import ScadenzeDaProgrammareView from '@/components/commesse/ScadenzeDaProgrammareView'
@@ -107,12 +109,13 @@ async function CommesseTable({
   from?: string
   highlight?: string
 }) {
-  const [commesse, preventivi, utenti, clienti, gruppi] = await Promise.all([
+  const [commesse, preventivi, utenti, clienti, gruppi, sezioniAnonime] = await Promise.all([
     getCommesse(gruppoId),
     getPreventiviPerCommessa(),
     getUtentiPerCommessa(),
     getClienti(),
     getGruppiCommesse(),
+    getSezioniAnonime(gruppoId),
   ])
 
   let preventivoDaConvertire: PreventivoPerCommessa | null = null
@@ -121,15 +124,19 @@ async function CommesseTable({
   }
 
   return (
-    <TabellaCommesse
-      commesse={commesse}
-      preventivi={preventivi}
-      utenti={utenti}
-      clienti={clienti}
-      preventivoDaConvertire={preventivoDaConvertire}
-      gruppi={gruppi}
-      gruppoCorrenteId={gruppoId}
-      highlightId={highlight ?? null}
-    />
+    <div className="space-y-5">
+      {/* Vendite online: in cima, sopra le commesse vere */}
+      <SezioniAnonime gruppoId={gruppoId} sezioni={sezioniAnonime} />
+      <TabellaCommesse
+        commesse={commesse}
+        preventivi={preventivi}
+        utenti={utenti}
+        clienti={clienti}
+        preventivoDaConvertire={preventivoDaConvertire}
+        gruppi={gruppi}
+        gruppoCorrenteId={gruppoId}
+        highlightId={highlight ?? null}
+      />
+    </div>
   )
 }
