@@ -39,7 +39,7 @@ function MiniPhoto({ url, tipo }: { url?: string | null; tipo?: 'foto' | 'dxf' |
     return <div className="w-9 h-9 rounded bg-gray-100 flex items-center justify-center text-gray-300 text-xs shrink-0">—</div>
   }
   return (
-    // eslint-disable-next-line @next/next/no-img-element
+
     <img src={url} alt="" className="w-9 h-9 rounded object-cover shrink-0 border border-gray-100" />
   )
 }

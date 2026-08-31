@@ -18,7 +18,19 @@ const eslintConfig = defineConfig([
     "public/**",
   ]),
   {
+    // `<Image>` di @react-pdf/renderer disegna dentro un PDF, non nel DOM: non
+    // ha un prop `alt` e non c'e' niente da leggere a uno screen reader. La
+    // regola jsx-a11y lo scambia per un <img> del browser.
+    files: ['**/*PdfDocument.tsx', 'components/produzione/OrdinePDF.tsx', 'lib/pdf/**'],
+    rules: { 'jsx-a11y/alt-text': 'off' },
+  },
+  {
     rules: {
+      // Le nostre <img> sono miniature di immagini caricate dagli utenti, servite
+      // da URL firmati Supabase che scadono, o anteprime blob: locali. next/image
+      // vorrebbe i domini remoti in configurazione e non puo' ottimizzare niente
+      // su una miniatura da 32px: il costo c'e', il beneficio no.
+      '@next/next/no-img-element': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', {
         varsIgnorePattern: '^_',
         argsIgnorePattern: '^_',

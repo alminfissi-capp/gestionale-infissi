@@ -199,7 +199,7 @@ export default function VisualizzatoreDocumento({
         onDoubleClick={onDoubleClick}
       >
         <div ref={wrapRef} style={{ transformOrigin: 'center center', willChange: 'transform' }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+          { }
           <img
             src={immagini[indice]}
             alt={`Pagina ${indice + 1}`}

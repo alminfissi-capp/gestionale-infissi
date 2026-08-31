@@ -1,6 +1,5 @@
 'use client'
 
-/* eslint-disable @next/next/no-img-element */
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'

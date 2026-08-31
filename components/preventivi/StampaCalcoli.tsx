@@ -129,7 +129,7 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
       <div className="flex justify-between gap-4 p-8 print:p-0 pb-4 border-b border-gray-300">
         <div className="flex items-start gap-4">
           {logoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
+
             <img
               src={logoUrl}
               alt="Logo azienda"

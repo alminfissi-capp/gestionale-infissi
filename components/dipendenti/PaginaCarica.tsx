@@ -370,7 +370,7 @@ export default function PaginaCarica({
                     className="block w-full cursor-zoom-in overflow-hidden rounded border bg-white"
                     aria-label={`Ingrandisci pagina ${i + 1}`}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    { }
                     <img
                       src={src}
                       alt={`Pagina ${i + 1} di ${p.file.name}`}
@@ -472,7 +472,7 @@ export default function PaginaCarica({
                     className="block w-full cursor-zoom-in overflow-hidden rounded border bg-white"
                     aria-label={`Ingrandisci pagina ${i + 1}`}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    { }
                     <img src={src} alt={`Pagina ${i + 1} di ${p.file.name}`} className="w-full" />
                   </button>
                 ))}

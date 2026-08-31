@@ -254,7 +254,7 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
           <Label>Immagine (opzionale)</Label>
           {imagePreviewUrl ? (
             <div className="flex items-center gap-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              { }
               <img
                 src={imagePreviewUrl}
                 alt="Anteprima"

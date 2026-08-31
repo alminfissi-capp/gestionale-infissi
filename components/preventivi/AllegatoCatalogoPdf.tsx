@@ -73,7 +73,7 @@ export default function AllegatoCatalogoPdf({ url, nome }: Props) {
             padding: 0,
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+          { }
           <img
             src={p.dataUrl}
             alt={`${nome} — pagina ${i + 1}`}

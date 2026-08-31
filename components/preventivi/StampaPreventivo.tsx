@@ -323,7 +323,7 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
         {/* Colonna azienda */}
         <div className="flex items-start gap-4">
           {logoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
+
             <img
               src={logoUrl}
               alt="Logo azienda"
@@ -444,7 +444,7 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                 {a.immagine_url && (
                   <div style={{ width: '56px', height: '56px', flexShrink: 0, overflow: 'hidden', border: '1px solid #e5e7eb', borderRadius: '2px', background: '#f9fafb' }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    { }
                     <img
                       src={a.immagine_url}
                       alt={a.tipologia}

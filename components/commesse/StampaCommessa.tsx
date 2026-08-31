@@ -98,7 +98,7 @@ export default function StampaCommessa({ commessa: c, settings, logoUrl, selecte
         return (
           <div key={doc.id} style={{ pageBreakBefore: 'always' }}>
             {isImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
+
               <img src={url} alt={doc.nome_file} style={{ width: '100%', height: 'auto', display: 'block' }} />
             ) : (
               <AllegatoCatalogoPdf url={url} nome={doc.nome_file} />
@@ -131,7 +131,7 @@ function Contenuto({ c, settings, logoUrl, saldoZero, saldoPositivo }: {
         <>
           <div className="flex items-center gap-3 mb-3">
             {logoUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
+
               <img src={logoUrl} alt="Logo" className="h-12 w-auto object-contain" />
             )}
             <div className="flex flex-col text-[12px] text-gray-500">

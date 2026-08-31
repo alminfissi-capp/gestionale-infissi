@@ -19,7 +19,7 @@ export default async function PaginaOrdineFornitore({
 
       <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
         {dati.logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
+
           <img src={dati.logoUrl} alt={dati.denominazione} className="h-12 mb-6 object-contain" />
         ) : (
           <p className="text-lg font-semibold text-gray-900 mb-6">{dati.denominazione}</p>

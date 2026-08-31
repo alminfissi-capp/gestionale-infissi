@@ -49,7 +49,7 @@ export default function SezioneFirmaDefault({ firmaDefault: initialFirma }: Prop
     <div className="space-y-3">
       {firma && (
         <div className="flex items-center gap-3 p-3 border rounded-lg bg-gray-50">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+          { }
           <img src={firma} alt="Firma corrente" className="h-10 object-contain flex-1" />
           <Button
             type="button"

@@ -61,7 +61,7 @@ export default function UploadFile({ tipo, storagePath, signedUrl, onUploaded, o
       {signedUrl ? (
         <div className="relative rounded-lg border overflow-hidden bg-gray-50">
           {tipo === 'foto' ? (
-            // eslint-disable-next-line @next/next/no-img-element
+
             <img src={signedUrl} alt="Foto prodotto" className="w-full max-h-40 object-contain" />
           ) : (
             <div className="flex items-center gap-3 p-3">

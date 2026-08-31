@@ -216,7 +216,8 @@ export default function CategoriaCard({ categoria, dragHandle, onSuccess }: Prop
   const toggleListino = (id: string) => {
     setExpandedListini((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
   }

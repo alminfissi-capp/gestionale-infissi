@@ -176,7 +176,8 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
   function toggleSelect(codice: string) {
     setSelectedSet(prev => {
       const next = new Set(prev)
-      next.has(codice) ? next.delete(codice) : next.add(codice)
+      if (next.has(codice)) next.delete(codice)
+      else next.add(codice)
       return next
     })
   }
@@ -360,7 +361,7 @@ export default function TabellaProdotti({ prodotti, totale, pagina, categorie, f
                   {/* Foto — ora seconda colonna */}
                   <TableCell className="py-1 px-2">
                     {p.preview_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+
                       <img
                         src={p.preview_url}
                         alt={p.codice}

@@ -275,7 +275,7 @@ function TabModelli({
             <div className="flex items-start gap-3">
               {m.immagine_url ? (
                 <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  { }
                   <img
                     src={m.immagine_url}
                     alt={m.nome}

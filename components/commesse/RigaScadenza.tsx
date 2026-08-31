@@ -1,6 +1,5 @@
 'use client'
 
-/* eslint-disable @next/next/no-img-element */
 import Link from 'next/link'
 import {
   Pencil, Trash2, Camera, Check, Loader2, Star, Landmark, GripVertical, Copy, CalendarPlus,

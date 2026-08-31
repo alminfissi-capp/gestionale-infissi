@@ -39,7 +39,7 @@ const PreviewMiniatura = memo(function PreviewMiniatura({ url, tipo, size = 40 }
 
   if (tipo === 'foto' && !imgError) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
+
       <img
         src={url}
         alt=""

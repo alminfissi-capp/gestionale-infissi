@@ -177,7 +177,7 @@ function Ricevuta({ commessa, acconto, settings, logoUrl, ricevutaRef, firmaCorr
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {logoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
+
             <img src={logoUrl} alt="Logo" className="h-14 w-auto object-contain" />
           )}
           {settings?.denominazione && (
@@ -306,7 +306,7 @@ function Ricevuta({ commessa, acconto, settings, logoUrl, ricevutaRef, firmaCorr
         <div>
           <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Firma del ricevente</p>
           {firmaCorrente ? (
-            // eslint-disable-next-line @next/next/no-img-element
+
             <img src={firmaCorrente} alt="Firma" className="h-10 object-contain mb-1" />
           ) : (
             <div className="mb-4" />
