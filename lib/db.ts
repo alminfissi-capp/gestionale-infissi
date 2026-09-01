@@ -51,6 +51,18 @@ export interface PendingAcconto {
   createdAt: string
 }
 
+/**
+ * File arrivato dal foglio di condivisione di Android e non ancora smistato.
+ * Ce n'e' al massimo uno: il service worker svuota la tabella prima di scrivere.
+ */
+export interface CondivisioneInArrivo {
+  id?: number
+  nome: string
+  tipo: string
+  blob: Blob
+  createdAt: string
+}
+
 class GestionaleDB extends Dexie {
   clienti!: EntityTable<Cliente, 'id'>
   listiniData!: EntityTable<CategoriaConListini, 'id'>
@@ -61,6 +73,7 @@ class GestionaleDB extends Dexie {
   commesse!: EntityTable<CommessaCompleta, 'id'>
   pendingCommesse!: EntityTable<PendingCommessa, 'tempId'>
   pendingAcconti!: EntityTable<PendingAcconto, 'tempId'>
+  condivisioni!: EntityTable<CondivisioneInArrivo, 'id'>
 
   constructor() {
     super('gestionale-infissi')
@@ -94,6 +107,18 @@ class GestionaleDB extends Dexie {
       commesse: 'id, data_conferma, cliente_nome',
       pendingCommesse: '++tempId, createdAt',
       pendingAcconti: '++tempId, commessaId, createdAt',
+    })
+    this.version(5).stores({
+      clienti: 'id, cognome, nome',
+      listiniData: 'id, nome',
+      pendingPreventivi: '++tempId, createdAt',
+      rilievoSessione: 'id',
+      vanoCanvas: 'vanoId',
+      bozzeWizard: 'id, updatedAt',
+      commesse: 'id, data_conferma, cliente_nome',
+      pendingCommesse: '++tempId, createdAt',
+      pendingAcconti: '++tempId, commessaId, createdAt',
+      condivisioni: '++id, createdAt',
     })
   }
 }
