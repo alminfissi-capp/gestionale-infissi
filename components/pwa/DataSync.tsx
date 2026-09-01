@@ -1,6 +1,9 @@
 'use client'
 
 import { useEffect } from 'react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { toast } from 'sonner'
 import { db } from '@/lib/db'
 import { getClienti } from '@/actions/clienti'
@@ -9,6 +12,13 @@ import { createPreventivo } from '@/actions/preventivi'
 import { getAllCommesse, createCommessa, addAcconto } from '@/actions/commesse'
 
 export default function DataSync() {
+  const pathname = usePathname()
+  // Un file condiviso rimasto in sospeso: succede se al momento della
+  // condivisione la sessione era scaduta e il login ha riportato alla home,
+  // lasciando il file nel database locale senza che nulla lo dica.
+  const inSospeso = useLiveQuery(() => db.condivisioni.count(), [])
+  const mostraAvviso = (inSospeso ?? 0) > 0 && pathname !== '/condividi'
+
   // Sync dati di riferimento all'avvio (se online)
   useEffect(() => {
     if (!navigator.onLine) return
@@ -135,5 +145,14 @@ export default function DataSync() {
     return () => window.removeEventListener('online', flushAcconti)
   }, [])
 
-  return null
+  if (!mostraAvviso) return null
+
+  return (
+    <Link
+      href="/condividi"
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 rounded-full bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-lg"
+    >
+      Hai un file condiviso da salvare
+    </Link>
+  )
 }
