@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import ResocontoCliente from './ResocontoCliente'
 import BloccoStatistica from './BloccoStatistica'
+import GraficoAndamento from './GraficoAndamento'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -26,6 +27,7 @@ import { riepilogoBanche } from '@/lib/banche'
 import { applicaOrdine, spostaBlocco } from '@/lib/ordine-blocchi'
 import { setOrdineBlocchi } from '@/actions/preferenze'
 import { BLOCCHI_STATISTICHE } from '@/types/statistiche'
+import type { DatiAndamento } from '@/lib/andamento-crediti-debiti'
 
 const COLORS = {
   valore: '#0d9488',   // teal-600
@@ -85,18 +87,22 @@ function formatData(iso: string): string {
 
 interface Props {
   dati: DatiStatistiche
+  datiAndamento: DatiAndamento
+  oggi: string
+  fidoUtilizzato: number
   ordineIniziale?: string[]
 }
 
-// Due blocchi non seguono il selettore anno e non devono averlo nel titolo:
-// i crediti sono una fotografia a oggi, il resoconto per cliente comprende
-// tutti i blocchi di quel cliente.
-const SENZA_ANNO = new Set(['crediti-debiti', 'resoconto-cliente'])
+// Tre blocchi non seguono il selettore anno e non devono averlo nel titolo: i
+// crediti sono una fotografia a oggi, il resoconto per cliente comprende tutti
+// i blocchi di quel cliente, e l'andamento storico ha un proprio selettore di
+// periodo.
+const SENZA_ANNO = new Set(['crediti-debiti', 'resoconto-cliente', 'andamento-storico'])
 
-export default function StatisticheCommesse({ dati, ordineIniziale }: Props) {
+export default function StatisticheCommesse({ dati, datiAndamento, oggi, fidoUtilizzato, ordineIniziale }: Props) {
   const router = useRouter()
   const {
-    commesse, acconti, anni, costiCommesse, scadenze, oggi,
+    commesse, acconti, anni, costiCommesse, scadenze,
     altriCrediti, pagamentiDipendenti, contiDipendenti,
     contiBanca, lineeCredito, anticipi, infoCommesse,
   } = dati
@@ -645,6 +651,9 @@ export default function StatisticheCommesse({ dati, ordineIniziale }: Props) {
     ),
     'resoconto-cliente': (
       <ResocontoCliente commesse={commesse} acconti={acconti} />
+    ),
+    'andamento-storico': (
+      <GraficoAndamento dati={datiAndamento} oggi={oggi} fidoUtilizzato={fidoUtilizzato} />
     ),
   }
   const sottotitoli: Record<string, React.ReactNode> = {

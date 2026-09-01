@@ -7,8 +7,9 @@ import type {
   StatRow, AccontoRow, CostoCommessaRow, ScadenzaRow,
   AltroCreditoRow, PagamentoDipendenteRow, ContoDipendenteRow,
 } from '@/lib/statistiche-commesse'
-import type { ContoBancaRow, LineaCreditoRow, AnticipoRow, InfoCommessa } from '@/lib/banche'
+import { riepilogoBanche, type ContoBancaRow, type LineaCreditoRow, type AnticipoRow, type InfoCommessa } from '@/lib/banche'
 import { calcolaCostiPreventivo, type ArticoloCosti } from '@/lib/preventivo-costi'
+import type { DatiAndamento } from '@/lib/andamento-crediti-debiti'
 
 export default async function StatisticheCommessePage() {
   const supabase = await createClient()
@@ -358,6 +359,70 @@ export default async function StatisticheCommessePage() {
 
   const preferenze = await getPreferenzeStatistiche()
 
+  // Fido utilizzato dei SOLI conti correnti: gli anticipi fattura (linee di
+  // credito) sono già ricostruiti nella serie storica dalle loro date, quindi
+  // sommarli anche qui li conterebbe due volte. Il saldo di un conto invece è
+  // un numero scritto a mano senza storia: resta fuori dalla serie e compare
+  // solo come nota sotto il grafico.
+  const banche = riepilogoBanche(contiBanca, lineeCredito, anticipi, infoCommesse, oggi)
+  const fidoUtilizzato = banche.fidoCassaUtilizzato
+
+  // Gli acconti che la banca ha trattenuto su ciascun anticipo, ricavati
+  // incrociando la tabella ponte con gli acconti già caricati sopra.
+  const accontoPerId = new Map(accontiRaw.map((a) => [a.id, a]))
+  const accontiPerAnticipo = new Map<string, { importo: number; data_pagamento: string | null }[]>()
+  for (const l of legamiAccontiRaw) {
+    const acc = accontoPerId.get(l.acconto_id)
+    if (!acc) continue
+    const lista = accontiPerAnticipo.get(l.anticipo_id) ?? []
+    lista.push({ importo: Number(acc.importo) || 0, data_pagamento: acc.data_pagamento })
+    accontiPerAnticipo.set(l.anticipo_id, lista)
+  }
+
+  const datiAndamento: DatiAndamento = {
+    commesse: commesseValide.map((c) => ({
+      id: c.id,
+      totale: Number(c.totale) || 0,
+      data_conferma: c.data_conferma,
+      stato: c.stato ?? '',
+    })),
+    acconti: accontiRaw.map((a) => ({
+      commessa_id: a.commessa_id,
+      importo: Number(a.importo) || 0,
+      data_pagamento: a.data_pagamento,
+    })),
+    scadenze: scadenze.map((s) => ({
+      importo: s.importo,
+      data_scadenza: s.data_scadenza,
+      pagato: s.pagato,
+      annullata: s.annullata,
+      created_at: s.created_at ?? oggi,
+    })),
+    altriCrediti: altriCrediti.map((a) => ({
+      importo: a.importo,
+      incassato: a.incassato,
+      created_at: a.created_at ?? oggi,
+    })),
+    buste: busteRaw.map((b) => ({
+      dipendente_id: b.dipendente_id,
+      periodo: b.periodo,
+      netto: Number(b.netto) || 0,
+    })),
+    pagamentiDipendenti: pagDipRaw.map((p) => ({
+      dipendente_id: p.dipendente_id,
+      data_pagamento: p.data_pagamento,
+      importo: Number(p.importo) || 0,
+    })),
+    anticipi: anticipiRaw.map((a) => ({
+      id: a.id,
+      importo: Number(a.importo) || 0,
+      data_erogazione: a.data_erogazione,
+      rimborsato: a.rimborsato,
+      rimborsato_at: a.rimborsato_at,
+      acconti: accontiPerAnticipo.get(a.id) ?? [],
+    })),
+  }
+
   return (
     <StatisticheCommesse
       dati={{
@@ -365,6 +430,9 @@ export default async function StatisticheCommessePage() {
         altriCrediti, pagamentiDipendenti, contiDipendenti,
         contiBanca, lineeCredito, anticipi, infoCommesse,
       }}
+      datiAndamento={datiAndamento}
+      oggi={oggi}
+      fidoUtilizzato={fidoUtilizzato}
       ordineIniziale={preferenze.ordineBlocchi}
     />
   )
