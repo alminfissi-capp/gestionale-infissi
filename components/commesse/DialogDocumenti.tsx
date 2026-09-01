@@ -20,13 +20,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  uploadDocumentoCommessa,
   deleteDocumentoCommessa,
   getDocumentoCommessaUrl,
-  addDocumentoCommessa,
-  getOrgIdPerUpload,
 } from '@/actions/commesse'
-import { createClient } from '@/lib/supabase/client'
+import { caricaDocumentoCommessa } from '@/lib/upload-documento'
 import type { DocumentoCommessa } from '@/types/commessa'
 
 const TIPI = ['fattura', 'nota di credito', 'bolla', 'contratto', 'altro']
@@ -66,50 +63,7 @@ export default function DialogDocumenti({ open, onOpenChange, commessaId, client
     return () => { cancelled = true }
   }, [open, documenti])
 
-  const caricaFile = async (file: File): Promise<string | null> => {
-    // Il controllo vive anche nella Server Action, ma il caricamento diretto su
-    // Supabase non ci passa: senza questo, il limite non varrebbe più.
-    if (file.size > 20 * 1024 * 1024) return 'File troppo grande (max 20 MB)'
-    // Su iOS i file da cloud (Dropbox/iCloud) sono lazy — arrayBuffer() forza la lettura completa
-    const buffer = await file.arrayBuffer()
-    const mimeFromExt: Record<string, string> = {
-      pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg',
-      png: 'image/png', webp: 'image/webp',
-    }
-    const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
-    const contentType = (file.type && file.type !== 'application/octet-stream')
-      ? file.type
-      : (mimeFromExt[ext] ?? 'application/octet-stream')
-    const blob = new Blob([buffer], { type: contentType })
-
-    // Prima strada: il browser carica direttamente su Supabase. Il file non
-    // attraversa le funzioni Vercel, quindi non incontra il limite sul corpo
-    // della richiesta (~4,5 MB) che blocca i file grandi passando dalla Server
-    // Action. È lo stesso percorso di DialogPreventivoManuale, da cui sono
-    // passati file da 18 MB.
-    try {
-      const orgId = await getOrgIdPerUpload()
-      const storagePath = `${orgId}/${commessaId}/${Date.now()}.${ext || 'bin'}`
-      const supabase = createClient()
-      const { error } = await supabase.storage
-        .from('commesse-docs')
-        .upload(storagePath, blob, { contentType })
-      if (error) throw error
-      await addDocumentoCommessa(commessaId, file.name, storagePath, tipo)
-      return null
-    } catch {
-      // Ripiego sulla Server Action: su iOS e Android, dentro un Dialog, il
-      // client browser può non avere la sessione (per questo l'upload era stato
-      // spostato lato server a giugno). Lì il file passa dal server e resta
-      // soggetto al limite di dimensione, ma il caso mobile continua a funzionare.
-      const fd = new FormData()
-      fd.append('file', blob, file.name)
-      fd.append('commessaId', commessaId)
-      fd.append('tipo', tipo)
-      const result = await uploadDocumentoCommessa(fd)
-      return result.error ?? null
-    }
-  }
+  const caricaFile = (file: File) => caricaDocumentoCommessa(file, file.name, commessaId, tipo)
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
