@@ -76,23 +76,23 @@ export default function SezioneAnonimaCard({
   const mesi = raggruppaPerMese(sezione.vendite)
 
   return (
-    <Card className="gap-2 py-3 border-indigo-200 bg-indigo-50/40">
-      <CardHeader className="px-3 pb-0 gap-2">
+    <Card className="gap-1.5 py-2 border-indigo-200 bg-indigo-50/40">
+      <CardHeader className="px-2.5 pb-0 gap-1.5">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h3 className="text-base font-semibold text-gray-900 truncate leading-tight">{sezione.nome}</h3>
-            <p className="text-xs text-gray-500 leading-tight">
+            <p className="text-[11px] text-gray-500 leading-tight">
               {tot.numero} {tot.numero === 1 ? 'vendita' : 'vendite'} · commesse anonime
             </p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <Button variant="ghost" size="sm" className="h-7 text-indigo-700" onClick={onNuovaVendita}>
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-indigo-700" onClick={onNuovaVendita}>
               <Plus className="h-4 w-4 mr-1" />
               Nuova vendita
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7">
+                <Button variant="ghost" size="icon" className="h-6 w-6">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -112,7 +112,7 @@ export default function SezioneAnonimaCard({
         </div>
 
         {/* Totali della sezione */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-sm">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1 text-sm">
           <Totale etichetta="Incassato" valore={formatEuro(tot.lordo)} />
           <Totale etichetta="Imponibile" valore={formatEuro(tot.imponibile)} />
           <Totale etichetta="Materiale" valore={formatEuro(tot.materiale)} />
@@ -125,92 +125,91 @@ export default function SezioneAnonimaCard({
         </div>
       </CardHeader>
 
-      <CardContent className="px-3 space-y-1.5">
-        {mesi.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-3">
-            Nessuna vendita registrata in questa sezione.
-          </p>
-        ) : (
-          mesi.map((m) => {
-            const totMese = totaliVendite(m.righe)
-            const aperto = aperti.has(m.chiave)
-            return (
-              <div key={m.chiave} className="rounded-md border bg-white overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => toggle(m.chiave)}
-                  className="w-full flex items-center gap-2 px-2 sm:px-3 py-1.5 bg-gray-50/70 border-b text-left"
-                >
-                  <ChevronDown
-                    className={`h-4 w-4 text-gray-400 transition-transform ${aperto ? '' : '-rotate-90'}`}
-                  />
-                  <h4 className="text-sm font-semibold text-gray-700">{m.etichetta}</h4>
-                  <Badge variant="secondary" className="text-[10px]">{totMese.numero}</Badge>
-                  <span className="text-xs truncate ml-auto">
-                    <span className="text-gray-600 font-medium">{formatEuro(totMese.lordo)}</span>
-                    <span className={`font-medium ${totMese.utile < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                      {' · '}{formatEuro(totMese.utile)} di utile
-                    </span>
+      {/* Sezione vuota: il corpo non si rende affatto. Che non ci siano vendite
+          lo dicono gia' il "0 vendite" nell'intestazione e i totali a zero, e
+          cosi' il riquadro resta alto quanto la sua sola intestazione. */}
+      {mesi.length > 0 && (
+      <CardContent className="px-2.5 space-y-1">
+        {mesi.map((m) => {
+          const totMese = totaliVendite(m.righe)
+          const aperto = aperti.has(m.chiave)
+          return (
+            <div key={m.chiave} className="rounded-md border bg-white overflow-hidden">
+              <button
+                type="button"
+                onClick={() => toggle(m.chiave)}
+                className="w-full flex items-center gap-2 px-2 py-1 bg-gray-50/70 border-b text-left"
+              >
+                <ChevronDown
+                  className={`h-4 w-4 text-gray-400 transition-transform ${aperto ? '' : '-rotate-90'}`}
+                />
+                <h4 className="text-sm font-semibold text-gray-700">{m.etichetta}</h4>
+                <Badge variant="secondary" className="text-[10px]">{totMese.numero}</Badge>
+                <span className="text-xs truncate ml-auto">
+                  <span className="text-gray-600 font-medium">{formatEuro(totMese.lordo)}</span>
+                  <span className={`font-medium ${totMese.utile < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    {' · '}{formatEuro(totMese.utile)} di utile
                   </span>
-                </button>
+                </span>
+              </button>
 
-                {aperto && (
-                  <div className="divide-y">
-                    {m.righe.map((v) => (
-                      <div key={v.id} className="flex items-center gap-2 px-2 sm:px-3 py-1.5">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-800 truncate leading-tight">
-                            {v.descrizione || '(senza descrizione)'}
-                          </p>
-                          <p className="text-xs text-gray-500 leading-tight">
-                            {formatData(v.data)} · {LABEL_CANALE.get(v.canale) ?? v.canale}
-                            {' · '}
-                            {v.metodo_pagamento}
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-semibold text-gray-900 leading-tight">{formatEuro(v.lordo)}</p>
-                          <p className="text-xs text-gray-500 leading-tight">
-                            mat. {formatEuro(v.materiale)} · mano. {formatEuro(v.manodopera)}
-                          </p>
-                        </div>
-                        <p
-                          className={`text-sm font-bold w-24 text-right shrink-0 ${
-                            v.utile < 0 ? 'text-rose-600' : 'text-emerald-700'
-                          }`}
-                        >
-                          {formatEuro(v.utile)}
+              {aperto && (
+                <div className="divide-y">
+                  {m.righe.map((v) => (
+                    <div key={v.id} className="flex items-center gap-2 px-2 py-1">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-800 truncate leading-tight">
+                          {v.descrizione || '(senza descrizione)'}
                         </p>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => onModificaVendita(v)}>
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Modifica
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-red-600 focus:text-red-600"
-                              onClick={() => onEliminaVendita(v)}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Elimina
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <p className="text-xs text-gray-500 leading-tight">
+                          {formatData(v.data)} · {LABEL_CANALE.get(v.canale) ?? v.canale}
+                          {' · '}
+                          {v.metodo_pagamento}
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })
-        )}
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-semibold text-gray-900 leading-tight">{formatEuro(v.lordo)}</p>
+                        <p className="text-xs text-gray-500 leading-tight">
+                          mat. {formatEuro(v.materiale)} · mano. {formatEuro(v.manodopera)}
+                        </p>
+                      </div>
+                      <p
+                        className={`text-sm font-bold w-24 text-right shrink-0 ${
+                          v.utile < 0 ? 'text-rose-600' : 'text-emerald-700'
+                        }`}
+                      >
+                        {formatEuro(v.utile)}
+                      </p>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => onModificaVendita(v)}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Modifica
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-red-600 focus:text-red-600"
+                            onClick={() => onEliminaVendita(v)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Elimina
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </CardContent>
+      )}
     </Card>
   )
 }
@@ -219,8 +218,8 @@ function Totale({
   etichetta, valore, classe = 'text-gray-900',
 }: { etichetta: string; valore: string; classe?: string }) {
   return (
-    <div className="rounded-md bg-white border px-2 py-1">
-      <p className="text-[10px] uppercase tracking-wide text-gray-400 leading-none">{etichetta}</p>
+    <div className="rounded-md bg-white border px-2 py-0.5">
+      <p className="text-[9px] uppercase tracking-wide text-gray-400 leading-none">{etichetta}</p>
       <p className={`text-sm font-bold leading-tight ${classe}`}>{valore}</p>
     </div>
   )
