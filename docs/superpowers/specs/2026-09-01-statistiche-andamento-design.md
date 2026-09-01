@@ -85,6 +85,14 @@ versati fino a lì**. Residuo per commessa con floor a zero, come già fa il
 riquadro esistente: una commessa incassata in eccesso non deve mascherare il
 credito di un'altra.
 
+Vanno contati anche gli **incassi in attesa** (`calcoli_incassi`), che il
+riquadro "Crediti e debiti" comprende: senza di loro l'ultimo punto della linea
+non coinciderebbe mai col riquadro, e il controllo di verifica qui sotto
+fallirebbe sempre. Di quelli già incassati non si conosce la data — la tabella ha
+`created_at` ma non una data d'incasso — quindi entrano solo i **non ancora
+incassati**, aperti dal loro inserimento. È lo stesso filtro del riquadro, e
+rende l'ultimo punto esatto; nel passato sono una piccola sottostima.
+
 Una imprecisione da dichiarare nel codice: **lo stato della commessa è quello di
 adesso, non quello che aveva allora.** Nella pratica pesa poco — otto stati su
 nove contano come credito — ma va scritto, non nascosto.
