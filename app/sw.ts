@@ -1,6 +1,7 @@
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist'
 import { Serwist, NetworkOnly } from 'serwist'
 import { defaultCache } from '@serwist/next/worker'
+import { db } from '@/lib/db'
 
 declare global {
   interface ServiceWorkerGlobalScope extends SerwistGlobalConfig {
@@ -50,6 +51,44 @@ self.addEventListener('message', (event: ExtendableMessageEvent) => {
   if ((event.data as { type?: string } | null)?.type === 'SKIP_WAITING') {
     self.skipWaiting()
   }
+})
+
+/**
+ * Condivisione da Android: il foglio di condivisione fa un POST multipart verso
+ * `/condividi/ricevi`. Lo intercettiamo qui e mettiamo il file in IndexedDB,
+ * cosi' non attraversa il server finche' non si sa dove va, e sopravvive a un
+ * login intermedio se la sessione era scaduta.
+ *
+ * Questo listener va registrato PRIMA di `serwist.addEventListeners()`: la
+ * regola `NetworkOnly` sulle navigazioni intercetterebbe altrimenti il POST e
+ * lo manderebbe al server, dove finirebbe sul route di ripiego.
+ */
+self.addEventListener('fetch', (event: FetchEvent) => {
+  const url = new URL(event.request.url)
+  if (event.request.method !== 'POST' || url.pathname !== '/condividi/ricevi') return
+
+  event.respondWith(
+    (async () => {
+      try {
+        const form = await event.request.formData()
+        const file = form.get('file')
+        if (file instanceof File && file.size > 0) {
+          // Una condivisione per volta: senza questo si accumulerebbero file
+          // dimenticati che occupano spazio sul tablet.
+          await db.condivisioni.clear()
+          await db.condivisioni.add({
+            nome: file.name || 'documento',
+            tipo: file.type,
+            blob: file,
+            createdAt: new Date().toISOString(),
+          })
+        }
+        return Response.redirect('/condividi', 303)
+      } catch {
+        return Response.redirect('/condividi?errore=lettura', 303)
+      }
+    })(),
+  )
 })
 
 serwist.addEventListeners()
