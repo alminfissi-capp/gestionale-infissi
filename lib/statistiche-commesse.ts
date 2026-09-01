@@ -38,6 +38,9 @@ export type ScadenzaRow = {
   pagato: boolean
   annullata: boolean
   categoria: string
+  // Quando la scadenza e' entrata nei conti. Serve alla serie storica: senza,
+  // una rata inserita ieri risulterebbe un debito di due anni fa.
+  created_at?: string
 }
 
 // Credito che non nasce da una commessa (rimborsi, note di credito, prestiti).
@@ -45,6 +48,8 @@ export type ScadenzaRow = {
 export type AltroCreditoRow = {
   importo: number
   incassato: boolean
+  // Come sopra: da quando questo credito esiste.
+  created_at?: string
 }
 
 // Uscita verso un dipendente già effettuata: busta pagata, bonifico o contanti.

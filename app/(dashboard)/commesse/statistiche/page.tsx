@@ -48,18 +48,18 @@ export default async function StatisticheCommessePage() {
         .order('id').range(da, a)),
       selectAll((da, a) => supabase
         .from('scadenze')
-        .select('data_scadenza, importo, pagato, annullata, categoria')
+        .select('data_scadenza, importo, pagato, annullata, categoria, created_at')
         .eq('organization_id', orgId)
         .order('id').range(da, a)),
       // Incassi in attesa: entrate che non nascono da una commessa
       selectAll((da, a) => supabase
         .from('calcoli_incassi')
-        .select('importo, incassato')
+        .select('importo, incassato, created_at')
         .eq('organization_id', orgId)
         .order('id').range(da, a)),
       selectAll((da, a) => supabase
         .from('buste_paga')
-        .select('dipendente_id, netto')
+        .select('dipendente_id, periodo, netto')
         .eq('organization_id', orgId)
         .order('id').range(da, a)),
       selectAll((da, a) => supabase
@@ -88,7 +88,7 @@ export default async function StatisticheCommessePage() {
       // tutti significherebbe accumulare righe morte man mano che gli anticipi vengono saldati.
       selectAll((da, a) => supabase
         .from('anticipi_fattura')
-        .select('id, linea_id, descrizione, importo, data_scadenza, rimborsato')
+        .select('id, linea_id, descrizione, importo, data_scadenza, rimborsato, data_erogazione, rimborsato_at')
         .eq('organization_id', orgId)
         .eq('rimborsato', false)
         .order('id').range(da, a)),
@@ -252,11 +252,13 @@ export default async function StatisticheCommessePage() {
     pagato: !!s.pagato,
     annullata: !!s.annullata,
     categoria: s.categoria ?? 'altro',
+    created_at: s.created_at,
   }))
 
   const altriCrediti: AltroCreditoRow[] = altriCreditiRaw.map((a) => ({
     importo: Number(a.importo) || 0,
     incassato: !!a.incassato,
+    created_at: a.created_at,
   }))
 
   // Uscite verso i dipendenti: buste pagate/bonifici dei fissi + movimenti di tipo
