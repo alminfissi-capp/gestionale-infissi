@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { selectAll } from '@/lib/supabase/paginate'
 import { getOrgId } from '@/lib/auth'
 import StatisticheCommesse from '@/components/commesse/StatisticheCommesse'
+import { getPreferenzeStatistiche } from '@/actions/preferenze'
 import type {
   StatRow, AccontoRow, CostoCommessaRow, ScadenzaRow,
   AltroCreditoRow, PagamentoDipendenteRow, ContoDipendenteRow,
@@ -353,6 +354,8 @@ export default async function StatisticheCommessePage() {
   // giorno prima e sposterebbe il confine dello "scaduto". 'en-CA' formatta YYYY-MM-DD.
   const oggi = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome' }).format(new Date())
 
+  const preferenze = await getPreferenzeStatistiche()
+
   return (
     <StatisticheCommesse
       dati={{
@@ -360,6 +363,7 @@ export default async function StatisticheCommessePage() {
         altriCrediti, pagamentiDipendenti, contiDipendenti,
         contiBanca, lineeCredito, anticipi, infoCommesse,
       }}
+      ordineIniziale={preferenze.ordineBlocchi}
     />
   )
 }
