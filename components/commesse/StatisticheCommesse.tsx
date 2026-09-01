@@ -88,6 +88,11 @@ interface Props {
   ordineIniziale?: string[]
 }
 
+// Due blocchi non seguono il selettore anno e non devono averlo nel titolo:
+// i crediti sono una fotografia a oggi, il resoconto per cliente comprende
+// tutti i blocchi di quel cliente.
+const SENZA_ANNO = new Set(['crediti-debiti', 'resoconto-cliente'])
+
 export default function StatisticheCommesse({ dati, ordineIniziale }: Props) {
   const router = useRouter()
   const {
@@ -638,6 +643,9 @@ export default function StatisticheCommesse({ dati, ordineIniziale }: Props) {
         )}
       </>
     ),
+    'resoconto-cliente': (
+      <ResocontoCliente commesse={commesse} acconti={acconti} />
+    ),
   }
   const sottotitoli: Record<string, React.ReactNode> = {
     'incassi-pagamenti': (
@@ -703,20 +711,12 @@ export default function StatisticheCommesse({ dati, ordineIniziale }: Props) {
           {ordine.map((id) => {
             const meta = BLOCCHI_STATISTICHE.find((b) => b.id === id)
             if (!meta) return null
-            if (id === 'resoconto-cliente') {
-              // Componente a sé con Card e titolo propri: avvolgerlo in
-              // BloccoStatistica raddoppierebbe Card e titolo. Non ha ancora le
-              // frecce (richiederebbe toccare ResocontoCliente.tsx), ma la sua
-              // posizione nell'ordine resta rispettata quando gli altri blocchi
-              // si spostano sopra o sotto di lui.
-              return <ResocontoCliente key={id} commesse={commesse} acconti={acconti} />
-            }
             if (!contenuti[id]) return null
             const i = ordine.indexOf(id)
             return (
               <BloccoStatistica
                 key={id}
-                titolo={id === 'crediti-debiti' ? meta.titolo : `${meta.titolo} — ${anno}`}
+                titolo={SENZA_ANNO.has(id) ? meta.titolo : `${meta.titolo} — ${anno}`}
                 sottotitolo={sottotitoli[id]}
                 primo={i === 0}
                 ultimo={i === ordine.length - 1}
