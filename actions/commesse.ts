@@ -22,6 +22,8 @@ import { TIPI_DOCUMENTO_PRODUZIONE_VALUES } from '@/types/produzione'
 // competenza della sezione Produzione e NON devono comparire nel lato Commesse.
 const FILTRO_TIPI_PRODUZIONE = `(${TIPI_DOCUMENTO_PRODUZIONE_VALUES.join(',')})`
 
+const round2 = (n: number) => Math.round(n * 100) / 100
+
 export async function getCommesse(gruppoId: string): Promise<CommessaCompleta[]> {
   const supabase = await createClient()
   const orgId = await getOrgId()
@@ -833,4 +835,78 @@ export async function deleteIncassoAttesa(id: string): Promise<void> {
     .eq('id', id)
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
+}
+
+/**
+ * Ricopia sulla commessa i totali correnti dei suoi preventivi interni.
+ *
+ * È sempre un gesto esplicito dell'utente: `updatePreventivo` non tocca le commesse
+ * di proposito, perché `imponibile` e `iva_totale` sulla commessa sono campi manuali
+ * che a volte divergono dal preventivo apposta.
+ *
+ * Rilegge i preventivi dal database invece di fidarsi dei numeri arrivati dal client:
+ * la pagina può essere aperta da un'ora.
+ */
+export async function allineaCommessaAlPreventivo(
+  commessaId: string
+): Promise<{ totale: number; iva_totale: number; imponibile: number }> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const [{ data: commessa, error: cErr }, { data: collegati, error: lErr }] = await Promise.all([
+    supabase
+      .from('commesse')
+      .select('id, preventivo_id')
+      .eq('id', commessaId)
+      .eq('organization_id', orgId)
+      .maybeSingle(),
+    supabase
+      .from('preventivi_commessa')
+      .select('preventivo_id')
+      .eq('commessa_id', commessaId)
+      .eq('organization_id', orgId),
+  ])
+  if (cErr) throw new Error(cErr.message)
+  if (lErr) throw new Error(lErr.message)
+  if (!commessa) throw new Error('Commessa non trovata')
+
+  // Stesse regole di lib/allineamento-commessa.ts: la junction è la sorgente di
+  // verità, la vecchia colonna vale solo se la junction è vuota.
+  const righe = collegati ?? []
+  const ids =
+    righe.length > 0
+      ? righe.map((r) => r.preventivo_id).filter((id): id is string => !!id)
+      : commessa.preventivo_id
+        ? [commessa.preventivo_id]
+        : []
+
+  if (ids.length === 0) {
+    throw new Error('Nessun preventivo interno collegato: non c’è da dove copiare i totali.')
+  }
+
+  // Niente filtro sullo stato: se l'utente ha chiesto l'allineamento, il preventivo
+  // va letto anche se nel frattempo non è più 'accettato'.
+  const { data: preventivi, error: pErr } = await supabase
+    .from('preventivi')
+    .select('id, iva_totale, totale_finale')
+    .in('id', ids)
+    .eq('organization_id', orgId)
+  if (pErr) throw new Error(pErr.message)
+  if (!preventivi || preventivi.length === 0) {
+    throw new Error('I preventivi collegati non esistono più.')
+  }
+
+  const iva = round2(preventivi.reduce((s, p) => s + Number(p.iva_totale ?? 0), 0))
+  const totale = round2(preventivi.reduce((s, p) => s + Number(p.totale_finale ?? 0), 0))
+  const imponibile = round2(totale - iva)
+
+  const { error: uErr } = await supabase
+    .from('commesse')
+    .update({ imponibile, iva_totale: iva, totale, updated_at: new Date().toISOString() })
+    .eq('id', commessaId)
+    .eq('organization_id', orgId)
+  if (uErr) throw new Error(uErr.message)
+
+  revalidatePath('/commesse', 'layout')
+  return { totale, iva_totale: iva, imponibile }
 }
