@@ -846,6 +846,7 @@ export default function TabellaCommesse({
         onOpenChange={(v) => { if (!v) setSchedaCommessaId(null) }}
         commessa={schedaCommessa}
         utenti={utenti}
+        preventiviById={preventiviById}
       />
 
       {dialogAcconto && (

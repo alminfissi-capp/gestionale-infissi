@@ -7,7 +7,7 @@ import Link from 'next/link'
 import {
   Pencil, X, Plus, Trash2, Upload, FileText,
   Eye, Share2, Check, ExternalLink, Printer,
-  MapPin, Navigation, MoreVertical, FileBarChart,
+  MapPin, Navigation, MoreVertical, FileBarChart, TriangleAlert,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,6 +36,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   updateCommessa,
   setPreventiviCommessa,
+  allineaCommessaAlPreventivo,
   addAcconto,
   deleteAcconto,
   addDocumentoCommessa,
@@ -45,6 +46,7 @@ import {
   type PreventivoCommessaItemInput,
 } from '@/actions/commesse'
 import { formatEuro } from '@/lib/pricing'
+import { statoAllineamento } from '@/lib/allineamento-commessa'
 import { parseCoordinate, mapsUrl } from '@/lib/geo'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import type {
@@ -56,6 +58,7 @@ import type {
   DocumentoCommessa,
   Reparto,
   UtentePerCommessa,
+  PreventivoPerCommessa,
 } from '@/types/commessa'
 import { REPARTI } from '@/types/commessa'
 
@@ -127,11 +130,14 @@ interface Props {
   onOpenChange: (v: boolean) => void
   commessa: CommessaCompleta | null
   utenti: UtentePerCommessa[]
+  // La stessa mappa memoizzata usata dalle righe dell'elenco: costruita una volta
+  // sola in TabellaCommesse e passata a entrambi i consumatori.
+  preventiviById: Map<string, PreventivoPerCommessa>
 }
 
 // ── Componente ───────────────────────────────────────────────
 
-export default function DialogSchedaCommessa({ open, onOpenChange, commessa, utenti }: Props) {
+export default function DialogSchedaCommessa({ open, onOpenChange, commessa, utenti, preventiviById }: Props) {
   const router = useRouter()
   // Passato al preventivo così il tasto indietro riporta qui e non all'elenco preventivi
   const pathname = usePathname()
@@ -149,6 +155,7 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
   const [editMode, setEditMode] = useState(false)
   const [form, setForm] = useState<CommessaInput | null>(null)
   const [saving, setSaving] = useState(false)
+  const [allineando, setAllineando] = useState(false)
 
   // Acconti
   const [showAddAcconto, setShowAddAcconto] = useState(false)
@@ -216,6 +223,8 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
     commessa.costo_materiali_manuale != null ||
     commessa.costo_manodopera_manuale != null ||
     commessa.utile_manuale != null
+
+  const allineamento = statoAllineamento(commessa, preventiviById)
 
   // ── Helpers form ──────────────────────────────────────────
 
@@ -403,6 +412,30 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
       return
     }
     void salvaPosizione(parsed.lat, parsed.lng)
+  }
+
+  // ── Allineamento ai preventivi ────────────────────────────
+
+  const handleAllinea = async () => {
+    const manuali = (commessa.preventivi_collegati ?? []).filter((pc) => !pc.preventivo_id).length
+    if (manuali > 0) {
+      const ok = window.confirm(
+        manuali === 1
+          ? 'Un preventivo allegato a mano non verrà conteggiato: il totale sarà preso solo dai preventivi interni. Continuare?'
+          : `${manuali} preventivi allegati a mano non verranno conteggiati: il totale sarà preso solo dai preventivi interni. Continuare?`
+      )
+      if (!ok) return
+    }
+    setAllineando(true)
+    try {
+      const res = await allineaCommessaAlPreventivo(commessa.id)
+      toast.success(`Totale allineato a € ${formatEuro(res.totale)}`)
+      router.refresh()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Errore nell’allineamento')
+    } finally {
+      setAllineando(false)
+    }
   }
 
   // ── Acconti ───────────────────────────────────────────────
@@ -873,6 +906,41 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                 </div>
               )}
             </section>
+
+            {/* Allineamento ai preventivi collegati */}
+            {allineamento.tipo === 'disallineata' && (
+              <section className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-start gap-3 flex-wrap">
+                <TriangleAlert className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-[14rem]">
+                  <p className="text-sm font-medium text-amber-800">
+                    Totale diverso dai preventivi collegati
+                  </p>
+                  <p className="text-xs text-amber-700/90 mt-0.5">
+                    Questa commessa vale € {formatEuro(allineamento.totaleCommessa)}, i preventivi
+                    collegati € {formatEuro(allineamento.totalePreventivi)} (IVA € {formatEuro(allineamento.ivaPreventivi)}):
+                    differenza {allineamento.differenza > 0 ? '+' : '-'}€ {formatEuro(Math.abs(allineamento.differenza))}.
+                  </p>
+                </div>
+                <Button size="sm" onClick={handleAllinea} disabled={allineando || !isOnline}>
+                  {allineando ? 'Allineo...' : 'Allinea'}
+                </Button>
+              </section>
+            )}
+
+            {/* Preventivi allegati a mano: niente avviso (il confronto sarebbe falso),
+                ma l'allineamento ai soli preventivi interni resta a portata di mano. */}
+            {allineamento.tipo === 'non_confrontabile' &&
+              allineamento.motivo === 'preventivi_manuali' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-500 hover:text-gray-700 -mt-2 self-start"
+                  onClick={handleAllinea}
+                  disabled={allineando || !isOnline}
+                >
+                  {allineando ? 'Allineo...' : 'Allinea ai preventivi interni'}
+                </Button>
+              )}
 
             {/* Costi preventivo manuale (per statistiche) */}
             {haPrevManuale && (editMode || haCostiManualiSalvati) && (
