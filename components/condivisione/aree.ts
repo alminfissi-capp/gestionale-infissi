@@ -1,5 +1,6 @@
-import { Factory } from 'lucide-react'
+import { Briefcase, Factory } from 'lucide-react'
 import AreaProduzione from './AreaProduzione'
+import AreaCommesse from './AreaCommesse'
 import type { AreaCondivisione } from '@/types/condivisione'
 
 /**
@@ -16,5 +17,12 @@ export const AREE: AreaCondivisione[] = [
     descrizione: 'Disegni, schede tecniche, DDT e foto di una commessa',
     icona: Factory,
     Passi: AreaProduzione,
+  },
+  {
+    id: 'commesse',
+    label: 'Commesse',
+    descrizione: 'Fatture, bolle e contratti di una commessa',
+    icona: Briefcase,
+    Passi: AreaCommesse,
   },
 ]
