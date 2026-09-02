@@ -87,6 +87,28 @@ export const REPARTI: { value: Reparto; label: string }[] = [
   { value: 'rivendita', label: 'Rivendita' },
   { value: 'ebay',      label: 'Ebay' },
 ]
+
+/**
+ * I tipi di documento del lato Commesse — quelli che NON sono di produzione.
+ * I valori sono le stringhe già scritte in `documenti_commessa.tipo_documento`,
+ * spazi compresi: cambiarli scollegherebbe i documenti già caricati.
+ */
+export const TIPI_DOCUMENTO_COMMESSA: { value: string; label: string }[] = [
+  { value: 'fattura',         label: 'Fattura' },
+  { value: 'nota di credito', label: 'Nota di credito' },
+  { value: 'bolla',           label: 'Bolla' },
+  { value: 'contratto',       label: 'Contratto' },
+  { value: 'altro',           label: 'Altro' },
+]
+
+/** Una commessa come la vede l'imbuto di condivisione: giusto quel che serve a cercarla. */
+export type CommessaCondivisione = {
+  id: string
+  numero_commessa: string | null
+  numero_preventivo: string | null // il principale, quello mostrato in elenco
+  cliente_nome: string
+  numeri_preventivo: string[]      // tutti i collegati, solo per la ricerca
+}
 export type StatoCommessa =
   | 'in_attesa'
   | 'da_iniziare'
