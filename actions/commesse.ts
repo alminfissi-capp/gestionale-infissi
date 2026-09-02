@@ -15,8 +15,10 @@ import type {
   RigaCalcolo,
   IncassoAttesa,
   TipoBlocco,
+  CommessaCondivisione,
 } from '@/types/commessa'
 import { TIPI_DOCUMENTO_PRODUZIONE_VALUES } from '@/types/produzione'
+import { selectAll } from '@/lib/supabase/paginate'
 
 // I documenti di produzione (disegni, DDT, ordini fornitore, ...) sono di
 // competenza della sezione Produzione e NON devono comparire nel lato Commesse.
@@ -909,4 +911,65 @@ export async function allineaCommessaAlPreventivo(
 
   revalidatePath('/commesse', 'layout')
   return { totale, iva_totale: iva, imponibile }
+}
+
+/**
+ * Le commesse come le cerca l'imbuto di condivisione da Android.
+ *
+ * `numeri_preventivo` porta TUTTI i preventivi collegati, non solo il principale:
+ * cercando il numero di un preventivo secondario la commessa deve uscire lo stesso.
+ * Vale la regola di sempre — la junction `preventivi_commessa` è la sorgente di
+ * verità, la vecchia colonna `commesse.preventivo_id` è il ripiego per le commesse
+ * create prima che la junction esistesse.
+ */
+export async function getCommessePerCondivisione(): Promise<CommessaCondivisione[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+
+  const [commesse, collegati] = await Promise.all([
+    // selectAll e non una select secca: oltre le mille righe PostgREST tronca in
+    // silenzio e certe commesse diventerebbero introvabili senza un errore.
+    selectAll((da, a) => supabase
+      .from('commesse')
+      .select('id, numero_commessa, numero_preventivo, cliente_nome, data_conferma')
+      .eq('organization_id', orgId)
+      // Una vendita online non ha preventivo né lavorazione: non si cerca qui.
+      .eq('anonima', false)
+      .order('id').range(da, a)),
+    selectAll((da, a) => supabase
+      .from('preventivi_commessa')
+      .select('commessa_id, numero_preventivo')
+      .eq('organization_id', orgId)
+      .order('id').range(da, a)),
+  ])
+
+  const perCommessa = new Map<string, Set<string>>()
+  for (const r of collegati) {
+    if (!r.commessa_id || !r.numero_preventivo) continue
+    const set = perCommessa.get(r.commessa_id) ?? new Set<string>()
+    set.add(r.numero_preventivo)
+    perCommessa.set(r.commessa_id, set)
+  }
+
+  // Le più recenti in cima: è quasi sempre lì che si sta lavorando. Si ordina
+  // prima di mappare, così `data_conferma` non deve entrare nel tipo esposto per
+  // poi esserne tolta.
+  const ordinate = [...commesse].sort(
+    (a, b) => String(b.data_conferma ?? '').localeCompare(String(a.data_conferma ?? '')),
+  )
+
+  return ordinate.map((c) => {
+    const dallaJunction = perCommessa.get(c.id)
+    // Ripiego sulla vecchia colonna solo se la junction non sa niente di questa commessa.
+    const numeri = dallaJunction && dallaJunction.size > 0
+      ? [...dallaJunction]
+      : c.numero_preventivo ? [c.numero_preventivo] : []
+    return {
+      id: c.id,
+      numero_commessa: c.numero_commessa,
+      numero_preventivo: c.numero_preventivo,
+      cliente_nome: c.cliente_nome,
+      numeri_preventivo: numeri,
+    }
+  })
 }

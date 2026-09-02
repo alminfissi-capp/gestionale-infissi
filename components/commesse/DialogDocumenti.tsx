@@ -24,9 +24,8 @@ import {
   getDocumentoCommessaUrl,
 } from '@/actions/commesse'
 import { caricaDocumentoCommessa } from '@/lib/upload-documento'
+import { TIPI_DOCUMENTO_COMMESSA } from '@/types/commessa'
 import type { DocumentoCommessa } from '@/types/commessa'
-
-const TIPI = ['fattura', 'nota di credito', 'bolla', 'contratto', 'altro']
 
 interface Props {
   open: boolean
@@ -198,9 +197,9 @@ export default function DialogDocumenti({ open, onOpenChange, commessaId, client
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TIPI.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                {TIPI_DOCUMENTO_COMMESSA.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
                   </SelectItem>
                 ))}
               </SelectContent>
