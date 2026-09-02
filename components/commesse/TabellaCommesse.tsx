@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import {
   Plus, Search, Trash2, LayoutList, Paperclip, FileText, Link2,
-  GripVertical, MoreVertical, Copy, WifiOff, MoveRight, Star,
+  GripVertical, MoreVertical, Copy, WifiOff, MoveRight, Star, TriangleAlert,
 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type PendingCommessa } from '@/lib/db'
@@ -57,6 +57,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { deleteCommessa, duplicaCommessa, updateOrdineCommesse, updateStatoCommessa, spostaCommessa, toggleCalcoli } from '@/actions/commesse'
 import { formatEuro } from '@/lib/pricing'
+import { statoAllineamento } from '@/lib/allineamento-commessa'
 import type { CommessaCompleta, PreventivoPerCommessa, StatoCommessa, UtentePerCommessa, GruppoCommesse } from '@/types/commessa'
 import { REPARTI } from '@/types/commessa'
 import type { Cliente } from '@/types/cliente'
@@ -179,6 +180,7 @@ function CommessaColGroup() {
 
 interface RowProps {
   c: CommessaCompleta
+  preventiviById: Map<string, PreventivoPerCommessa>
   onScheda: () => void
   onDelete: () => void
   onDuplica: () => void
@@ -192,7 +194,7 @@ interface RowProps {
   onToggleCalcoli: () => void
 }
 
-function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange, altriGruppi, onSposta, highlighted, onToggleCalcoli }: RowProps) {
+function SortableRow({ c, preventiviById, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange, altriGruppi, onSposta, highlighted, onToggleCalcoli }: RowProps) {
   // Passato al preventivo così il tasto indietro riporta qui e non all'elenco preventivi
   const pathname = usePathname()
   const {
@@ -212,6 +214,8 @@ function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti,
 
   const saldoPositivo = c.saldo > 0.005
   const saldoZero = !saldoPositivo && c.saldo >= -0.005
+
+  const allineamento = statoAllineamento(c, preventiviById)
 
   return (
     <TableRow
@@ -278,7 +282,19 @@ function SortableRow({ c, onScheda, onDelete, onDuplica, onAcconto, onDocumenti,
       </TableCell>
 
       <TableCell className="text-right text-sm font-semibold">
-        {formatEuro(c.totale)}
+        <span className="inline-flex items-center justify-end gap-1">
+          {allineamento.tipo === 'disallineata' && (
+            <button
+              type="button"
+              onClick={onScheda}
+              className="text-amber-500 hover:text-amber-600 shrink-0"
+              title={`I preventivi collegati valgono ora € ${formatEuro(allineamento.totalePreventivi)} (${allineamento.differenza > 0 ? '+' : '-'}€ ${formatEuro(Math.abs(allineamento.differenza))}). Apri la scheda per allineare.`}
+            >
+              <TriangleAlert className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {formatEuro(c.totale)}
+        </span>
       </TableCell>
 
       <TableCell className="text-right text-sm text-gray-500">
@@ -520,6 +536,13 @@ export default function TabellaCommesse({
   // positivo e non in negativo, così un tipo di blocco futuro resta escluso di default.
   const altriGruppi = gruppi.filter((g) => g.id !== gruppoCorrenteId && g.tipo === 'commesse')
 
+  // Il confronto commessa/preventivi non costa query: getPreventiviPerCommessa()
+  // porta già in pagina i totali live di ogni preventivo accettato.
+  const preventiviById = useMemo(
+    () => new Map(preventivi.map((p) => [p.id, p])),
+    [preventivi]
+  )
+
   const dialogPrevManualeCommessa = dialogPrevManuale
     ? items.find((c) => c.id === dialogPrevManuale.commessaId) ?? null
     : null
@@ -745,6 +768,7 @@ export default function TabellaCommesse({
                     <SortableRow
                       key={c.id}
                       c={c}
+                      preventiviById={preventiviById}
                       onScheda={() => setSchedaCommessaId(c.id)}
                       onDelete={() => setDeletingId(c.id)}
                       onDuplica={() => handleDuplica(c.id)}
