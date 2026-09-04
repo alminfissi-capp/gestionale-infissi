@@ -45,6 +45,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import DialogResoconto from '@/components/commesse/DialogResoconto'
+import SpuntaRitenuta from '@/components/commesse/SpuntaRitenuta'
+import RitenutaAccontoRiga from '@/components/commesse/RitenutaAccontoRiga'
 import { createClient } from '@/lib/supabase/client'
 import {
   updateCommessa,
@@ -62,6 +64,7 @@ import { formatEuro } from '@/lib/pricing'
 import { statoAllineamento } from '@/lib/allineamento-commessa'
 import { filtraClienti } from '@/lib/ricerca-clienti'
 import { nomeCliente, trovaClientePerNome } from '@/lib/clienti-identita'
+import { calcolaRitenuta } from '@/lib/ritenuta-acconto'
 import { parseCoordinate, mapsUrl } from '@/lib/geo'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import type {
@@ -104,7 +107,7 @@ const METODI: { value: MetodoPagamento; label: string }[] = [
 const today = () => new Date().toISOString().split('T')[0]
 
 function emptyAcconto(): AccontoInput {
-  return { importo: 0, data_pagamento: today(), metodo_pagamento: 'contanti', note: null }
+  return { importo: 0, ritenuta: 0, data_pagamento: today(), metodo_pagamento: 'contanti', note: null }
 }
 
 function formatData(d: string) {
@@ -596,6 +599,16 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
   }
 
   const clienteSelezionato = clienteId ? clienti.find((c) => c.id === clienteId) ?? null : null
+
+  // Le aziende non fanno la detrazione fiscale: sulle loro commesse la spunta
+  // della ritenuta resta visibile ma spenta. Il tipo si cerca in anagrafica per
+  // nome, perche' la commessa salva solo il testo; cliente fuori anagrafica =
+  // tipo ignoto = spunta disponibile.
+  const clienteAnagrafica = trovaClientePerNome(clienti, commessa?.cliente_nome)
+  const motivoRitenutaDisabilitata =
+    clienteAnagrafica?.tipo === 'azienda'
+      ? `${nomeCliente(clienteAnagrafica)} e' un'azienda: la detrazione fiscale non si applica.`
+      : null
 
   // ── Render ────────────────────────────────────────────────
 
@@ -1127,6 +1140,7 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                             <span className="text-xs text-gray-400 truncate max-w-[120px]">{a.note}</span>
                           )}
                         </div>
+                        <RitenutaAccontoRiga acconto={a} motivoDisabilitata={motivoRitenutaDisabilitata} />
                       </div>
                       <Button
                         variant="ghost"
@@ -1176,7 +1190,11 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                       <Input
                         type="number" step="0.01" min="0.01" placeholder="0,00"
                         value={newAcconto.importo || ''}
-                        onChange={(e) => setNewAcconto((f) => ({ ...f, importo: parseFloat(e.target.value) || 0 }))}
+                        onChange={(e) => {
+                          const importo = parseFloat(e.target.value) || 0
+                          // La ritenuta segue l'importo finche' resta spuntata.
+                          setNewAcconto((f) => ({ ...f, importo, ritenuta: f.ritenuta > 0 ? calcolaRitenuta(importo) : 0 }))
+                        }}
                         autoFocus
                       />
                     </div>
@@ -1215,6 +1233,13 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                       />
                     </div>
                   </div>
+                  <SpuntaRitenuta
+                    id="scheda-acc-ritenuta"
+                    importo={newAcconto.importo}
+                    ritenuta={newAcconto.ritenuta}
+                    onChange={(ritenuta) => setNewAcconto((f) => ({ ...f, ritenuta }))}
+                    motivoDisabilitata={motivoRitenutaDisabilitata}
+                  />
                   <div className="flex gap-2 justify-end">
                     <Button type="button" variant="ghost" size="sm" onClick={() => setShowAddAcconto(false)}>
                       Annulla

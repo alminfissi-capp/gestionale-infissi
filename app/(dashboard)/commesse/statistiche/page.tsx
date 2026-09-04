@@ -34,7 +34,7 @@ export default async function StatisticheCommessePage() {
       selectAll((da, a) => supabase
         // `id` serve a sapere quali acconti la banca ha trattenuto sugli anticipi.
         .from('acconti_commessa')
-        .select('id, commessa_id, importo, data_pagamento')
+        .select('id, commessa_id, importo, ritenuta, data_pagamento')
         .eq('organization_id', orgId)
         .order('id').range(da, a)),
       selectAll((da, a) => supabase

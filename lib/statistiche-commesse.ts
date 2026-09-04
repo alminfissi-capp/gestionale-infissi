@@ -8,6 +8,7 @@
 //   dal blocco della commessa collegata.
 
 import { normalizzaTesto } from '@/lib/ricerca-clienti'
+import { nettoIncassato } from '@/lib/ritenuta-acconto'
 import type {
   RiepilogoBanche, UtilizzoBanca,
   ContoBancaRow, LineaCreditoRow, AnticipoRow, InfoCommessa,
@@ -27,7 +28,11 @@ export type StatRow = {
 
 export type AccontoRow = {
   commessa_id: string
+  // Lordo bonificato dal cliente: e' con questo che si misura quanto ha pagato.
   importo: number
+  // Trattenuta dalla banca sui bonifici per detrazioni fiscali e versata
+  // all'Erario. Opzionale: le letture che non la selezionano restano al lordo.
+  ritenuta?: number
   data_pagamento: string | null
 }
 
@@ -157,7 +162,9 @@ export function aggregaFlussoMese(
     if (annoStr(a.data_pagamento) !== anno) continue
     const m = meseDi(a.data_pagamento)
     if (m === null) continue
-    out[m].incasso += Number(a.importo) || 0
+    // Netto: nel mese entrano i soldi arrivati in banca, non quelli bonificati.
+    // Il lordo resta la misura di quanto ha pagato il cliente, altrove.
+    out[m].incasso += nettoIncassato(Number(a.importo) || 0, Number(a.ritenuta) || 0)
   }
 
   for (const s of scadenze) {
@@ -431,6 +438,11 @@ export type RiepilogoFinanziario = {
   creditiPerStato: CreditoPerStato[] // dettaglio di creditiCommesse: le righe sommano al totale
   creditiAltri: number // incassi in attesa: entrate che non nascono da una commessa
   crediti: number      // totale
+  // Ritenute d'acconto subite nell'anno di `oggi`: un credito verso l'Erario che
+  // si recupera in dichiarazione. Sta FUORI da `crediti` e dalla posizione netta
+  // di proposito: quel totale significa "soldi che posso ancora chiedere a
+  // qualcuno", e questi non li puoi chiedere a nessuno adesso.
+  ritenuteSubite: number
   debitiScaduti: number
   debitiAnno: number
   debitiFuturi: number
@@ -507,6 +519,18 @@ export function riepilogoCreditiDebiti(
   }
   const crediti = creditiCommesse + creditiAltri
 
+  // Solo l'anno di `oggi`: le ritenute degli anni scorsi sono gia' rientrate con
+  // la dichiarazione, tenerle qui gonfierebbe un credito che non esiste piu'.
+  // Quelle senza data di pagamento restano fuori perche' non si sa a che anno
+  // attribuirle, come gia' avviene per gli incassi in attesa.
+  const annoRitenute = annoStr(oggi)
+  let ritenuteSubite = 0
+  for (const a of acconti) {
+    if (annoStr(a.data_pagamento) !== annoRitenute) continue
+    ritenuteSubite += Number(a.ritenuta) || 0
+  }
+  ritenuteSubite = Math.round(ritenuteSubite * 100) / 100
+
   // Stesso floor delle commesse: un dipendente pagato in anticipo non azzera
   // il debito verso gli altri.
   let debitiDipendenti = 0
@@ -579,6 +603,7 @@ export function riepilogoCreditiDebiti(
     creditiPerStato,
     creditiAltri,
     crediti,
+    ritenuteSubite,
     debitiScaduti,
     debitiAnno,
     debitiFuturi,

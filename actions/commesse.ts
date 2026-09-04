@@ -254,6 +254,21 @@ export async function addAcconto(commessaId: string, input: AccontoInput): Promi
   revalidatePath('/commesse', 'layout')
 }
 
+/**
+ * Marca (o smarca) la ritenuta su un acconto gia' registrato: serve per i
+ * pagamenti inseriti prima che la funzione esistesse. Aggiorna solo quel campo,
+ * cosi' non puo' rimescolare importo, data o firma di una ricevuta gia' emessa.
+ */
+export async function updateAccontoRitenuta(id: string, ritenuta: number): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('acconti_commessa')
+    .update({ ritenuta })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/commesse', 'layout')
+}
+
 export async function deleteAcconto(id: string): Promise<void> {
   const supabase = await createClient()
   const { error } = await supabase.from('acconti_commessa').delete().eq('id', id)

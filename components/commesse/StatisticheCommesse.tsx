@@ -370,6 +370,24 @@ export default function StatisticheCommesse({ dati, datiAndamento, oggi, fidoUti
           <p className="text-xs text-gray-500 mt-2">
             Saldo residuo delle commesse più gli incassi in attesa non legati a commesse
           </p>
+
+          {/* Fuori dal totale qui sopra, di proposito: e' un credito verso
+              l'Erario che rientra con la dichiarazione, non denaro che si possa
+              chiedere a un cliente. Sommarlo direbbe che c'e' piu' da incassare
+              di quanto ce n'e' davvero. */}
+          {riepilogo.ritenuteSubite > 0 && (
+            <div className="mt-3 pt-2 border-t border-sky-200 flex items-baseline text-amber-800">
+              <span className="shrink-0 text-sm">Ritenute subite nel {annoOggi}</span>
+              <Filo />
+              <span className="shrink-0 text-sm font-medium">{formatEuro(riepilogo.ritenuteSubite)}</span>
+            </div>
+          )}
+          {riepilogo.ritenuteSubite > 0 && (
+            <p className="text-xs text-gray-500 mt-1">
+              Trattenute dalle banche sui bonifici per detrazioni fiscali e versate all&apos;Erario.
+              Non sono nel totale: si recuperano in dichiarazione, non da un cliente.
+            </p>
+          )}
         </div>
 
         <div className="rounded-lg border border-gray-200 p-3">
