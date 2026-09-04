@@ -10,6 +10,7 @@ import { getConti } from '@/actions/conti'
 import { getFornitori } from '@/actions/magazzino'
 import { getClienti } from '@/actions/clienti'
 import TabellaCommesse from '@/components/commesse/TabellaCommesse'
+import { getMyPermissions } from '@/lib/permessi'
 import SezioniAnonime from '@/components/commesse/SezioniAnonime'
 import { getSezioniAnonime } from '@/actions/vendite-anonime'
 import ScadenzeView from '@/components/commesse/ScadenzeView'
@@ -118,6 +119,10 @@ async function CommesseTable({
     getSezioniAnonime(gruppoId),
   ])
 
+  // Il numero commessa diventa un link a Produzione solo per chi quel modulo
+  // puo' aprirlo: altrimenti sarebbe un invito a una pagina che redirige via.
+  const { permessi } = await getMyPermissions()
+
   let preventivoDaConvertire: PreventivoPerCommessa | null = null
   if (from) {
     preventivoDaConvertire = preventivi.find((p) => p.id === from) ?? null
@@ -136,6 +141,7 @@ async function CommesseTable({
         gruppi={gruppi}
         gruppoCorrenteId={gruppoId}
         highlightId={highlight ?? null}
+        puoAprireProduzione={permessi.produzione !== 'nessuno'}
       />
     </div>
   )
