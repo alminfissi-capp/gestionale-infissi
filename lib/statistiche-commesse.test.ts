@@ -79,6 +79,25 @@ describe('aggregaFlussoMese', () => {
     expect(r[4].saldo).toBe(-250)
   })
 
+  it('conta l incasso al netto della ritenuta trattenuta dalla banca', () => {
+    // Il cliente bonifica 1.220 per detrazioni fiscali: in banca ne arrivano 1.110.
+    const conRitenuta: AccontoRow[] = [
+      { commessa_id: 'a', importo: 1220, ritenuta: 110, data_pagamento: '2026-04-10' },
+    ]
+    const r = aggregaFlussoMese(conRitenuta, [], [], '2026')
+    expect(r[3].incasso).toBe(1110)
+    expect(r[3].saldo).toBe(1110)
+  })
+
+  it('senza ritenuta l incasso resta il lordo, anche sulle righe che non hanno il campo', () => {
+    const senza: AccontoRow[] = [
+      { commessa_id: 'a', importo: 1220, ritenuta: 0, data_pagamento: '2026-04-10' },
+      { commessa_id: 'b', importo: 500, data_pagamento: '2026-04-11' }, // riga senza il campo
+    ]
+    const r = aggregaFlussoMese(senza, [], [], '2026')
+    expect(r[3].incasso).toBe(1720)
+  })
+
   it('somma ai pagamenti anche gli stipendi versati ai dipendenti', () => {
     const stipendi: PagamentoDipendenteRow[] = [
       { data_pagamento: '2026-01-27', importo: 1800 },
@@ -118,6 +137,37 @@ const scadenzeRiep: ScadenzaRow[] = [
 ]
 
 describe('riepilogoCreditiDebiti', () => {
+  it('somma le ritenute subite nell anno di oggi, escludendo quelle gia recuperate', () => {
+    const conRitenute: AccontoRow[] = [
+      { commessa_id: 'c1', importo: 1220, ritenuta: 110, data_pagamento: '2026-02-10' },
+      { commessa_id: 'c2', importo: 2440, ritenuta: 220, data_pagamento: '2026-05-10' },
+      { commessa_id: 'c3', importo: 1220, ritenuta: 110, data_pagamento: '2025-02-10' }, // gia' in dichiarazione
+      { commessa_id: 'c3', importo: 1220, ritenuta: 110, data_pagamento: null },          // senza data
+      { commessa_id: 'c1', importo: 500, data_pagamento: '2026-06-01' },                  // senza ritenuta
+    ]
+    const r = riepilogoCreditiDebiti(commesseRiep, conRitenute, [], [], [], OGGI, nessunaBanca)
+    expect(r.ritenuteSubite).toBe(330)
+  })
+
+  it('le ritenute restano fuori dai crediti e dalla posizione netta', () => {
+    const senza = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], [], [], OGGI, nessunaBanca)
+    const con: AccontoRow[] = accontiRiep.map((a) => ({ ...a, ritenuta: 110 }))
+    const r = riepilogoCreditiDebiti(commesseRiep, con, [], [], [], OGGI, nessunaBanca)
+    expect(r.ritenuteSubite).toBe(220)
+    // Il credito verso l'Erario non e' esigibile da nessuno: si vede, non si somma.
+    expect(r.crediti).toBe(senza.crediti)
+    expect(r.posizioneNetta).toBe(senza.posizioneNetta)
+  })
+
+  it('il residuo per commessa resta al lordo: il cliente ha pagato tutto', () => {
+    const con: AccontoRow[] = [
+      { commessa_id: 'c1', importo: 4000, ritenuta: 360.66, data_pagamento: '2026-02-10' },
+    ]
+    const r = riepilogoCreditiDebiti(commesseRiep, con, [], [], [], OGGI, nessunaBanca)
+    // c1: 10000-4000 = 6000, non 10000-3639,34
+    expect(r.creditiPerStato.find((x) => x.stato === 'in_lavorazione')?.importo).toBe(6000)
+  })
+
   it('somma i crediti come residuo per commessa, senza compensare fra commesse', () => {
     const r = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], [], [], OGGI, nessunaBanca)
     // c1: 10000-4000 = 6000 · c2: -2000 → 0 (non riduce c1) · c3: 2000
@@ -301,6 +351,7 @@ describe('riepilogoCreditiDebiti', () => {
       creditiPerStato: [],
       creditiAltri: 0,
       crediti: 0,
+      ritenuteSubite: 0,
       debitiScaduti: 0,
       debitiAnno: 0,
       debitiFuturi: 0,

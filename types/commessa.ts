@@ -158,7 +158,12 @@ export type AccontoCommessa = {
   id: string
   commessa_id: string
   organization_id: string
+  // Il LORDO bonificato dal cliente: e' quanto ha pagato, e chiude il suo debito.
   importo: number
+  // Quanto la banca ha trattenuto sul bonifico per detrazioni fiscali e versato
+  // all'Erario. 0 su tutti gli altri pagamenti. L'incassato e' la differenza:
+  // vedi `nettoIncassato` in lib/ritenuta-acconto.ts.
+  ritenuta: number
   data_pagamento: string
   metodo_pagamento: MetodoPagamento
   note: string | null
@@ -219,6 +224,7 @@ export type CommessaInput = {
 
 export type AccontoInput = {
   importo: number
+  ritenuta: number
   data_pagamento: string
   metodo_pagamento: MetodoPagamento
   note: string | null
