@@ -24,6 +24,7 @@ import {
   type DatiStatistiche, type CategoriaUscita,
 } from '@/lib/statistiche-commesse'
 import { riepilogoBanche } from '@/lib/banche'
+import CreditiFiscali from '@/components/commesse/CreditiFiscali'
 import { applicaOrdine, spostaBlocco } from '@/lib/ordine-blocchi'
 import { setOrdineBlocchi } from '@/actions/preferenze'
 import { BLOCCHI_STATISTICHE } from '@/types/statistiche'
@@ -104,7 +105,7 @@ export default function StatisticheCommesse({ dati, datiAndamento, oggi, fidoUti
   const {
     commesse, acconti, anni, costiCommesse, scadenze,
     altriCrediti, pagamentiDipendenti, contiDipendenti,
-    contiBanca, lineeCredito, anticipi, infoCommesse,
+    contiBanca, lineeCredito, anticipi, infoCommesse, creditiFiscali,
   } = dati
 
   const annoCorrente = String(new Date().getFullYear())
@@ -321,7 +322,9 @@ export default function StatisticheCommesse({ dati, datiAndamento, oggi, fidoUti
       )
     ),
     'crediti-debiti': (
-      <div className="grid gap-4 sm:grid-cols-2">
+      // Tre card: su schermi stretti una sotto l'altra, in mezzo due per riga,
+      // e da xl tutte e tre affiancate.
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <div className="rounded-lg border border-sky-100 bg-sky-50 p-3">
           <p className="text-xs uppercase tracking-wide text-sky-700 font-medium">Crediti da incassare</p>
           <p className="text-2xl font-bold text-sky-700 mt-1">{formatEuro(riepilogo.crediti)}</p>
@@ -370,24 +373,6 @@ export default function StatisticheCommesse({ dati, datiAndamento, oggi, fidoUti
           <p className="text-xs text-gray-500 mt-2">
             Saldo residuo delle commesse più gli incassi in attesa non legati a commesse
           </p>
-
-          {/* Fuori dal totale qui sopra, di proposito: e' un credito verso
-              l'Erario che rientra con la dichiarazione, non denaro che si possa
-              chiedere a un cliente. Sommarlo direbbe che c'e' piu' da incassare
-              di quanto ce n'e' davvero. */}
-          {riepilogo.ritenuteSubite > 0 && (
-            <div className="mt-3 pt-2 border-t border-sky-200 flex items-baseline text-amber-800">
-              <span className="shrink-0 text-sm">Ritenute subite nel {annoOggi}</span>
-              <Filo />
-              <span className="shrink-0 text-sm font-medium">{formatEuro(riepilogo.ritenuteSubite)}</span>
-            </div>
-          )}
-          {riepilogo.ritenuteSubite > 0 && (
-            <p className="text-xs text-gray-500 mt-1">
-              Trattenute dalle banche sui bonifici per detrazioni fiscali e versate all&apos;Erario.
-              Non sono nel totale: si recuperano in dichiarazione, non da un cliente.
-            </p>
-          )}
         </div>
 
         <div className="rounded-lg border border-gray-200 p-3">
@@ -559,7 +544,9 @@ export default function StatisticheCommesse({ dati, datiAndamento, oggi, fidoUti
           </div>
         </div>
 
-        <div className="sm:col-span-2 rounded-lg border p-3 flex flex-wrap items-baseline justify-between gap-2">
+        <CreditiFiscali acconti={acconti} creditiFiscali={creditiFiscali} oggi={oggi} />
+
+        <div className="sm:col-span-2 xl:col-span-3 rounded-lg border p-3 flex flex-wrap items-baseline justify-between gap-2">
           <div>
             <p className="text-xs uppercase tracking-wide text-gray-600 font-medium">
               Posizione netta {annoOggi}

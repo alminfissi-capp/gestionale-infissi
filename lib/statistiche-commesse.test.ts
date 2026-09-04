@@ -4,6 +4,8 @@ import {
   aggregaUscitePerCategoria,
   contaCommesseSenzaPreventivo,
   riepilogoCreditiDebiti,
+  riepilogoCreditiFiscali,
+  type CreditoFiscaleRow,
   resocontoCliente,
   clientiUnici,
   type AccontoRow,
@@ -137,24 +139,12 @@ const scadenzeRiep: ScadenzaRow[] = [
 ]
 
 describe('riepilogoCreditiDebiti', () => {
-  it('somma le ritenute subite nell anno di oggi, escludendo quelle gia recuperate', () => {
-    const conRitenute: AccontoRow[] = [
-      { commessa_id: 'c1', importo: 1220, ritenuta: 110, data_pagamento: '2026-02-10' },
-      { commessa_id: 'c2', importo: 2440, ritenuta: 220, data_pagamento: '2026-05-10' },
-      { commessa_id: 'c3', importo: 1220, ritenuta: 110, data_pagamento: '2025-02-10' }, // gia' in dichiarazione
-      { commessa_id: 'c3', importo: 1220, ritenuta: 110, data_pagamento: null },          // senza data
-      { commessa_id: 'c1', importo: 500, data_pagamento: '2026-06-01' },                  // senza ritenuta
-    ]
-    const r = riepilogoCreditiDebiti(commesseRiep, conRitenute, [], [], [], OGGI, nessunaBanca)
-    expect(r.ritenuteSubite).toBe(330)
-  })
-
-  it('le ritenute restano fuori dai crediti e dalla posizione netta', () => {
+  it('le ritenute non toccano crediti ne posizione netta', () => {
+    // Il credito verso l'Erario vive nella card dei crediti fiscali: qui non
+    // deve spostare niente, altrimenti verrebbe contato due volte.
     const senza = riepilogoCreditiDebiti(commesseRiep, accontiRiep, [], [], [], OGGI, nessunaBanca)
     const con: AccontoRow[] = accontiRiep.map((a) => ({ ...a, ritenuta: 110 }))
     const r = riepilogoCreditiDebiti(commesseRiep, con, [], [], [], OGGI, nessunaBanca)
-    expect(r.ritenuteSubite).toBe(220)
-    // Il credito verso l'Erario non e' esigibile da nessuno: si vede, non si somma.
     expect(r.crediti).toBe(senza.crediti)
     expect(r.posizioneNetta).toBe(senza.posizioneNetta)
   })
@@ -351,7 +341,6 @@ describe('riepilogoCreditiDebiti', () => {
       creditiPerStato: [],
       creditiAltri: 0,
       crediti: 0,
-      ritenuteSubite: 0,
       debitiScaduti: 0,
       debitiAnno: 0,
       debitiFuturi: 0,
@@ -591,5 +580,70 @@ describe('vendite anonime fuori dalle statistiche per commessa', () => {
     )
     expect(totale.numero).toBe(1)
     expect(totale.fatturato).toBe(1000)
+  })
+})
+
+// ── Crediti fiscali ────────────────────────────────────────────────────────
+describe('riepilogoCreditiFiscali', () => {
+  const accontiFisc: AccontoRow[] = [
+    { commessa_id: 'a', importo: 1220, ritenuta: 110, data_pagamento: '2026-02-10' },
+    { commessa_id: 'b', importo: 2440, ritenuta: 220, data_pagamento: '2026-05-10' },
+    { commessa_id: 'c', importo: 1220, ritenuta: 110, data_pagamento: '2025-11-30' },
+    { commessa_id: 'd', importo: 1220, ritenuta: 110, data_pagamento: '2024-03-01' }, // troppo vecchia
+    { commessa_id: 'e', importo: 1220, ritenuta: 110, data_pagamento: null },          // senza data
+    { commessa_id: 'f', importo: 900, data_pagamento: '2026-06-01' },                  // senza ritenuta
+  ]
+
+  it('separa le ritenute dell anno in corso da quelle dell anno prima', () => {
+    const r = riepilogoCreditiFiscali(accontiFisc, [], OGGI)
+    expect(r.ritenuteAnnoCorrente).toBe(330)
+    expect(r.ritenuteAnnoPrecedente).toBe(110)
+    expect(r.anno).toBe('2026')
+    expect(r.annoPrecedente).toBe('2025')
+  })
+
+  it('lascia fuori le ritenute piu vecchie di due anni e quelle senza data', () => {
+    const r = riepilogoCreditiFiscali(accontiFisc, [], OGGI)
+    // 330 + 110: esclusi i 110 del 2024 e i 110 senza data di pagamento
+    expect(r.ritenute).toBe(440)
+  })
+
+  it('somma le voci manuali non ancora recuperate', () => {
+    const manuali: CreditoFiscaleRow[] = [
+      { importo: 5000, recuperato: false },
+      { importo: 1200, recuperato: false },
+      { importo: 800, recuperato: true }, // gia' compensato
+    ]
+    const r = riepilogoCreditiFiscali([], manuali, OGGI)
+    expect(r.manuali).toBe(6200)
+    expect(r.totale).toBe(6200)
+  })
+
+  it('il totale mette insieme ritenute e voci manuali', () => {
+    const manuali: CreditoFiscaleRow[] = [{ importo: 5000, recuperato: false }]
+    const r = riepilogoCreditiFiscali(accontiFisc, manuali, OGGI)
+    expect(r.totale).toBe(5440) // 330 + 110 + 5000
+  })
+
+  it('regge le liste vuote', () => {
+    const r = riepilogoCreditiFiscali([], [], OGGI)
+    expect(r).toEqual({
+      anno: '2026',
+      annoPrecedente: '2025',
+      ritenuteAnnoCorrente: 0,
+      ritenuteAnnoPrecedente: 0,
+      ritenute: 0,
+      manuali: 0,
+      totale: 0,
+    })
+  })
+
+  it('arrotonda al centesimo invece di trascinare i decimali', () => {
+    const r = riepilogoCreditiFiscali(
+      [{ commessa_id: 'a', importo: 1000, ritenuta: 90.16, data_pagamento: '2026-01-10' }],
+      [{ importo: 0.1, recuperato: false }, { importo: 0.2, recuperato: false }],
+      OGGI,
+    )
+    expect(r.totale).toBe(90.46)
   })
 })
