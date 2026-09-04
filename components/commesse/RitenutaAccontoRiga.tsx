@@ -54,7 +54,7 @@ export default function RitenutaAccontoRiga({ acconto, motivoDisabilitata }: Pro
         disabled={salvando}
         className="text-xs text-gray-400 hover:text-gray-700 underline underline-offset-2 disabled:opacity-50"
       >
-        {attiva ? 'togli ritenuta' : 'era un bonifico per detrazioni'}
+        {attiva ? 'togli ritenuta' : 'Bonifico per detrazioni fiscali'}
       </button>
     </div>
   )
