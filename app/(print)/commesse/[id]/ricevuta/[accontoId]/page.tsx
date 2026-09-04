@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { requireAccesso } from '@/lib/permessi'
 import type { Metadata } from 'next'
 import { getCommessaById } from '@/actions/commesse'
 import { getSettings, getLogoSignedUrl } from '@/actions/impostazioni'
@@ -24,6 +25,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function RicevutaAccontoPage({ params }: Props) {
+  // La ricevuta mostra cliente, importo e saldo: stesso permesso dell'elenco.
+  await requireAccesso('commesse')
   const { id, accontoId } = await params
 
   const [commessa, settings] = await Promise.all([
