@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { requireAccesso } from '@/lib/permessi'
+import { requireAccesso, getMyPermissions } from '@/lib/permessi'
 import {
   getCommessaProduzione, getOrdiniCommessa, getFornitoriPerOrdine, getProssimoNumeroOrdine,
 } from '@/actions/produzione'
@@ -12,11 +12,15 @@ export const dynamic = 'force-dynamic'
 
 export default async function ProduzioneCommessaPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ commessaId: string }>
+  // `da=commesse` dice che si e' arrivati qui dall'elenco economico.
+  searchParams: Promise<{ da?: string }>
 }) {
   await requireAccesso('produzione')
   const { commessaId } = await params
+  const { da } = await searchParams
 
   const commessa = await getCommessaProduzione(commessaId)
   if (!commessa) notFound()
@@ -32,6 +36,17 @@ export default async function ProduzioneCommessaPage({
   const tracking = await getTrackingOrdini(ordini.map((o) => o.id))
 
   const logoUrl = settings?.logo_url ? await getLogoSignedUrl(settings.logo_url) : null
+
+  // Il ritorno all'elenco economico compare solo a chi e' arrivato da li'. Il
+  // parametro nell'indirizzo pero' se lo puo' scrivere chiunque, quindi da solo
+  // non nasconde niente: la condizione che conta e' il permesso, verificato qui
+  // sul server. Torna al blocco della commessa, evidenziando la riga di
+  // partenza, cosi' si riprende esattamente da dove si era.
+  const { permessi } = await getMyPermissions()
+  const tornaACommesse =
+    da === 'commesse' && permessi.commesse !== 'nessuno' && commessa.gruppo_id
+      ? `/commesse/${commessa.gruppo_id}?highlight=${commessa.id}`
+      : null
 
   const intestazione = {
     denominazione: settings?.denominazione ?? 'A.L.M. Infissi',
@@ -49,6 +64,7 @@ export default async function ProduzioneCommessaPage({
       documenti={documenti}
       intestazione={intestazione}
       tracking={tracking}
+      tornaACommesse={tornaACommesse}
     />
   )
 }

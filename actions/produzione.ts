@@ -305,16 +305,25 @@ export async function getCommessaProduzione(commessaId: string): Promise<{
   numero_commessa: string
   cliente_nome: string
   stato: StatoCommessa
+  // Il blocco di appartenenza: serve solo a ricostruire il ritorno all'elenco
+  // economico, che vive in /commesse/{gruppo_id}.
+  gruppo_id: string | null
 } | null> {
   const supabase = await createClient()
   const orgId = await getOrgId()
   const { data } = await supabase
     .from('commesse')
-    .select('id, numero_commessa, cliente_nome, stato')
+    .select('id, numero_commessa, cliente_nome, stato, gruppo_id')
     .eq('id', commessaId)
     .eq('organization_id', orgId)
     .maybeSingle()
-  return data as { id: string; numero_commessa: string; cliente_nome: string; stato: StatoCommessa } | null
+  return data as {
+    id: string
+    numero_commessa: string
+    cliente_nome: string
+    stato: StatoCommessa
+    gruppo_id: string | null
+  } | null
 }
 
 export async function getProssimoNumeroOrdine(): Promise<string> {
