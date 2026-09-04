@@ -143,6 +143,9 @@ interface Props {
   gruppi: GruppoCommesse[]
   gruppoCorrenteId: string
   highlightId?: string | null
+  // Deciso sul server: il numero commessa diventa un link a Produzione solo per
+  // chi ha accesso a quel modulo.
+  puoAprireProduzione: boolean
 }
 
 function formatMese(data: string): string {
@@ -192,9 +195,10 @@ interface RowProps {
   onSposta: (gruppoId: string) => void
   highlighted?: boolean
   onToggleCalcoli: () => void
+  puoAprireProduzione: boolean
 }
 
-function SortableRow({ c, preventiviById, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange, altriGruppi, onSposta, highlighted, onToggleCalcoli }: RowProps) {
+function SortableRow({ c, preventiviById, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange, altriGruppi, onSposta, highlighted, onToggleCalcoli, puoAprireProduzione }: RowProps) {
   // Passato al preventivo così il tasto indietro riporta qui e non all'elenco preventivi
   const pathname = usePathname()
   const {
@@ -333,7 +337,25 @@ function SortableRow({ c, preventiviById, onScheda, onDelete, onDuplica, onAccon
       </TableCell>
 
       <TableCell className="font-mono text-sm text-right">
-        {c.numero_commessa || <span className="text-gray-300">—</span>}
+        {/* Stessa commessa, altro modulo: il numero e' l'unico identificativo
+            condiviso fra l'elenco economico e Produzione, quindi e' lui il
+            punto naturale su cui cliccare. Senza numero non c'e' niente da
+            mostrare, e senza permesso il link porterebbe a un redirect. */}
+        {c.numero_commessa ? (
+          puoAprireProduzione ? (
+            <Link
+              href={`/produzione/${c.id}`}
+              title="Apri in Produzione"
+              className="text-teal-700 hover:text-teal-900 hover:underline underline-offset-2"
+            >
+              {c.numero_commessa}
+            </Link>
+          ) : (
+            c.numero_commessa
+          )
+        ) : (
+          <span className="text-gray-300">—</span>
+        )}
       </TableCell>
 
       {/* Stato */}
@@ -517,6 +539,7 @@ export default function TabellaCommesse({
   gruppi,
   gruppoCorrenteId,
   highlightId,
+  puoAprireProduzione,
 }: Props) {
   const router = useRouter()
   const { isOnline } = useOnlineStatus()
@@ -780,6 +803,7 @@ export default function TabellaCommesse({
                       onSposta={(gId) => handleSposta(c.id, gId)}
                       highlighted={highlighted === c.id}
                       onToggleCalcoli={() => handleToggleCalcoli(c.id, !c.in_calcoli)}
+                      puoAprireProduzione={puoAprireProduzione}
                     />
                   ))}
                 </SortableContext>
