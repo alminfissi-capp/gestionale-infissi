@@ -847,6 +847,7 @@ export default function TabellaCommesse({
         commessa={schedaCommessa}
         utenti={utenti}
         preventiviById={preventiviById}
+        clienti={clienti}
       />
 
       {dialogAcconto && (

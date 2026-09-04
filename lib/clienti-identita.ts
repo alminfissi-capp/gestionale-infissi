@@ -41,3 +41,40 @@ export function deveScollegareCliente(
 
   return true
 }
+
+/**
+ * Come si chiama un cliente quando lo si deve *leggere*: nei selettori
+ * dell'anagrafica e in `cliente_nome`, il testo che preventivi e commesse
+ * conservano come fotografia. Vive qui accanto a `deveScollegareCliente` perché
+ * è la stessa domanda vista dall'altro lato: quello decide quando due nomi sono
+ * persone diverse, questo decide qual è il nome.
+ */
+export type ClienteNominabile = {
+  tipo?: string | null
+  nome?: string | null
+  cognome?: string | null
+  ragione_sociale?: string | null
+  email?: string | null
+}
+
+export function nomeCliente(c: ClienteNominabile): string {
+  if (c.tipo === 'azienda') return c.ragione_sociale || c.email || '—'
+  return [c.nome, c.cognome].filter(Boolean).join(' ') || c.email || '—'
+}
+
+/**
+ * Il cliente in anagrafica che corrisponde a un `cliente_nome` già salvato.
+ *
+ * Il confronto è sul nome normalizzato e deve restare *esatto*: serve a mostrare
+ * già agganciata la commessa il cui nome combacia, non a indovinare. Una
+ * corrispondenza approssimata attribuirebbe in silenzio la commessa alla persona
+ * sbagliata — meglio nessun aggancio, che si vede ed è correggibile a mano.
+ */
+export function trovaClientePerNome<T extends ClienteNominabile>(
+  clienti: T[],
+  nome: string | null | undefined
+): T | null {
+  const cercato = normalizzaTesto(nome)
+  if (!cercato) return null
+  return clienti.find((c) => normalizzaTesto(nomeCliente(c)) === cercato) ?? null
+}

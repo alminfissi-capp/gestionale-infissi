@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import {
   Pencil, X, Plus, Trash2, Upload, FileText,
   Eye, Share2, Check, ExternalLink, Printer,
-  MapPin, Navigation, MoreVertical, FileBarChart, TriangleAlert,
+  MapPin, Navigation, MoreVertical, FileBarChart, TriangleAlert, ChevronsUpDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,6 +25,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +60,8 @@ import {
 } from '@/actions/commesse'
 import { formatEuro } from '@/lib/pricing'
 import { statoAllineamento } from '@/lib/allineamento-commessa'
+import { filtraClienti } from '@/lib/ricerca-clienti'
+import { nomeCliente, trovaClientePerNome } from '@/lib/clienti-identita'
 import { parseCoordinate, mapsUrl } from '@/lib/geo'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import type {
@@ -61,6 +76,7 @@ import type {
   PreventivoPerCommessa,
 } from '@/types/commessa'
 import { REPARTI } from '@/types/commessa'
+import type { Cliente } from '@/types/cliente'
 
 // ── Costanti ────────────────────────────────────────────────
 
@@ -133,11 +149,14 @@ interface Props {
   // La stessa mappa memoizzata usata dalle righe dell'elenco: costruita una volta
   // sola in TabellaCommesse e passata a entrambi i consumatori.
   preventiviById: Map<string, PreventivoPerCommessa>
+  // L'anagrafica serve solo in modifica, per riattribuire la commessa a un
+  // cliente esistente invece di riscriverne il nome a mano.
+  clienti: Cliente[]
 }
 
 // ── Componente ───────────────────────────────────────────────
 
-export default function DialogSchedaCommessa({ open, onOpenChange, commessa, utenti, preventiviById }: Props) {
+export default function DialogSchedaCommessa({ open, onOpenChange, commessa, utenti, preventiviById, clienti }: Props) {
   const router = useRouter()
   // Passato al preventivo così il tasto indietro riporta qui e non all'elenco preventivi
   const pathname = usePathname()
@@ -156,6 +175,13 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
   const [form, setForm] = useState<CommessaInput | null>(null)
   const [saving, setSaving] = useState(false)
   const [allineando, setAllineando] = useState(false)
+
+  // Riattribuzione cliente (solo in modifica). `clienteId` non viene salvato:
+  // le commesse conservano solo il testo `cliente_nome`, quindi la combobox e'
+  // un modo per compilarlo bene, non un collegamento all'anagrafica.
+  const [clienteId, setClienteId] = useState<string | null>(null)
+  const [comboOpen, setComboOpen] = useState(false)
+  const [ricercaCliente, setRicercaCliente] = useState('')
 
   // Acconti
   const [showAddAcconto, setShowAddAcconto] = useState(false)
@@ -185,6 +211,9 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
     setLng(commessa.cantiere_lng)
     setLinkInput('')
     setEditingPos(false)
+    setClienteId(null)
+    setComboOpen(false)
+    setRicercaCliente('')
   }, [open, commessa?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
 
@@ -210,6 +239,10 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
     load()
     return () => { cancelled = true }
   }, [open, commessa?.documenti.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // shouldFilter={false} sulla Command: filtriamo noi, con la stessa logica
+  // dell'anagrafica (nome+cognome insieme, telefoni in formati misti).
+  const clientiFiltrati = useMemo(() => filtraClienti(clienti, ricercaCliente), [clienti, ricercaCliente])
 
   if (!commessa || !form) return null
 
@@ -324,6 +357,36 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
   const handleCancelEdit = () => {
     setForm(commessaToForm(commessa))
     setEditMode(false)
+    setClienteId(null)
+    setRicercaCliente('')
+  }
+
+  // Entrando in modifica la combobox parte gia' sul cliente il cui nome combacia:
+  // se resta vuota, quel nome non corrisponde a nessuno in anagrafica ed e'
+  // proprio l'informazione utile da vedere.
+  const handleEnterEdit = () => {
+    setClienteId(trovaClientePerNome(clienti, commessa.cliente_nome)?.id ?? null)
+    setRicercaCliente('')
+    setEditMode(true)
+  }
+
+  const handleSelectCliente = (c: Cliente) => {
+    setClienteId(c.id)
+    setForm((f) => f ? { ...f, cliente_nome: nomeCliente(c) } : f)
+    setComboOpen(false)
+    setRicercaCliente('')
+  }
+
+  // Riscrivere il nome a mano scioglie la selezione: senza un cliente_id da
+  // salvare, una combobox che continuasse a mostrare un cliente diverso dal
+  // testo direbbe il falso.
+  const handleCambiaNomeCliente = (nome: string) => {
+    setForm((f) => f ? { ...f, cliente_nome: nome } : f)
+    setClienteId((id) => {
+      if (!id) return null
+      const c = clienti.find((x) => x.id === id)
+      return c && nomeCliente(c) === nome ? id : null
+    })
   }
 
   const handleCondividi = async () => {
@@ -532,6 +595,8 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
     } catch { /* annullato */ }
   }
 
+  const clienteSelezionato = clienteId ? clienti.find((c) => c.id === clienteId) ?? null : null
+
   // ── Render ────────────────────────────────────────────────
 
   return (
@@ -543,12 +608,63 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
           {/* Riga cliente — pr-14 per non sovrapporsi al tasto X del Dialog */}
           <div className="pr-14">
             {editMode ? (
-              <Input
-                value={form.cliente_nome}
-                onChange={(e) => setForm((f) => f ? { ...f, cliente_nome: e.target.value } : f)}
-                className="text-xl font-bold border-0 shadow-none px-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
-                placeholder="Nome cliente"
-              />
+              <div className="space-y-1.5">
+                <div className="flex gap-2">
+                  <Popover open={comboOpen} onOpenChange={setComboOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        role="combobox"
+                        aria-expanded={comboOpen}
+                        className="flex-1 justify-between font-normal text-left"
+                      >
+                        <span className="truncate">
+                          {clienteSelezionato ? nomeCliente(clienteSelezionato) : 'Cerca in anagrafica...'}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-gray-400" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
+                      <Command shouldFilter={false}>
+                        <CommandInput
+                          placeholder="Cerca per nome, telefono, email..."
+                          value={ricercaCliente}
+                          onValueChange={setRicercaCliente}
+                        />
+                        <CommandList>
+                          <CommandEmpty className="py-3 text-center text-sm text-gray-500">
+                            Nessun cliente trovato
+                          </CommandEmpty>
+                          <CommandGroup>
+                            {clientiFiltrati.map((c) => (
+                              <CommandItem
+                                key={c.id}
+                                value={nomeCliente(c)}
+                                onSelect={() => handleSelectCliente(c)}
+                              >
+                                {nomeCliente(c)}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {clienteId && (
+                    <Button type="button" variant="ghost" size="icon" onClick={() => setClienteId(null)}>
+                      <X className="h-4 w-4 text-gray-400" />
+                    </Button>
+                  )}
+                </div>
+                <Input
+                  value={form.cliente_nome}
+                  onChange={(e) => handleCambiaNomeCliente(e.target.value)}
+                  className="text-xl font-bold border-0 shadow-none px-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0"
+                  placeholder="Nome cliente"
+                />
+              </div>
             ) : (
               <h2 className="text-xl font-bold text-gray-900 leading-tight">{commessa.cliente_nome}</h2>
             )}
@@ -583,7 +699,7 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
               </>
             ) : (
               <>
-                <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
+                <Button variant="outline" size="sm" onClick={handleEnterEdit}>
                   <Pencil className="h-3.5 w-3.5 mr-1.5" />
                   Modifica
                 </Button>

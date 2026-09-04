@@ -46,6 +46,7 @@ import {
 } from '@/actions/commesse'
 import { createCliente } from '@/actions/clienti'
 import { filtraClienti } from '@/lib/ricerca-clienti'
+import { nomeCliente } from '@/lib/clienti-identita'
 import { formatEuro } from '@/lib/pricing'
 import type {
   CommessaCompleta,
@@ -108,11 +109,6 @@ const emptyForm = (): CommessaInput => ({
   costo_manodopera_manuale: null,
   utile_manuale: null,
 })
-
-function nomeCliente(c: Cliente): string {
-  if (c.tipo === 'azienda') return c.ragione_sociale || c.email || '—'
-  return [c.nome, c.cognome].filter(Boolean).join(' ') || c.email || '—'
-}
 
 function pcToItem(pc: PreventivoCommessa, preventivi: PreventivoPerCommessa[]): PrevItem {
   return {
