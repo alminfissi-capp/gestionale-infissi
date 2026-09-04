@@ -62,8 +62,10 @@ interface Props {
 export default function SezioneAnonimaCard({
   sezione, onRinomina, onElimina, onNuovaVendita, onModificaVendita, onEliminaVendita,
 }: Props) {
-  // Di default tutti i mesi chiusi: con centinaia di vendite la sezione deve
-  // restare leggibile a colpo d'occhio.
+  // Tre livelli, tutti chiusi all'inizio: la sezione mostra i totali dell'anno,
+  // aprendola compaiono i mesi, aprendo un mese le singole vendite. Con molti
+  // mesi il solo elenco delle intestazioni era gia' una pagina da scorrere.
+  const [mostraMesi, setMostraMesi] = useState(false)
   const [aperti, setAperti] = useState<Set<string>>(() => new Set())
   const toggle = (k: string) =>
     setAperti((cur) => {
@@ -79,12 +81,42 @@ export default function SezioneAnonimaCard({
     <Card className="gap-1.5 py-2 border-indigo-200 bg-indigo-50/40">
       <CardHeader className="px-2.5 pb-0 gap-1.5">
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h3 className="text-base font-semibold text-gray-900 truncate leading-tight">{sezione.nome}</h3>
-            <p className="text-[11px] text-gray-500 leading-tight">
-              {tot.numero} {tot.numero === 1 ? 'vendita' : 'vendite'} · commesse anonime
-            </p>
-          </div>
+          {/* Il titolo e' il comando: e' la zona piu' grande e piu' ovvia da
+              premere, e la freccia dice da che parte si va. Se non ci sono
+              vendite non c'e' niente da aprire e resta testo. */}
+          {mesi.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setMostraMesi((v) => !v)}
+              aria-expanded={mostraMesi}
+              aria-controls={`mesi-${sezione.id}`}
+              className="min-w-0 flex items-start gap-1.5 text-left group"
+            >
+              <ChevronDown
+                className={`h-4 w-4 mt-0.5 shrink-0 text-indigo-400 transition-transform group-hover:text-indigo-600 ${
+                  mostraMesi ? '' : '-rotate-90'
+                }`}
+              />
+              <span className="min-w-0">
+                <span className="block text-base font-semibold text-gray-900 truncate leading-tight group-hover:text-indigo-900">
+                  {sezione.nome}
+                </span>
+                <span className="block text-[11px] text-gray-500 leading-tight">
+                  {tot.numero} {tot.numero === 1 ? 'vendita' : 'vendite'} in {mesi.length}
+                  {mesi.length === 1 ? ' mese' : ' mesi'}
+                  {' · '}
+                  {mostraMesi ? 'nascondi i mesi' : 'mostra i mesi'}
+                </span>
+              </span>
+            </button>
+          ) : (
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold text-gray-900 truncate leading-tight">{sezione.nome}</h3>
+              <p className="text-[11px] text-gray-500 leading-tight">
+                Nessuna vendita · commesse anonime
+              </p>
+            </div>
+          )}
           <div className="flex items-center gap-1 shrink-0">
             <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-indigo-700" onClick={onNuovaVendita}>
               <Plus className="h-4 w-4 mr-1" />
@@ -125,11 +157,11 @@ export default function SezioneAnonimaCard({
         </div>
       </CardHeader>
 
-      {/* Sezione vuota: il corpo non si rende affatto. Che non ci siano vendite
-          lo dicono gia' il "0 vendite" nell'intestazione e i totali a zero, e
-          cosi' il riquadro resta alto quanto la sua sola intestazione. */}
-      {mesi.length > 0 && (
-      <CardContent className="px-2.5 space-y-1">
+      {/* Il corpo si rende solo da aperto, e mai su una sezione vuota: che non
+          ci siano vendite lo dicono gia' l'intestazione e i totali a zero. In
+          entrambi i casi il riquadro resta alto quanto la sua intestazione. */}
+      {mesi.length > 0 && mostraMesi && (
+      <CardContent id={`mesi-${sezione.id}`} className="px-2.5 space-y-1">
         {mesi.map((m) => {
           const totMese = totaliVendite(m.righe)
           const aperto = aperti.has(m.chiave)
