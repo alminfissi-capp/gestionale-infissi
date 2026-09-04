@@ -14,6 +14,7 @@ import type {
   GruppoCommesse,
   RigaCalcolo,
   IncassoAttesa,
+  CreditoFiscale,
   TipoBlocco,
   CommessaCondivisione,
 } from '@/types/commessa'
@@ -987,4 +988,82 @@ export async function getCommessePerCondivisione(): Promise<CommessaCondivisione
       numeri_preventivo: numeri,
     }
   })
+}
+
+// ── Crediti fiscali ──────────────────────────────────────────────────────────
+// Ricalcano gli incassi in attesa: stesse azioni, stesso ciclo di vita. Le
+// ritenute d'acconto non passano di qui, si calcolano dagli acconti.
+
+const toCreditoFiscale = (r: Record<string, unknown>): CreditoFiscale => ({
+  ...r,
+  importo: Number(r.importo),
+}) as CreditoFiscale
+
+export async function getCreditiFiscali(): Promise<CreditoFiscale[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data, error } = await supabase
+    .from('crediti_fiscali')
+    .select('*')
+    .eq('organization_id', orgId)
+    .order('ordine', { ascending: true })
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(toCreditoFiscale)
+}
+
+export async function addCreditoFiscale(): Promise<CreditoFiscale> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data: maxRow } = await supabase
+    .from('crediti_fiscali')
+    .select('ordine')
+    .eq('organization_id', orgId)
+    .order('ordine', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const nextOrdine = (maxRow?.ordine ?? -1) + 1
+  const { data, error } = await supabase
+    .from('crediti_fiscali')
+    .insert({ organization_id: orgId, ordine: nextOrdine })
+    .select('*')
+    .single()
+  if (error) throw new Error(error.message)
+  return toCreditoFiscale(data)
+}
+
+export async function updateCreditoFiscale(
+  id: string,
+  campi: { nome: string; descrizione: string; importo: number }
+): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('crediti_fiscali')
+    .update({ ...campi, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+}
+
+export async function setRecuperatoCreditoFiscale(id: string, recuperato: boolean): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('crediti_fiscali')
+    .update({ recuperato, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteCreditoFiscale(id: string): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('crediti_fiscali')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
 }

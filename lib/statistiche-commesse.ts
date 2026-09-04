@@ -9,6 +9,7 @@
 
 import { normalizzaTesto } from '@/lib/ricerca-clienti'
 import { nettoIncassato } from '@/lib/ritenuta-acconto'
+import type { CreditoFiscale } from '@/types/commessa'
 import type {
   RiepilogoBanche, UtilizzoBanca,
   ContoBancaRow, LineaCreditoRow, AnticipoRow, InfoCommessa,
@@ -100,6 +101,9 @@ export type DatiStatistiche = {
   // "mostra i rimborsati" — resta corretto.
   anticipi: AnticipoRow[]
   infoCommesse: Record<string, InfoCommessa> // etichetta + residuo per gli anticipi
+  // Voci scritte a mano nella card dei crediti fiscali. Le ritenute non stanno
+  // qui: si ricavano da `acconti`.
+  creditiFiscali: CreditoFiscale[]
 }
 
 export type PuntoMese = { mese: string; valore: number; numero: number }
@@ -119,6 +123,11 @@ export const MESI_LABEL = [
 ]
 
 // Estrae l'anno (stringa "YYYY") da una data ISO. '' se non valida.
+/** Al centesimo: sommare decimali in virgola mobile lascia code tipo 90,459999. */
+function euro(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
 function annoStr(data: string | null): string {
   if (!data || data.length < 4) return ''
   const y = data.slice(0, 4)
@@ -438,11 +447,6 @@ export type RiepilogoFinanziario = {
   creditiPerStato: CreditoPerStato[] // dettaglio di creditiCommesse: le righe sommano al totale
   creditiAltri: number // incassi in attesa: entrate che non nascono da una commessa
   crediti: number      // totale
-  // Ritenute d'acconto subite nell'anno di `oggi`: un credito verso l'Erario che
-  // si recupera in dichiarazione. Sta FUORI da `crediti` e dalla posizione netta
-  // di proposito: quel totale significa "soldi che posso ancora chiedere a
-  // qualcuno", e questi non li puoi chiedere a nessuno adesso.
-  ritenuteSubite: number
   debitiScaduti: number
   debitiAnno: number
   debitiFuturi: number
@@ -519,18 +523,6 @@ export function riepilogoCreditiDebiti(
   }
   const crediti = creditiCommesse + creditiAltri
 
-  // Solo l'anno di `oggi`: le ritenute degli anni scorsi sono gia' rientrate con
-  // la dichiarazione, tenerle qui gonfierebbe un credito che non esiste piu'.
-  // Quelle senza data di pagamento restano fuori perche' non si sa a che anno
-  // attribuirle, come gia' avviene per gli incassi in attesa.
-  const annoRitenute = annoStr(oggi)
-  let ritenuteSubite = 0
-  for (const a of acconti) {
-    if (annoStr(a.data_pagamento) !== annoRitenute) continue
-    ritenuteSubite += Number(a.ritenuta) || 0
-  }
-  ritenuteSubite = Math.round(ritenuteSubite * 100) / 100
-
   // Stesso floor delle commesse: un dipendente pagato in anticipo non azzera
   // il debito verso gli altri.
   let debitiDipendenti = 0
@@ -603,7 +595,6 @@ export function riepilogoCreditiDebiti(
     creditiPerStato,
     creditiAltri,
     crediti,
-    ritenuteSubite,
     debitiScaduti,
     debitiAnno,
     debitiFuturi,
@@ -623,5 +614,78 @@ export function riepilogoCreditiDebiti(
     debitiTotali,
     posizioneNetta,
     residuoFidi: banche.residuoTotale,
+  }
+}
+
+// ── Crediti fiscali ────────────────────────────────────────────────────────
+//
+// Denaro gia' uscito che lo Stato deve restituire: le ritenute d'acconto
+// trattenute dalle banche sui bonifici per detrazioni fiscali, piu' le voci che
+// l'utente inserisce a mano (IVA a credito, acconti d'imposta, crediti
+// d'imposta). Stanno in una card a se' e NON entrano in `crediti` ne' nella
+// posizione netta: quel totale significa "soldi che posso chiedere a qualcuno",
+// e un credito fiscale non lo si chiede a un cliente, si compensa.
+
+/** Voce inserita a mano nella card dei crediti fiscali. */
+export type CreditoFiscaleRow = {
+  importo: number
+  recuperato: boolean
+}
+
+export type RiepilogoCreditiFiscali = {
+  anno: string
+  annoPrecedente: string
+  ritenuteAnnoCorrente: number
+  ritenuteAnnoPrecedente: number
+  ritenute: number // somma dei due anni
+  manuali: number  // voci a mano non ancora recuperate
+  totale: number
+}
+
+/**
+ * Due anni e non uno: la dichiarazione dell'anno precedente puo' non essere
+ * ancora stata presentata o compensata del tutto, quindi quelle ritenute sono
+ * ancora un credito. Piu' indietro no — a quel punto sono rientrate.
+ *
+ * Le ritenute senza data di pagamento restano fuori: non si sa a che anno
+ * attribuirle, ed e' lo stesso criterio degli incassi in attesa.
+ */
+export function riepilogoCreditiFiscali(
+  acconti: AccontoRow[],
+  manualiRows: CreditoFiscaleRow[],
+  oggi: string,
+): RiepilogoCreditiFiscali {
+  const anno = annoStr(oggi)
+  const annoPrecedente = String(Number(anno) - 1)
+
+  let ritenuteAnnoCorrente = 0
+  let ritenuteAnnoPrecedente = 0
+  for (const a of acconti) {
+    const importo = Number(a.ritenuta) || 0
+    if (importo === 0) continue
+    const annoRiga = annoStr(a.data_pagamento)
+    if (annoRiga === anno) ritenuteAnnoCorrente += importo
+    else if (annoRiga === annoPrecedente) ritenuteAnnoPrecedente += importo
+  }
+
+  let manuali = 0
+  for (const c of manualiRows) {
+    if (c.recuperato) continue
+    manuali += Number(c.importo) || 0
+  }
+
+  ritenuteAnnoCorrente = euro(ritenuteAnnoCorrente)
+  ritenuteAnnoPrecedente = euro(ritenuteAnnoPrecedente)
+  manuali = euro(manuali)
+  const ritenute = euro(ritenuteAnnoCorrente + ritenuteAnnoPrecedente)
+
+  return {
+    anno,
+    annoPrecedente,
+    ritenuteAnnoCorrente,
+    ritenuteAnnoPrecedente,
+    ritenute,
+    manuali,
+    totale: euro(ritenute + manuali),
   }
 }

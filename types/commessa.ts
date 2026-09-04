@@ -257,6 +257,24 @@ export type RigaCalcolo = {
 
 // Incasso in attesa: entrata che non nasce da una commessa (rimborsi, note di
 // credito, prestiti). Inseribile solo dalla pagina Calcoli.
+/**
+ * Credito fiscale inserito a mano: IVA a credito, acconti d'imposta, crediti
+ * d'imposta. Le ritenute d'acconto NON si registrano qui — si calcolano dagli
+ * acconti e comparirebbero due volte. `recuperato` e' l'equivalente di
+ * `incassato` su IncassoAttesa: la voce esce dal totale, la riga resta.
+ */
+export type CreditoFiscale = {
+  id: string
+  organization_id: string
+  nome: string
+  descrizione: string
+  importo: number
+  recuperato: boolean
+  ordine: number
+  created_at: string
+  updated_at: string
+}
+
 export type IncassoAttesa = {
   id: string
   organization_id: string

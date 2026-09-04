@@ -10,6 +10,7 @@ import type {
 import { riepilogoBanche, type ContoBancaRow, type LineaCreditoRow, type AnticipoRow, type InfoCommessa } from '@/lib/banche'
 import { calcolaCostiPreventivo, type ArticoloCosti } from '@/lib/preventivo-costi'
 import type { DatiAndamento } from '@/lib/andamento-crediti-debiti'
+import type { CreditoFiscale } from '@/types/commessa'
 
 export default async function StatisticheCommessePage() {
   const supabase = await createClient()
@@ -24,6 +25,7 @@ export default async function StatisticheCommessePage() {
     scadenzeRaw, altriCreditiRaw, busteRaw,
     pagDipRaw, movAltriRaw,
     contiRaw, lineeRaw, anticipiRaw, legamiRaw, legamiAccontiRaw,
+    creditiFiscaliRaw,
   ] =
     await Promise.all([
       selectAll((da, a) => supabase
@@ -107,6 +109,13 @@ export default async function StatisticheCommessePage() {
         .select('anticipo_id, acconto_id')
         .eq('organization_id', orgId)
         .order('anticipo_id').order('acconto_id').range(da, a)),
+      // Crediti fiscali scritti a mano: IVA a credito, acconti d'imposta.
+      // Le ritenute non sono qui, si ricavano dagli acconti.
+      selectAll((da, a) => supabase
+        .from('crediti_fiscali')
+        .select('*')
+        .eq('organization_id', orgId)
+        .order('id').range(da, a)),
     ])
 
   // Mappa gruppo_id → nome blocco (es. "2025", "2026")
@@ -134,6 +143,9 @@ export default async function StatisticheCommessePage() {
     .map((a) => ({
       commessa_id: a.commessa_id,
       importo: Number(a.importo) || 0,
+      // Va portata fin qui a mano: la colonna e' nella select, ma senza questa
+      // riga flusso di cassa e crediti fiscali leggono zero ovunque.
+      ritenuta: Number(a.ritenuta) || 0,
       data_pagamento: a.data_pagamento,
     }))
 
@@ -423,12 +435,17 @@ export default async function StatisticheCommessePage() {
     })),
   }
 
+  const creditiFiscali: CreditoFiscale[] = creditiFiscaliRaw.map((c) => ({
+    ...c,
+    importo: Number(c.importo) || 0,
+  })) as CreditoFiscale[]
+
   return (
     <StatisticheCommesse
       dati={{
         commesse, acconti, anni, costiCommesse, scadenze, oggi,
         altriCrediti, pagamentiDipendenti, contiDipendenti,
-        contiBanca, lineeCredito, anticipi, infoCommesse,
+        contiBanca, lineeCredito, anticipi, infoCommesse, creditiFiscali,
       }}
       datiAndamento={datiAndamento}
       oggi={oggi}
