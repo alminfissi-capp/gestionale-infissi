@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Pencil, Trash2, AlertTriangle, Eye, Mail } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, Trash2, AlertTriangle, Eye, Mail, Factory } from 'lucide-react'
 import { pdf } from '@react-pdf/renderer'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -39,10 +39,13 @@ interface Props {
   documenti: DocumentoCommessa[]
   intestazione: IntestazionePDF
   tracking: Record<string, TrackingOrdine>
+  // Indirizzo di ritorno all'elenco economico, gia' deciso dal server: null per
+  // chi non e' arrivato da li' o non ha accesso a quel modulo.
+  tornaACommesse: string | null
 }
 
 export default function ProduzioneCommessa({
-  commessa, ordini, fornitori, numeroProposto, documenti, intestazione, tracking,
+  commessa, ordini, fornitori, numeroProposto, documenti, intestazione, tracking, tornaACommesse,
 }: Props) {
   const router = useRouter()
   // Attivita' e avanzamento vengono dallo stesso stato: l'anello si muove
@@ -191,10 +194,20 @@ export default function ProduzioneCommessa({
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center flex-wrap gap-2">
+        {/* Chi arriva dall'elenco economico di solito vuole tornarci: il tasto
+            compare solo in quel caso, ed e' il primo perche' e' la strada da
+            cui si e' venuti. Chi entra da Produzione non lo vede mai. */}
+        {tornaACommesse && (
+          <Link href={tornaACommesse}>
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft className="h-4 w-4" /> Commesse
+            </Button>
+          </Link>
+        )}
         <Link href="/produzione">
-          <Button variant="ghost" size="sm" className="gap-2">
-            <ArrowLeft className="h-4 w-4" /> Produzione
+          <Button variant={tornaACommesse ? 'outline' : 'ghost'} size="sm" className="gap-2">
+            <Factory className="h-4 w-4" /> Produzione
           </Button>
         </Link>
       </div>

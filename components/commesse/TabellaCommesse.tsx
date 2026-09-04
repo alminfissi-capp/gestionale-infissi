@@ -344,7 +344,7 @@ function SortableRow({ c, preventiviById, onScheda, onDelete, onDuplica, onAccon
         {c.numero_commessa ? (
           puoAprireProduzione ? (
             <Link
-              href={`/produzione/${c.id}`}
+              href={`/produzione/${c.id}?da=commesse`}
               title="Apri in Produzione"
               className="text-teal-700 hover:text-teal-900 hover:underline underline-offset-2"
             >
