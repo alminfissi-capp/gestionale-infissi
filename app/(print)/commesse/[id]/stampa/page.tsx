@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { requireAccesso } from '@/lib/permessi'
 import { getCommessaById, getDocumentoCommessaUrl } from '@/actions/commesse'
 import { getSettings, getLogoSignedUrl } from '@/actions/impostazioni'
 import StampaCommessa from '@/components/commesse/StampaCommessa'
@@ -9,6 +10,8 @@ interface Props {
 }
 
 export default async function StampaCommessaPage({ params, searchParams }: Props) {
+  // Stessa porta dell'elenco: qui si legge una commessa intera, allegati compresi.
+  await requireAccesso('commesse')
   const { id } = await params
   const { docs } = await searchParams
   const selectedDocIds = docs ? docs.split(',').filter(Boolean) : []
