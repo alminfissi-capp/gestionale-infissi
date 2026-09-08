@@ -154,7 +154,35 @@ function getImgSize(img: unknown): { w: number; h: number } {
   return { w: 0, h: 0 }
 }
 
-async function extractWindowImage(page: { getOperatorList: () => Promise<{ fnArray: number[]; argsArray: unknown[][] }>; objs: { get: (name: string, cb: (v: unknown) => void) => void } }): Promise<Blob | null> {
+type PdfObjStore = { get: (name: string, cb: (v: unknown) => void) => void }
+type PdfPageLike = {
+  getOperatorList: () => Promise<{ fnArray: number[]; argsArray: unknown[][] }>
+  objs: PdfObjStore
+  commonObjs?: PdfObjStore
+}
+
+// Timeout di sicurezza: objs.get() usa una callback che in alcuni casi non viene
+// mai invocata. Senza timeout l'await resta appeso per sempre e l'importazione
+// si blocca in silenzio.
+const OBJ_TIMEOUT_MS = 15000
+
+function getPdfObj(store: PdfObjStore, name: string): Promise<unknown> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      console.warn(`[parsePdfCosti] timeout su immagine "${name}", la salto`)
+      resolve(null)
+    }, OBJ_TIMEOUT_MS)
+    try {
+      store.get(name, (v) => { clearTimeout(timer); resolve(v) })
+    } catch (e) {
+      clearTimeout(timer)
+      console.warn(`[parsePdfCosti] errore su immagine "${name}":`, e)
+      resolve(null)
+    }
+  })
+}
+
+async function extractWindowImage(page: PdfPageLike): Promise<Blob | null> {
   try {
     const pdfjs = await import('pdfjs-dist')
     const paintOp: number = pdfjs.OPS?.paintImageXObject ?? 85
@@ -170,7 +198,12 @@ async function extractWindowImage(page: { getOperatorList: () => Promise<{ fnArr
     }
 
     for (const name of names) {
-      const img: unknown = await new Promise((res) => page.objs.get(name, res))
+      // pdf.js sposta in commonObjs le immagini riusate su più pagine e le
+      // rinomina con il prefisso "g_": cercarle in page.objs non le trova mai.
+      // Succede solo nei preventivi con voci ripetute, cioè quelli grandi.
+      const store = name.startsWith('g_') ? (page.commonObjs ?? page.objs) : page.objs
+      const img: unknown = await getPdfObj(store, name)
+      if (!img) continue
       const { w, h } = getImgSize(img)
       // La finestra è sempre 300×300; i loghi hanno dimensioni diverse
       if (w !== 300 || h !== 300) continue
@@ -182,7 +215,12 @@ async function extractWindowImage(page: { getOperatorList: () => Promise<{ fnArr
   return null
 }
 
-export async function parsePdfCosti(file: File): Promise<VocePdf[]> {
+export type ProgressoParse = { fase: 'lettura'; pagina: number; totale: number; voci: number }
+
+export async function parsePdfCosti(
+  file: File,
+  onProgress?: (p: ProgressoParse) => void
+): Promise<VocePdf[]> {
   const pdfjs = await import('pdfjs-dist')
   pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
@@ -190,15 +228,27 @@ export async function parsePdfCosti(file: File): Promise<VocePdf[]> {
   const pdf = await pdfjs.getDocument({ data: buffer }).promise
   const voci: VocePdf[] = []
 
-  // Le pagine dati sono le dispari (1-indexed: 1,3,5,...); le pari sono note/legend
-  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum += 2) {
-    const page = await pdf.getPage(pageNum)
-    const tc = await page.getTextContent()
-    const text = buildText(tc.items as { str: string; hasEOL?: boolean }[])
-    const parsed = parsePageText(text)
-    if (!parsed) continue
-    const immagineBlob = await extractWindowImage(page as Parameters<typeof extractWindowImage>[0])
-    voci.push({ ...parsed, immagineBlob })
+  // Scansione di tutte le pagine: le voci stanno di norma sulle dispari, ma
+  // l'alternanza non è garantita nei preventivi lunghi. Il testo costa poco;
+  // le immagini (costose) si estraggono solo dalle pagine che hanno una voce.
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    try {
+      const page = await pdf.getPage(pageNum)
+      const tc = await page.getTextContent()
+      const text = buildText(tc.items as { str: string; hasEOL?: boolean }[])
+      const parsed = parsePageText(text)
+      if (parsed) {
+        const immagineBlob = await extractWindowImage(page as unknown as PdfPageLike)
+        voci.push({ ...parsed, immagineBlob })
+      }
+      // Libera le risorse della pagina: senza cleanup un PDF di 100+ pagine
+      // tiene in memoria tutte le immagini decodificate
+      page.cleanup()
+    } catch (e) {
+      // Una pagina illeggibile non deve far perdere tutte le altre voci
+      console.warn(`[parsePdfCosti] pagina ${pageNum} saltata:`, e)
+    }
+    onProgress?.({ fase: 'lettura', pagina: pageNum, totale: pdf.numPages, voci: voci.length })
   }
 
   return voci

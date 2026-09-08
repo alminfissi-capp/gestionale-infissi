@@ -13,9 +13,13 @@ interface Props {
   onPdfFile?: (file: File) => void
 }
 
+// Upload immagini a gruppi: in serie 50 voci significano 50 attese consecutive
+const UPLOAD_PARALLELI = 6
+
 export default function ImportaPdfCosti({ onImporta, onPdfFile }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)
+  const [progresso, setProgresso] = useState<string | null>(null)
 
   const handleFile = async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.pdf')) {
@@ -23,6 +27,7 @@ export default function ImportaPdfCosti({ onImporta, onPdfFile }: Props) {
       return
     }
     setLoading(true)
+    setProgresso('Apertura PDF...')
     try {
       const supabase = createClient()
 
@@ -37,32 +42,53 @@ export default function ImportaPdfCosti({ onImporta, onPdfFile }: Props) {
       const orgId = profile?.organization_id as string
 
       // Parse PDF
-      const voci = await parsePdfCosti(file)
+      const voci = await parsePdfCosti(file, (p) => {
+        setProgresso(`Lettura pagina ${p.pagina}/${p.totale} — ${p.voci} voci`)
+      })
       if (voci.length === 0) {
         toast.error('Nessuna voce trovata nel PDF')
         return
       }
 
+      // Immagini caricate in parallelo a gruppi, con progresso
+      const conImmagine = voci.filter((v) => v.immagineBlob)
+      const urlPerVoce = new Map<number, string>()
+      let caricate = 0
+      let fallite = 0
+      setProgresso(`Caricamento immagini 0/${conImmagine.length}`)
+
+      for (let i = 0; i < voci.length; i += UPLOAD_PARALLELI) {
+        const gruppo = voci.slice(i, i + UPLOAD_PARALLELI)
+        await Promise.all(
+          gruppo.map(async (voce, j) => {
+            if (!voce.immagineBlob) return
+            const idx = i + j
+            const fileName = `${orgId}/pdf-import/${crypto.randomUUID()}.png`
+            try {
+              const { error: uploadErr } = await supabase.storage
+                .from('preventivi-allegati')
+                .upload(fileName, voce.immagineBlob, { contentType: 'image/png' })
+              if (uploadErr) throw new Error(uploadErr.message)
+              const { data: urlData } = supabase.storage
+                .from('preventivi-allegati')
+                .getPublicUrl(fileName)
+              urlPerVoce.set(idx, urlData.publicUrl)
+            } catch (e) {
+              // L'immagine è un di più: la voce si importa comunque
+              fallite++
+              console.warn('[ImportaPdfCosti] upload immagine fallito:', e)
+            } finally {
+              caricate++
+              setProgresso(`Caricamento immagini ${caricate}/${conImmagine.length}`)
+            }
+          })
+        )
+      }
+
       const articoli: ArticoloWizard[] = []
 
-      for (const voce of voci) {
-        let immagineUrl: string | null = null
-
-        // Upload immagine finestra su Supabase Storage
-        if (voce.immagineBlob) {
-          const fileName = `${orgId}/pdf-import/${crypto.randomUUID()}.png`
-          const { error: uploadErr } = await supabase.storage
-            .from('preventivi-allegati')
-            .upload(fileName, voce.immagineBlob, { contentType: 'image/png' })
-          if (!uploadErr) {
-            const { data: urlData } = supabase.storage
-              .from('preventivi-allegati')
-              .getPublicUrl(fileName)
-            immagineUrl = urlData.publicUrl
-          } else {
-            console.warn('[ImportaPdfCosti] upload immagine fallito:', uploadErr.message)
-          }
-        }
+      for (const [indice, voce] of voci.entries()) {
+        const immagineUrl = urlPerVoce.get(indice) ?? null
 
         const pu = voce.imponibileUnitario
         const qty = voce.quantita
@@ -119,12 +145,17 @@ export default function ImportaPdfCosti({ onImporta, onPdfFile }: Props) {
 
       onImporta(articoli)
       onPdfFile?.(file)
-      toast.success(`${articoli.length} voci importate dal PDF`)
+      toast.success(
+        fallite > 0
+          ? `${articoli.length} voci importate — ${fallite} immagini non caricate`
+          : `${articoli.length} voci importate dal PDF`
+      )
     } catch (e) {
       console.error('[ImportaPdfCosti]', e)
       toast.error("Errore durante l'importazione del PDF")
     } finally {
       setLoading(false)
+      setProgresso(null)
       if (inputRef.current) inputRef.current.value = ''
     }
   }
@@ -152,7 +183,7 @@ export default function ImportaPdfCosti({ onImporta, onPdfFile }: Props) {
         {loading ? (
           <>
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Importazione...
+            {progresso ?? 'Importazione...'}
           </>
         ) : (
           <>
