@@ -7,6 +7,7 @@ import {
   parseNumeroOrdine,
   normalizzaNumeroOrdine,
   formattaNumeroOrdine,
+  nomeFilePdfOrdine,
 } from '@/lib/produzione'
 
 describe('calcolaTotaleRigaOrdine', () => {
@@ -153,5 +154,35 @@ describe('formattaNumeroOrdine', () => {
 
   it('mostra come sono i numeri liberi', () => {
     expect(formattaNumeroOrdine('ordine urgente')).toBe('ordine urgente')
+  })
+})
+
+describe('nomeFilePdfOrdine', () => {
+  const id = 'a4f926b3-8359-4939-bbf6-98c17d42a300'
+
+  it('accosta numero e fornitore', () => {
+    expect(nomeFilePdfOrdine('022-2026', 'F.lli LALOMIA SRL', id))
+      .toBe('ORD 022-2026 - F.lli LALOMIA SRL.pdf')
+  })
+
+  it('senza fornitore lascia il solo numero', () => {
+    expect(nomeFilePdfOrdine('022-2026', null, id)).toBe('ORD 022-2026.pdf')
+    expect(nomeFilePdfOrdine('022-2026', '   ', id)).toBe('ORD 022-2026.pdf')
+  })
+
+  it('ripiega sull id quando manca il numero', () => {
+    expect(nomeFilePdfOrdine('', 'WURTH', id)).toBe('ORD a4f926b3 - WURTH.pdf')
+    expect(nomeFilePdfOrdine(null, null, id)).toBe('ORD a4f926b3.pdf')
+  })
+
+  it('sostituisce i caratteri vietati nei nomi file', () => {
+    expect(nomeFilePdfOrdine('022-2026', 'CO.ME. / SRL: "reparto"', id))
+      .toBe('ORD 022-2026 - CO.ME. - SRL- -reparto-.pdf')
+    expect(nomeFilePdfOrdine('022-2026', 'A\\B', id)).toBe('ORD 022-2026 - A-B.pdf')
+  })
+
+  it('normalizza gli spazi multipli', () => {
+    expect(nomeFilePdfOrdine('022-2026', 'PROFILSIDER   CENTER', id))
+      .toBe('ORD 022-2026 - PROFILSIDER CENTER.pdf')
   })
 })

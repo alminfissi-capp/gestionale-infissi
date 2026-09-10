@@ -150,14 +150,15 @@ export async function POST(request: Request) {
       return await fallisci(supabase, ordineId, orgId, sendError.message, 500)
     }
 
+    const inviatoAt = new Date().toISOString()
     const { error: updateError } = await supabase
       .from('ordini_fornitore')
       .update({
-        inviato_at: new Date().toISOString(),
+        inviato_at: inviatoAt,
         tracking_token: token,
         pdf_inviato_path: snapshotPath,
         stato: 'ordinato',
-        updated_at: new Date().toISOString(),
+        updated_at: inviatoAt,
         // L'invio è riuscito: l'avviso di fallimento precedente non ha più ragione di esserci
         errore_invio: null,
         errore_invio_at: null,
@@ -187,7 +188,10 @@ export async function POST(request: Request) {
     // ogni evento 'inviato' porta anche il proprio pdf_path: la copia congelata
     // resta ricollegabile all'invio esatto che l'ha prodotta, anche dopo un reinvio.
 
-    return NextResponse.json({ ok: true })
+    // inviatoAt e destinatario tornano al client, che riarchivia la copia dei
+    // documenti con la ricevuta: così porta l'ora registrata dal server e non
+    // quella del browser, che può essere sfasata.
+    return NextResponse.json({ ok: true, inviatoAt, destinatario: fornitore.email })
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Errore invio' },
