@@ -2,7 +2,7 @@
 
 import { Document, Page, Text, View, Image, StyleSheet, Font } from '@react-pdf/renderer'
 import { formatEuro } from '@/lib/pricing'
-import { formattaNumeroOrdine } from '@/lib/produzione'
+import { formattaNumeroOrdine, preservaSpazi } from '@/lib/produzione'
 import { isModificatoDopoInvio, righeFooterPdf } from '@/lib/produzione-tracking'
 import type { OrdineCompleto, TrackingOrdine } from '@/types/produzione'
 
@@ -110,9 +110,9 @@ export default function OrdinePDF({
 
         {ordine.righe.map((r) => (
           <View key={r.id} style={styles.riga}>
-            <Text style={styles.colCodice}>{r.codice_articolo || '—'}</Text>
-            <Text style={styles.colDesc}>{r.descrizione}</Text>
-            <Text style={styles.colFinitura}>{r.finitura || '—'}</Text>
+            <Text style={styles.colCodice}>{r.codice_articolo ? preservaSpazi(r.codice_articolo) : '—'}</Text>
+            <Text style={styles.colDesc}>{preservaSpazi(r.descrizione)}</Text>
+            <Text style={styles.colFinitura}>{r.finitura ? preservaSpazi(r.finitura) : '—'}</Text>
             <Text style={styles.colQta}>{r.quantita}</Text>
             <Text style={styles.colUm}>{r.unita_misura}</Text>
             <Text style={styles.colPrezzo}>
@@ -126,7 +126,7 @@ export default function OrdinePDF({
 
         <Text style={styles.totale}>Totale: {formatEuro(ordine.totale)}</Text>
 
-        {ordine.note ? <Text style={styles.note}>{ordine.note}</Text> : null}
+        {ordine.note ? <Text style={styles.note}>{preservaSpazi(ordine.note)}</Text> : null}
 
         {righeFooter.length > 0 ? (
           <View style={styles.piePagina} fixed>

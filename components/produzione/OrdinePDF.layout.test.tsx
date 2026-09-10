@@ -106,6 +106,46 @@ describe('impaginazione tabella righe ordine', () => {
     expect(righeOccupate.size).toBeLessThanOrEqual(righe.length)
   })
 
+  it('rispetta a capo e spazi scritti a mano nella cella', async () => {
+    const LF = String.fromCharCode(10)
+    const conFormattazione: RigaOrdine[] = [
+      riga(0, 'COD', `PRIMA RIGA${LF}SPAZI    IN    MEZZO${LF}   RIENTRO`, 'Zincato', 'Pz'),
+    ]
+    const ord = { ...ordine, righe: conFormattazione } as unknown as OrdineCompleto
+    const buffer = await renderToBuffer(
+      <OrdinePDF ordine={ord} intestazione={intestazione} fornitoreNome="X"
+        numeroCommessa="1" clienteNome="" tracking={undefined} />
+    )
+    const pdf = await pdfjs.getDocument({ data: new Uint8Array(buffer), useSystemFonts: true }).promise
+    const tc = await pdf.getPage(1).then((p) => p.getTextContent())
+    // Va guardata la geometria, non il testo: in fase di estrazione pdf.js
+    // riporta gli NBSP come un singolo spazio, ma sulla pagina occupano il
+    // loro posto. Sono le coordinate a dire se il testo è impaginato bene.
+    const pezzi = (tc.items as { str: string; transform: number[]; width: number }[])
+      .filter((i) => i.str?.trim())
+      .map((i) => ({ t: i.str.trim(), x: i.transform[4], fine: i.transform[4] + i.width, y: Math.round(i.transform[5]) }))
+    const trova = (t: string) => {
+      const p = pezzi.find((i) => i.t === t)
+      expect(p, `"${t}" non trovato nel PDF`).toBeDefined()
+      return p!
+    }
+
+    const prima = trova('PRIMA RIGA')
+    const spazi = trova('SPAZI')
+    const dentro = trova('IN')
+    const rientro = trova('RIENTRO')
+
+    // Le tre righe scritte a mano restano su tre righe distinte.
+    expect(new Set([prima.y, spazi.y, rientro.y]).size).toBe(3)
+
+    // Fra "SPAZI" e "IN" ci sono quattro spazi: devono valere piu' di uno solo,
+    // che a corpo 10 misura meno di 3pt.
+    expect(dentro.x - spazi.fine).toBeGreaterThan(6)
+
+    // Il rientro a inizio riga non viene buttato via.
+    expect(rientro.x).toBeGreaterThan(prima.x + 4)
+  })
+
   it('nessun importo va a capo nelle colonne dei prezzi', async () => {
     const items = await frammenti()
     // Se una cella prezzo fosse stretta, l'importo si spezzerebbe su due righe:
