@@ -80,3 +80,21 @@ export function prossimoNumeroOrdine(numeriEsistenti: string[], anno: number): s
   }
   return `${String(massimo + 1).padStart(3, '0')}-${anno}`
 }
+
+/**
+ * Nome del PDF d'ordine come compare nell'elenco documenti di commessa:
+ * numero e fornitore insieme, per capire a colpo d'occhio a chi era
+ * destinato l'ordine senza doverlo aprire. I caratteri che i filesystem
+ * non accettano diventano trattini, perché questo nome viene proposto
+ * anche al salvataggio del file.
+ */
+export function nomeFilePdfOrdine(
+  numeroOrdine: string | null | undefined,
+  fornitoreNome: string | null | undefined,
+  ordineId: string
+): string {
+  const numero = formattaNumeroOrdine(numeroOrdine) || `${PREFISSO_ORDINE} ${ordineId.slice(0, 8)}`
+  const fornitore = (fornitoreNome ?? '').trim()
+  const base = fornitore ? `${numero} - ${fornitore}` : numero
+  return `${base.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim()}.pdf`
+}
