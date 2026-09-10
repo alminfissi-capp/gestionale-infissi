@@ -11,15 +11,19 @@ const styles = StyleSheet.create({
   intestazioneAzienda: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 12 },
   logo: { height: 48, maxWidth: 130, objectFit: 'contain' },
   titolo: { fontSize: 16, fontFamily: 'Helvetica-Bold', marginBottom: 12 },
-  riga: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#ccc', paddingVertical: 4 },
-  intestazioneTabella: { flexDirection: 'row', borderBottomWidth: 1, paddingVertical: 4, fontFamily: 'Helvetica-Bold' },
-  colCodice: { flex: 1.6 },
-  colDesc: { flex: 3.2 },
-  colFinitura: { flex: 1.6 },
-  colQta: { flex: 0.9, textAlign: 'right' },
-  colUm: { flex: 0.9, textAlign: 'center' },
-  colPrezzo: { flex: 1.3, textAlign: 'right' },
-  colTot: { flex: 1.3, textAlign: 'right' },
+  // Il gap fra le colonne non e' decorativo: senza, una descrizione che riempie
+  // la sua cella finisce appiccicata alla finitura e le due si leggono come una.
+  riga: { flexDirection: 'row', gap: 8, borderBottomWidth: 0.5, borderBottomColor: '#ccc', paddingVertical: 4 },
+  intestazioneTabella: { flexDirection: 'row', gap: 8, borderBottomWidth: 1, paddingVertical: 4, fontFamily: 'Helvetica-Bold' },
+  // Pesi tarati sui dati veri: codici e descrizioni sono lunghi ("Tubo
+  // Rettangolare 100x50x2 Zincato"), le finiture quasi sempre una parola sola.
+  colCodice: { flex: 2 },
+  colDesc: { flex: 4.2 },
+  colFinitura: { flex: 1.4 },
+  colQta: { flex: 0.7, textAlign: 'right' },
+  colUm: { flex: 0.8, textAlign: 'center' },
+  colPrezzo: { flex: 1.2, textAlign: 'right' },
+  colTot: { flex: 1.2, textAlign: 'right' },
   blocco: { marginBottom: 12 },
   grassetto: { fontFamily: 'Helvetica-Bold' },
   totale: { marginTop: 10, textAlign: 'right', fontSize: 12, fontFamily: 'Helvetica-Bold' },
