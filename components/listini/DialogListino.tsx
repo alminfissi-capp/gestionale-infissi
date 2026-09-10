@@ -7,6 +7,7 @@ import { ImagePlus, X, Download } from 'lucide-react'
 import { createListino, updateListino, getCurrentOrgId, type AccessorioGrigliaInput } from '@/actions/listini'
 import { createClient } from '@/lib/supabase/client'
 import { grigliaToCsv, downloadCsv } from '@/lib/exportListino'
+import { avvisaEsito } from './esitoExport'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -142,9 +143,9 @@ export default function DialogListino({
     }
   }
 
-  const handleExportCsv = () => {
+  const handleExportCsv = async () => {
     const csv = grigliaToCsv(grigliaData)
-    downloadCsv(csv, `${tipologia.trim() || 'listino'}.csv`)
+    avvisaEsito(await downloadCsv(csv, tipologia.trim() || 'listino'))
   }
 
   const handleSave = async () => {

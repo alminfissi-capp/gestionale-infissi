@@ -34,6 +34,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { deleteCategoria, deleteListino, duplicaListino, duplicaCategoria, updateOrdiniListini } from '@/actions/listini'
 import { grigliaToCsv, downloadCsv, downloadZipCsv } from '@/lib/exportListino'
+import { avvisaEsito } from './esitoExport'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -295,27 +296,29 @@ export default function CategoriaCard({ categoria, dragHandle, onSuccess }: Prop
     }
   }
 
-  const handleExportCsv = (listino: ListinoCompleto) => {
+  const handleExportCsv = async (listino: ListinoCompleto) => {
     const csv = grigliaToCsv({
       larghezze: listino.larghezze,
       altezze: listino.altezze,
       griglia: listino.griglia,
     })
-    downloadCsv(csv, listino.tipologia)
+    avvisaEsito(await downloadCsv(csv, listino.tipologia))
   }
 
   const handleExportAllCsv = async () => {
     if (localListini.length === 0) return
     if (localListini.length === 1) {
-      handleExportCsv(localListini[0])
+      await handleExportCsv(localListini[0])
       return
     }
-    await downloadZipCsv(
-      localListini.map((l) => ({
-        tipologia: l.tipologia,
-        griglia: { larghezze: l.larghezze, altezze: l.altezze, griglia: l.griglia },
-      })),
-      categoria.nome
+    avvisaEsito(
+      await downloadZipCsv(
+        localListini.map((l) => ({
+          tipologia: l.tipologia,
+          griglia: { larghezze: l.larghezze, altezze: l.altezze, griglia: l.griglia },
+        })),
+        categoria.nome
+      )
     )
   }
 
