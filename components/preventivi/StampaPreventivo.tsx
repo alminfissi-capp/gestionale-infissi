@@ -475,7 +475,7 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
                     </p>
                   )}
                   {a.note && (
-                    <p style={{ color: '#9ca3af', fontSize: '9px', fontStyle: 'italic', margin: '2px 0 0', whiteSpace: 'pre-line' }}>{a.note}</p>
+                    <p style={{ color: '#9ca3af', fontSize: '9px', fontStyle: 'italic', margin: '2px 0 0', whiteSpace: 'pre-wrap' }}>{a.note}</p>
                   )}
                 </div>
               </div>

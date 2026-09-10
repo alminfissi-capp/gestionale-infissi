@@ -6,7 +6,7 @@ import path from 'node:path'
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['components/**/*.layout.test.tsx'],
+    include: ['components/**/*.layout.test.tsx', 'lib/**/*.layout.test.tsx'],
     testTimeout: 60_000,
   },
   resolve: {

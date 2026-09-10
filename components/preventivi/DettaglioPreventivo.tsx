@@ -616,7 +616,7 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
                           </div>
                         ) : null}
                         {a.note && (
-                          <p className="text-xs text-gray-400 italic mt-0.5 whitespace-pre-line leading-snug">{a.note}</p>
+                          <p className="text-xs text-gray-400 italic mt-0.5 whitespace-pre-wrap leading-snug">{a.note}</p>
                         )}
                       </div>
                     </div>
