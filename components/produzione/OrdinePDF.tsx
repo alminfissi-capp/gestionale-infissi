@@ -1,28 +1,34 @@
 'use client'
 
-import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, Image, StyleSheet, Font } from '@react-pdf/renderer'
 import { formatEuro } from '@/lib/pricing'
 import { formattaNumeroOrdine } from '@/lib/produzione'
 import { isModificatoDopoInvio, righeFooterPdf } from '@/lib/produzione-tracking'
 import type { OrdineCompleto, TrackingOrdine } from '@/types/produzione'
+
+// Niente sillabazione automatica: spezzava le sigle a metà, e "100x100x2
+// Zincato" finiva su tre righe come "100" / "x100x2 Zinca-" / "to".
+// Le parole troppo lunghe per la cella vanno semplicemente a capo intere.
+Font.registerHyphenationCallback((parola) => [parola])
 
 const styles = StyleSheet.create({
   page: { padding: 36, paddingBottom: 64, fontSize: 10, fontFamily: 'Helvetica' },
   intestazioneAzienda: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 12 },
   logo: { height: 48, maxWidth: 130, objectFit: 'contain' },
   titolo: { fontSize: 16, fontFamily: 'Helvetica-Bold', marginBottom: 12 },
-  // Il gap fra le colonne non e' decorativo: senza, una descrizione che riempie
-  // la sua cella finisce appiccicata alla finitura e le due si leggono come una.
-  riga: { flexDirection: 'row', gap: 8, borderBottomWidth: 0.5, borderBottomColor: '#ccc', paddingVertical: 4 },
-  intestazioneTabella: { flexDirection: 'row', gap: 8, borderBottomWidth: 1, paddingVertical: 4, fontFamily: 'Helvetica-Bold' },
-  // Pesi tarati sui dati veri: codici e descrizioni sono lunghi ("Tubo
-  // Rettangolare 100x50x2 Zincato"), le finiture quasi sempre una parola sola.
-  colCodice: { flex: 2 },
-  colDesc: { flex: 4.2 },
-  colFinitura: { flex: 1.4 },
-  colQta: { flex: 0.7, textAlign: 'right' },
-  colUm: { flex: 0.8, textAlign: 'center' },
-  colPrezzo: { flex: 1.2, textAlign: 'right' },
+  // Niente gap uniforme: lo stacco serve dove le colonne rischiano di
+  // confondersi. Largo dopo la descrizione, minimo fra finitura e quantita',
+  // che si leggono bene accostate e liberano spazio per il testo lungo.
+  riga: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#ccc', paddingVertical: 4 },
+  intestazioneTabella: { flexDirection: 'row', borderBottomWidth: 1, paddingVertical: 4, fontFamily: 'Helvetica-Bold' },
+  // Il codice articolo va in corpo piu' piccolo: sigle come
+  // "100x100x2 Zincato" a 10pt si spezzavano su tre righe.
+  colCodice: { flex: 1.8, marginRight: 6, fontSize: 8 },
+  colDesc: { flex: 5.2, marginRight: 14 },
+  colFinitura: { flex: 1.2, marginRight: 3 },
+  colQta: { flex: 0.6, marginRight: 6, textAlign: 'right' },
+  colUm: { flex: 0.8, marginRight: 6, textAlign: 'center' },
+  colPrezzo: { flex: 1.2, marginRight: 8, textAlign: 'right' },
   colTot: { flex: 1.2, textAlign: 'right' },
   blocco: { marginBottom: 12 },
   grassetto: { fontFamily: 'Helvetica-Bold' },

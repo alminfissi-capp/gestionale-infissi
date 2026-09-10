@@ -82,6 +82,30 @@ describe('impaginazione tabella righe ordine', () => {
     ).toBeGreaterThanOrEqual(4)
   })
 
+  it('la finitura resta accostata alla quantita, non alla descrizione', async () => {
+    const items = await frammenti()
+    const x = (etichetta: string) => items.find((i) => i.t.trim() === etichetta)!.x
+    // La finitura deve stare nella seconda meta' della tabella: e' li' che
+    // lascia respiro alla descrizione, che e' il campo lungo.
+    expect(x('Finitura')).toBeGreaterThan(320)
+    // e restare piu' vicina a Q.ta che a Descrizione
+    const distanzaDaDesc = x('Finitura') - x('Descrizione')
+    const distanzaDaQta = x('Q.tà') - x('Finitura')
+    expect(distanzaDaQta).toBeLessThan(distanzaDaDesc)
+  })
+
+  it('il codice articolo non si spezza su piu righe', async () => {
+    const items = await frammenti()
+    const xDesc = items.find((i) => i.t.trim() === 'Descrizione')!.x
+    // Righe della tabella: quelle sotto l'intestazione con testo nella prima colonna.
+    const yIntestazione = items.find((i) => i.t.trim() === 'Cod. Articolo')!.y
+    const nellaColonnaCodice = items.filter((i) => i.y < yIntestazione - 2 && i.fine < xDesc - 1)
+    const righeOccupate = new Set(nellaColonnaCodice.map((i) => i.y))
+    // Una riga di tabella per ogni articolo, non due: se il codice andasse a
+    // capo comparirebbero piu' y di quante siano le righe dell'ordine.
+    expect(righeOccupate.size).toBeLessThanOrEqual(righe.length)
+  })
+
   it('nessun importo va a capo nelle colonne dei prezzi', async () => {
     const items = await frammenti()
     // Se una cella prezzo fosse stretta, l'importo si spezzerebbe su due righe:
