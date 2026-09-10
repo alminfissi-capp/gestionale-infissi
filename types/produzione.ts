@@ -85,6 +85,9 @@ export type OrdineFornitore = {
   inviato_at: string | null
   tracking_token: string | null
   pdf_inviato_path: string | null
+  /** Motivo dell'ultimo invio fallito; resta finché un invio non riesce. */
+  errore_invio: string | null
+  errore_invio_at: string | null
   note: string | null
   created_at: string
   updated_at: string

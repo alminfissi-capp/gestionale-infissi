@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Pencil, Trash2, AlertTriangle, Eye, Mail, Warehouse } from 'lucide-react'
 import { pdf } from '@react-pdf/renderer'
@@ -52,21 +52,34 @@ export default function ElencoOrdini({
 
   const inviaEmail = async (o: OrdineConContesto) => {
     if (!confirm('Inviare l\'ordine via email al fornitore?')) return
+    const attesa = toast.loading('Invio in corso...')
     try {
+      // Il PDF è l'allegato dell'email: se non esiste ancora viene creato adesso,
+      // senza obbligare a passare prima dall'anteprima.
+      const errorePdf = await assicuraPdf(o)
+      if (errorePdf) {
+        toast.dismiss(attesa)
+        toast.error(`PDF non archiviato: ${errorePdf}`)
+        router.refresh()
+        return
+      }
+
       const res = await fetch('/api/produzione/invia-ordine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ordineId: o.id }),
       })
       const dati = (await res.json()) as { ok?: boolean; error?: string }
+      toast.dismiss(attesa)
       if (!res.ok) toast.error(dati.error ?? 'Errore invio')
-      else {
-        toast.success('Ordine inviato al fornitore')
-        router.refresh()
-      }
+      else toast.success('Ordine inviato al fornitore')
     } catch (e) {
+      toast.dismiss(attesa)
       toast.error(e instanceof Error ? e.message : 'Errore invio')
     }
+    // Sempre: rilegge l'esito registrato sull'ordine, così l'avviso di fallimento
+    // compare subito e sparisce da solo quando l'invio riesce.
+    router.refresh()
   }
 
   const scaricaAllegati = async (ordineId: string): Promise<AllegatoDaUnire[]> => {
@@ -119,6 +132,21 @@ export default function ElencoOrdini({
       }
     }
     return new Uint8Array(finaleBytes)
+  }
+
+  /**
+   * Garantisce che l'ordine abbia un PDF archiviato, generandolo se manca.
+   * Restituisce il messaggio d'errore, oppure null se il PDF c'è o è stato creato.
+   */
+  const assicuraPdf = async (o: OrdineConContesto): Promise<string | null> => {
+    if (o.pdf_path) return null
+    const nomeFile = `${formattaNumeroOrdine(o.numero_ordine) || `ORD ${o.id.slice(0, 8)}`}.pdf`
+    const allegati = await scaricaAllegati(o.id)
+    // Copia da archiviare: mai il footer di tracking, è quella che va al fornitore.
+    const archivioBytes = await renderizzaPdf(o, undefined, allegati, true)
+    const base64 = Buffer.from(archivioBytes).toString('base64')
+    const { error } = await salvaPdfOrdine(o.id, o.commessa_id, base64, nomeFile)
+    return error ?? null
   }
 
   const generaPdf = async (o: OrdineConContesto) => {
@@ -205,7 +233,8 @@ export default function ElencoOrdini({
             </thead>
             <tbody>
               {ordini.map((o) => (
-                <tr key={o.id} className="border-t border-gray-200 dark:border-gray-800">
+                <Fragment key={o.id}>
+                <tr className="border-t border-gray-200 dark:border-gray-800">
                   <td className="p-2">{formattaNumeroOrdine(o.numero_ordine) || '—'}</td>
                   <td className="p-2">{o.fornitore_nome ?? '—'}</td>
                   <td className="p-2">
@@ -245,9 +274,12 @@ export default function ElencoOrdini({
                       onClick={() => generaPdf(o)} aria-label="Visualizza PDF">
                       <Eye className="h-4 w-4" />
                     </Button>
-                    {o.fornitore_id && emailFornitore.get(o.fornitore_id) && o.pdf_path ? (
+                    {o.fornitore_id ? (
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0"
-                        onClick={() => inviaEmail(o)} aria-label="Invia email">
+                        onClick={() => inviaEmail(o)} aria-label="Invia email"
+                        title={emailFornitore.get(o.fornitore_id)
+                          ? 'Invia l\'ordine via email al fornitore'
+                          : 'Il fornitore non ha un\'email in anagrafica'}>
                         <Mail className="h-4 w-4" />
                       </Button>
                     ) : null}
@@ -261,6 +293,20 @@ export default function ElencoOrdini({
                     </Button>
                   </td>
                 </tr>
+                {o.errore_invio ? (
+                  <tr>
+                    <td colSpan={8} className="px-2 pb-2">
+                      <div role="alert" className="flex items-start gap-2 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+                        <AlertTriangle className="h-4 w-4 shrink-0 mt-px" />
+                        <span>
+                          <strong>Invio fallito</strong> — {o.errore_invio}
+                          {o.errore_invio_at ? ` (${new Date(o.errore_invio_at).toLocaleString('it-IT')})` : ''}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
+                </Fragment>
               ))}
             </tbody>
           </table>

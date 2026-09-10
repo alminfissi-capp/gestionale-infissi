@@ -13,6 +13,26 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 const escapeHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
+type Db = Awaited<ReturnType<typeof createClient>>
+
+/**
+ * Registra sull'ordine il motivo del fallimento e risponde all'admin.
+ * L'errore resta scritto finché un invio riuscito non lo azzera: così il
+ * motivo (tipicamente "email mancante") sopravvive al ricaricamento della
+ * pagina, invece di sparire con il toast.
+ */
+async function fallisci(
+  supabase: Db, ordineId: string, orgId: string, motivo: string, status: number
+) {
+  const { error } = await supabase
+    .from('ordini_fornitore')
+    .update({ errore_invio: motivo, errore_invio_at: new Date().toISOString() })
+    .eq('id', ordineId)
+    .eq('organization_id', orgId)
+  if (error) console.error('[invia-ordine] errore_invio non registrato:', error.message)
+  return NextResponse.json({ error: motivo }, { status })
+}
+
 export async function POST(request: Request) {
   try {
     const { ordineId } = (await request.json()) as { ordineId: string }
@@ -28,17 +48,18 @@ export async function POST(request: Request) {
 
     if (!ordine) return NextResponse.json({ error: 'Ordine non trovato' }, { status: 404 })
     if (!ordine.pdf_path) {
-      return NextResponse.json({ error: 'Genera prima il PDF dell\'ordine' }, { status: 400 })
+      return await fallisci(supabase, ordineId, orgId, 'PDF dell\'ordine non ancora generato', 400)
     }
     if (!ordine.fornitore_id) {
-      return NextResponse.json({ error: 'Ordine senza fornitore' }, { status: 400 })
+      return await fallisci(supabase, ordineId, orgId, 'Ordine senza fornitore', 400)
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL
     if (!appUrl) {
-      return NextResponse.json(
-        { error: 'NEXT_PUBLIC_APP_URL non configurato: il link per il fornitore non sarebbe raggiungibile' },
-        { status: 500 }
+      return await fallisci(
+        supabase, ordineId, orgId,
+        'NEXT_PUBLIC_APP_URL non configurato: il link per il fornitore non sarebbe raggiungibile',
+        500
       )
     }
 
@@ -49,7 +70,12 @@ export async function POST(request: Request) {
       .maybeSingle()
 
     if (!fornitore?.email) {
-      return NextResponse.json({ error: 'Il fornitore non ha un indirizzo email' }, { status: 400 })
+      const nome = fornitore?.nome ? ` (${fornitore.nome})` : ''
+      return await fallisci(
+        supabase, ordineId, orgId,
+        `email mancante: il fornitore${nome} non ha un indirizzo email in anagrafica`,
+        400
+      )
     }
 
     const service = createServiceClient()
@@ -57,7 +83,7 @@ export async function POST(request: Request) {
       .from('commesse-docs')
       .download(ordine.pdf_path)
     if (downloadError || !file) {
-      return NextResponse.json({ error: 'PDF non recuperabile' }, { status: 500 })
+      return await fallisci(supabase, ordineId, orgId, 'PDF non recuperabile dall\'archivio', 500)
     }
 
     // Copia congelata servita al fornitore: path distinto da quello gestito da
@@ -69,9 +95,9 @@ export async function POST(request: Request) {
         contentType: 'application/pdf',
       })
     if (snapshotError) {
-      return NextResponse.json(
-        { error: `Copia per il fornitore non creata: ${snapshotError.message}` },
-        { status: 500 }
+      return await fallisci(
+        supabase, ordineId, orgId,
+        `copia per il fornitore non creata: ${snapshotError.message}`, 500
       )
     }
 
@@ -113,15 +139,15 @@ export async function POST(request: Request) {
     } catch (e) {
       // L'SDK ha lanciato invece di restituire { error }: lo snapshot va rimosso comunque.
       await service.storage.from('commesse-docs').remove([snapshotPath])
-      return NextResponse.json(
-        { error: e instanceof Error ? e.message : 'Errore invio email' },
-        { status: 500 }
+      return await fallisci(
+        supabase, ordineId, orgId,
+        e instanceof Error ? e.message : 'errore invio email', 500
       )
     }
     if (sendError) {
       // L'email non è partita: lo snapshot appena caricato non serve.
       await service.storage.from('commesse-docs').remove([snapshotPath])
-      return NextResponse.json({ error: sendError.message }, { status: 500 })
+      return await fallisci(supabase, ordineId, orgId, sendError.message, 500)
     }
 
     const { error: updateError } = await supabase
@@ -132,6 +158,9 @@ export async function POST(request: Request) {
         pdf_inviato_path: snapshotPath,
         stato: 'ordinato',
         updated_at: new Date().toISOString(),
+        // L'invio è riuscito: l'avviso di fallimento precedente non ha più ragione di esserci
+        errore_invio: null,
+        errore_invio_at: null,
       })
       .eq('id', ordineId)
       .eq('organization_id', orgId)
