@@ -99,29 +99,3 @@ export function nomeFilePdfOrdine(
   return `${base.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim()}.pdf`
 }
 
-/** Spazio unificatore: il motore del PDF non lo collassa mai. */
-const NBSP = String.fromCharCode(160)
-
-/**
- * Restituisce il testo così come è stato scritto, spazi compresi.
- *
- * Il motore del PDF tratta gli spazi come l'HTML: ne tiene uno solo quando
- * sono ripetuti, butta via quelli a inizio riga e schiaccia le tabulazioni.
- * Chi incolonna a mano dentro una cella si ritrova il lavoro disfatto.
- * Gli spazi in eccedenza diventano quindi NBSP, che il motore non tocca.
- * Il primo di ogni gruppo resta uno spazio normale, così il testo può
- * ancora andare a capo lì se la cella è stretta.
- *
- * Gli a capo non hanno bisogno di niente: quelli il PDF li rispetta già.
- */
-export function preservaSpazi(testo: string): string {
-  return testo
-    .split('\n')
-    .map((rigaTesto) =>
-      rigaTesto
-        .replace(/\t/g, NBSP.repeat(4))
-        .replace(/^ +/, (spazi) => NBSP.repeat(spazi.length))
-        .replace(/ {2,}/g, (spazi) => ' ' + NBSP.repeat(spazi.length - 1))
-    )
-    .join('\n')
-}

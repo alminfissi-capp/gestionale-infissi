@@ -655,7 +655,7 @@ function ArticoloCard({
           </p>
         )}
         {articolo.note && (
-          <p className="text-[10px] text-gray-400 mt-0.5 whitespace-pre-line leading-snug line-clamp-4">
+          <p className="text-[10px] text-gray-400 mt-0.5 whitespace-pre-wrap leading-snug line-clamp-4">
             {articolo.note}
           </p>
         )}

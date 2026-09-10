@@ -211,7 +211,7 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
                     ) : a.note ? (
                       <p
                         onClick={() => setFocusedNoteId(a.tempId)}
-                        className="text-xs text-gray-400 italic mt-0.5 whitespace-pre-line cursor-text leading-snug"
+                        className="text-xs text-gray-400 italic mt-0.5 whitespace-pre-wrap cursor-text leading-snug"
                       >
                         {a.note}
                       </p>

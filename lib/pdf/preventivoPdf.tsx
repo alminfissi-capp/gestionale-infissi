@@ -3,6 +3,7 @@ import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/render
 import { formatEuro } from '@/lib/pricing'
 import type { PreventivoCompleto } from '@/types/preventivo'
 import type { Settings } from '@/types/impostazioni'
+import { preservaSpazi } from '@/lib/testo-pdf'
 
 // ─── Colori e costanti ────────────────────────────────────────────────────────
 const GRAY_BORDER = '#d1d5db'
@@ -268,7 +269,7 @@ export default function PreventivoPdf({ preventivo: p, settings, logoUrl }: Prop
                     <Image src={a.immagine_url} style={{ width: 38, height: 38, objectFit: 'contain' }} />
                   )}
                   <View style={{ flex: 1 }}>
-                    <Text style={s.artName}>{a.tipologia}</Text>
+                    <Text style={s.artName}>{preservaSpazi(a.tipologia)}</Text>
                     {a.categoria_nome && <Text style={s.artSub}>{a.categoria_nome}</Text>}
                     {a.finitura_nome  && <Text style={s.artSub}>Finitura: {a.finitura_nome}</Text>}
                     {accessories.length > 0 && (
@@ -281,9 +282,10 @@ export default function PreventivoPdf({ preventivo: p, settings, logoUrl }: Prop
                     )}
                     {a.note && (
                       <View style={{ marginTop: 2 }}>
-                        {a.note.split('\n').filter(Boolean).map((line, i) => (
-                          <Text key={i} style={{ color: GRAY_MID, fontSize: 8, fontFamily: 'Helvetica-Oblique', lineHeight: 1.4 }}>{line}</Text>
-                        ))}
+                        {/* Un solo Text: react-pdf rispetta già gli a capo, e così
+                            le righe lasciate vuote di proposito restano vuote,
+                            invece di sparire per via del filter. */}
+                        <Text style={{ color: GRAY_MID, fontSize: 8, fontFamily: 'Helvetica-Oblique', lineHeight: 1.4 }}>{preservaSpazi(a.note)}</Text>
                       </View>
                     )}
                   </View>
@@ -373,7 +375,7 @@ export default function PreventivoPdf({ preventivo: p, settings, logoUrl }: Prop
         {p.note && (
           <View style={s.notesSection}>
             <Text style={s.notesLabel}>NOTE</Text>
-            <Text style={s.notesText}>{p.note}</Text>
+            <Text style={s.notesText}>{preservaSpazi(p.note)}</Text>
           </View>
         )}
 

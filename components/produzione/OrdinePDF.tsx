@@ -2,7 +2,8 @@
 
 import { Document, Page, Text, View, Image, StyleSheet, Font } from '@react-pdf/renderer'
 import { formatEuro } from '@/lib/pricing'
-import { formattaNumeroOrdine, preservaSpazi } from '@/lib/produzione'
+import { formattaNumeroOrdine } from '@/lib/produzione'
+import { preservaSpazi } from '@/lib/testo-pdf'
 import { isModificatoDopoInvio, righeFooterPdf } from '@/lib/produzione-tracking'
 import type { OrdineCompleto, TrackingOrdine } from '@/types/produzione'
 

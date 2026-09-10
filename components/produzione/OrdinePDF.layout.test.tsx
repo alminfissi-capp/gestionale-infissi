@@ -108,8 +108,9 @@ describe('impaginazione tabella righe ordine', () => {
 
   it('rispetta a capo e spazi scritti a mano nella cella', async () => {
     const LF = String.fromCharCode(10)
+    const TAB = String.fromCharCode(9)
     const conFormattazione: RigaOrdine[] = [
-      riga(0, 'COD', `PRIMA RIGA${LF}SPAZI    IN    MEZZO${LF}   RIENTRO`, 'Zincato', 'Pz'),
+      riga(0, 'COD', `PRIMA RIGA${LF}TAB${TAB}DOPOTAB${LF}   RIENTRO`, 'Zincato', 'Pz'),
     ]
     const ord = { ...ordine, righe: conFormattazione } as unknown as OrdineCompleto
     const buffer = await renderToBuffer(
@@ -131,16 +132,16 @@ describe('impaginazione tabella righe ordine', () => {
     }
 
     const prima = trova('PRIMA RIGA')
-    const spazi = trova('SPAZI')
-    const dentro = trova('IN')
+    const tab = trova('TAB')
+    const dopoTab = trova('DOPOTAB')
     const rientro = trova('RIENTRO')
 
     // Le tre righe scritte a mano restano su tre righe distinte.
-    expect(new Set([prima.y, spazi.y, rientro.y]).size).toBe(3)
+    expect(new Set([prima.y, tab.y, rientro.y]).size).toBe(3)
 
-    // Fra "SPAZI" e "IN" ci sono quattro spazi: devono valere piu' di uno solo,
-    // che a corpo 10 misura meno di 3pt.
-    expect(dentro.x - spazi.fine).toBeGreaterThan(6)
+    // La tabulazione vale quattro spazi, non uno: senza intervento il motore
+    // la schiaccerebbe sotto i 3pt.
+    expect(dopoTab.x - tab.fine).toBeGreaterThan(6)
 
     // Il rientro a inizio riga non viene buttato via.
     expect(rientro.x).toBeGreaterThan(prima.x + 4)
