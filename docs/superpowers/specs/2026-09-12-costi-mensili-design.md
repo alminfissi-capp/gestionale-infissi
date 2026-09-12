@@ -128,16 +128,19 @@ Espone:
 - i tipi `FamigliaCosto` (`'fissi' | 'variabili' | 'tasse'`) e `VoceCosto`
   (le sei voci), più le mappe di etichette;
 - la mappa voce → famiglia e la mappa `CategoriaScadenza` → voce;
-- `aggregaCostiMensili(dati, anno)` che restituisce:
+- `aggregaCostiMensili(dati, anno, oggi)` che restituisce un `ResocontoCosti`:
   - `mesi`: dodici righe, ciascuna con l'importo delle sei voci, i tre totali di
     famiglia e il totale del mese (mesi senza costi inclusi, a zero: il grafico
     deve avere sempre dodici colonne);
   - `totali`: totale d'anno per famiglia e complessivo, con media mensile e
     percentuale;
-  - `mesiSenzaBuste`: gli indici dei mesi già trascorsi senza nessuna busta paga.
-    "Trascorso" si misura sulla data odierna passata dalla pagina (`oggi`, già
-    calcolata in fuso Europe/Rome): per un anno passato sono tutti e dodici, per
-    l'anno in corso solo quelli fino al mese corrente incluso.
+  - `mesiSenzaStipendi`: gli indici dei mesi già trascorsi in cui non risulta
+    nessuno stipendio. "Trascorso" si misura sulla data odierna passata dalla
+    pagina (`oggi`, già calcolata in fuso Europe/Rome): per un anno passato sono
+    tutti e dodici, per l'anno in corso quelli fino al mese corrente incluso, per
+    un anno futuro nessuno. Se nell'anno non c'è nessuno stipendio l'elenco è
+    vuoto: chi non usa il modulo dipendenti non deve vedere l'avviso su tutti e
+    dodici i mesi.
 
 Non lo metto dentro `lib/statistiche-commesse.ts`, che è già a 691 righe.
 
@@ -153,12 +156,19 @@ Vitest, come gli altri moduli di `lib/`. Casi da coprire:
 - i movimenti `pagamento` degli altri dipendenti sono esclusi, gli `stipendio` no;
 - un movimento settimanale finisce nel mese del suo lunedì;
 - i dodici mesi ci sono sempre, anche a zero;
-- `mesiSenzaBuste` elenca solo i mesi trascorsi, non quelli futuri.
+- `mesiSenzaStipendi` elenca solo i mesi trascorsi, non quelli futuri;
+- `mesiSenzaStipendi` è vuoto se nell'anno non c'è nessuno stipendio.
 
 ### `components/commesse/CostiMensili.tsx` (nuovo)
 
-Client component, riceve il risultato dell'aggregazione già calcolato dal padre
-via `useMemo`. Contiene schede, grafico, avviso e tabella collassabile.
+Client component `CostiMensili`, riceve il `ResocontoCosti` già calcolato dal
+padre via `useMemo`. Contiene schede, legenda, grafico, avviso e tabella
+collassabile. Il tipo del risultato si chiama `ResocontoCosti` e non
+`CostiMensili` proprio per non collidere col nome del componente.
+
+Tooltip e legenda sono scritti a mano invece di usare quelli di recharts: la
+`Line` condivide la serie `fissi` con la barra in basso, e i componenti standard
+mostrerebbero quella voce due volte.
 
 ### `components/commesse/StatisticheCommesse.tsx` (modifica)
 
@@ -180,7 +190,12 @@ in `types/statistiche.ts` e non va aggirato.
 I dati sono quasi tutti già caricati. Serve solo:
 
 - aggiungere `periodo` alla select di `movimenti_altro_dipendente`;
-- passare buste, movimenti e scadenze già presenti dentro `dati`.
+- comporre e passare la prop nuova `datiCosti` (scadenze, buste, movimenti).
+
+`datiCosti` è una prop a sé, **non** un campo di `DatiStatistiche`: è lo stesso
+schema già usato da `datiAndamento`, e tiene `lib/costi-mensili.ts` libero di
+importare `MESI_LABEL` da `lib/statistiche-commesse.ts` senza creare un ciclo di
+import fra i due moduli.
 
 Nessuna query nuova, nessuna colonna nuova nel database.
 
