@@ -3,6 +3,7 @@ export const BLOCCHI_STATISTICHE = [
   { id: 'andamento-commesse', titolo: 'Andamento commesse' },
   { id: 'incassi-pagamenti',  titolo: 'Incassi e pagamenti' },
   { id: 'uscite-categoria',   titolo: 'Uscite per categoria' },
+  { id: 'costi-mensili',      titolo: 'Resoconto mensile costi' },
   { id: 'crediti-debiti',     titolo: 'Crediti e debiti' },
   { id: 'andamento-storico',  titolo: 'Andamento crediti e debiti' },
   { id: 'costi-utili',        titolo: 'Costi e utili stimati' },

@@ -10,6 +10,7 @@ import type {
 import { riepilogoBanche, type ContoBancaRow, type LineaCreditoRow, type AnticipoRow, type InfoCommessa } from '@/lib/banche'
 import { calcolaCostiPreventivo, type ArticoloCosti } from '@/lib/preventivo-costi'
 import type { DatiAndamento } from '@/lib/andamento-crediti-debiti'
+import type { DatiCostiMensili } from '@/lib/costi-mensili'
 import type { CreditoFiscale } from '@/types/commessa'
 
 export default async function StatisticheCommessePage() {
@@ -72,7 +73,7 @@ export default async function StatisticheCommessePage() {
         .order('id').range(da, a)),
       selectAll((da, a) => supabase
         .from('movimenti_altro_dipendente')
-        .select('altro_dipendente_id, importo, data_pagamento, tipo')
+        .select('altro_dipendente_id, importo, data_pagamento, tipo, periodo')
         .eq('organization_id', orgId)
         .order('id').range(da, a)),
       selectAll((da, a) => supabase
@@ -440,6 +441,27 @@ export default async function StatisticheCommessePage() {
     importo: Number(c.importo) || 0,
   })) as CreditoFiscale[]
 
+  // Costi per competenza: le scadenze con la loro data, gli stipendi col loro
+  // periodo di maturazione. Prop a sé come datiAndamento, così lib/costi-mensili
+  // può importare da lib/statistiche-commesse senza chiudere un ciclo.
+  const datiCosti: DatiCostiMensili = {
+    scadenze: scadenze.map((s) => ({
+      data_scadenza: s.data_scadenza,
+      importo: s.importo,
+      annullata: s.annullata,
+      categoria: s.categoria,
+    })),
+    buste: busteRaw.map((b) => ({
+      periodo: b.periodo,
+      netto: Number(b.netto) || 0,
+    })),
+    movimentiAltri: movAltriRaw.map((m) => ({
+      periodo: m.periodo,
+      tipo: m.tipo,
+      importo: Number(m.importo) || 0,
+    })),
+  }
+
   return (
     <StatisticheCommesse
       dati={{
@@ -448,6 +470,7 @@ export default async function StatisticheCommessePage() {
         contiBanca, lineeCredito, anticipi, infoCommesse, creditiFiscali,
       }}
       datiAndamento={datiAndamento}
+      datiCosti={datiCosti}
       oggi={oggi}
       fidoUtilizzato={fidoUtilizzato}
       ordineIniziale={preferenze.ordineBlocchi}
