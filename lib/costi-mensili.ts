@@ -155,9 +155,7 @@ const vociAZero = (): Record<VoceCosto, number> =>
 export function aggregaCostiMensili(
   dati: DatiCostiMensili,
   anno: string,
-  // Diventa `oggi` col Task 4, che è dove serve davvero. Il trattino basso lo
-  // tiene fuori da no-unused-vars (argsIgnorePattern in eslint.config.mjs).
-  _oggi: string,
+  oggi: string,
 ): ResocontoCosti {
   const mesi: RigaMeseCosti[] = MESI_LABEL.map((mese) => ({
     mese, voci: vociAZero(), fissi: 0, variabili: 0, tasse: 0, totale: 0,
@@ -221,12 +219,30 @@ export function aggregaCostiMensili(
     }
   })
 
+  // Quali mesi sono già trascorsi. Un anno passato è tutto trascorso, uno futuro
+  // per niente, quello in corso fino al mese corrente incluso.
+  const annoOggi = annoDi(oggi)
+  const ultimoMese =
+    anno === annoOggi ? (meseDi(oggi) ?? 11)
+    : anno < annoOggi ? 11
+    : -1
+
+  // L'avviso serve a chi gli stipendi li registra: se nell'anno non ce n'è
+  // nessuno, il modulo dipendenti non è in uso e segnalare dodici mesi vuoti
+  // sarebbe solo rumore.
+  const mesiSenzaStipendi = totaliVoce.stipendi > 0
+    ? mesi.reduce<number[]>((acc, r, i) => {
+        if (i <= ultimoMese && r.voci.stipendi === 0) acc.push(i)
+        return acc
+      }, [])
+    : []
+
   return {
     mesi,
     famiglie,
     totaliVoce,
     totaleAnno,
-    mesiSenzaStipendi: [], // il calcolo vero arriva col Task 4
+    mesiSenzaStipendi,
     haCosti: totaleAnno > 0,
   }
 }

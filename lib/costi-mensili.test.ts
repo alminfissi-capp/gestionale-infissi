@@ -200,3 +200,38 @@ describe('aggregaCostiMensili — stipendi', () => {
     expect(r.famiglie[0].totale).toBe(2750)
   })
 })
+
+describe('aggregaCostiMensili — mesi senza stipendi', () => {
+  const conStipendi = (mesiPieni: number[]) => dati({
+    buste: mesiPieni.map((m) => ({
+      periodo: `2026-${String(m + 1).padStart(2, '0')}-01`, netto: 1000,
+    })),
+  })
+
+  it('elenca solo i mesi già trascorsi, non quelli ancora da venire', () => {
+    // Oggi è marzo 2026, buste caricate solo a gennaio: mancano febbraio e marzo.
+    const r = aggregaCostiMensili(conStipendi([0]), '2026', '2026-03-15')
+    expect(r.mesiSenzaStipendi).toEqual([1, 2])
+  })
+
+  it('su un anno passato guarda tutti e dodici i mesi', () => {
+    const r = aggregaCostiMensili(dati({
+      buste: [{ periodo: '2025-01-01', netto: 1000 }],
+    }), '2025', '2026-03-15')
+    expect(r.mesiSenzaStipendi).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+  })
+
+  it('su un anno futuro non segnala niente', () => {
+    const r = aggregaCostiMensili(dati({
+      buste: [{ periodo: '2027-01-01', netto: 1000 }],
+    }), '2027', '2026-03-15')
+    expect(r.mesiSenzaStipendi).toEqual([])
+  })
+
+  it('non segnala niente se nell anno non ci sono stipendi: il modulo non è in uso', () => {
+    const r = aggregaCostiMensili(dati({
+      scadenze: [scadenza('2026-01-10', 500, 'utenza')],
+    }), '2026', '2026-06-30')
+    expect(r.mesiSenzaStipendi).toEqual([])
+  })
+})
