@@ -18,6 +18,16 @@ export default function PaginaDipendenti({ dipendenti }: Props) {
   const router = useRouter()
   const [dialogOpen, setDialogOpen] = useState(false)
 
+  const totali = dipendenti.reduce(
+    (acc, d) => ({
+      dovuto: acc.dovuto + d.dovuto,
+      pagato: acc.pagato + d.pagato,
+      residuo: acc.residuo + d.residuo,
+      mesi_aperti: acc.mesi_aperti + d.mesi_aperti,
+    }),
+    { dovuto: 0, pagato: 0, residuo: 0, mesi_aperti: 0 },
+  )
+
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -87,6 +97,22 @@ export default function PaginaDipendenti({ dipendenti }: Props) {
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr className="border-t-2 bg-gray-100 dark:bg-gray-900 font-semibold">
+                <td className="px-3 py-2.5">Totale ({dipendenti.length})</td>
+                <td className="px-3 py-2.5 text-right">{formatEuro(totali.dovuto)}</td>
+                <td className="px-3 py-2.5 text-right">{formatEuro(totali.pagato)}</td>
+                <td
+                  className={cn(
+                    'px-3 py-2.5 text-right',
+                    totali.residuo > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400',
+                  )}
+                >
+                  {formatEuro(totali.residuo)}
+                </td>
+                <td className="px-3 py-2.5 text-right">{totali.mesi_aperti}</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}
