@@ -29,6 +29,8 @@ import { applicaOrdine, spostaBlocco } from '@/lib/ordine-blocchi'
 import { setOrdineBlocchi } from '@/actions/preferenze'
 import { BLOCCHI_STATISTICHE } from '@/types/statistiche'
 import type { DatiAndamento } from '@/lib/andamento-crediti-debiti'
+import CostiMensili from './CostiMensili'
+import { aggregaCostiMensili, type DatiCostiMensili } from '@/lib/costi-mensili'
 
 const COLORS = {
   valore: '#0d9488',   // teal-600
@@ -89,6 +91,7 @@ function formatData(iso: string): string {
 interface Props {
   dati: DatiStatistiche
   datiAndamento: DatiAndamento
+  datiCosti: DatiCostiMensili
   oggi: string
   fidoUtilizzato: number
   ordineIniziale?: string[]
@@ -100,7 +103,7 @@ interface Props {
 // periodo.
 const SENZA_ANNO = new Set(['crediti-debiti', 'resoconto-cliente', 'andamento-storico'])
 
-export default function StatisticheCommesse({ dati, datiAndamento, oggi, fidoUtilizzato, ordineIniziale }: Props) {
+export default function StatisticheCommesse({ dati, datiAndamento, datiCosti, oggi, fidoUtilizzato, ordineIniziale }: Props) {
   const router = useRouter()
   const {
     commesse, acconti, anni, costiCommesse, scadenze,
@@ -135,6 +138,10 @@ export default function StatisticheCommesse({ dati, datiAndamento, oggi, fidoUti
   const uscite = useMemo(
     () => aggregaUscitePerCategoria(scadenze, pagamentiDipendenti, anno),
     [scadenze, pagamentiDipendenti, anno],
+  )
+  const costiMensili = useMemo(
+    () => aggregaCostiMensili(datiCosti, anno, oggi),
+    [datiCosti, anno, oggi],
   )
   const datiCostiUtili = useMemo(() => aggregaCostiUtiliMese(costiCommesse, anno), [costiCommesse, anno])
   const senzaPreventivo = useMemo(
@@ -321,6 +328,7 @@ export default function StatisticheCommesse({ dati, datiAndamento, oggi, fidoUti
         </div>
       )
     ),
+    'costi-mensili': <CostiMensili dati={costiMensili} />,
     'crediti-debiti': (
       // Tre card: su schermi stretti una sotto l'altra, in mezzo due per riga,
       // e da xl tutte e tre affiancate.
@@ -671,6 +679,17 @@ export default function StatisticheCommesse({ dati, datiAndamento, oggi, fidoUti
       <p className="text-xs text-gray-500">
         Quanto è stato pagato nell&apos;anno, diviso per voce di spesa
       </p>
+    ),
+    'costi-mensili': (
+      <div className="flex items-center gap-2 mt-0.5">
+        <span className="text-xs font-normal text-white bg-gray-500 rounded px-1.5 py-0.5">
+          competenza
+        </span>
+        <p className="text-xs text-gray-500">
+          Quanto è costato ogni mese, pagato o no: le scadenze sulla loro data e gli
+          stipendi sul mese della busta
+        </p>
+      </div>
     ),
     'crediti-debiti': (
       <div className="flex items-center gap-2 mt-0.5">
