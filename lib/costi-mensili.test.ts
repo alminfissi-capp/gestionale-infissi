@@ -137,3 +137,66 @@ describe('aggregaCostiMensili — scadenze', () => {
     expect(r.mesi[6].variabili).toBe(250)
   })
 })
+
+describe('aggregaCostiMensili — stipendi', () => {
+  it('una busta paga conta nel mese del suo periodo, non in quello del bonifico', () => {
+    // Busta di settembre: il costo è di settembre anche se il bonifico parte a ottobre.
+    const r = aggregaCostiMensili(dati({
+      buste: [{ periodo: '2026-09-01', netto: 1800 }],
+    }), '2026', '2026-12-31')
+
+    expect(r.mesi[8].voci.stipendi).toBe(1800)
+    expect(r.mesi[9].voci.stipendi).toBe(0)
+    expect(r.mesi[8].fissi).toBe(1800)
+  })
+
+  it('somma più buste dello stesso mese', () => {
+    const r = aggregaCostiMensili(dati({
+      buste: [
+        { periodo: '2026-04-01', netto: 1500 },
+        { periodo: '2026-04-01', netto: 1650.5 },
+      ],
+    }), '2026', '2026-12-31')
+
+    expect(r.mesi[3].voci.stipendi).toBe(3150.5)
+  })
+
+  it('ignora le buste di un altro anno', () => {
+    const r = aggregaCostiMensili(dati({
+      buste: [{ periodo: '2025-09-01', netto: 1800 }],
+    }), '2026', '2026-12-31')
+
+    expect(r.totaleAnno).toBe(0)
+  })
+
+  it('degli altri dipendenti conta lo stipendio maturato, non il pagamento', () => {
+    const r = aggregaCostiMensili(dati({
+      movimentiAltri: [
+        { periodo: '2026-02-01', tipo: 'stipendio', importo: 900 },
+        { periodo: '2026-02-01', tipo: 'pagamento', importo: 900 },
+      ],
+    }), '2026', '2026-12-31')
+
+    expect(r.mesi[1].voci.stipendi).toBe(900)
+  })
+
+  it('un movimento settimanale finisce nel mese che contiene il suo lunedì', () => {
+    // 2026-03-30 è un lunedì: la settimana sconfina in aprile, il costo resta a marzo.
+    const r = aggregaCostiMensili(dati({
+      movimentiAltri: [{ periodo: '2026-03-30', tipo: 'stipendio', importo: 400 }],
+    }), '2026', '2026-12-31')
+
+    expect(r.mesi[2].voci.stipendi).toBe(400)
+    expect(r.mesi[3].voci.stipendi).toBe(0)
+  })
+
+  it('buste e altri dipendenti si sommano nella stessa voce', () => {
+    const r = aggregaCostiMensili(dati({
+      buste: [{ periodo: '2026-05-01', netto: 2000 }],
+      movimentiAltri: [{ periodo: '2026-05-01', tipo: 'stipendio', importo: 750 }],
+    }), '2026', '2026-12-31')
+
+    expect(r.mesi[4].voci.stipendi).toBe(2750)
+    expect(r.famiglie[0].totale).toBe(2750)
+  })
+})

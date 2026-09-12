@@ -176,6 +176,25 @@ export function aggregaCostiMensili(
     aggiungi(m, voceDiCategoria(s.categoria), Number(s.importo) || 0)
   }
 
+  // Competenza: il costo è la busta del mese, non il bonifico che la salda.
+  // Per questo si leggono `buste_paga`, non `pagamenti_dipendente`.
+  for (const b of dati.buste) {
+    if (annoDi(b.periodo) !== anno) continue
+    const m = meseDi(b.periodo)
+    if (m === null) continue
+    aggiungi(m, 'stipendi', Number(b.netto) || 0)
+  }
+
+  // Altri dipendenti: i movimenti di tipo 'stipendio' sono il maturato, quelli
+  // di tipo 'pagamento' sono la cassa e qui non entrano.
+  for (const mv of dati.movimentiAltri) {
+    if (mv.tipo !== 'stipendio') continue
+    if (annoDi(mv.periodo) !== anno) continue
+    const m = meseDi(mv.periodo)
+    if (m === null) continue
+    aggiungi(m, 'stipendi', Number(mv.importo) || 0)
+  }
+
   const totaliVoce = vociAZero()
   for (const riga of mesi) {
     for (const v of VOCI) {
