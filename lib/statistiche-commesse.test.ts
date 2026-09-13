@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
+  aggregaCostiUtiliMese,
   aggregaFlussoMese,
   aggregaUscitePerCategoria,
+  type CostoCommessaRow,
   contaCommesseSenzaPreventivo,
   riepilogoCreditiDebiti,
   riepilogoCreditiFiscali,
@@ -286,6 +288,28 @@ describe('riepilogoCreditiDebiti', () => {
     expect(r.creditiCommesse).toBe(500)
     expect(r.creditiPerStato).toEqual([
       { stato: 'bloccato', label: 'Bloccato', importo: 500, numero: 1 },
+    ])
+  })
+
+  it('una commessa inesigibile non porta credito, nemmeno col residuo pieno', () => {
+    const commesse: StatRow[] = [
+      { id: 'i1', cliente_nome: 'Rossi', totale: 18400, data_conferma: '2026-01-01', blocco: '2026', stato: 'consegnato', inesigibile: true },
+    ]
+    const acconti: AccontoRow[] = [{ commessa_id: 'i1', importo: 5000, data_pagamento: '2026-02-01' }]
+    const r = riepilogoCreditiDebiti(commesse, acconti, [], [], [], OGGI, nessunaBanca)
+    expect(r.creditiCommesse).toBe(0)
+    expect(r.creditiPerStato).toEqual([])
+  })
+
+  it('la spunta vale sulla singola commessa, non su tutto il suo stato', () => {
+    const commesse: StatRow[] = [
+      { id: 'i2', cliente_nome: 'Rossi', totale: 1000, data_conferma: '2026-01-01', blocco: '2026', stato: 'consegnato', inesigibile: true },
+      { id: 'i3', cliente_nome: 'Verdi', totale: 700, data_conferma: '2026-01-01', blocco: '2026', stato: 'consegnato' },
+    ]
+    const r = riepilogoCreditiDebiti(commesse, [], [], [], [], OGGI, nessunaBanca)
+    expect(r.creditiCommesse).toBe(700)
+    expect(r.creditiPerStato).toEqual([
+      { stato: 'consegnato', label: 'Consegnato', importo: 700, numero: 1 },
     ])
   })
 
@@ -645,5 +669,75 @@ describe('riepilogoCreditiFiscali', () => {
       OGGI,
     )
     expect(r.totale).toBe(90.46)
+  })
+})
+
+describe('aggregaCostiUtiliMese — commesse inesigibili', () => {
+  it('conta i costi sostenuti ma azzera l utile di una commessa inesigibile', () => {
+    const costi: CostoCommessaRow[] = [
+      {
+        commessa_id: 'i1', blocco: '2026', data_conferma: '2026-04-10',
+        materiali: 6000, posa: 2000, spese: 500, utile: 3000, inesigibile: true,
+      },
+    ]
+    const r = aggregaCostiUtiliMese(costi, '2026')
+    expect(r[3].materiali).toBe(6000)
+    expect(r[3].posa).toBe(2000)
+    expect(r[3].spese).toBe(500)
+    expect(r[3].costi).toBe(8500)
+    expect(r[3].utile).toBe(0)
+  })
+
+  it('una commessa normale nello stesso mese tiene il suo utile', () => {
+    const costi: CostoCommessaRow[] = [
+      {
+        commessa_id: 'i1', blocco: '2026', data_conferma: '2026-04-10',
+        materiali: 6000, posa: 2000, spese: 500, utile: 3000, inesigibile: true,
+      },
+      {
+        commessa_id: 'n1', blocco: '2026', data_conferma: '2026-04-12',
+        materiali: 1000, posa: 300, spese: 0, utile: 700,
+      },
+    ]
+    const r = aggregaCostiUtiliMese(costi, '2026')
+    expect(r[3].costi).toBe(9800)
+    expect(r[3].utile).toBe(700)
+  })
+})
+
+describe('resocontoCliente — commesse inesigibili', () => {
+  it('tiene fatturato e incassato, azzera il saldo', () => {
+    const commesse: StatRow[] = [
+      { id: 'r1', cliente_nome: 'Rossi Mario', totale: 18400, data_conferma: '2026-01-01', blocco: '2026', stato: 'consegnato', inesigibile: true },
+    ]
+    const acconti: AccontoRow[] = [{ commessa_id: 'r1', importo: 5000, data_pagamento: '2026-02-01' }]
+    const r = resocontoCliente(commesse, acconti, 'Rossi Mario')
+    expect(r.righe[0].fatturato).toBe(18400)
+    expect(r.righe[0].incassato).toBe(5000)
+    expect(r.righe[0].saldo).toBe(0)
+    expect(r.totale.saldo).toBe(0)
+  })
+
+  it('lascia intatto il saldo delle altre commesse dello stesso cliente', () => {
+    const commesse: StatRow[] = [
+      { id: 'r1', cliente_nome: 'Rossi Mario', totale: 10000, data_conferma: '2026-01-01', blocco: '2026', stato: 'consegnato', inesigibile: true },
+      { id: 'r2', cliente_nome: 'Rossi Mario', totale: 4000, data_conferma: '2026-02-01', blocco: '2026', stato: 'consegnato' },
+    ]
+    const acconti: AccontoRow[] = [{ commessa_id: 'r2', importo: 1000, data_pagamento: '2026-03-01' }]
+    const r = resocontoCliente(commesse, acconti, 'Rossi Mario')
+    expect(r.righe[0].fatturato).toBe(14000)
+    expect(r.righe[0].incassato).toBe(1000)
+    // solo i 3000 residui della commessa normale
+    expect(r.righe[0].saldo).toBe(3000)
+  })
+
+  it('una inesigibile gia incassata in eccesso non regala saldo negativo', () => {
+    const commesse: StatRow[] = [
+      { id: 'r3', cliente_nome: 'Verdi', totale: 1000, data_conferma: '2026-01-01', blocco: '2026', stato: 'consegnato', inesigibile: true },
+    ]
+    const acconti: AccontoRow[] = [{ commessa_id: 'r3', importo: 1200, data_pagamento: '2026-02-01' }]
+    const r = resocontoCliente(commesse, acconti, 'Verdi')
+    // residuo negativo: non c'è niente da togliere, il saldo resta quello vero
+    expect(r.righe[0].saldo).toBe(-200)
   })
 })

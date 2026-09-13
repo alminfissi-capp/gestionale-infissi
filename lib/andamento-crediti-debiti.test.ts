@@ -222,3 +222,30 @@ describe('andamentoCreditiDebiti', () => {
     expect(serie.every((p) => p.crediti === 0 && p.debiti === 0 && p.netta === 0)).toBe(true)
   })
 })
+
+describe('creditiAllaData — commesse inesigibili', () => {
+  const dati: DatiAndamento = {
+    ...VUOTI,
+    commesse: [
+      { id: 'i1', totale: 18400, data_conferma: '2026-03-10', stato: 'consegnato', inesigibile: true },
+      { id: 'n1', totale: 1000, data_conferma: '2026-03-10', stato: 'consegnato' },
+    ],
+    acconti: [{ commessa_id: 'i1', importo: 5000, data_pagamento: '2026-04-05' }],
+  }
+
+  it('la inesigibile non entra nella linea dei crediti in nessun punto', () => {
+    // esce da tutta la serie, non dal giorno della spunta: la storia degli
+    // stati non viene conservata e vale la stessa imprecisione dichiarata
+    expect(creditiAllaData(dati, '2026-03-10')).toBe(1000)
+    expect(creditiAllaData(dati, '2026-04-06')).toBe(1000)
+    expect(creditiAllaData(dati, '2026-12-31')).toBe(1000)
+  })
+
+  it('senza la spunta quella stessa commessa conterebbe', () => {
+    const senza: DatiAndamento = {
+      ...dati,
+      commesse: dati.commesse.map((c) => ({ ...c, inesigibile: false })),
+    }
+    expect(creditiAllaData(senza, '2026-03-10')).toBe(19400)
+  })
+})

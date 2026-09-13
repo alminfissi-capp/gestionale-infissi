@@ -25,6 +25,9 @@ export type StatRow = {
   // Vendita e-commerce/eBay: entra nei totali economici ma non nelle letture
   // "per commessa vera" (preventivi mancanti, clienti, resoconto). Assente = commessa vera.
   anonima?: boolean
+  // Credito che non verrà incassato: il residuo non è più un credito e l'utile
+  // stimato non è più un utile. Assente = commessa normale.
+  inesigibile?: boolean
 }
 
 export type AccontoRow = {
@@ -81,6 +84,8 @@ export type CostoCommessaRow = {
   posa: number
   spese: number // spese varie degli articoli su misura (costo, non utile)
   utile: number
+  // Credito che non verrà incassato: i costi restano, l'utile stimato no.
+  inesigibile?: boolean
 }
 
 export type DatiStatistiche = {
@@ -208,7 +213,9 @@ export function aggregaCostiUtiliMese(costi: CostoCommessaRow[], anno: string): 
     out[m].materiali += Number(c.materiali) || 0
     out[m].posa += Number(c.posa) || 0
     out[m].spese += Number(c.spese) || 0
-    out[m].utile += Number(c.utile) || 0
+    // I costi sono stati sostenuti davvero e restano. L'utile invece era il
+    // margine su un incasso che non arriverà: sommarlo gonfierebbe il risultato.
+    if (!c.inesigibile) out[m].utile += Number(c.utile) || 0
   }
   for (const p of out) p.costi = p.materiali + p.posa + p.spese
   return out
@@ -298,15 +305,34 @@ export function resocontoCliente(
 
   // Acconti: attribuiti al blocco della commessa collegata (coerente con fatturato/saldo).
   const idsCliente = new Set(commesseCliente.map((c) => c.id))
+  // Serve anche il dettaglio per commessa, non solo per blocco: il saldo delle
+  // inesigibili va tolto una commessa alla volta.
+  const incassatoPerCommessa = new Map<string, number>()
   for (const a of acconti) {
     if (!idsCliente.has(a.commessa_id)) continue
     const blocco = bloccoPerCommessa.get(a.commessa_id)
     if (blocco === undefined) continue
-    riga(blocco).incassato += Number(a.importo) || 0
+    const importo = Number(a.importo) || 0
+    riga(blocco).incassato += importo
+    incassatoPerCommessa.set(a.commessa_id, (incassatoPerCommessa.get(a.commessa_id) ?? 0) + importo)
   }
 
   const righe = [...perBlocco.values()].sort((a, b) => ordinaAnniDesc(a.anno, b.anno))
   for (const r of righe) r.saldo = r.fatturato - r.incassato
+
+  // Le inesigibili restano nel fatturato e nell'incassato — quei soldi si sono
+  // mossi davvero — ma il loro residuo non verrà mai incassato e quindi non è
+  // un saldo. Solo il residuo POSITIVO: una commessa incassata in eccesso non
+  // ha niente da togliere, e il floor a zero è lo stesso di riepilogoCreditiDebiti.
+  for (const c of commesseCliente) {
+    if (!c.inesigibile) continue
+    const blocco = bloccoPerCommessa.get(c.id)
+    if (blocco === undefined) continue
+    const r = perBlocco.get(blocco)
+    if (!r) continue
+    const residuo = (Number(c.totale) || 0) - (incassatoPerCommessa.get(c.id) ?? 0)
+    if (residuo > 0) r.saldo -= residuo
+  }
 
   const totale: RigaResoconto = righe.reduce(
     (acc, r) => ({
@@ -499,6 +525,8 @@ export function riepilogoCreditiDebiti(
   const perStato = new Map<StatoCredito, { importo: number; numero: number }>()
   for (const c of commesse) {
     if (!SET_STATI_CREDITO.has(c.stato)) continue
+    // Marcata inesigibile: il residuo non verrà incassato, quindi non è un credito.
+    if (c.inesigibile) continue
     const residuo = (Number(c.totale) || 0) - (incassatoPerCommessa.get(c.id) ?? 0)
     if (residuo <= 0) continue
     creditiCommesse += residuo

@@ -667,6 +667,20 @@ export async function toggleCalcoli(commessaId: string, value: boolean): Promise
   revalidatePath('/commesse', 'layout')
 }
 
+/**
+ * Marca una commessa come inesigibile: consegnata, ma il saldo non verrà incassato.
+ * I costi restano contati; il residuo esce dai crediti e l'utile dai costi stimati.
+ */
+export async function toggleInesigibile(commessaId: string, value: boolean): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('commesse')
+    .update({ inesigibile: value })
+    .eq('id', commessaId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/commesse', 'layout')
+}
+
 /** Salva l'incasso previsto inserito a mano dall'operatore nello slot Calcoli */
 export async function setIncassoPrevisto(commessaId: string, value: number | null): Promise<void> {
   const supabase = await createClient()

@@ -31,7 +31,7 @@ export default async function StatisticheCommessePage() {
     await Promise.all([
       selectAll((da, a) => supabase
         .from('commesse')
-        .select('id, numero_commessa, cliente_nome, totale, data_conferma, gruppo_id, preventivo_id, stato, anonima, costo_materiali_manuale, costo_manodopera_manuale, utile_manuale')
+        .select('id, numero_commessa, cliente_nome, totale, data_conferma, gruppo_id, preventivo_id, stato, anonima, costo_materiali_manuale, costo_manodopera_manuale, utile_manuale, inesigibile')
         .eq('organization_id', orgId)
         .order('id').range(da, a)),
       selectAll((da, a) => supabase
@@ -136,6 +136,7 @@ export default async function StatisticheCommessePage() {
     blocco: c.gruppo_id ? (nomeBlocco.get(c.gruppo_id) ?? null) : null,
     stato: c.stato ?? '',
     anonima: Boolean(c.anonima),
+    inesigibile: Boolean(c.inesigibile),
   }))
 
   // Acconti esclusi se la commessa collegata è "in attesa".
@@ -241,6 +242,7 @@ export default async function StatisticheCommessePage() {
       posa: sys.posa + man.posa,
       spese: sys.spese, // le spese varie esistono solo lato preventivo, non tra i costi manuali
       utile: sys.utile + man.utile,
+      inesigibile: info.inesigibile,
     })
   }
 
@@ -398,6 +400,7 @@ export default async function StatisticheCommessePage() {
       totale: Number(c.totale) || 0,
       data_conferma: c.data_conferma,
       stato: c.stato ?? '',
+      inesigibile: Boolean(c.inesigibile),
     })),
     acconti: accontiRaw.map((a) => ({
       commessa_id: a.commessa_id,

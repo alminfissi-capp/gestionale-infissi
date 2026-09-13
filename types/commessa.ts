@@ -138,6 +138,8 @@ export type Commessa = {
   reparti: Reparto[]
   gruppo_id: string | null
   in_calcoli: boolean
+  /** Credito che non verrà incassato: niente residuo fra i crediti, niente utile fra i costi stimati. */
+  inesigibile: boolean
   // Vendite online (e-commerce, eBay): commessa contabile senza lavorazione.
   // Vedi types SezioneAnonima / VenditaAnonima piu' sotto.
   anonima: boolean
