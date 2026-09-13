@@ -25,6 +25,9 @@ export type StatRow = {
   // Vendita e-commerce/eBay: entra nei totali economici ma non nelle letture
   // "per commessa vera" (preventivi mancanti, clienti, resoconto). Assente = commessa vera.
   anonima?: boolean
+  // Credito che non verrà incassato: il residuo non è più un credito e l'utile
+  // stimato non è più un utile. Assente = commessa normale.
+  inesigibile?: boolean
 }
 
 export type AccontoRow = {
@@ -499,6 +502,8 @@ export function riepilogoCreditiDebiti(
   const perStato = new Map<StatoCredito, { importo: number; numero: number }>()
   for (const c of commesse) {
     if (!SET_STATI_CREDITO.has(c.stato)) continue
+    // Marcata inesigibile: il residuo non verrà incassato, quindi non è un credito.
+    if (c.inesigibile) continue
     const residuo = (Number(c.totale) || 0) - (incassatoPerCommessa.get(c.id) ?? 0)
     if (residuo <= 0) continue
     creditiCommesse += residuo

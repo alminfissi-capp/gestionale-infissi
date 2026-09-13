@@ -289,6 +289,28 @@ describe('riepilogoCreditiDebiti', () => {
     ])
   })
 
+  it('una commessa inesigibile non porta credito, nemmeno col residuo pieno', () => {
+    const commesse: StatRow[] = [
+      { id: 'i1', cliente_nome: 'Rossi', totale: 18400, data_conferma: '2026-01-01', blocco: '2026', stato: 'consegnato', inesigibile: true },
+    ]
+    const acconti: AccontoRow[] = [{ commessa_id: 'i1', importo: 5000, data_pagamento: '2026-02-01' }]
+    const r = riepilogoCreditiDebiti(commesse, acconti, [], [], [], OGGI, nessunaBanca)
+    expect(r.creditiCommesse).toBe(0)
+    expect(r.creditiPerStato).toEqual([])
+  })
+
+  it('la spunta vale sulla singola commessa, non su tutto il suo stato', () => {
+    const commesse: StatRow[] = [
+      { id: 'i2', cliente_nome: 'Rossi', totale: 1000, data_conferma: '2026-01-01', blocco: '2026', stato: 'consegnato', inesigibile: true },
+      { id: 'i3', cliente_nome: 'Verdi', totale: 700, data_conferma: '2026-01-01', blocco: '2026', stato: 'consegnato' },
+    ]
+    const r = riepilogoCreditiDebiti(commesse, [], [], [], [], OGGI, nessunaBanca)
+    expect(r.creditiCommesse).toBe(700)
+    expect(r.creditiPerStato).toEqual([
+      { stato: 'consegnato', label: 'Consegnato', importo: 700, numero: 1 },
+    ])
+  })
+
   // Una commessa conclusa dovrebbe essere pagata: se ha ancora un residuo è un errore di
   // stato, e va mostrato invece di sparire dai conti.
   it('mostra il residuo delle commesse concluse invece di ignorarlo', () => {
