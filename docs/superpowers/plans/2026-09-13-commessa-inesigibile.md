@@ -66,8 +66,9 @@ Crea `supabase/migrations/20260913100000_commesse_inesigibile.sql`:
 ALTER TABLE commesse
   ADD COLUMN IF NOT EXISTS inesigibile BOOLEAN NOT NULL DEFAULT false;
 
+-- Gli apostrofi dentro la stringa vanno raddoppiati, altrimenti chiudono la stringa.
 COMMENT ON COLUMN commesse.inesigibile IS
-  'Credito che non verra' incassato: esclude il residuo dai crediti e l''utile dai costi stimati.';
+  'Credito che non sara'' incassato: esclude il residuo dai crediti e l''utile dai costi stimati.';
 ```
 
 - [ ] **Step 2: Applica la migrazione al progetto Supabase**

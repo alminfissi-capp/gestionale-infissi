@@ -93,6 +93,7 @@ function pendingToCommessa(p: PendingCommessa): CommessaCompleta {
     reparti: p.input.reparti,
     gruppo_id: null,
     in_calcoli: false,
+    inesigibile: false,
     anonima: false,
     sezione_anonima_id: null,
     canale: null,
