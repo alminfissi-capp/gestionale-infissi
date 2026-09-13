@@ -305,15 +305,34 @@ export function resocontoCliente(
 
   // Acconti: attribuiti al blocco della commessa collegata (coerente con fatturato/saldo).
   const idsCliente = new Set(commesseCliente.map((c) => c.id))
+  // Serve anche il dettaglio per commessa, non solo per blocco: il saldo delle
+  // inesigibili va tolto una commessa alla volta.
+  const incassatoPerCommessa = new Map<string, number>()
   for (const a of acconti) {
     if (!idsCliente.has(a.commessa_id)) continue
     const blocco = bloccoPerCommessa.get(a.commessa_id)
     if (blocco === undefined) continue
-    riga(blocco).incassato += Number(a.importo) || 0
+    const importo = Number(a.importo) || 0
+    riga(blocco).incassato += importo
+    incassatoPerCommessa.set(a.commessa_id, (incassatoPerCommessa.get(a.commessa_id) ?? 0) + importo)
   }
 
   const righe = [...perBlocco.values()].sort((a, b) => ordinaAnniDesc(a.anno, b.anno))
   for (const r of righe) r.saldo = r.fatturato - r.incassato
+
+  // Le inesigibili restano nel fatturato e nell'incassato — quei soldi si sono
+  // mossi davvero — ma il loro residuo non verrà mai incassato e quindi non è
+  // un saldo. Solo il residuo POSITIVO: una commessa incassata in eccesso non
+  // ha niente da togliere, e il floor a zero è lo stesso di riepilogoCreditiDebiti.
+  for (const c of commesseCliente) {
+    if (!c.inesigibile) continue
+    const blocco = bloccoPerCommessa.get(c.id)
+    if (blocco === undefined) continue
+    const r = perBlocco.get(blocco)
+    if (!r) continue
+    const residuo = (Number(c.totale) || 0) - (incassatoPerCommessa.get(c.id) ?? 0)
+    if (residuo > 0) r.saldo -= residuo
+  }
 
   const totale: RigaResoconto = righe.reduce(
     (acc, r) => ({

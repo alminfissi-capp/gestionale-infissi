@@ -704,3 +704,40 @@ describe('aggregaCostiUtiliMese — commesse inesigibili', () => {
     expect(r[3].utile).toBe(700)
   })
 })
+
+describe('resocontoCliente — commesse inesigibili', () => {
+  it('tiene fatturato e incassato, azzera il saldo', () => {
+    const commesse: StatRow[] = [
+      { id: 'r1', cliente_nome: 'Rossi Mario', totale: 18400, data_conferma: '2026-01-01', blocco: '2026', stato: 'consegnato', inesigibile: true },
+    ]
+    const acconti: AccontoRow[] = [{ commessa_id: 'r1', importo: 5000, data_pagamento: '2026-02-01' }]
+    const r = resocontoCliente(commesse, acconti, 'Rossi Mario')
+    expect(r.righe[0].fatturato).toBe(18400)
+    expect(r.righe[0].incassato).toBe(5000)
+    expect(r.righe[0].saldo).toBe(0)
+    expect(r.totale.saldo).toBe(0)
+  })
+
+  it('lascia intatto il saldo delle altre commesse dello stesso cliente', () => {
+    const commesse: StatRow[] = [
+      { id: 'r1', cliente_nome: 'Rossi Mario', totale: 10000, data_conferma: '2026-01-01', blocco: '2026', stato: 'consegnato', inesigibile: true },
+      { id: 'r2', cliente_nome: 'Rossi Mario', totale: 4000, data_conferma: '2026-02-01', blocco: '2026', stato: 'consegnato' },
+    ]
+    const acconti: AccontoRow[] = [{ commessa_id: 'r2', importo: 1000, data_pagamento: '2026-03-01' }]
+    const r = resocontoCliente(commesse, acconti, 'Rossi Mario')
+    expect(r.righe[0].fatturato).toBe(14000)
+    expect(r.righe[0].incassato).toBe(1000)
+    // solo i 3000 residui della commessa normale
+    expect(r.righe[0].saldo).toBe(3000)
+  })
+
+  it('una inesigibile gia incassata in eccesso non regala saldo negativo', () => {
+    const commesse: StatRow[] = [
+      { id: 'r3', cliente_nome: 'Verdi', totale: 1000, data_conferma: '2026-01-01', blocco: '2026', stato: 'consegnato', inesigibile: true },
+    ]
+    const acconti: AccontoRow[] = [{ commessa_id: 'r3', importo: 1200, data_pagamento: '2026-02-01' }]
+    const r = resocontoCliente(commesse, acconti, 'Verdi')
+    // residuo negativo: non c'è niente da togliere, il saldo resta quello vero
+    expect(r.righe[0].saldo).toBe(-200)
+  })
+})
