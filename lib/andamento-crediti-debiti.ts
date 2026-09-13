@@ -31,6 +31,9 @@ export type CommessaAndamento = {
   totale: number
   data_conferma: string | null
   stato: string
+  // Credito che non verrà incassato: fuori dalla linea dei crediti, come uno
+  // stato fuori da STATI_CREDITO.
+  inesigibile?: boolean
 }
 export type AccontoAndamento = {
   commessa_id: string
@@ -101,6 +104,7 @@ export function creditiAllaData(dati: DatiAndamento, data: string): number {
   let totale = 0
   for (const c of dati.commesse) {
     if (!SET_STATI_CREDITO.has(c.stato)) continue
+    if (c.inesigibile) continue
     if (!c.data_conferma || soloData(c.data_conferma) > data) continue
     // Floor a zero per commessa: una incassata in eccesso non deve mascherare
     // il credito di un'altra.
