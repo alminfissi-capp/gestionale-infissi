@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
+  aggregaCostiUtiliMese,
   aggregaFlussoMese,
   aggregaUscitePerCategoria,
+  type CostoCommessaRow,
   contaCommesseSenzaPreventivo,
   riepilogoCreditiDebiti,
   riepilogoCreditiFiscali,
@@ -667,5 +669,38 @@ describe('riepilogoCreditiFiscali', () => {
       OGGI,
     )
     expect(r.totale).toBe(90.46)
+  })
+})
+
+describe('aggregaCostiUtiliMese — commesse inesigibili', () => {
+  it('conta i costi sostenuti ma azzera l utile di una commessa inesigibile', () => {
+    const costi: CostoCommessaRow[] = [
+      {
+        commessa_id: 'i1', blocco: '2026', data_conferma: '2026-04-10',
+        materiali: 6000, posa: 2000, spese: 500, utile: 3000, inesigibile: true,
+      },
+    ]
+    const r = aggregaCostiUtiliMese(costi, '2026')
+    expect(r[3].materiali).toBe(6000)
+    expect(r[3].posa).toBe(2000)
+    expect(r[3].spese).toBe(500)
+    expect(r[3].costi).toBe(8500)
+    expect(r[3].utile).toBe(0)
+  })
+
+  it('una commessa normale nello stesso mese tiene il suo utile', () => {
+    const costi: CostoCommessaRow[] = [
+      {
+        commessa_id: 'i1', blocco: '2026', data_conferma: '2026-04-10',
+        materiali: 6000, posa: 2000, spese: 500, utile: 3000, inesigibile: true,
+      },
+      {
+        commessa_id: 'n1', blocco: '2026', data_conferma: '2026-04-12',
+        materiali: 1000, posa: 300, spese: 0, utile: 700,
+      },
+    ]
+    const r = aggregaCostiUtiliMese(costi, '2026')
+    expect(r[3].costi).toBe(9800)
+    expect(r[3].utile).toBe(700)
   })
 })
