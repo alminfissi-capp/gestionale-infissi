@@ -55,7 +55,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { deleteCommessa, duplicaCommessa, updateOrdineCommesse, updateStatoCommessa, spostaCommessa, toggleCalcoli } from '@/actions/commesse'
+import { deleteCommessa, duplicaCommessa, updateOrdineCommesse, updateStatoCommessa, spostaCommessa, toggleCalcoli, toggleInesigibile } from '@/actions/commesse'
 import { formatEuro } from '@/lib/pricing'
 import { statoAllineamento } from '@/lib/allineamento-commessa'
 import type { CommessaCompleta, PreventivoPerCommessa, StatoCommessa, UtentePerCommessa, GruppoCommesse } from '@/types/commessa'
@@ -114,11 +114,14 @@ function pendingToCommessa(p: PendingCommessa): CommessaCompleta {
   }
 }
 
-function statoRowClass(stato: StatoCommessa): string {
-  if (stato === 'concluso')   return 'bg-sky-50'
-  if (stato === 'bloccato')   return 'bg-orange-50'
-  if (stato === 'annullato')  return 'bg-red-50'
-  if (stato === 'in_attesa')  return ''
+// Il viola dell'inesigibile vince sul colore dello stato: la riga deve dire
+// prima di tutto che quei soldi non arriveranno.
+function rigaClass(c: { stato: StatoCommessa; inesigibile?: boolean }): string {
+  if (c.inesigibile)           return 'bg-violet-50'
+  if (c.stato === 'concluso')  return 'bg-sky-50'
+  if (c.stato === 'bloccato')  return 'bg-orange-50'
+  if (c.stato === 'annullato') return 'bg-red-50'
+  if (c.stato === 'in_attesa') return ''
   return 'bg-yellow-50'
 }
 
@@ -196,10 +199,11 @@ interface RowProps {
   onSposta: (gruppoId: string) => void
   highlighted?: boolean
   onToggleCalcoli: () => void
+  onToggleInesigibile: () => void
   puoAprireProduzione: boolean
 }
 
-function SortableRow({ c, preventiviById, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange, altriGruppi, onSposta, highlighted, onToggleCalcoli, puoAprireProduzione }: RowProps) {
+function SortableRow({ c, preventiviById, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange, altriGruppi, onSposta, highlighted, onToggleCalcoli, onToggleInesigibile, puoAprireProduzione }: RowProps) {
   // Passato al preventivo così il tasto indietro riporta qui e non all'elenco preventivi
   const pathname = usePathname()
   const {
@@ -232,7 +236,7 @@ function SortableRow({ c, preventiviById, onScheda, onDelete, onDuplica, onAccon
           ? 'opacity-40 bg-blue-50'
           : highlighted
             ? 'bg-amber-100 ring-2 ring-inset ring-amber-400 transition-colors duration-1000'
-            : `${statoRowClass(c.stato)} transition-colors duration-1000`
+            : `${rigaClass(c)} transition-colors duration-1000`
       }
       {...attributes}
     >
@@ -382,6 +386,18 @@ function SortableRow({ c, preventiviById, onScheda, onDelete, onDuplica, onAccon
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        <label
+          className="mt-1 flex cursor-pointer items-center gap-1 text-[10px] text-gray-500 hover:text-violet-700"
+          title="Il saldo di questa commessa non verrà incassato: esce dai crediti e dall'utile stimato"
+        >
+          <input
+            type="checkbox"
+            checked={!!c.inesigibile}
+            onChange={onToggleInesigibile}
+            className="h-3 w-3 accent-violet-600"
+          />
+          inesigibile
+        </label>
       </TableCell>
 
       <TableCell className="text-sm text-gray-600 whitespace-nowrap">
@@ -606,6 +622,19 @@ export default function TabellaCommesse({
     }
   }
 
+  // Spunta "inesigibile" — aggiornamento ottimistico con revert in caso di errore,
+  // come la stellina dei Calcoli.
+  const handleToggleInesigibile = async (id: string, value: boolean) => {
+    setItems((prev) => prev.map((c) => c.id === id ? { ...c, inesigibile: value } : c))
+    try {
+      await toggleInesigibile(id, value)
+      router.refresh()
+    } catch {
+      setItems((prev) => prev.map((c) => c.id === id ? { ...c, inesigibile: !value } : c))
+      toast.error('Errore nel salvataggio')
+    }
+  }
+
   // Evidenzia la commessa indicata da ?highlight= e scrolla fino a lei, poi dissolve
   const [highlighted, setHighlighted] = useState<string | null>(highlightId ?? null)
   useEffect(() => {
@@ -804,6 +833,7 @@ export default function TabellaCommesse({
                       onSposta={(gId) => handleSposta(c.id, gId)}
                       highlighted={highlighted === c.id}
                       onToggleCalcoli={() => handleToggleCalcoli(c.id, !c.in_calcoli)}
+                      onToggleInesigibile={() => handleToggleInesigibile(c.id, !c.inesigibile)}
                       puoAprireProduzione={puoAprireProduzione}
                     />
                   ))}
