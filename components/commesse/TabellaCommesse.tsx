@@ -57,22 +57,12 @@ import {
 } from '@/components/ui/alert-dialog'
 import { deleteCommessa, duplicaCommessa, updateOrdineCommesse, updateStatoCommessa, spostaCommessa, toggleCalcoli, toggleInesigibile } from '@/actions/commesse'
 import { formatEuro } from '@/lib/pricing'
+import { labelStatoCommessa } from '@/lib/stato-commessa'
+import { usePermissions } from '@/contexts/PermissionsContext'
 import { statoAllineamento } from '@/lib/allineamento-commessa'
 import type { CommessaCompleta, PreventivoPerCommessa, StatoCommessa, UtentePerCommessa, GruppoCommesse } from '@/types/commessa'
 import { REPARTI } from '@/types/commessa'
 import type { Cliente } from '@/types/cliente'
-
-const STATI: { value: StatoCommessa; label: string }[] = [
-  { value: 'in_attesa',                label: 'In attesa' },
-  { value: 'da_iniziare',              label: 'Da iniziare' },
-  { value: 'in_lavorazione',           label: 'In lavorazione' },
-  { value: 'da_consegnare',            label: 'Da consegnare' },
-  { value: 'consegnato',               label: 'Consegnato' },
-  { value: 'parzialmente_consegnato',  label: 'Parz. consegnato' },
-  { value: 'concluso',                 label: 'Concluso' },
-  { value: 'bloccato',                 label: 'Bloccato' },
-  { value: 'annullato',                label: 'Annullato' },
-]
 
 function pendingToCommessa(p: PendingCommessa): CommessaCompleta {
   return {
@@ -125,13 +115,7 @@ function rigaClass(c: { stato: StatoCommessa; inesigibile?: boolean }): string {
   return 'bg-yellow-50'
 }
 
-function statoBadgeClass(stato: StatoCommessa): string {
-  if (stato === 'concluso')   return 'bg-sky-100 text-sky-700 border-sky-200'
-  if (stato === 'bloccato')   return 'bg-orange-100 text-orange-700 border-orange-200'
-  if (stato === 'annullato')  return 'bg-red-100 text-red-700 border-red-200'
-  if (stato === 'in_attesa')  return 'bg-gray-100 text-gray-500 border-gray-200'
-  return 'bg-yellow-100 text-yellow-700 border-yellow-200'
-}
+import BadgeStatoCommessa from './BadgeStatoCommessa'
 import DialogCommessa from './DialogCommessa'
 import DialogAcconto from './DialogAcconto'
 import DialogDocumenti from './DialogDocumenti'
@@ -201,9 +185,10 @@ interface RowProps {
   onToggleCalcoli: () => void
   onToggleInesigibile: () => void
   puoAprireProduzione: boolean
+  puoModificareStato: boolean
 }
 
-function SortableRow({ c, preventiviById, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange, altriGruppi, onSposta, highlighted, onToggleCalcoli, onToggleInesigibile, puoAprireProduzione }: RowProps) {
+function SortableRow({ c, preventiviById, onScheda, onDelete, onDuplica, onAcconto, onDocumenti, onPrevManuale, onStatoChange, altriGruppi, onSposta, highlighted, onToggleCalcoli, onToggleInesigibile, puoAprireProduzione, puoModificareStato }: RowProps) {
   // Passato al preventivo così il tasto indietro riporta qui e non all'elenco preventivi
   const pathname = usePathname()
   const {
@@ -365,27 +350,11 @@ function SortableRow({ c, preventiviById, onScheda, onDelete, onDuplica, onAccon
 
       {/* Stato */}
       <TableCell>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap ${statoBadgeClass(c.stato)}`}
-              title="Cambia stato"
-            >
-              {STATI.find((s) => s.value === c.stato)?.label ?? c.stato}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {STATI.map((s) => (
-              <DropdownMenuItem
-                key={s.value}
-                onClick={() => onStatoChange(s.value)}
-                className={c.stato === s.value ? 'font-semibold' : ''}
-              >
-                {s.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <BadgeStatoCommessa
+          stato={c.stato}
+          onChange={onStatoChange}
+          modificabile={puoModificareStato}
+        />
         <label
           className="mt-1 flex cursor-pointer items-center gap-1 text-[10px] text-gray-500 hover:text-violet-700"
           title="Il saldo di questa commessa non verrà incassato: esce dai crediti e dall'utile stimato"
@@ -560,6 +529,10 @@ export default function TabellaCommesse({
 }: Props) {
   const router = useRouter()
   const { isOnline } = useOnlineStatus()
+  // Lo stato e' un dato della commessa economica: lo cambia chi ha la
+  // scrittura su questo modulo, qui come nella pagina di Produzione.
+  const { canEdit } = usePermissions()
+  const puoModificareStato = canEdit('commesse')
   const [items, setItems] = useState<CommessaCompleta[]>(commesse)
   const [search, setSearch] = useState('')
   const [dialogCommessa, setDialogCommessa] = useState(false)
@@ -659,7 +632,7 @@ export default function TabellaCommesse({
       c.note,
       formatMese(c.data_conferma),
       c.stato,
-      STATI.find((s) => s.value === c.stato)?.label,
+      labelStatoCommessa(c.stato),
       (c.reparti ?? []).map((r) => REPARTI.find((x) => x.value === r)?.label ?? r).join(' '),
       (c.preventivi_collegati ?? []).map((p) => p.numero_preventivo).join(' '),
     ].some((f) => f?.toLowerCase().includes(q))
@@ -835,6 +808,7 @@ export default function TabellaCommesse({
                       onToggleCalcoli={() => handleToggleCalcoli(c.id, !c.in_calcoli)}
                       onToggleInesigibile={() => handleToggleInesigibile(c.id, !c.inesigibile)}
                       puoAprireProduzione={puoAprireProduzione}
+                      puoModificareStato={puoModificareStato}
                     />
                   ))}
                 </SortableContext>

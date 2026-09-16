@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { revalidatePath } from 'next/cache'
 import { getOrgId } from '@/lib/auth'
+import { getMyPermissions } from '@/lib/permessi'
 import type {
   CommessaCompleta,
   CommessaInput,
@@ -510,7 +511,19 @@ export async function duplicaCommessa(id: string): Promise<{ id: string }> {
   return { id: nuova.id }
 }
 
+/**
+ * Lo stato si cambia da due posti — l'elenco economico e la pagina di
+ * Produzione — ma la colonna e' una sola, quindi le due viste restano allineate
+ * da se'. Il permesso che conta e' sempre 'commesse' in scrittura, anche per
+ * chi arriva da Produzione: lo stato e' un dato della commessa economica, e
+ * gli admin ce l'hanno d'ufficio (PERMESSI_ADMIN). Il controllo sta qui perche'
+ * nascondere il badge nella pagina non impedisce di chiamare l'action.
+ */
 export async function updateStatoCommessa(id: string, stato: import('@/types/commessa').StatoCommessa): Promise<void> {
+  const { permessi } = await getMyPermissions()
+  if (permessi.commesse !== 'scrittura') {
+    throw new Error('Non autorizzato a cambiare lo stato della commessa')
+  }
   const supabase = await createClient()
   const { error } = await supabase
     .from('commesse')
@@ -518,6 +531,9 @@ export async function updateStatoCommessa(id: string, stato: import('@/types/com
     .eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/commesse', 'layout')
+  // Lo stato decide se e dove la commessa compare nel cruscotto di Produzione:
+  // anche quell'albero va riletto, altrimenti resta la card di prima.
+  revalidatePath('/produzione', 'layout')
 }
 
 export async function updateOrdineCommesse(updates: { id: string; ordine: number }[]): Promise<void> {
