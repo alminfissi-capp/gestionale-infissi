@@ -1,7 +1,7 @@
 import { requireAccesso } from '@/lib/permessi'
 import { getCruscottoProduzione } from '@/actions/produzione'
 import CruscottoProduzione from '@/components/produzione/CruscottoProduzione'
-import { STATI_COMMESSA_PRODUZIONE } from '@/types/produzione'
+import { STATI_COMMESSA_PRODUZIONE, STATI_COMMESSA_COMPLETATE } from '@/types/produzione'
 import type { StatoCommessa } from '@/types/commessa'
 
 export const dynamic = 'force-dynamic'
@@ -17,6 +17,9 @@ function statiDaFiltro(filtro: string): StatoCommessa[] {
   if (filtro === 'tutte') return TUTTI_GLI_STATI
   if (filtro === 'in_lavorazione') return ['in_lavorazione']
   if (filtro === 'da_iniziare') return ['da_iniziare']
+  // Finite di produrre ma non archiviate: la coda di chi aspetta solo il gesto
+  // dell'archiviazione. Le archiviate non passano da qui, hanno la loro vista.
+  if (filtro === 'completate') return STATI_COMMESSA_COMPLETATE
   return STATI_COMMESSA_PRODUZIONE
 }
 

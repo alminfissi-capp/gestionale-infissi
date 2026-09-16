@@ -30,6 +30,8 @@ const OPZIONI_FILTRO = [
   { value: 'aperte', label: 'Aperte' },
   { value: 'in_lavorazione', label: 'In lavorazione' },
   { value: 'da_iniziare', label: 'Da iniziare' },
+  // Consegnate o concluse e ancora fra le attive: da qui si archiviano.
+  { value: 'completate', label: 'Completate' },
   { value: 'tutte', label: 'Tutte' },
 ]
 

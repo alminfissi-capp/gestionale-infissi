@@ -26,6 +26,18 @@ export const STATI_COMMESSA_PRODUZIONE: StatoCommessa[] = [
 /** Il limbo: confermata dal cliente, non ancora pagata, quindi non partita. */
 export const STATO_COMMESSA_LIMBO: StatoCommessa = 'in_attesa'
 
+/**
+ * La produzione ha finito, l'archivio no: merce consegnata o commessa chiusa,
+ * ma la commessa e' ancora fra le attive. Sono le candidate all'archiviazione,
+ * che e' il gesto che dichiara finito tutto — produzione e conti.
+ * 'parzialmente_consegnato' non c'e': quella e' ancora lavoro aperto e sta in
+ * STATI_COMMESSA_PRODUZIONE.
+ */
+export const STATI_COMMESSA_COMPLETATE: StatoCommessa[] = [
+  'consegnato',
+  'concluso',
+]
+
 /** Tipi documento di competenza della Produzione (Commesse mostra gli altri). */
 export const TIPI_DOCUMENTO_PRODUZIONE: { value: string; label: string }[] = [
   { value: 'disegno',          label: 'Disegno' },
