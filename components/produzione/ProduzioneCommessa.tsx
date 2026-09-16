@@ -18,10 +18,13 @@ import DialogVisualizzatore from './DialogVisualizzatore'
 import OrdinePDF from './OrdinePDF'
 import type { IntestazionePDF } from './OrdinePDF'
 import StatoInvioOrdine from '@/components/produzione/StatoInvioOrdine'
+import BadgeStatoCommessa from '@/components/commesse/BadgeStatoCommessa'
+import { usePermissions } from '@/contexts/PermissionsContext'
 import { useAttivitaCommessa } from '@/hooks/useAttivitaCommessa'
 import { formatEuro } from '@/lib/pricing'
 import { formattaNumeroOrdine, nomeFilePdfOrdine } from '@/lib/produzione'
 import { deleteOrdine, setStatoOrdine } from '@/actions/produzione'
+import { updateStatoCommessa } from '@/actions/commesse'
 import { salvaPdfOrdine, aggiornaPdfDocumentoOrdine } from '@/actions/produzione-pdf'
 import { getAllegatiOrdine } from '@/actions/produzione-allegati'
 import { getDocumentoSignedUrl } from '@/actions/produzione-documenti'
@@ -51,6 +54,12 @@ export default function ProduzioneCommessa({
   // Attivita' e avanzamento vengono dallo stesso stato: l'anello si muove
   // nell'istante in cui si spunta "completata".
   const attivita = useAttivitaCommessa(commessa.id)
+  // Lo stato e' la colonna `stato` della commessa economica, non una copia:
+  // cambiarlo qui lo cambia anche in Commesse, ed e' per questo che il permesso
+  // richiesto e' la scrittura su quel modulo. Chi non l'ha vede il badge
+  // sbiadito (vedi BadgeStatoCommessa) e l'action lo rifiuterebbe comunque.
+  const puoModificareStato = usePermissions().canEdit('commesse')
+  const [stato, setStato] = useState(commessa.stato)
   const [open, setOpen] = useState(false)
   const [inModifica, setInModifica] = useState<OrdineCompleto | null>(null)
   const [viewer, setViewer] = useState<{ url: string; nome: string } | null>(null)
@@ -63,6 +72,21 @@ export default function ProduzioneCommessa({
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
     }
   }, [])
+
+  const cambiaStatoCommessa = async (nuovo: StatoCommessa) => {
+    const precedente = stato
+    setStato(nuovo)
+    try {
+      await updateStatoCommessa(commessa.id, nuovo)
+      toast.success('Stato commessa aggiornato')
+      // Lo stato decide in quale colonna del cruscotto finisce la commessa:
+      // rileggere tiene allineato anche quello che si vede tornando indietro.
+      router.refresh()
+    } catch {
+      setStato(precedente)
+      toast.error('Errore aggiornamento stato')
+    }
+  }
 
   const inviaEmail = async (o: OrdineCompleto) => {
     if (!confirm('Inviare l\'ordine via email al fornitore?')) return
@@ -276,9 +300,17 @@ export default function ProduzioneCommessa({
       </div>
 
       <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-          {commessa.numero_commessa || 'Commessa'}
-        </h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            {commessa.numero_commessa || 'Commessa'}
+          </h1>
+          <BadgeStatoCommessa
+            stato={stato}
+            onChange={cambiaStatoCommessa}
+            modificabile={puoModificareStato}
+            dimensione="md"
+          />
+        </div>
         <p className="text-sm text-gray-500 dark:text-gray-400">{commessa.cliente_nome}</p>
       </div>
 
