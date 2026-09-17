@@ -18,6 +18,7 @@ import type {
   CreditoFiscale,
   TipoBlocco,
   CommessaCondivisione,
+  TipoRitenuta,
 } from '@/types/commessa'
 import { TIPI_DOCUMENTO_PRODUZIONE_VALUES } from '@/types/produzione'
 import { selectAll } from '@/lib/supabase/paginate'
@@ -251,21 +252,43 @@ export async function addAcconto(commessaId: string, input: AccontoInput): Promi
   const orgId = await getOrgId()
   const { error } = await supabase
     .from('acconti_commessa')
-    .insert({ ...input, commessa_id: commessaId, organization_id: orgId })
+    .insert({ ...normalizzaRitenuta(input), commessa_id: commessaId, organization_id: orgId })
   if (error) throw new Error(error.message)
   revalidatePath('/commesse', 'layout')
 }
 
 /**
- * Marca (o smarca) la ritenuta su un acconto gia' registrato: serve per i
- * pagamenti inseriti prima che la funzione esistesse. Aggiorna solo quel campo,
- * cosi' non puo' rimescolare importo, data o firma di una ricevuta gia' emessa.
+ * Rimette d'accordo cifra e tipo della ritenuta, che il CHECK in DB vuole o
+ * entrambi presenti o entrambi assenti.
+ *
+ * Serve agli acconti messi in coda offline (`db.pendingAcconti`) PRIMA che
+ * esistesse il tipo: hanno la cifra e non il tipo, e al ritorno in rete l'insert
+ * sbatterebbe contro il vincolo perdendo il pagamento. Prima di oggi l'unica
+ * ritenuta possibile era quella per detrazioni.
  */
-export async function updateAccontoRitenuta(id: string, ritenuta: number): Promise<void> {
+function normalizzaRitenuta(input: AccontoInput): AccontoInput {
+  const ritenuta = Number(input.ritenuta) || 0
+  if (ritenuta <= 0) return { ...input, ritenuta: 0, ritenuta_tipo: null }
+  return { ...input, ritenuta, ritenuta_tipo: input.ritenuta_tipo ?? 'detrazioni' }
+}
+
+/**
+ * Marca (o smarca) la ritenuta su un acconto gia' registrato: serve per i
+ * pagamenti inseriti prima che la funzione esistesse, e per correggere il tipo
+ * su quelli marcati per sbaglio. Aggiorna solo quei due campi, cosi' non puo'
+ * rimescolare importo, data o firma di una ricevuta gia' emessa.
+ */
+export async function updateAccontoRitenuta(
+  id: string,
+  ritenuta: number,
+  tipo: TipoRitenuta | null,
+): Promise<void> {
   const supabase = await createClient()
+  // Cifra e tipo viaggiano insieme: il CHECK in DB li vuole o entrambi o nessuno.
+  const marcata = Number(ritenuta) > 0 && tipo !== null
   const { error } = await supabase
     .from('acconti_commessa')
-    .update({ ritenuta })
+    .update({ ritenuta: marcata ? ritenuta : 0, ritenuta_tipo: marcata ? tipo : null })
     .eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/commesse', 'layout')

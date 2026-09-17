@@ -885,6 +885,8 @@ export default function TabellaCommesse({
           onOpenChange={(v) => { if (!v) setDialogAcconto(null) }}
           commessaId={dialogAcconto.id}
           clienteNome={dialogAcconto.cliente_nome}
+          imponibile={dialogAcconto.imponibile}
+          totaleCommessa={dialogAcconto.totale}
           acconti={dialogAcconto.acconti}
           clienti={clienti}
         />
