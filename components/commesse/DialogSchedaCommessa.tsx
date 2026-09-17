@@ -64,7 +64,8 @@ import { formatEuro } from '@/lib/pricing'
 import { statoAllineamento } from '@/lib/allineamento-commessa'
 import { filtraClienti } from '@/lib/ricerca-clienti'
 import { nomeCliente, trovaClientePerNome } from '@/lib/clienti-identita'
-import { calcolaRitenuta } from '@/lib/ritenuta-acconto'
+import { calcolaRitenutaPer, quotaImponibile } from '@/lib/ritenuta-acconto'
+import { motiviRitenuta } from '@/lib/ritenuta-disponibilita'
 import { parseCoordinate, mapsUrl } from '@/lib/geo'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import type {
@@ -107,7 +108,7 @@ const METODI: { value: MetodoPagamento; label: string }[] = [
 const today = () => new Date().toISOString().split('T')[0]
 
 function emptyAcconto(): AccontoInput {
-  return { importo: 0, ritenuta: 0, data_pagamento: today(), metodo_pagamento: 'contanti', note: null }
+  return { importo: 0, ritenuta: 0, ritenuta_tipo: null, data_pagamento: today(), metodo_pagamento: 'contanti', note: null }
 }
 
 function formatData(d: string) {
@@ -600,15 +601,13 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
 
   const clienteSelezionato = clienteId ? clienti.find((c) => c.id === clienteId) ?? null : null
 
-  // Le aziende non fanno la detrazione fiscale: sulle loro commesse la spunta
-  // della ritenuta resta visibile ma spenta. Il tipo si cerca in anagrafica per
-  // nome, perche' la commessa salva solo il testo; cliente fuori anagrafica =
-  // tipo ignoto = spunta disponibile.
-  const clienteAnagrafica = trovaClientePerNome(clienti, commessa?.cliente_nome)
-  const motivoRitenutaDisabilitata =
-    clienteAnagrafica?.tipo === 'azienda'
-      ? `${nomeCliente(clienteAnagrafica)} e' un'azienda: la detrazione fiscale non si applica.`
-      : null
+  // Quale delle due ritenute ha senso su questa commessa: l'11% non sulle
+  // aziende, il 4% non sui privati. Il tipo di cliente si cerca in anagrafica per
+  // nome, perche' la commessa salva solo il testo.
+  const motiviRitenutaCommessa = motiviRitenuta(clienti, commessa?.cliente_nome)
+  // Scorpora l'imponibile per il 4%; senza commessa (o senza IVA spezzata) la
+  // funzione ricade da sola sul 22%.
+  const quotaRitenuta = quotaImponibile(commessa?.imponibile, commessa?.totale)
 
   // ── Render ────────────────────────────────────────────────
 
@@ -1140,7 +1139,12 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                             <span className="text-xs text-gray-400 truncate max-w-[120px]">{a.note}</span>
                           )}
                         </div>
-                        <RitenutaAccontoRiga acconto={a} motivoDisabilitata={motivoRitenutaDisabilitata} />
+                        <RitenutaAccontoRiga
+                          acconto={a}
+                          quota={quotaRitenuta}
+                          motivoDetrazioniDisabilitata={motiviRitenutaCommessa.detrazioni}
+                          motivoCondominioDisabilitata={motiviRitenutaCommessa.condominio}
+                        />
                       </div>
                       <Button
                         variant="ghost"
@@ -1193,7 +1197,11 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                         onChange={(e) => {
                           const importo = parseFloat(e.target.value) || 0
                           // La ritenuta segue l'importo finche' resta spuntata.
-                          setNewAcconto((f) => ({ ...f, importo, ritenuta: f.ritenuta > 0 ? calcolaRitenuta(importo) : 0 }))
+                          setNewAcconto((f) => ({
+                            ...f,
+                            importo,
+                            ritenuta: calcolaRitenutaPer(f.ritenuta > 0 ? f.ritenuta_tipo : null, importo, quotaRitenuta),
+                          }))
                         }}
                         autoFocus
                       />
@@ -1237,8 +1245,11 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                     id="scheda-acc-ritenuta"
                     importo={newAcconto.importo}
                     ritenuta={newAcconto.ritenuta}
-                    onChange={(ritenuta) => setNewAcconto((f) => ({ ...f, ritenuta }))}
-                    motivoDisabilitata={motivoRitenutaDisabilitata}
+                    tipo={newAcconto.ritenuta_tipo}
+                    quota={quotaRitenuta}
+                    onChange={(ritenuta, ritenuta_tipo) => setNewAcconto((f) => ({ ...f, ritenuta, ritenuta_tipo }))}
+                    motivoDetrazioniDisabilitata={motiviRitenutaCommessa.detrazioni}
+                    motivoCondominioDisabilitata={motiviRitenutaCommessa.condominio}
                   />
                   <div className="flex gap-2 justify-end">
                     <Button type="button" variant="ghost" size="sm" onClick={() => setShowAddAcconto(false)}>

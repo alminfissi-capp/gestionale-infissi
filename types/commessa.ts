@@ -1,3 +1,7 @@
+import type { TipoRitenuta } from '@/lib/ritenuta-acconto'
+
+export type { TipoRitenuta }
+
 // 'da_programmare' e' un blocco di sistema, uno solo per organizzazione: raccoglie
 // le scadenze ancora senza data di pagamento
 export type TipoBlocco = 'commesse' | 'scadenze' | 'da_programmare'
@@ -162,10 +166,14 @@ export type AccontoCommessa = {
   organization_id: string
   // Il LORDO bonificato dal cliente: e' quanto ha pagato, e chiude il suo debito.
   importo: number
-  // Quanto la banca ha trattenuto sul bonifico per detrazioni fiscali e versato
-  // all'Erario. 0 su tutti gli altri pagamenti. L'incassato e' la differenza:
+  // Quanto e' stato trattenuto sul pagamento e versato all'Erario per conto
+  // dell'azienda. 0 su tutti gli altri pagamenti. L'incassato e' la differenza:
   // vedi `nettoIncassato` in lib/ritenuta-acconto.ts.
   ritenuta: number
+  // Chi l'ha trattenuta: la banca sul bonifico parlante ('detrazioni', 11%) o il
+  // condominio come sostituto d'imposta ('condominio', 4%). Sono alternative, e
+  // il tipo e' NULL esattamente quando la cifra e' 0.
+  ritenuta_tipo: TipoRitenuta | null
   data_pagamento: string
   metodo_pagamento: MetodoPagamento
   note: string | null
@@ -227,6 +235,7 @@ export type CommessaInput = {
 export type AccontoInput = {
   importo: number
   ritenuta: number
+  ritenuta_tipo: TipoRitenuta | null
   data_pagamento: string
   metodo_pagamento: MetodoPagamento
   note: string | null
