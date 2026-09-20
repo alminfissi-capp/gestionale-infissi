@@ -4,7 +4,9 @@ import path from 'node:path'
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['lib/**/*.test.ts'],
+    // .tsx compreso: i test di impaginazione del PDF sono componenti React, e
+    // con il solo .ts non venivano mai eseguiti.
+    include: ['lib/**/*.test.{ts,tsx}'],
   },
   resolve: {
     alias: { '@': path.resolve(__dirname, '.') },
