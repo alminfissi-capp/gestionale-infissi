@@ -219,7 +219,7 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
                     {a.categoria_nome && (
                       <p className="text-gray-400 text-[9px]">{a.categoria_nome}</p>
                     )}
-                    {a.tipo !== 'libera' && a.larghezza_mm && (
+                    {a.larghezza_mm != null && (
                       <p className="text-gray-400 text-[9px]">{a.larghezza_mm}×{a.altezza_mm} mm</p>
                     )}
                   </td>

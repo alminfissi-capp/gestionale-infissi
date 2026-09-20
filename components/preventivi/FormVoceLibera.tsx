@@ -8,6 +8,7 @@ import { getIconePreventivo } from '@/actions/icone-preventivo'
 import { createClient } from '@/lib/supabase/client'
 import { resizeImage } from '@/lib/immagini'
 import { urlIcona } from '@/lib/icone-preventivo'
+import DialogIcone from './DialogIcone'
 import { calcolaTotaleRiga, formatEuro } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,6 +36,9 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
   const [prezzoUnitario, setPrezzoUnitario] = useState(initialValues?.prezzo_unitario?.toString() ?? '')
   const [costoAcquisto, setCostoAcquisto] = useState(initialValues?.costo_acquisto_unitario?.toString() ?? '')
   const [costoManodopera, setCostoManodopera] = useState(initialValues?.costo_posa?.toString() ?? '')
+  const [larghezza, setLarghezza] = useState(initialValues?.larghezza_mm?.toString() ?? '')
+  const [altezza, setAltezza] = useState(initialValues?.altezza_mm?.toString() ?? '')
+  const [finitura, setFinitura] = useState(initialValues?.finitura_nome ?? '')
   const [quantita, setQuantita] = useState(initialValues?.quantita?.toString() ?? '1')
   const [sconto, setSconto] = useState(initialValues?.sconto_articolo ?? 0)
   const [aliquotaIva, setAliquotaIva] = useState<number | null>(initialValues?.aliquota_iva ?? null)
@@ -125,12 +129,15 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
         accessori_griglia: null,
         tipologia: descrizione.trim(),
         categoria_nome: null,
-        larghezza_mm: null,
-        altezza_mm: null,
+        // Facoltative: se le scrivi finiscono nelle colonne L/A e Finitura del
+        // preventivo che vede il cliente, se le lasci vuote restano NULL e le
+        // colonne mostrano il trattino di sempre.
+        larghezza_mm: parseInt(larghezza) || null,
+        altezza_mm: parseInt(altezza) || null,
         larghezza_listino_mm: null,
         altezza_listino_mm: null,
         misura_arrotondata: false,
-        finitura_nome: null,
+        finitura_nome: finitura.trim() || null,
         finitura_aumento: 0,
         finitura_aumento_euro: 0,
         immagine_url: immagineUrl,
@@ -154,6 +161,9 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
 
       // Reset
       setDescrizione('')
+      setLarghezza('')
+      setAltezza('')
+      setFinitura('')
       setPrezzoUnitario('')
       setCostoAcquisto('')
       setCostoManodopera('')
@@ -181,6 +191,39 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
             onChange={(e) => setDescrizione(e.target.value)}
             rows={3}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y min-h-[72px]"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Larghezza (mm)</Label>
+          <Input
+            type="number"
+            min={0}
+            step={1}
+            placeholder="facoltativa"
+            value={larghezza}
+            onChange={(e) => setLarghezza(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Altezza (mm)</Label>
+          <Input
+            type="number"
+            min={0}
+            step={1}
+            placeholder="facoltativa"
+            value={altezza}
+            onChange={(e) => setAltezza(e.target.value)}
+          />
+        </div>
+
+        <div className="sm:col-span-2 space-y-1.5">
+          <Label>Finitura</Label>
+          <Input
+            placeholder="facoltativa — es. Bianco RAL 9010, Noce"
+            value={finitura}
+            onChange={(e) => setFinitura(e.target.value)}
           />
         </div>
 
@@ -264,7 +307,9 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
               <img
                 src={imagePreviewUrl}
                 alt="Anteprima"
-                style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 4, border: '1px solid #e5e7eb' }}
+                // `contain` come nella stampa: l'anteprima deve mostrare quello
+                // che finira' nel PDF, non una versione tagliata.
+                style={{ width: 80, height: 60, objectFit: 'contain', borderRadius: 4, border: '1px solid #e5e7eb', background: '#f9fafb' }}
               />
               <Button
                 type="button"
@@ -275,6 +320,11 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
               >
                 <X className="h-3.5 w-3.5" />
               </Button>
+              <DialogIcone
+                icone={icone}
+                urlSelezionato={imagePreviewUrl}
+                onSelect={handleSelectIcona}
+              />
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
@@ -308,41 +358,13 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
                 <FolderOpen className="h-3.5 w-3.5" />
                 File
               </Button>
+              <DialogIcone
+                icone={icone}
+                urlSelezionato={imagePreviewUrl}
+                onSelect={handleSelectIcona}
+              />
             </div>
           )}
-          {/* Le icone caricate in Impostazioni: un clic e la voce le riusa senza
-              caricare niente. Una riga sola, che scorre: con quaranta icone il
-              form non deve diventare lungo il doppio. */}
-          {icone.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto pt-1 pb-1">
-              {icone.map((icona) => {
-                const url = urlIcona(icona.storage_path)
-                const scelta = imagePreviewUrl === url
-                return (
-                  <button
-                    key={icona.id}
-                    type="button"
-                    onClick={() => handleSelectIcona(icona)}
-                    title={icona.nome}
-                    className={`shrink-0 rounded border p-1 transition-colors ${
-                      scelta ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-400'
-                    }`}
-                  >
-                    { }
-                    <img
-                      src={url}
-                      alt={icona.nome}
-                      style={{ width: 56, height: 42, objectFit: 'contain' }}
-                    />
-                    <span className="block max-w-[56px] truncate text-[10px] text-gray-500">
-                      {icona.nome}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
           {/* Hidden file inputs */}
           <input
             ref={inputCameraRef}
