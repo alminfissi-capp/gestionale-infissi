@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Plus, Camera, ImageIcon, FolderOpen, X, Loader2, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { getCurrentOrgId } from '@/actions/listini'
+import { getIconePreventivo } from '@/actions/icone-preventivo'
 import { createClient } from '@/lib/supabase/client'
+import { resizeImage } from '@/lib/immagini'
+import { urlIcona } from '@/lib/icone-preventivo'
 import { calcolaTotaleRiga, formatEuro } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,28 +21,7 @@ import {
 } from '@/components/ui/select'
 import ScontoSelect from './ScontoSelect'
 import type { ArticoloWizard } from '@/types/preventivo'
-
-/** Ridimensiona un'immagine mantenendo le proporzioni, max maxDim px su lato maggiore, formato WebP */
-async function resizeImage(file: File, maxDim = 1200): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file)
-    const img = new window.Image()
-    img.onload = () => {
-      URL.revokeObjectURL(url)
-      const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
-      const w = Math.round(img.width * scale)
-      const h = Math.round(img.height * scale)
-      const canvas = document.createElement('canvas')
-      canvas.width = w
-      canvas.height = h
-      const ctx = canvas.getContext('2d')!
-      ctx.drawImage(img, 0, 0, w, h)
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Canvas error'))), 'image/webp', 0.85)
-    }
-    img.onerror = reject
-    img.src = url
-  })
-}
+import type { IconaPreventivo } from '@/types/impostazioni'
 
 interface Props {
   aliquote: number[]
@@ -59,6 +41,18 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(initialValues?.immagine_url ?? null)
   const [uploading, setUploading] = useState(false)
+  // La libreria delle Impostazioni. Si carica qui e non via props: passarla
+  // giu' per pagina -> shell -> wizard -> editor sarebbe una catena di quattro
+  // componenti per un elenco di poche righe.
+  const [icone, setIcone] = useState<IconaPreventivo[]>([])
+
+  useEffect(() => {
+    let vivo = true
+    getIconePreventivo()
+      .then((r) => { if (vivo) setIcone(r) })
+      .catch(() => { /* offline o senza permessi: si resta senza icone */ })
+    return () => { vivo = false }
+  }, [])
 
   const inputCameraRef = useRef<HTMLInputElement>(null)
   const inputGalleriaRef = useRef<HTMLInputElement>(null)
@@ -72,6 +66,18 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
     setImageFile(file)
     setImagePreviewUrl(URL.createObjectURL(file))
+  }
+
+  /**
+   * Un'icona non si ricarica: la voce punta al file gia' in storage. Il nome
+   * finisce nella descrizione solo se e' ancora vuota, per non cancellare
+   * quello che l'utente ha gia' scritto.
+   */
+  const handleSelectIcona = (icona: IconaPreventivo) => {
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
+    setImageFile(null)
+    setImagePreviewUrl(urlIcona(icona.storage_path))
+    setDescrizione((d) => (d.trim() ? d : icona.nome))
   }
 
   const handleRemoveImage = () => {
@@ -304,6 +310,39 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
               </Button>
             </div>
           )}
+          {/* Le icone caricate in Impostazioni: un clic e la voce le riusa senza
+              caricare niente. Una riga sola, che scorre: con quaranta icone il
+              form non deve diventare lungo il doppio. */}
+          {icone.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pt-1 pb-1">
+              {icone.map((icona) => {
+                const url = urlIcona(icona.storage_path)
+                const scelta = imagePreviewUrl === url
+                return (
+                  <button
+                    key={icona.id}
+                    type="button"
+                    onClick={() => handleSelectIcona(icona)}
+                    title={icona.nome}
+                    className={`shrink-0 rounded border p-1 transition-colors ${
+                      scelta ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-400'
+                    }`}
+                  >
+                    { }
+                    <img
+                      src={url}
+                      alt={icona.nome}
+                      style={{ width: 56, height: 42, objectFit: 'contain' }}
+                    />
+                    <span className="block max-w-[56px] truncate text-[10px] text-gray-500">
+                      {icona.nome}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
           {/* Hidden file inputs */}
           <input
             ref={inputCameraRef}

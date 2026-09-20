@@ -35,3 +35,17 @@ export type NoteTemplate = {
   ordine: number
   created_at: string
 }
+
+/**
+ * Un'immagine caricata una volta e ripescabile da tutte le voci libere.
+ * Si salva il path nel bucket pubblico `preventivi-allegati`, non l'URL: l'URL
+ * si ricava dal path e tenerli tutti e due vorrebbe dire tenerli d'accordo.
+ */
+export type IconaPreventivo = {
+  id: string
+  organization_id: string
+  nome: string
+  storage_path: string
+  ordine: number
+  created_at: string
+}

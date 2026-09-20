@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSettings, getNoteTemplates, getLogoSignedUrl } from '@/actions/impostazioni'
+import { getIconePreventivo } from '@/actions/icone-preventivo'
 import { getConti } from '@/actions/conti'
 import { requireAccesso } from '@/lib/permessi'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import FormAzienda from '@/components/impostazioni/FormAzienda'
 import UploadLogo from '@/components/impostazioni/UploadLogo'
 import TemplateNote from '@/components/impostazioni/TemplateNote'
+import IconeVoceLibera from '@/components/impostazioni/IconeVoceLibera'
 import FormAliquoteIva from '@/components/impostazioni/FormAliquoteIva'
 import FormNumerazione from '@/components/impostazioni/FormNumerazione'
 import FormValiditaPreventivo from '@/components/impostazioni/FormValiditaPreventivo'
@@ -31,10 +33,11 @@ export default async function ImpostazioniPage() {
     .eq('id', user!.id)
     .single()
 
-  const [settings, templates, conti, orariLavoro, chiusure, tipiAttivita, linee, anticipi] =
+  const [settings, templates, icone, conti, orariLavoro, chiusure, tipiAttivita, linee, anticipi] =
     await Promise.all([
       getSettings(),
       getNoteTemplates(),
+      getIconePreventivo(),
       getConti(),
       getOrariLavoro(),
       getChiusure(),
@@ -235,6 +238,20 @@ export default async function ImpostazioniPage() {
         </CardHeader>
         <CardContent>
           <TemplateNote initialTemplates={templates} />
+        </CardContent>
+      </Card>
+
+      {/* Icone per le voci libere */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Icone per voci libere</CardTitle>
+          <CardDescription>
+            Immagini da riusare nelle voci libere dei preventivi, senza ricaricarle ogni volta.
+            Vengono ridotte in automatico.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <IconeVoceLibera orgId={profile!.organization_id} icone={icone} />
         </CardContent>
       </Card>
 
