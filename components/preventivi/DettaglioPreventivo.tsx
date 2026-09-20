@@ -637,10 +637,13 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
                     )}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-sm text-gray-600">
-                    {a.tipo === 'libera' || a.tipo === 'winconfig' ? '—' : (
+                    {/* Come per le misure: conta se la finitura c'e', non che tipo di
+                        articolo e'. La percentuale e' l'aumento del listino, che una
+                        voce libera non ha. */}
+                    {!a.finitura_nome ? '—' : (
                       <>
-                        {a.finitura_nome ?? '—'}
-                        {a.finitura_nome && (
+                        {a.finitura_nome}
+                        {a.finitura_aumento > 0 && (
                           <span className="text-xs text-gray-400 ml-1">+{a.finitura_aumento}%</span>
                         )}
                       </>

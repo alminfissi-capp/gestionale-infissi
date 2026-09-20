@@ -35,9 +35,9 @@ const preventivo = {
   iva_totale: 10, riepilogo_iva: [], totale_finale: 110, totale_pezzi: 1,
 } as unknown as PreventivoCompleto
 
-async function pezzi() {
+async function pezzi(prev: PreventivoCompleto = preventivo) {
   const buffer = await renderToBuffer(
-    <PreventivoPdf preventivo={preventivo} settings={null} logoUrl={null} />
+    <PreventivoPdf preventivo={prev} settings={null} logoUrl={null} />
   )
   const pdf = await pdfjs.getDocument({ data: new Uint8Array(buffer), useSystemFonts: true }).promise
   const tc = await pdf.getPage(1).then((p) => p.getTextContent())
@@ -95,5 +95,48 @@ describe('testo libero nel PDF preventivo', () => {
     expect(gen).toBeDefined()
     expect(dopo).toBeDefined()
     expect(gen.y - dopo.y).toBeGreaterThan(8.5 * 1.4 * 1.5)
+  })
+})
+
+describe('misure e finitura di una voce libera', () => {
+  // Le colonne L/A e la riga della finitura restavano spente sulle voci libere
+  // guardando il TIPO dell'articolo invece della presenza del dato: chi le
+  // scriveva nel form non le ritrovava nel PDF del cliente.
+  const conMisure = {
+    ...preventivo,
+    articoli: [{
+      ...articolo,
+      tipologia: 'ZANZARIERA',
+      note: null,
+      larghezza_mm: 1200,
+      altezza_mm: 800,
+      finitura_nome: 'BIANCORAL9010',
+    }],
+  } as unknown as PreventivoCompleto
+
+  it('stampa le misure nelle colonne L e A, sulla riga dell articolo', async () => {
+    const items = await pezzi(conMisure)
+    const titolo = items.find((i) => i.t === 'ZANZARIERA')!
+    const larghezza = items.find((i) => i.t === '1200')!
+    const altezza = items.find((i) => i.t === '800')!
+    expect(larghezza, 'larghezza assente dal PDF').toBeDefined()
+    expect(altezza, 'altezza assente dal PDF').toBeDefined()
+    // Stessa riga del titolo, e a destra della descrizione: sono le due colonne.
+    expect(Math.abs(larghezza.y - titolo.y)).toBeLessThan(2)
+    expect(larghezza.x).toBeGreaterThan(titolo.x)
+    expect(altezza.x).toBeGreaterThan(larghezza.x)
+  })
+
+  it('stampa la finitura sotto la descrizione', async () => {
+    const items = await pezzi(conMisure)
+    const titolo = items.find((i) => i.t === 'ZANZARIERA')!
+    const finitura = items.find((i) => i.t.includes('BIANCORAL9010'))!
+    expect(finitura, 'finitura assente dal PDF').toBeDefined()
+    expect(finitura.y).toBeLessThan(titolo.y)
+  })
+
+  it('senza misure le colonne restano col trattino', async () => {
+    const items = await pezzi()
+    expect(items.filter((i) => i.t === '—').length).toBeGreaterThanOrEqual(2)
   })
 })

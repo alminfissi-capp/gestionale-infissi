@@ -292,8 +292,10 @@ export default function PreventivoPdf({ preventivo: p, settings, logoUrl }: Prop
                 </View>
               </View>
 
-              <Text style={s.cL}>{a.tipo === 'libera' ? '—' : (a.larghezza_mm ?? '—')}</Text>
-              <Text style={s.cA}>{a.tipo === 'libera' ? '—' : (a.altezza_mm ?? '—')}</Text>
+              {/* Conta se la misura c'e', non che tipo di articolo e': anche una
+                  voce libera puo' averla scritta. */}
+              <Text style={s.cL}>{a.larghezza_mm ?? '—'}</Text>
+              <Text style={s.cA}>{a.altezza_mm ?? '—'}</Text>
 
               <View style={s.cPrice}>
                 {a.omaggio ? (
