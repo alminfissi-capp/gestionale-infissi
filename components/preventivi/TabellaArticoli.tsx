@@ -167,11 +167,14 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
                     {a.categoria_nome && (
                       <p className="text-xs text-gray-400">{a.categoria_nome}</p>
                     )}
-                    {/* Dim. e Finitura inline su schermi < lg dove le colonne sono nascoste */}
-                    {a.tipo !== 'libera' && a.tipo !== 'listino_libero' && (
+                    {/* Dim. e Finitura inline su schermi < lg dove le colonne sono nascoste.
+                        Si guarda cosa c'e', non che tipo di articolo e': anche una voce
+                        libera puo' avere misure e finitura. */}
+                    {(a.larghezza_mm != null || a.finitura_nome) && (
                       <p className="lg:hidden text-xs text-gray-400 mt-0.5">
-                        {a.larghezza_mm}×{a.altezza_mm} mm
-                        {a.finitura_nome && <> · {a.finitura_nome}</>}
+                        {a.larghezza_mm != null && `${a.larghezza_mm}×${a.altezza_mm} mm`}
+                        {a.larghezza_mm != null && a.finitura_nome && ' · '}
+                        {a.finitura_nome}
                       </p>
                     )}
                     {a.misura_arrotondata && (
@@ -228,7 +231,7 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
                 </div>
               </TableCell>
               <TableCell className="hidden lg:table-cell text-sm whitespace-nowrap text-gray-500">
-                {a.tipo === 'libera' || a.tipo === 'listino_libero' ? '—' : (
+                {a.larghezza_mm == null ? '—' : (
                   <>
                     {a.larghezza_mm}×{a.altezza_mm}
                     {a.misura_arrotondata && (

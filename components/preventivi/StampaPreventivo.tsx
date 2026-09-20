@@ -481,14 +481,14 @@ function DocumentoA4({ p, s, nomeCliente, dataFormattata, titolo, settings, logo
               </div>
             </div>
 
-            {/* L mm */}
+            {/* L mm — anche le voci libere, se chi l'ha scritta ha messo le misure */}
             <div style={{ textAlign: 'right', color: '#6b7280', paddingTop: '2px' }}>
-              {a.tipo === 'libera' ? '—' : a.larghezza_mm}
+              {a.larghezza_mm ?? '—'}
             </div>
 
             {/* A mm */}
             <div style={{ textAlign: 'right', color: '#6b7280', paddingTop: '2px' }}>
-              {a.tipo === 'libera' ? '—' : a.altezza_mm}
+              {a.altezza_mm ?? '—'}
             </div>
 
             {/* P. Unit. */}
