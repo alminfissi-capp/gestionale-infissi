@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, FileText, Table2, Package, Trash2, Pencil, Plus, Search, X, Copy, Layers, Hammer } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, FileText, Table2, Package, Trash2, Pencil, Plus, Search, X, Copy, Layers, Hammer, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import dynamic from 'next/dynamic'
+
+const CHIAVE_CATEGORIE_COLLASSATE = 'preventivo-categorie-collassate'
 
 const FerroCalcolatore = dynamic(() => import('@/components/ferro/FerroCalcolatore'), { ssr: false })
 const ImportaPdfCosti = dynamic(() => import('./ImportaPdfCosti'), { ssr: false })
@@ -18,6 +20,57 @@ import type { CategoriaConListini } from '@/types/listino'
 import type { ArticoloWizard } from '@/types/preventivo'
 import type { ItemSel } from './DialogConfigurazione'
 import type { ScorevoliListino } from '@/actions/scorrevoli'
+
+/** Le quattro varianti di colore delle categorie, come erano scritte a mano. */
+const COLORI_CATEGORIA = {
+  blue: {
+    attiva: 'bg-blue-600 text-white border-blue-600 shadow-sm',
+    inattiva: 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:bg-blue-50',
+  },
+  teal: {
+    attiva: 'bg-teal-600 text-white border-teal-600 shadow-sm',
+    inattiva: 'bg-white text-gray-600 border-gray-200 hover:border-teal-300 hover:bg-teal-50',
+  },
+  orange: {
+    attiva: 'bg-orange-600 text-white border-orange-600 shadow-sm',
+    inattiva: 'bg-white text-gray-600 border-gray-200 hover:border-orange-300 hover:bg-orange-50',
+  },
+  violet: {
+    attiva: 'bg-violet-600 text-white border-violet-600 shadow-sm',
+    inattiva: 'bg-white text-gray-600 border-gray-200 hover:border-violet-300 hover:bg-violet-50',
+  },
+} as const
+
+interface BottoneCategoriaProps {
+  attiva: boolean
+  /** Collassata mostra la sola icona: il nome resta nel `title`. */
+  collassata: boolean
+  colore: keyof typeof COLORI_CATEGORIA
+  nome: string
+  icona: React.ReactNode
+  onClick: () => void
+}
+
+/**
+ * Una voce dell'elenco categorie. Le quattro varianti (voce libera, scorrevoli,
+ * ferro, listini) erano quattro blocchi di classi copiati: con il collasso
+ * sarebbero diventati quattro posti dove sbagliare la stessa condizione.
+ */
+function BottoneCategoria({ attiva, collassata, colore, nome, icona, onClick }: BottoneCategoriaProps) {
+  const c = COLORI_CATEGORIA[colore]
+  return (
+    <button
+      onClick={onClick}
+      title={nome}
+      className={`w-full flex items-center gap-2 rounded-lg border transition-all text-sm font-medium ${
+        collassata ? 'justify-center px-0 py-2.5' : 'text-left px-3 py-2.5'
+      } ${attiva ? c.attiva : c.inattiva}`}
+    >
+      {icona}
+      {!collassata && <span className="truncate">{nome}</span>}
+    </button>
+  )
+}
 
 interface Props {
   listini: CategoriaConListini[]
@@ -41,6 +94,20 @@ export default function ArticoliEditor({
   onPdfFile,
 }: Props) {
   const [categoriaSel, setCategoriaSel] = useState<string | 'libera' | 'scorrevole' | 'ferro'>(listini[0]?.id ?? 'libera')
+  // Chi compila da tablet la tiene chiusa quasi sempre: la scelta si ricorda.
+  const [categorieCollassate, setCategorieCollassate] = useState(false)
+
+  // Si parte aperti e si legge la preferenza dopo il mount: leggerla durante il
+  // render darebbe un primo render del server diverso da quello del browser.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(CHIAVE_CATEGORIE_COLLASSATE) === '1') {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setCategorieCollassate(true)
+      }
+    } catch { /* storage negato: si resta aperti */ }
+  }, [])
+
   const [editingSuMisura, setEditingSuMisura] = useState<ArticoloWizard | null>(null)
   const [itemConfig, setItemConfig] = useState<ItemSel | null>(null)
   const [ricerca, setRicerca] = useState('')
@@ -50,6 +117,16 @@ export default function ArticoliEditor({
   const [configValues, setConfigValues] = useState<ArticoloWizard | null>(null)
 
   const categoria = listini.find((c) => c.id === categoriaSel)
+
+  const alternaCategorie = () => {
+    // Il nuovo valore si calcola qui e non dentro l'updater: React puo'
+    // rieseguire l'updater, e scrivere su disco non e' una cosa da ripetere.
+    const nuovo = !categorieCollassate
+    setCategorieCollassate(nuovo)
+    try {
+      localStorage.setItem(CHIAVE_CATEGORIE_COLLASSATE, nuovo ? '1' : '0')
+    } catch { /* storage negato: la scelta vale per questa sessione */ }
+  }
 
   const handleSelectCategoria = (id: string | 'libera' | 'scorrevole') => {
     setCategoriaSel(id)
@@ -213,78 +290,79 @@ export default function ArticoliEditor({
       <div className="flex flex-1 overflow-hidden">
 
         {/* ─── COL 1: Categorie ──────────────────────────────────────── */}
-        <div className="w-56 border-r flex flex-col shrink-0 bg-gray-50 overflow-y-auto">
-          <div className="px-3 py-2 border-b shrink-0">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Categorie</p>
+        {/* Collassata resta una barra di sole icone: su un tablet le colonne
+            sono tre e questa vale 224px, ma nasconderla del tutto costerebbe
+            due tocchi per cambiare categoria. */}
+        <div
+          className={`border-r flex flex-col shrink-0 bg-gray-50 overflow-y-auto transition-[width] duration-200 ${
+            categorieCollassate ? 'w-14' : 'w-56'
+          }`}
+        >
+          <div className="px-3 py-2 border-b shrink-0 flex items-center justify-between gap-1">
+            {!categorieCollassate && (
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Categorie</p>
+            )}
+            <button
+              onClick={alternaCategorie}
+              className={`p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-200 transition-colors ${
+                categorieCollassate ? 'mx-auto' : ''
+              }`}
+              title={categorieCollassate ? 'Espandi le categorie' : 'Riduci le categorie'}
+              aria-label={categorieCollassate ? 'Espandi le categorie' : 'Riduci le categorie'}
+            >
+              {categorieCollassate ? (
+                <PanelLeftOpen className="h-4 w-4" />
+              ) : (
+                <PanelLeftClose className="h-4 w-4" />
+              )}
+            </button>
           </div>
 
-          <div className="p-2 space-y-1.5 flex-1">
+          <div className={`space-y-1.5 flex-1 ${categorieCollassate ? 'p-1.5' : 'p-2'}`}>
             {/* Voce libera — sempre prima */}
-            <button
+            <BottoneCategoria
+              attiva={categoriaSel === 'libera'}
+              collassata={categorieCollassate}
+              colore="blue"
+              nome="Voce libera"
+              icona={<FileText className="h-4 w-4 shrink-0" />}
               onClick={() => handleSelectCategoria('libera')}
-              className={`w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-all text-sm font-medium ${
-                categoriaSel === 'libera'
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:bg-blue-50'
-              }`}
-            >
-              <FileText className="h-4 w-4 shrink-0" />
-              <span className="truncate">Voce libera</span>
-            </button>
+            />
 
             {/* Vetrate Scorrevoli */}
             {scorevoliListino && (
-              <button
+              <BottoneCategoria
+                attiva={categoriaSel === 'scorrevole'}
+                collassata={categorieCollassate}
+                colore="teal"
+                nome="Scorrevoli COPRAL"
+                icona={<Layers className="h-4 w-4 shrink-0" />}
                 onClick={() => handleSelectCategoria('scorrevole')}
-                className={`w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-all text-sm font-medium ${
-                  categoriaSel === 'scorrevole'
-                    ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-teal-300 hover:bg-teal-50'
-                }`}
-              >
-                <Layers className="h-4 w-4 shrink-0" />
-                <span className="truncate">Scorrevoli COPRAL</span>
-              </button>
+              />
             )}
 
             {/* Ferro & Cancelli */}
-            <button
+            <BottoneCategoria
+              attiva={categoriaSel === 'ferro'}
+              collassata={categorieCollassate}
+              colore="orange"
+              nome="Ferro & Cancelli"
+              icona={<Hammer className="h-4 w-4 shrink-0" />}
               onClick={() => handleSelectCategoria('ferro')}
-              className={`w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-all text-sm font-medium ${
-                categoriaSel === 'ferro'
-                  ? 'bg-orange-600 text-white border-orange-600 shadow-sm'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300 hover:bg-orange-50'
-              }`}
-            >
-              <Hammer className="h-4 w-4 shrink-0" />
-              <span className="truncate">Ferro & Cancelli</span>
-            </button>
+            />
 
             {/* Categorie listini */}
-            {listini.map((cat) => {
-              const isActive = categoriaSel === cat.id
-              const isSuMisura = cat.tipo === 'su_misura'
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => { handleSelectCategoria(cat.id); setEditingSuMisura(null); setEditingTempId(null) }}
-                  className={`w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-all text-sm font-medium ${
-                    isActive
-                      ? isSuMisura
-                        ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
-                        : 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                      : isSuMisura
-                        ? 'bg-white text-gray-600 border-gray-200 hover:border-violet-300 hover:bg-violet-50'
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:bg-blue-50'
-                  }`}
-                >
-                  <span className="shrink-0">
-                    <IconaCategoria icona={cat.icona} size="sm" />
-                  </span>
-                  <span className="truncate">{cat.nome}</span>
-                </button>
-              )
-            })}
+            {listini.map((cat) => (
+              <BottoneCategoria
+                key={cat.id}
+                attiva={categoriaSel === cat.id}
+                collassata={categorieCollassate}
+                colore={cat.tipo === 'su_misura' ? 'violet' : 'blue'}
+                nome={cat.nome}
+                icona={<IconaCategoria icona={cat.icona} size="sm" />}
+                onClick={() => { handleSelectCategoria(cat.id); setEditingSuMisura(null); setEditingTempId(null) }}
+              />
+            ))}
           </div>
         </div>
 
