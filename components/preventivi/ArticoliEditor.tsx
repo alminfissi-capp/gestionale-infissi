@@ -1,10 +1,43 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, FileText, Table2, Package, Trash2, Pencil, Plus, Search, X, Copy, Layers, Hammer, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, FileText, Table2, Package, Trash2, Pencil, Plus, Search, X, Copy, Layers, Hammer, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 const CHIAVE_CATEGORIE_COLLASSATE = 'preventivo-categorie-collassate'
+const CHIAVE_ARTICOLI_COLLASSATI = 'preventivo-articoli-collassati'
+
+/**
+ * Ricorda se una colonna laterale della compilazione e' chiusa.
+ *
+ * Si parte sempre aperti e la preferenza si legge dopo il mount: leggerla
+ * durante il render darebbe un primo render del server diverso da quello del
+ * browser. Stesso schema di `CruscottoProduzione`.
+ */
+function usePreferenzaCollasso(chiave: string): [boolean, () => void] {
+  const [collassato, setCollassato] = useState(false)
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(chiave) === '1') {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setCollassato(true)
+      }
+    } catch { /* storage negato: si resta aperti */ }
+  }, [chiave])
+
+  const alterna = () => {
+    // Il nuovo valore si calcola qui e non dentro l'updater: React puo'
+    // rieseguire l'updater, e scrivere su disco non e' una cosa da ripetere.
+    const nuovo = !collassato
+    setCollassato(nuovo)
+    try {
+      localStorage.setItem(chiave, nuovo ? '1' : '0')
+    } catch { /* storage negato: la scelta vale per questa sessione */ }
+  }
+
+  return [collassato, alterna]
+}
 
 const FerroCalcolatore = dynamic(() => import('@/components/ferro/FerroCalcolatore'), { ssr: false })
 const ImportaPdfCosti = dynamic(() => import('./ImportaPdfCosti'), { ssr: false })
@@ -94,19 +127,9 @@ export default function ArticoliEditor({
   onPdfFile,
 }: Props) {
   const [categoriaSel, setCategoriaSel] = useState<string | 'libera' | 'scorrevole' | 'ferro'>(listini[0]?.id ?? 'libera')
-  // Chi compila da tablet la tiene chiusa quasi sempre: la scelta si ricorda.
-  const [categorieCollassate, setCategorieCollassate] = useState(false)
-
-  // Si parte aperti e si legge la preferenza dopo il mount: leggerla durante il
-  // render darebbe un primo render del server diverso da quello del browser.
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(CHIAVE_CATEGORIE_COLLASSATE) === '1') {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setCategorieCollassate(true)
-      }
-    } catch { /* storage negato: si resta aperti */ }
-  }, [])
+  // Chi compila da tablet le tiene chiuse quasi sempre: le scelte si ricordano.
+  const [categorieCollassate, alternaCategorie] = usePreferenzaCollasso(CHIAVE_CATEGORIE_COLLASSATE)
+  const [articoliCollassati, alternaArticoli] = usePreferenzaCollasso(CHIAVE_ARTICOLI_COLLASSATI)
 
   const [editingSuMisura, setEditingSuMisura] = useState<ArticoloWizard | null>(null)
   const [itemConfig, setItemConfig] = useState<ItemSel | null>(null)
@@ -117,16 +140,6 @@ export default function ArticoliEditor({
   const [configValues, setConfigValues] = useState<ArticoloWizard | null>(null)
 
   const categoria = listini.find((c) => c.id === categoriaSel)
-
-  const alternaCategorie = () => {
-    // Il nuovo valore si calcola qui e non dentro l'updater: React puo'
-    // rieseguire l'updater, e scrivere su disco non e' una cosa da ripetere.
-    const nuovo = !categorieCollassate
-    setCategorieCollassate(nuovo)
-    try {
-      localStorage.setItem(CHIAVE_CATEGORIE_COLLASSATE, nuovo ? '1' : '0')
-    } catch { /* storage negato: la scelta vale per questa sessione */ }
-  }
 
   const handleSelectCategoria = (id: string | 'libera' | 'scorrevole') => {
     setCategoriaSel(id)
@@ -453,12 +466,53 @@ export default function ArticoliEditor({
         </div>
 
         {/* ─── COL 3: Articoli aggiunti ──────────────────────────────── */}
-        <div className="w-80 flex flex-col shrink-0 bg-gray-50 overflow-hidden">
-          <div className="px-3 py-2 border-b shrink-0 bg-white">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Articoli</p>
+        {/* Chiusa resta una striscia con il numero di articoli: serve a sapere
+            che ci sono e a riaprirla. Il "Vai al riepilogo" non manca, perche'
+            il pulsante Riepilogo e' anche in alto a destra. */}
+        <div
+          className={`flex flex-col shrink-0 bg-gray-50 overflow-hidden transition-[width] duration-200 ${
+            articoliCollassati ? 'w-12 border-l' : 'w-80'
+          }`}
+        >
+          <div className="px-3 py-2 border-b shrink-0 bg-white flex items-center justify-between gap-1">
+            {!articoliCollassati && (
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Articoli</p>
+            )}
+            <button
+              onClick={alternaArticoli}
+              className={`p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-200 transition-colors ${
+                articoliCollassati ? 'mx-auto' : ''
+              }`}
+              title={articoliCollassati ? 'Espandi gli articoli' : 'Riduci gli articoli'}
+              aria-label={articoliCollassati ? 'Espandi gli articoli' : 'Riduci gli articoli'}
+            >
+              {articoliCollassati ? (
+                <PanelRightOpen className="h-4 w-4" />
+              ) : (
+                <PanelRightClose className="h-4 w-4" />
+              )}
+            </button>
           </div>
 
-          {articoli.length === 0 ? (
+          {articoliCollassati ? (
+            <button
+              onClick={alternaArticoli}
+              className="flex-1 flex flex-col items-center gap-2 pt-3 text-gray-400 hover:text-gray-700 transition-colors"
+              title={`${articoli.length} articoli — clic per espandere`}
+            >
+              {articoli.length > 0 && (
+                <span className="rounded-full bg-blue-600 text-white text-[11px] font-bold leading-none px-1.5 py-1 min-w-[22px]">
+                  {articoli.length}
+                </span>
+              )}
+              <span
+                className="text-[10px] font-bold uppercase tracking-widest"
+                style={{ writingMode: 'vertical-rl' }}
+              >
+                Articoli
+              </span>
+            </button>
+          ) : articoli.length === 0 ? (
             <div className="flex-1 flex items-start justify-center pt-8 px-3">
               <p className="text-xs text-gray-400 text-center italic">
                 Nessun articolo.<br />Seleziona un prodotto dalla lista.
