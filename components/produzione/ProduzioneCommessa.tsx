@@ -22,7 +22,9 @@ import BadgeStatoCommessa from '@/components/commesse/BadgeStatoCommessa'
 import { usePermissions } from '@/contexts/PermissionsContext'
 import { useAttivitaCommessa } from '@/hooks/useAttivitaCommessa'
 import { formatEuro } from '@/lib/pricing'
-import { formattaNumeroOrdine, nomeFilePdfOrdine } from '@/lib/produzione'
+import {
+  formattaNumeroOrdine, nomeFilePdfOrdine, puoInviareOrdine, MOTIVO_INVIO_BLOCCATO,
+} from '@/lib/produzione'
 import { deleteOrdine, setStatoOrdine } from '@/actions/produzione'
 import { updateStatoCommessa } from '@/actions/commesse'
 import { salvaPdfOrdine, aggiornaPdfDocumentoOrdine } from '@/actions/produzione-pdf'
@@ -89,6 +91,7 @@ export default function ProduzioneCommessa({
   }
 
   const inviaEmail = async (o: OrdineCompleto) => {
+    if (!puoInviareOrdine(o.stato)) { toast.error(MOTIVO_INVIO_BLOCCATO); return }
     if (!confirm('Inviare l\'ordine via email al fornitore?')) return
     const attesa = toast.loading('Invio in corso...')
     try {
@@ -372,13 +375,18 @@ export default function ProduzioneCommessa({
                         <Eye className="h-4 w-4" />
                       </Button>
                       {o.fornitore_id ? (
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0"
-                          onClick={() => inviaEmail(o)} aria-label="Invia email"
-                          title={emailFornitore.get(o.fornitore_id)
+                        // Il title sta sullo span: un pulsante disabilitato non mostra il suo.
+                        <span className="inline-block" title={!puoInviareOrdine(o.stato)
+                          ? MOTIVO_INVIO_BLOCCATO
+                          : emailFornitore.get(o.fornitore_id)
                             ? 'Invia l\'ordine via email al fornitore'
                             : 'Il fornitore non ha un\'email in anagrafica'}>
-                          <Mail className="h-4 w-4" />
-                        </Button>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0"
+                            onClick={() => inviaEmail(o)} aria-label="Invia email"
+                            disabled={!puoInviareOrdine(o.stato)}>
+                            <Mail className="h-4 w-4" />
+                          </Button>
+                        </span>
                       ) : null}
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0"
                         onClick={() => { setInModifica(o); setOpen(true) }} aria-label="Modifica">

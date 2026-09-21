@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getOrgId } from '@/lib/auth'
 import { getSettings } from '@/actions/impostazioni'
-import { formattaNumeroOrdine } from '@/lib/produzione'
+import { formattaNumeroOrdine, puoInviareOrdine, MOTIVO_INVIO_BLOCCATO } from '@/lib/produzione'
 import { registraEvento } from '@/lib/produzione-tracking-db'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
@@ -41,12 +41,18 @@ export async function POST(request: Request) {
 
     const { data: ordine } = await supabase
       .from('ordini_fornitore')
-      .select('id, numero_ordine, pdf_path, pdf_inviato_path, tracking_token, fornitore_id, commessa_id')
+      .select('id, numero_ordine, stato, pdf_path, pdf_inviato_path, tracking_token, fornitore_id, commessa_id')
       .eq('id', ordineId)
       .eq('organization_id', orgId)
       .maybeSingle()
 
     if (!ordine) return NextResponse.json({ error: 'Ordine non trovato' }, { status: 404 })
+    // Anche il server rifiuta: una pagina rimasta aperta con lo stato vecchio
+    // mostrerebbe ancora il pulsante attivo. Niente fallisci(): non è un invio
+    // fallito da segnalare sotto la riga, l'ordine è semplicemente già partito.
+    if (!puoInviareOrdine(ordine.stato)) {
+      return NextResponse.json({ error: MOTIVO_INVIO_BLOCCATO }, { status: 409 })
+    }
     if (!ordine.pdf_path) {
       return await fallisci(supabase, ordineId, orgId, 'PDF dell\'ordine non ancora generato', 400)
     }
