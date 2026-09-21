@@ -29,6 +29,18 @@ export function isInRitardo(
   return previsto.getTime() < riferimento.getTime()
 }
 
+/**
+ * L'email al fornitore parte solo da "da ordinare": un reinvio accidentale
+ * farebbe ripetere l'ordine al fornitore. Per reinviare di proposito si
+ * riporta l'ordine a "da ordinare" e si invia di nuovo.
+ */
+export function puoInviareOrdine(stato: StatoOrdine): boolean {
+  return stato === 'da_ordinare'
+}
+
+export const MOTIVO_INVIO_BLOCCATO =
+  'Ordine già inviato: per reinviarlo riportalo prima a "Da ordinare"'
+
 /** Sigla mostrata davanti al numero ordine: "ORD 011-2026". */
 export const PREFISSO_ORDINE = 'ORD'
 

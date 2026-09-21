@@ -3,6 +3,7 @@ import {
   calcolaTotaleRigaOrdine,
   calcolaTotaleOrdine,
   isInRitardo,
+  puoInviareOrdine,
   prossimoNumeroOrdine,
   parseNumeroOrdine,
   normalizzaNumeroOrdine,
@@ -184,5 +185,14 @@ describe('nomeFilePdfOrdine', () => {
   it('normalizza gli spazi multipli', () => {
     expect(nomeFilePdfOrdine('022-2026', 'PROFILSIDER   CENTER', id))
       .toBe('ORD 022-2026 - PROFILSIDER CENTER.pdf')
+  })
+})
+
+describe('puoInviareOrdine', () => {
+  it('permette l\'invio solo da "da ordinare"', () => {
+    expect(puoInviareOrdine('da_ordinare')).toBe(true)
+    expect(puoInviareOrdine('ordinato')).toBe(false)
+    expect(puoInviareOrdine('arrivato')).toBe(false)
+    expect(puoInviareOrdine('annullato')).toBe(false)
   })
 })
