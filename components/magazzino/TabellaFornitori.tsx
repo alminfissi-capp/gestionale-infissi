@@ -26,6 +26,9 @@ export default function TabellaFornitori({ fornitori }: Props) {
   const [search, setSearch] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Fornitore | null>(null)
+  // Il form del dialog legge i dati solo al montaggio: una key nuova a ogni
+  // apertura lo rimonta con i dati del fornitore scelto.
+  const [dialogKey, setDialogKey] = useState(0)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
@@ -37,8 +40,8 @@ export default function TabellaFornitori({ fornitori }: Props) {
     )
   }, [fornitori, search])
 
-  const openCreate = () => { setEditing(null); setDialogOpen(true) }
-  const openEdit = (f: Fornitore) => { setEditing(f); setDialogOpen(true) }
+  const openCreate = () => { setEditing(null); setDialogKey((k) => k + 1); setDialogOpen(true) }
+  const openEdit = (f: Fornitore) => { setEditing(f); setDialogKey((k) => k + 1); setDialogOpen(true) }
 
   const handleDelete = async () => {
     if (!deletingId) return
@@ -138,6 +141,7 @@ export default function TabellaFornitori({ fornitori }: Props) {
       )}
 
       <DialogFornitore
+        key={dialogKey}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         fornitore={editing}
