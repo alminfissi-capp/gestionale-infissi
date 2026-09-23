@@ -1,11 +1,11 @@
 import type { StatoOrdine } from '@/types/produzione'
 
-type RigaCalcolabile = { quantita: number; prezzo_unitario: number | null }
+type RigaCalcolabile = { quantita: number | null; prezzo_unitario: number | null }
 
 const arrotonda2 = (n: number): number => Math.round(n * 100) / 100
 
 export function calcolaTotaleRigaOrdine(riga: RigaCalcolabile): number {
-  if (riga.prezzo_unitario === null) return 0
+  if (riga.prezzo_unitario === null || riga.quantita === null) return 0
   return arrotonda2(riga.quantita * riga.prezzo_unitario)
 }
 

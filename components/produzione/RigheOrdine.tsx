@@ -53,7 +53,7 @@ export default function RigheOrdine({ righe, onChange }: Props) {
         descrizione: '',
         codice_articolo: null,
         finitura: null,
-        quantita: 1,
+        quantita: null,
         unita_misura: 'pz',
         prezzo_unitario: null,
         ordine: righe.length,
@@ -74,7 +74,7 @@ export default function RigheOrdine({ righe, onChange }: Props) {
       descrizione: a.descrizione,
       codice_articolo: a.codice,
       finitura: null,
-      quantita: 1,
+      quantita: null,
       unita_misura: a.um || 'pz',
       prezzo_unitario: a.prezzo_acquisto,
       ordine: 0,
@@ -108,8 +108,11 @@ export default function RigheOrdine({ righe, onChange }: Props) {
               type="number"
               step="0.001"
               min="0.001"
-              value={riga.quantita}
-              onChange={(e) => aggiorna(i, { quantita: Number(e.target.value) })}
+              placeholder="Quantità"
+              value={riga.quantita ?? ''}
+              onChange={(e) =>
+                aggiorna(i, { quantita: e.target.value === '' ? null : Number(e.target.value) })
+              }
             />
           </Campo>
 
