@@ -23,6 +23,10 @@ describe('calcolaTotaleRigaOrdine', () => {
   it('arrotonda a 2 decimali', () => {
     expect(calcolaTotaleRigaOrdine({ quantita: 3, prezzo_unitario: 0.3333 })).toBe(1)
   })
+
+  it('vale 0 se la quantità non è ancora stata inserita', () => {
+    expect(calcolaTotaleRigaOrdine({ quantita: null, prezzo_unitario: 10.5 })).toBe(0)
+  })
 })
 
 describe('calcolaTotaleOrdine', () => {
@@ -42,6 +46,14 @@ describe('calcolaTotaleOrdine', () => {
     const righe = [
       { quantita: 2, prezzo_unitario: 10 },
       { quantita: 5, prezzo_unitario: null },
+    ]
+    expect(calcolaTotaleOrdine(righe)).toBe(20)
+  })
+
+  it('ignora le righe con quantità ancora vuota invece di produrre NaN', () => {
+    const righe = [
+      { quantita: 2, prezzo_unitario: 10 },
+      { quantita: null, prezzo_unitario: 7 },
     ]
     expect(calcolaTotaleOrdine(righe)).toBe(20)
   })

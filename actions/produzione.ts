@@ -342,6 +342,14 @@ async function salvaRighe(ordineId: string, orgId: string, righe: OrdineInput['r
   await supabase.from('righe_ordine_fornitore').delete().eq('ordine_id', ordineId)
   const valide = righe.filter((r) => r.descrizione.trim() !== '')
   if (valide.length === 0) return
+  // La colonna ha CHECK (quantita > 0): senza questo controllo l'insert
+  // fallirebbe con un errore generico invece di dire cosa manca.
+  const senzaQuantita = valide.findIndex((r) => !(r.quantita !== null && r.quantita > 0))
+  if (senzaQuantita !== -1) {
+    throw new Error(
+      `Quantità mancante nella riga "${valide[senzaQuantita].descrizione.trim()}"`
+    )
+  }
   const { error } = await supabase.from('righe_ordine_fornitore').insert(
     valide.map((r, i) => ({
       ordine_id: ordineId,

@@ -68,7 +68,8 @@ export type RigaOrdineInput = {
   descrizione: string
   codice_articolo: string | null
   finitura: string | null
-  quantita: number
+  /** null finché l'utente non digita la quantità: il campo parte vuoto. */
+  quantita: number | null
   unita_misura: string
   prezzo_unitario: number | null
   ordine: number
