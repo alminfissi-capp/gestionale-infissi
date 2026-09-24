@@ -1,4 +1,5 @@
 export type Mensilita = 'mensile' | 'tredicesima' | 'quattordicesima' | 'altro'
+export type RuoloDipendente = 'dipendente' | 'amministratore'
 export type MetodoPagamentoDipendente = 'bonifico' | 'contanti' | 'altro'
 
 export interface Dipendente {
@@ -8,6 +9,13 @@ export interface Dipendente {
   cognome: string
   codice_fiscale: string | null
   iban: string | null
+  ruolo: RuoloDipendente
+  /**
+   * false = niente cedolino (tipicamente un amministratore che preleva compensi
+   * quando serve): nessun dovuto ne' residuo, solo i pagamenti registrati.
+   * E' questo campo, non il ruolo, a cambiare i conti.
+   */
+  riceve_busta_paga: boolean
   attivo: boolean
   note: string | null
   created_at: string
@@ -18,6 +26,8 @@ export interface DipendenteInput {
   cognome: string
   codice_fiscale: string | null
   iban: string | null
+  ruolo: RuoloDipendente
+  riceve_busta_paga: boolean
   attivo: boolean
   note: string | null
 }

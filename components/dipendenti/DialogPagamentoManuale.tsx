@@ -19,6 +19,12 @@ interface Props {
   onOpenChange: (v: boolean) => void
   dipendenteId: string
   periodoDefault?: string // 'YYYY-MM-01'
+  /**
+   * Amministratore senza cedolino: non esiste un mese di competenza da scegliere,
+   * il compenso vale per il mese in cui e' stato pagato. I due campi spariscono e
+   * il periodo si ricava dalla data, che la colonna e' NOT NULL.
+   */
+  senzaBustaPaga?: boolean
 }
 
 const METODI: { value: MetodoPagamentoDipendente; label: string }[] = [
@@ -29,7 +35,9 @@ const METODI: { value: MetodoPagamentoDipendente; label: string }[] = [
 
 const today = () => new Date().toISOString().split('T')[0]
 
-export default function DialogPagamentoManuale({ open, onOpenChange, dipendenteId, periodoDefault }: Props) {
+export default function DialogPagamentoManuale({
+  open, onOpenChange, dipendenteId, periodoDefault, senzaBustaPaga = false,
+}: Props) {
   const router = useRouter()
   const [importo, setImporto] = useState('')
   const [data, setData] = useState(today())
@@ -57,7 +65,7 @@ export default function DialogPagamentoManuale({ open, onOpenChange, dipendenteI
       toast.error('Inserisci un importo valido')
       return
     }
-    if (!periodo) {
+    if (!senzaBustaPaga && !periodo) {
       toast.error('Indica il mese di competenza')
       return
     }
@@ -68,8 +76,8 @@ export default function DialogPagamentoManuale({ open, onOpenChange, dipendenteI
         data_pagamento: data,
         importo: imp,
         metodo,
-        periodo_competenza: `${periodo}-01`,
-        mensilita,
+        periodo_competenza: senzaBustaPaga ? `${data.slice(0, 7)}-01` : `${periodo}-01`,
+        mensilita: senzaBustaPaga ? 'altro' : mensilita,
         note: note || null,
       })
       toast.success('Pagamento registrato')
@@ -86,7 +94,7 @@ export default function DialogPagamentoManuale({ open, onOpenChange, dipendenteI
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md xl:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Registra pagamento</DialogTitle>
+          <DialogTitle>{senzaBustaPaga ? 'Registra compenso' : 'Registra pagamento'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
@@ -105,28 +113,30 @@ export default function DialogPagamentoManuale({ open, onOpenChange, dipendenteI
               <Input id="pag-data" type="date" value={data} onChange={(e) => setData(e.target.value)} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="pag-periodo">Mese di competenza *</Label>
-              <Input
-                id="pag-periodo"
-                type="month"
-                value={periodo}
-                onChange={(e) => setPeriodo(e.target.value)}
-              />
+          {!senzaBustaPaga && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="pag-periodo">Mese di competenza *</Label>
+                <Input
+                  id="pag-periodo"
+                  type="month"
+                  value={periodo}
+                  onChange={(e) => setPeriodo(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Mensilità</Label>
+                <Select value={mensilita} onValueChange={(v) => setMensilita(v as Mensilita)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(MENSILITA_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label>Mensilità</Label>
-              <Select value={mensilita} onValueChange={(v) => setMensilita(v as Mensilita)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(MENSILITA_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          )}
           <div className="space-y-1">
             <Label>Metodo</Label>
             <Select value={metodo} onValueChange={(v) => setMetodo(v as MetodoPagamentoDipendente)}>
@@ -143,7 +153,9 @@ export default function DialogPagamentoManuale({ open, onOpenChange, dipendenteI
             <Input id="pag-note" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
           <Button type="submit" disabled={loading} className="w-full">
-            {loading ? 'Registrazione...' : 'Registra pagamento'}
+            {loading
+              ? 'Registrazione...'
+              : senzaBustaPaga ? 'Registra compenso' : 'Registra pagamento'}
           </Button>
         </form>
       </DialogContent>

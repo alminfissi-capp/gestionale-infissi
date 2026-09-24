@@ -24,7 +24,7 @@ export default async function StatisticheCommessePage() {
   const [
     commesseRaw, accontiRaw, gruppiRaw, junctionRaw,
     scadenzeRaw, altriCreditiRaw, busteRaw,
-    pagDipRaw, movAltriRaw,
+    pagDipRaw, movAltriRaw, dipendentiRaw,
     contiRaw, lineeRaw, anticipiRaw, legamiRaw, legamiAccontiRaw,
     creditiFiscaliRaw,
   ] =
@@ -74,6 +74,13 @@ export default async function StatisticheCommessePage() {
       selectAll((da, a) => supabase
         .from('movimenti_altro_dipendente')
         .select('altro_dipendente_id, importo, data_pagamento, tipo, periodo')
+        .eq('organization_id', orgId)
+        .order('id').range(da, a)),
+      // Gli amministratori senza cedolino non hanno buste: il loro costo sono i
+      // pagamenti, e per riconoscerli serve l'anagrafica.
+      selectAll((da, a) => supabase
+        .from('dipendenti')
+        .select('id, riceve_busta_paga')
         .eq('organization_id', orgId)
         .order('id').range(da, a)),
       selectAll((da, a) => supabase
@@ -277,6 +284,12 @@ export default async function StatisticheCommessePage() {
     created_at: a.created_at,
   }))
 
+  // Chi non riceve busta paga: per queste persone non esiste un dovuto mensile,
+  // quindi il costo non puo' venire dalle buste. Viene dai pagamenti.
+  const senzaBustaPaga = new Set(
+    dipendentiRaw.filter((d) => d.riceve_busta_paga === false).map((d) => d.id),
+  )
+
   // Uscite verso i dipendenti: buste pagate/bonifici dei fissi + movimenti di tipo
   // 'pagamento' degli altri dipendenti. Sono uscite di cassa come le scadenze.
   const pagamentiDipendenti: PagamentoDipendenteRow[] = [
@@ -300,8 +313,16 @@ export default async function StatisticheCommessePage() {
     }
     return c
   }
-  for (const b of busteRaw) conto(`d:${b.dipendente_id}`).dovuto += Number(b.netto) || 0
-  for (const p of pagDipRaw) conto(`d:${p.dipendente_id}`).pagato += Number(p.importo) || 0
+  for (const b of busteRaw) {
+    if (senzaBustaPaga.has(b.dipendente_id)) continue
+    conto(`d:${b.dipendente_id}`).dovuto += Number(b.netto) || 0
+  }
+  for (const p of pagDipRaw) {
+    // Senza dovuto il suo conto sarebbe solo un residuo negativo: e' un compenso
+    // gia' saldato, non un credito verso l'azienda.
+    if (senzaBustaPaga.has(p.dipendente_id)) continue
+    conto(`d:${p.dipendente_id}`).pagato += Number(p.importo) || 0
+  }
   for (const m of movAltriRaw) {
     const c = conto(`a:${m.altro_dipendente_id}`)
     if (m.tipo === 'stipendio') c.dovuto += Number(m.importo) || 0
@@ -463,6 +484,9 @@ export default async function StatisticheCommessePage() {
       tipo: m.tipo,
       importo: Number(m.importo) || 0,
     })),
+    compensiSenzaBusta: pagDipRaw
+      .filter((p) => senzaBustaPaga.has(p.dipendente_id))
+      .map((p) => ({ data_pagamento: p.data_pagamento, importo: Number(p.importo) || 0 })),
   }
 
   return (

@@ -47,6 +47,7 @@ export async function getDipendentiConSaldi(): Promise<DipendenteConSaldo[]> {
     ...calcolaSaldoDipendente(
       buste.filter((b) => b.dipendente_id === d.id),
       pagamenti.filter((p) => p.dipendente_id === d.id),
+      d.riceve_busta_paga,
     ),
   }))
 }
@@ -135,10 +136,35 @@ async function uploadPdf(
   return path
 }
 
+/**
+ * Chi non riceve busta paga non deve poterne avere una: il suo conto e' fatto di
+ * soli pagamenti, e una busta ci rimetterebbe dentro un dovuto che per lui non
+ * esiste. Il controllo sta qui perche' il confine vero e' il server: alla UI la
+ * busta e' gia' nascosta, ma l'import documenti passa di qua lo stesso.
+ */
+async function assertRiceveBustaPaga(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+  dipendenteId: string,
+): Promise<void> {
+  const { data } = await supabase
+    .from('dipendenti')
+    .select('nome, cognome, riceve_busta_paga')
+    .eq('organization_id', orgId)
+    .eq('id', dipendenteId)
+    .maybeSingle()
+  if (data && data.riceve_busta_paga === false) {
+    throw new Error(
+      `${data.nome} ${data.cognome} non riceve busta paga: registra un pagamento invece di una busta`,
+    )
+  }
+}
+
 export async function addBustaPaga(input: BustaPagaInput, formData?: FormData): Promise<void> {
   const { supabase, orgId } = await assertAccessoDipendenti(true)
   const errore = validaBustaInput(input)
   if (errore) throw new Error(errore)
+  await assertRiceveBustaPaga(supabase, orgId, input.dipendente_id)
   const file_path = await uploadPdf(supabase, orgId, 'buste', input.dipendente_id, formData)
   const { error } = await supabase.from('buste_paga').insert({
     organization_id: orgId,
@@ -169,6 +195,7 @@ export async function updateBustaPaga(
   const { supabase, orgId } = await assertAccessoDipendenti(true)
   const errore = validaBustaInput(input)
   if (errore) throw new Error(errore)
+  await assertRiceveBustaPaga(supabase, orgId, input.dipendente_id)
 
   const { data: esistente, error: readErr } = await supabase
     .from('buste_paga')
