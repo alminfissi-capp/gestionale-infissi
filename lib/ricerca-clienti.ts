@@ -91,6 +91,26 @@ export function clienteCorrisponde(cliente: ClienteRicercabile, query: string): 
   })
 }
 
+/**
+ * Filtro della lista preventivi: corrisponde il cliente oppure il numero.
+ *
+ * Il filtro precedente guardava solo `nome`, `cognome`, `telefono` ed `email`
+ * dello snapshot: le aziende, che hanno il nome in `ragione_sociale` e
+ * nome/cognome a null, non uscivano mai dalla ricerca pur essendo mostrate
+ * correttamente in elenco.
+ */
+export function preventivoCorrisponde(
+  preventivo: { cliente_snapshot: ClienteRicercabile; numero: string | null },
+  query: string
+): boolean {
+  const q = normalizzaTesto(query)
+  if (!q) return true
+  return (
+    clienteCorrisponde(preventivo.cliente_snapshot, query) ||
+    normalizzaTesto(preventivo.numero).includes(q)
+  )
+}
+
 /** Filtra una lista di clienti con {@link clienteCorrisponde}. */
 export function filtraClienti<T extends ClienteRicercabile>(clienti: T[], query: string): T[] {
   const q = normalizzaTesto(query)

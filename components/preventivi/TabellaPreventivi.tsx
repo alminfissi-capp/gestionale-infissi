@@ -37,6 +37,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { preventivoCorrisponde } from '@/lib/ricerca-clienti'
 import type { Preventivo, StatoPreventivo } from '@/types/preventivo'
 
 const STATO_CONFIG: Record<
@@ -95,16 +96,10 @@ export default function TabellaPreventivi({ preventivi, commessePerPreventivo = 
     toast.success('Bozza scartata')
   }
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    if (!q) return preventivi
-    return preventivi.filter((p) => {
-      const s = p.cliente_snapshot
-      return [s.nome, s.cognome, s.telefono, s.email, p.numero].some((f) =>
-        f?.toLowerCase().includes(q)
-      )
-    })
-  }, [preventivi, search])
+  const filtered = useMemo(
+    () => preventivi.filter((p) => preventivoCorrisponde(p, search)),
+    [preventivi, search]
+  )
 
   const handleDuplica = (id: string) => {
     setDuplicatingId(id)
