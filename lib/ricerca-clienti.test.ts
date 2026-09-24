@@ -3,6 +3,7 @@ import {
   clienteCorrisponde,
   filtraClienti,
   normalizzaTesto,
+  preventivoCorrisponde,
   soloCifre,
   type ClienteRicercabile,
 } from '@/lib/ricerca-clienti'
@@ -38,6 +39,17 @@ const azienda: ClienteRicercabile = {
 }
 
 const accentato: ClienteRicercabile = { tipo: 'privato', nome: 'Nicolò', cognome: "D'Angelò" }
+
+// Azienda senza referente: nome e cognome restano null, come nello snapshot dei
+// preventivi SicilResin.
+const soloRagioneSociale: ClienteRicercabile = {
+  tipo: 'azienda',
+  ragione_sociale: 'SicilResin',
+  nome: null,
+  cognome: null,
+  email: null,
+  telefono: '+39 3333598621',
+}
 
 describe('normalizzaTesto', () => {
   it('minuscola, toglie gli accenti e compatta gli spazi', () => {
@@ -155,5 +167,38 @@ describe('normalizzaTesto — robustezza', () => {
   it('non esplode se le arriva un valore non stringa', () => {
     // può capitare da un campo del database tipizzato male
     expect(normalizzaTesto(42 as unknown as string)).toBe('')
+  })
+})
+
+describe('preventivoCorrisponde', () => {
+  const preventivo = { cliente_snapshot: soloRagioneSociale, numero: 'PRE WIN 261/2026 G' }
+
+  it("trova un'azienda dalla ragione sociale anche senza nome e cognome", () => {
+    expect(preventivoCorrisponde(preventivo, 'sicilresin')).toBe(true)
+    expect(preventivoCorrisponde(preventivo, 'SicilResin')).toBe(true)
+    expect(preventivoCorrisponde(preventivo, 'sicil')).toBe(true)
+  })
+
+  it('trova ancora dal numero del preventivo', () => {
+    expect(preventivoCorrisponde(preventivo, '261/2026')).toBe(true)
+    expect(preventivoCorrisponde(preventivo, 'pre win 261')).toBe(true)
+  })
+
+  it('trova ancora dal telefono', () => {
+    expect(preventivoCorrisponde(preventivo, '3333598621')).toBe(true)
+  })
+
+  it('non trova un cliente diverso', () => {
+    expect(preventivoCorrisponde(preventivo, 'zamueli')).toBe(false)
+  })
+
+  it('con query vuota tiene tutto', () => {
+    expect(preventivoCorrisponde(preventivo, '   ')).toBe(true)
+  })
+
+  it('regge un numero mancante', () => {
+    expect(
+      preventivoCorrisponde({ cliente_snapshot: soloRagioneSociale, numero: null }, 'sicilresin')
+    ).toBe(true)
   })
 })
