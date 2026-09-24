@@ -94,10 +94,18 @@ export type BustaCosto = { periodo: string; netto: number }
  */
 export type MovimentoAltroCosto = { periodo: string; tipo: string; importo: number }
 
+/**
+ * Compenso pagato a chi non riceve busta paga (amministratori). Senza cedolino
+ * non c'e' un mese di competenza: la data del pagamento e' l'unica che esiste,
+ * quindi e' li' che cade il costo.
+ */
+export type CompensoSenzaBustaCosto = { data_pagamento: string | null; importo: number }
+
 export type DatiCostiMensili = {
   scadenze: ScadenzaCosto[]
   buste: BustaCosto[]
   movimentiAltri: MovimentoAltroCosto[]
+  compensiSenzaBusta: CompensoSenzaBustaCosto[]
 }
 
 export type RigaMeseCosti = {
@@ -181,6 +189,15 @@ export function aggregaCostiMensili(
     const m = meseDi(b.periodo)
     if (m === null) continue
     aggiungi(m, 'stipendi', Number(b.netto) || 0)
+  }
+
+  // Amministratori senza cedolino: nessuna competenza da rispettare, il costo
+  // cade nel mese in cui il compenso e' stato pagato.
+  for (const c of dati.compensiSenzaBusta) {
+    if (annoDi(c.data_pagamento) !== anno) continue
+    const m = meseDi(c.data_pagamento)
+    if (m === null) continue
+    aggiungi(m, 'stipendi', Number(c.importo) || 0)
   }
 
   // Altri dipendenti: i movimenti di tipo 'stipendio' sono il maturato, quelli

@@ -81,6 +81,7 @@ export default function PaginaCarica({
 }) {
   const router = useRouter()
   const [dipendenti, setDipendenti] = useState(iniziali)
+  const conBustaPaga = dipendenti.filter((d) => d.riceve_busta_paga)
   const [tipo, setTipo] = useState<TipoDoc>(tipoIniziale)
   const [buste, setBuste] = useState<PropostaBusta[]>([])
   const [bonifici, setBonifici] = useState<PropostaBonifico[]>([])
@@ -142,7 +143,7 @@ export default function PaginaCarica({
             const proposte: PropostaBusta[] = trovate.map((b) => ({
               uid: crypto.randomUUID(),
               file,
-              dipendenteId: matchDipendente(dipendenti, b)?.id ?? dipendenteIniziale,
+              dipendenteId: matchDipendente(conBustaPaga, b)?.id ?? dipendenteIniziale,
               periodo: b.periodo || meseCorrente(),
               mensilita: b.mensilita,
               netto: b.netto ? String(b.netto) : '',
@@ -272,25 +273,32 @@ export default function PaginaCarica({
 
   const totaleProposte = buste.length + bonifici.length
 
+  // Una busta paga non puo' finire addosso a chi non la riceve: il server la
+  // rifiuterebbe comunque, ma toglierli dall'elenco evita di scoprirlo al
+  // salvataggio. I bonifici invece valgono per tutti, amministratori compresi.
   const selettoreDipendente = (
     valore: string | null,
     assegna: (id: string) => void,
-  ) => (
-    <Select
-      value={valore ?? ''}
-      onValueChange={(v) => (v === '__nuovo__' ? apriNuovoDipendente(assegna) : assegna(v))}
-    >
-      <SelectTrigger className={valore ? '' : 'border-red-400'}>
-        <SelectValue placeholder="Seleziona dipendente *" />
-      </SelectTrigger>
-      <SelectContent>
-        {dipendenti.map((d) => (
-          <SelectItem key={d.id} value={d.id}>{d.cognome} {d.nome}</SelectItem>
-        ))}
-        <SelectItem value="__nuovo__">+ Nuovo dipendente...</SelectItem>
-      </SelectContent>
-    </Select>
-  )
+    soloConBustaPaga = false,
+  ) => {
+    const elenco = soloConBustaPaga ? conBustaPaga : dipendenti
+    return (
+      <Select
+        value={valore ?? ''}
+        onValueChange={(v) => (v === '__nuovo__' ? apriNuovoDipendente(assegna) : assegna(v))}
+      >
+        <SelectTrigger className={valore ? '' : 'border-red-400'}>
+          <SelectValue placeholder="Seleziona dipendente *" />
+        </SelectTrigger>
+        <SelectContent>
+          {elenco.map((d) => (
+            <SelectItem key={d.id} value={d.id}>{d.cognome} {d.nome}</SelectItem>
+          ))}
+          <SelectItem value="__nuovo__">+ Nuovo dipendente...</SelectItem>
+        </SelectContent>
+      </Select>
+    )
+  }
 
   return (
     <div className="p-4 lg:p-6 space-y-4 max-w-3xl">
@@ -381,8 +389,10 @@ export default function PaginaCarica({
               </div>
             </details>
           )}
-          {selettoreDipendente(p.dipendenteId, (id) =>
-            setBuste((prev) => prev.map((x) => (x.uid === p.uid ? { ...x, dipendenteId: id } : x))),
+          {selettoreDipendente(
+            p.dipendenteId,
+            (id) => setBuste((prev) => prev.map((x) => (x.uid === p.uid ? { ...x, dipendenteId: id } : x))),
+            true,
           )}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="space-y-1">

@@ -52,8 +52,14 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
   const [busyId, setBusyId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  // Chi non riceve busta paga non ha mensilita' da chiudere: la sua scheda e'
+  // l'elenco dei compensi pagati, senza dovuto ne' residuo.
+  const senzaBusta = !dipendente.riceve_busta_paga
   const righe = calcolaRigheMensilita(buste, pagamenti)
-  const saldo = calcolaSaldoDipendente(buste, pagamenti)
+  const saldo = calcolaSaldoDipendente(buste, pagamenti, dipendente.riceve_busta_paga)
+  const pagamentiOrdinati = [...pagamenti].sort((a, b) =>
+    b.data_pagamento.localeCompare(a.data_pagamento),
+  )
 
   const apriFile = async (path: string) => {
     try {
@@ -118,6 +124,8 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
               {dipendente.cognome} {dipendente.nome}
             </h1>
             <p className="text-xs text-gray-500">
+              {dipendente.ruolo === 'amministratore' ? 'Amministratore · ' : ''}
+              {senzaBusta ? 'senza busta paga · ' : ''}
               {dipendente.codice_fiscale ?? 'CF non inserito'}
               {dipendente.iban ? ` · ${dipendente.iban}` : ''}
               {!dipendente.attivo ? ' · NON ATTIVO' : ''}
@@ -125,24 +133,28 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" asChild>
-            <Link href={`/dipendenti/carica?dip=${dipendente.id}`}>
-              <Upload className="h-4 w-4 mr-2" /> Carica busta
-            </Link>
-          </Button>
+          {!senzaBusta && (
+            <Button variant="outline" asChild>
+              <Link href={`/dipendenti/carica?dip=${dipendente.id}`}>
+                <Upload className="h-4 w-4 mr-2" /> Carica busta
+              </Link>
+            </Button>
+          )}
           <Button variant="outline" asChild>
             <Link href={`/dipendenti/carica?tipo=bonifico&dip=${dipendente.id}`}>
               <Banknote className="h-4 w-4 mr-2" /> Carica bonifico
             </Link>
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => { setBustaInModifica(null); setBustaOpen(true) }}
-          >
-            <Plus className="h-4 w-4 mr-2" /> Busta manuale
-          </Button>
+          {!senzaBusta && (
+            <Button
+              variant="outline"
+              onClick={() => { setBustaInModifica(null); setBustaOpen(true) }}
+            >
+              <Plus className="h-4 w-4 mr-2" /> Busta manuale
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setPagamentoOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" /> Pagamento manuale
+            <Plus className="h-4 w-4 mr-2" /> {senzaBusta ? 'Registra compenso' : 'Pagamento manuale'}
           </Button>
           <Button variant="outline" onClick={() => setEditOpen(true)}>
             <Pencil className="h-4 w-4 mr-2" /> Modifica
@@ -154,25 +166,73 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
       </div>
 
       {/* Card riepilogo */}
-      <div className="grid grid-cols-3 gap-3">
+      {senzaBusta ? (
         <div className="rounded-md border p-3">
-          <p className="text-xs text-gray-500">Dovuto (buste)</p>
-          <p className="text-lg font-bold">{formatEuro(saldo.dovuto)}</p>
-        </div>
-        <div className="rounded-md border p-3">
-          <p className="text-xs text-gray-500">Pagato</p>
+          <p className="text-xs text-gray-500">Compensi pagati</p>
           <p className="text-lg font-bold">{formatEuro(saldo.pagato)}</p>
-        </div>
-        <div className="rounded-md border p-3">
-          <p className="text-xs text-gray-500">Da pagare</p>
-          <p className={cn('text-lg font-bold', saldo.residuo > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400')}>
-            {formatEuro(saldo.residuo)}
+          <p className="text-xs text-gray-500 mt-1">
+            {pagamentiOrdinati.length}{' '}
+            {pagamentiOrdinati.length === 1 ? 'pagamento registrato' : 'pagamenti registrati'}
           </p>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-md border p-3">
+            <p className="text-xs text-gray-500">Dovuto (buste)</p>
+            <p className="text-lg font-bold">{formatEuro(saldo.dovuto)}</p>
+          </div>
+          <div className="rounded-md border p-3">
+            <p className="text-xs text-gray-500">Pagato</p>
+            <p className="text-lg font-bold">{formatEuro(saldo.pagato)}</p>
+          </div>
+          <div className="rounded-md border p-3">
+            <p className="text-xs text-gray-500">Da pagare</p>
+            <p className={cn('text-lg font-bold', saldo.residuo > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400')}>
+              {formatEuro(saldo.residuo)}
+            </p>
+          </div>
+        </div>
+      )}
 
-      {/* Tabella mensilità */}
-      {righe.length === 0 ? (
+      {/* Elenco compensi: senza mensilità da chiudere */}
+      {senzaBusta ? (
+        pagamentiOrdinati.length === 0 ? (
+          <p className="text-sm text-gray-500 text-center py-10">
+            Nessun compenso registrato.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {pagamentiOrdinati.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between gap-2 rounded-md border p-3 text-sm"
+              >
+                <span>
+                  {formatData(p.data_pagamento)} {'·'} {METODO_LABELS[p.metodo] ?? p.metodo}{' '}
+                  {'·'} <span className="font-semibold">{formatEuro(Number(p.importo))}</span>
+                  {p.note ? ` · ${p.note}` : ''}
+                </span>
+                <span className="flex gap-1">
+                  {p.file_path && (
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => apriFile(p.file_path!)}>
+                      <FileText className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-red-400 hover:text-red-600"
+                    disabled={busyId === p.id}
+                    onClick={() => rimuoviPagamento(p.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </span>
+              </div>
+            ))}
+          </div>
+        )
+      ) : righe.length === 0 ? (
         <p className="text-sm text-gray-500 text-center py-10">
           Nessuna busta o pagamento registrato.
         </p>
@@ -278,6 +338,7 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
         onOpenChange={setPagamentoOpen}
         dipendenteId={dipendente.id}
         periodoDefault={righe.find((r) => r.residuo > 0)?.periodo}
+        senzaBustaPaga={senzaBusta}
       />
       <DialogBustaManuale
         open={bustaOpen}

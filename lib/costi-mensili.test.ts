@@ -56,7 +56,7 @@ import { aggregaCostiMensili, type DatiCostiMensili } from '@/lib/costi-mensili'
 
 // Base vuota: ogni test riempie solo quello che gli serve.
 function dati(p: Partial<DatiCostiMensili> = {}): DatiCostiMensili {
-  return { scadenze: [], buste: [], movimentiAltri: [], ...p }
+  return { scadenze: [], buste: [], movimentiAltri: [], compensiSenzaBusta: [], ...p }
 }
 
 const scadenza = (
@@ -233,5 +233,49 @@ describe('aggregaCostiMensili — mesi senza stipendi', () => {
       scadenze: [scadenza('2026-01-10', 500, 'utenza')],
     }), '2026', '2026-06-30')
     expect(r.mesiSenzaStipendi).toEqual([])
+  })
+})
+
+describe('aggregaCostiMensili - compensi senza busta paga', () => {
+  // Gli amministratori senza cedolino non hanno un mese di competenza: la cassa
+  // e' l'unica data che esiste, quindi il costo cade li'.
+  it('conta il compenso negli stipendi del mese in cui e stato pagato', () => {
+    const r = aggregaCostiMensili(dati({
+      compensiSenzaBusta: [{ data_pagamento: '2026-03-19', importo: 950 }],
+    }), '2026', '2026-12-31')
+    expect(r.mesi[2].voci.stipendi).toBe(950)
+    expect(r.mesi[2].totale).toBe(950)
+  })
+
+  it('somma piu compensi nello stesso mese', () => {
+    const r = aggregaCostiMensili(dati({
+      compensiSenzaBusta: [
+        { data_pagamento: '2026-03-17', importo: 201 },
+        { data_pagamento: '2026-03-19', importo: 950 },
+      ],
+    }), '2026', '2026-12-31')
+    expect(r.mesi[2].voci.stipendi).toBe(1151)
+  })
+
+  it('si somma alle buste degli altri dipendenti nella stessa voce', () => {
+    const r = aggregaCostiMensili(dati({
+      buste: [{ periodo: '2026-03-01', netto: 1800 }],
+      compensiSenzaBusta: [{ data_pagamento: '2026-03-19', importo: 950 }],
+    }), '2026', '2026-12-31')
+    expect(r.mesi[2].voci.stipendi).toBe(2750)
+  })
+
+  it('ignora gli altri anni', () => {
+    const r = aggregaCostiMensili(dati({
+      compensiSenzaBusta: [{ data_pagamento: '2025-03-19', importo: 950 }],
+    }), '2026', '2026-12-31')
+    expect(r.mesi[2].voci.stipendi).toBe(0)
+  })
+
+  it('regge un pagamento senza data invece di sbagliare mese', () => {
+    const r = aggregaCostiMensili(dati({
+      compensiSenzaBusta: [{ data_pagamento: null, importo: 950 }],
+    }), '2026', '2026-12-31')
+    expect(r.mesi.reduce((s, m) => s + m.voci.stipendi, 0)).toBe(0)
   })
 })

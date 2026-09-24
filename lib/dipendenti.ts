@@ -3,7 +3,13 @@ import type {
   Dipendente,
   Mensilita,
   PagamentoDipendente,
+  RuoloDipendente,
 } from '@/types/dipendente'
+
+export const RUOLO_LABELS: Record<RuoloDipendente, string> = {
+  dipendente: 'Dipendente',
+  amministratore: 'Amministratore',
+}
 
 export const MENSILITA_LABELS: Record<Mensilita, string> = {
   mensile: 'Mensile',
@@ -137,10 +143,23 @@ export interface SaldoDipendente {
 
 export type DipendenteConSaldo = Dipendente & SaldoDipendente
 
+/**
+ * `riceveBustaPaga = false` e' l'amministratore che preleva compensi quando ne ha
+ * necessita': senza cedolino non esiste un dovuto mensile, quindi non esiste un
+ * residuo. Restituirne uno negativo lo farebbe passare per creditore nella lista
+ * e nelle statistiche, che e' il contrario di quello che succede. Le eventuali
+ * buste rimaste addosso da prima del cambio vengono ignorate per lo stesso
+ * motivo: il dovuto non deve riaffiorare.
+ */
 export function calcolaSaldoDipendente(
   buste: BustaPaga[],
   pagamenti: PagamentoDipendente[],
+  riceveBustaPaga = true,
 ): SaldoDipendente {
+  if (!riceveBustaPaga) {
+    const pagato = arrotonda(pagamenti.reduce((s, p) => s + Number(p.importo), 0))
+    return { dovuto: 0, pagato, residuo: 0, mesi_aperti: 0 }
+  }
   const righe = calcolaRigheMensilita(buste, pagamenti)
   const dovuto = arrotonda(righe.reduce((s, r) => s + r.dovuto, 0))
   const pagato = arrotonda(righe.reduce((s, r) => s + r.pagato, 0))

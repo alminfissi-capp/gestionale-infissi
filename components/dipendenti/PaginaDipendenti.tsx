@@ -77,23 +77,43 @@ export default function PaginaDipendenti({ dipendenti }: Props) {
                 >
                   <td className="px-3 py-2.5 font-medium">
                     {d.cognome} {d.nome}
+                    {d.ruolo === 'amministratore' && (
+                      <span className="ml-2 text-xs rounded bg-indigo-100 dark:bg-indigo-950 px-1.5 py-0.5 text-indigo-700 dark:text-indigo-300">
+                        amministratore
+                      </span>
+                    )}
                     {!d.attivo && (
                       <span className="ml-2 text-xs rounded bg-gray-200 dark:bg-gray-800 px-1.5 py-0.5 text-gray-500">
                         non attivo
                       </span>
                     )}
                   </td>
-                  <td className="px-3 py-2.5 text-right">{formatEuro(d.dovuto)}</td>
+                  {/* Senza busta paga non esiste un dovuto: una colonna a zero
+                      farebbe sembrare che manchi un dato, il trattino dice che
+                      quel conto per questa persona non si fa. */}
+                  <td className="px-3 py-2.5 text-right">
+                    {d.riceve_busta_paga
+                      ? formatEuro(d.dovuto)
+                      : <span className="text-gray-400">—</span>}
+                  </td>
                   <td className="px-3 py-2.5 text-right">{formatEuro(d.pagato)}</td>
                   <td
                     className={cn(
                       'px-3 py-2.5 text-right font-semibold',
-                      d.residuo > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400',
+                      !d.riceve_busta_paga
+                        ? 'text-gray-400'
+                        : d.residuo > 0
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-green-700 dark:text-green-400',
                     )}
                   >
-                    {formatEuro(d.residuo)}
+                    {d.riceve_busta_paga ? formatEuro(d.residuo) : '—'}
                   </td>
-                  <td className="px-3 py-2.5 text-right">{d.mesi_aperti}</td>
+                  <td className="px-3 py-2.5 text-right">
+                    {d.riceve_busta_paga
+                      ? d.mesi_aperti
+                      : <span className="text-gray-400">—</span>}
+                  </td>
                 </tr>
               ))}
             </tbody>
