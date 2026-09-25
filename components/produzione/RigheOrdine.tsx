@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { formatEuro } from '@/lib/pricing'
-import { calcolaTotaleRigaOrdine } from '@/lib/produzione'
+import { calcolaTotaleRigaOrdine, interpretaQuantita } from '@/lib/produzione'
 import DialogSelezioneArticolo, { type ArticoloScelto } from './DialogSelezioneArticolo'
 import type { RigaOrdineInput } from '@/types/produzione'
 
@@ -46,10 +46,27 @@ export default function RigheOrdine({ righe, onChange }: Props) {
     onChange(righe.map((r, idx) => (idx === i ? { ...r, ...patch } : r)))
   }
 
+  /**
+   * La casella quantita' accetta anche un segno: serve a lasciare una riga
+   * vuota fra una tipologia di materiale e l'altra senza prendere il mouse.
+   */
+  const scriviQuantita = (i: number, testo: string) => {
+    const letto = interpretaQuantita(testo)
+    if (letto.tipo === 'separatore') {
+      aggiorna(i, { tipo: 'separatore', quantita: null })
+      return
+    }
+    aggiorna(i, {
+      tipo: 'articolo',
+      quantita: letto.tipo === 'vuota' ? null : letto.valore,
+    })
+  }
+
   const aggiungi = () => {
     onChange([
       ...righe,
       {
+        tipo: 'articolo',
         descrizione: '',
         codice_articolo: null,
         finitura: null,
@@ -67,10 +84,15 @@ export default function RigheOrdine({ righe, onChange }: Props) {
 
   const aggiungiDaMagazzino = (articoli: ArticoloScelto[]) => {
     // Scarta le righe ancora vuote prima di accodare i prodotti scelti.
+    // I separatori si tengono: sono righe vuote volute, non righe da riempire.
     const esistenti = righe.filter(
-      (r) => r.descrizione.trim() !== '' || (r.codice_articolo?.trim() ?? '') !== ''
+      (r) =>
+        r.tipo === 'separatore' ||
+        r.descrizione.trim() !== '' ||
+        (r.codice_articolo?.trim() ?? '') !== ''
     )
     const nuove: RigaOrdineInput[] = articoli.map((a) => ({
+      tipo: 'articolo',
       descrizione: a.descrizione,
       codice_articolo: a.codice,
       finitura: null,
@@ -98,21 +120,50 @@ export default function RigheOrdine({ righe, onChange }: Props) {
         <span />
       </div>
 
-      {righe.map((riga, i) => (
+      {righe.map((riga, i) =>
+        riga.tipo === 'separatore' ? (
+          <div
+            key={i}
+            className={`grid grid-cols-2 gap-2 rounded-lg border border-gray-200 p-3 dark:border-gray-800 lg:items-center lg:rounded-none lg:border-0 lg:p-0 ${COLS}`}
+          >
+            <Campo label="Quantità">
+              <Input
+                inputMode="decimal"
+                aria-label={`Quantità riga ${i + 1} (riga vuota)`}
+                value="-"
+                onChange={(e) => scriviQuantita(i, e.target.value)}
+              />
+            </Campo>
+            <div className="col-span-2 flex items-center lg:col-span-6">
+              <span className="h-px w-full bg-gray-200 dark:bg-gray-800" />
+              <span className="ml-3 shrink-0 text-xs text-gray-400">riga vuota</span>
+            </div>
+            <div className="col-span-1 flex lg:justify-center">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full text-red-600 lg:h-8 lg:w-8 lg:p-0"
+                onClick={() => rimuovi(i)}
+                aria-label="Rimuovi riga"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span className="ml-2 lg:hidden">Rimuovi</span>
+              </Button>
+            </div>
+          </div>
+        ) : (
         <div
           key={i}
           className={`grid grid-cols-2 gap-2 rounded-lg border border-gray-200 p-3 dark:border-gray-800 lg:items-start lg:rounded-none lg:border-0 lg:p-0 ${COLS}`}
         >
           <Campo label="Quantità">
             <Input
-              type="number"
-              step="0.001"
-              min="0.001"
+              inputMode="decimal"
               placeholder="Quantità"
+              title="Scrivi un segno (per esempio -) per lasciare una riga vuota"
               value={riga.quantita ?? ''}
-              onChange={(e) =>
-                aggiorna(i, { quantita: e.target.value === '' ? null : Number(e.target.value) })
-              }
+              onChange={(e) => scriviQuantita(i, e.target.value)}
             />
           </Campo>
 
@@ -183,7 +234,8 @@ export default function RigheOrdine({ righe, onChange }: Props) {
             </Button>
           </div>
         </div>
-      ))}
+        )
+      )}
 
       <div className="flex flex-wrap gap-2">
         <Button type="button" variant="outline" size="sm" onClick={aggiungi} className="gap-2">

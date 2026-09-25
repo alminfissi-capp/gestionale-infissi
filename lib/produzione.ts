@@ -4,6 +4,30 @@ type RigaCalcolabile = { quantita: number | null; prezzo_unitario: number | null
 
 const arrotonda2 = (n: number): number => Math.round(n * 100) / 100
 
+/**
+ * Cosa ha scritto l'utente nella casella quantita' di una riga d'ordine.
+ *
+ * Compilando la distinta serve una riga vuota fra una tipologia di materiale e
+ * l'altra: si ottiene scrivendo un segno qualsiasi al posto del numero, senza
+ * staccare le mani dalla tastiera.
+ *
+ * Zero e i negativi restano numeri di proposito: sono errori di battitura e
+ * devono farsi rifiutare dalla validazione con un messaggio chiaro, non
+ * trasformarsi di nascosto in una riga vuota.
+ */
+export type QuantitaDigitata =
+  | { tipo: 'vuota' }
+  | { tipo: 'numero'; valore: number }
+  | { tipo: 'separatore' }
+
+export function interpretaQuantita(testo: string): QuantitaDigitata {
+  const t = testo.trim()
+  if (t === '') return { tipo: 'vuota' }
+  const n = Number(t.replace(',', '.'))
+  if (Number.isFinite(n)) return { tipo: 'numero', valore: n }
+  return { tipo: 'separatore' }
+}
+
 export function calcolaTotaleRigaOrdine(riga: RigaCalcolabile): number {
   if (riga.prezzo_unitario === null || riga.quantita === null) return 0
   return arrotonda2(riga.quantita * riga.prezzo_unitario)

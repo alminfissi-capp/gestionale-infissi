@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  interpretaQuantita,
   calcolaTotaleRigaOrdine,
   calcolaTotaleOrdine,
   isInRitardo,
@@ -206,5 +207,34 @@ describe('puoInviareOrdine', () => {
     expect(puoInviareOrdine('ordinato')).toBe(false)
     expect(puoInviareOrdine('arrivato')).toBe(false)
     expect(puoInviareOrdine('annullato')).toBe(false)
+  })
+})
+
+describe('interpretaQuantita', () => {
+  it('un campo vuoto resta vuoto, non diventa separatore', () => {
+    expect(interpretaQuantita('')).toEqual({ tipo: 'vuota' })
+    expect(interpretaQuantita('   ')).toEqual({ tipo: 'vuota' })
+  })
+
+  it('legge i numeri, con la virgola come con il punto', () => {
+    expect(interpretaQuantita('12')).toEqual({ tipo: 'numero', valore: 12 })
+    expect(interpretaQuantita('1,5')).toEqual({ tipo: 'numero', valore: 1.5 })
+    expect(interpretaQuantita('1.5')).toEqual({ tipo: 'numero', valore: 1.5 })
+    expect(interpretaQuantita(' 8 ')).toEqual({ tipo: 'numero', valore: 8 })
+  })
+
+  // Un segno qualsiasi apre una riga vuota fra una tipologia e l'altra.
+  it('un segno non numerico fa una riga separatore', () => {
+    expect(interpretaQuantita('-')).toEqual({ tipo: 'separatore' })
+    expect(interpretaQuantita('.')).toEqual({ tipo: 'separatore' })
+    expect(interpretaQuantita('*')).toEqual({ tipo: 'separatore' })
+    expect(interpretaQuantita('x')).toEqual({ tipo: 'separatore' })
+  })
+
+  // Zero e i negativi restano numeri: li rifiuta la validazione con un
+  // messaggio chiaro, trasformarli in separatori nasconderebbe un errore.
+  it('zero e i negativi restano numeri, non separatori', () => {
+    expect(interpretaQuantita('0')).toEqual({ tipo: 'numero', valore: 0 })
+    expect(interpretaQuantita('-5')).toEqual({ tipo: 'numero', valore: -5 })
   })
 })
