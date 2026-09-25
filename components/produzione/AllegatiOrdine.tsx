@@ -5,8 +5,11 @@ import { Upload, Trash2, FileText, Image as ImageIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
-  getAllegatiOrdine, uploadAllegatiOrdine, deleteAllegatoOrdine,
+  getAllegatiOrdine, uploadAllegatiOrdine, deleteAllegatoOrdine, registraAllegatoOrdine,
 } from '@/actions/produzione-allegati'
+import { getOrgIdPerUpload } from '@/actions/commesse'
+import { createClient } from '@/lib/supabase/client'
+import { mimeAllegato, percorsoAllegatoOrdine, validaAllegato } from '@/lib/allegati-ordine'
 import { getDocumentoSignedUrl } from '@/actions/produzione-documenti'
 import DialogVisualizzatore from './DialogVisualizzatore'
 import type { AllegatoOrdine } from '@/types/produzione'
@@ -174,17 +177,53 @@ export default function AllegatiOrdine({ ordineId, inAttesa = [], onInAttesaChan
 }
 
 /**
- * Carica UN allegato. Un file per richiesta di proposito: su Vercel il body di
- * una Server Action si ferma intorno ai 4,5 MB e oltre quella soglia fallisce
- * in silenzio, e tre foto scattate col telefono la superano insieme senza
- * problemi. Cosi' il limite vale per il singolo file, non per la selezione.
+ * Carica UN allegato, per due strade.
  *
- * Un file preso da iCloud/Dropbox su iOS e' inoltre pigro: passato com'e' a una
- * Server Action arriva vuoto, e arrayBuffer() lo materializza prima.
+ * Quella buona e' l'upload diretto del browser su Storage: i byte non passano
+ * dalla Server Action, che su Vercel si ferma intorno ai 4,5 MB e oltre quella
+ * soglia fallisce **in silenzio** (niente toast, niente log). Un PDF pesante
+ * del fornitore superava quel muro pur essendo accettato fino a 20 MB.
+ *
+ * Il ripiego e' la vecchia Server Action, che serve ancora: su iOS e Android,
+ * dentro un Dialog, il client browser a volte non ha la sessione e l'upload
+ * diretto non parte proprio. Li' il tetto dei 4,5 MB torna valido, ma e' meglio
+ * di un caricamento che non avviene.
  *
  * Torna il messaggio d'errore, oppure null.
  */
 export async function caricaAllegatoOrdine(ordineId: string, f: File): Promise<string | null> {
+  // Sulla strada diretta i controlli della Server Action non girano: vanno
+  // fatti qui, altrimenti il bucket rifiuta con un errore incomprensibile.
+  const invalido = validaAllegato(f)
+  if (invalido) return invalido
+
+  const contentType = mimeAllegato(f.name, f.type)
+  try {
+    const orgId = await getOrgIdPerUpload()
+    const storagePath = percorsoAllegatoOrdine(orgId, ordineId, f.name)
+    const { error } = await createClient().storage
+      .from('commesse-docs')
+      .upload(storagePath, f, { contentType })
+    if (error) throw error
+
+    const { error: erroreRiga } = await registraAllegatoOrdine(
+      ordineId, storagePath, f.name, contentType,
+    )
+    // File caricato ma riga non scritta: senza questa rimozione resterebbe nel
+    // bucket un file che nessuno ritrova piu'.
+    if (erroreRiga) {
+      await createClient().storage.from('commesse-docs').remove([storagePath])
+      return erroreRiga
+    }
+    return null
+  } catch {
+    return caricaAllegatoViaServer(ordineId, f)
+  }
+}
+
+/** Ripiego: i byte passano dalla Server Action. Vale il tetto dei ~4,5 MB. */
+async function caricaAllegatoViaServer(ordineId: string, f: File): Promise<string | null> {
+  // File pigro da iCloud/Dropbox su iOS: senza arrayBuffer() arriva vuoto.
   const buffer = await f.arrayBuffer()
   const fd = new FormData()
   fd.append('ordineId', ordineId)

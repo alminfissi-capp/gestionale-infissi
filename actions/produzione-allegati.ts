@@ -4,16 +4,12 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getOrgId } from '@/lib/auth'
+import {
+  mimeAllegato,
+  percorsoAllegatoOrdine,
+  validaAllegato,
+} from '@/lib/allegati-ordine'
 import type { AllegatoOrdine } from '@/types/produzione'
-
-const MIME_BY_EXT: Record<string, string> = {
-  pdf: 'application/pdf',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  png: 'image/png',
-  webp: 'image/webp',
-  heic: 'image/heic',
-}
 
 export async function getAllegatiOrdine(ordineId: string): Promise<AllegatoOrdine[]> {
   const supabase = await createClient()
@@ -27,7 +23,44 @@ export async function getAllegatiOrdine(ordineId: string): Promise<AllegatoOrdin
   return data ?? []
 }
 
-/** Carica uno o più file allegati a un ordine. Ritorna gli errori per nome file. */
+/**
+ * Registra un allegato gia' caricato dal browser su Storage.
+ *
+ * E' la strada normale: un file oltre ~4,5 MB non entra nel corpo di una Server
+ * Action su Vercel e fallirebbe in silenzio, quindi i byte non passano di qui.
+ * Qui passa solo la riga.
+ */
+export async function registraAllegatoOrdine(
+  ordineId: string,
+  storagePath: string,
+  nomeFile: string,
+  contentType: string,
+): Promise<{ error?: string }> {
+  if (!ordineId || !storagePath) return { error: 'Allegato non valido' }
+  const orgId = await getOrgId()
+  // Il path e' costruito dal client: senza questo controllo si potrebbe
+  // agganciare all'ordine un file di un'altra organizzazione.
+  if (!storagePath.startsWith(`${orgId}/ordini/${ordineId}/`)) {
+    return { error: 'Percorso allegato non valido' }
+  }
+  const supabase = await createClient()
+  const { error } = await supabase.from('allegati_ordine_fornitore').insert({
+    ordine_id: ordineId,
+    organization_id: orgId,
+    nome_file: nomeFile,
+    storage_path: storagePath,
+    content_type: contentType,
+  })
+  if (error) return { error: error.message }
+  revalidatePath('/produzione', 'layout')
+  return {}
+}
+
+/**
+ * Ripiego per quando il browser non puo' caricare da solo: su iOS e Android,
+ * dentro un Dialog, il client a volte non ha la sessione. Qui i byte passano
+ * dalla function, quindi vale il tetto dei ~4,5 MB.
+ */
 export async function uploadAllegatiOrdine(formData: FormData): Promise<{ error?: string }> {
   const ordineId = formData.get('ordineId') as string
   const files = formData.getAll('files') as File[]
@@ -36,7 +69,8 @@ export async function uploadAllegatiOrdine(formData: FormData): Promise<{ error?
   const validi = files.filter((f) => f && f.size > 0)
   if (validi.length === 0) return { error: 'Nessun file selezionato' }
   for (const f of validi) {
-    if (f.size > 20 * 1024 * 1024) return { error: `"${f.name}" troppo grande (max 20 MB)` }
+    const errore = validaAllegato(f)
+    if (errore) return { error: errore }
   }
 
   const orgId = await getOrgId()
@@ -44,12 +78,8 @@ export async function uploadAllegatiOrdine(formData: FormData): Promise<{ error?
   const supabase = await createClient()
 
   for (const file of validi) {
-    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
-    const storagePath = `${orgId}/ordini/${ordineId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
-    const contentType =
-      file.type && file.type !== 'application/octet-stream'
-        ? file.type
-        : (MIME_BY_EXT[ext] ?? 'application/octet-stream')
+    const storagePath = percorsoAllegatoOrdine(orgId, ordineId, file.name)
+    const contentType = mimeAllegato(file.name, file.type)
 
     const { error: uploadError } = await service.storage
       .from('commesse-docs')
