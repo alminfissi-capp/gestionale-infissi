@@ -50,6 +50,16 @@ export const TIPI_DOCUMENTO_PRODUZIONE: { value: string; label: string }[] = [
 
 export const TIPI_DOCUMENTO_PRODUZIONE_VALUES = TIPI_DOCUMENTO_PRODUZIONE.map((t) => t.value)
 
+/**
+ * PDF d'ordine pronto per l'archivio, in una delle due forme possibili.
+ *
+ * `path` e' la strada normale: il browser lo ha gia' caricato su Storage e alla
+ * Server Action arriva solo il riferimento, perche' i byte non entrerebbero nel
+ * corpo di una function. `base64` e' il ripiego per quando l'upload diretto non
+ * parte, e vale solo per i file piccoli.
+ */
+export type PdfCaricato = { path: string } | { base64: string }
+
 /** `separatore` = riga vuota che spezza l'elenco: niente quantita', testo o prezzo. */
 export type TipoRigaOrdine = 'articolo' | 'separatore'
 
