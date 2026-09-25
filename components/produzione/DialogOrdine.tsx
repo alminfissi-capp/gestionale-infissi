@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import RigheOrdine from './RigheOrdine'
-import AllegatiOrdine from './AllegatiOrdine'
+import AllegatiOrdine, { caricaAllegatoOrdine } from './AllegatiOrdine'
 import { formatEuro } from '@/lib/pricing'
 import { calcolaTotaleOrdine, normalizzaNumeroOrdine, PREFISSO_ORDINE } from '@/lib/produzione'
 import { createOrdine, updateOrdine } from '@/actions/produzione'
@@ -48,6 +48,8 @@ export default function DialogOrdine({
   const [stato, setStato] = useState<StatoOrdine>('da_ordinare')
   const [note, setNote] = useState('')
   const [righe, setRighe] = useState<RigaOrdineInput[]>([])
+  // Allegati scelti prima che l'ordine esista: si caricano appena ha un id.
+  const [allegatiInAttesa, setAllegatiInAttesa] = useState<File[]>([])
 
   useEffect(() => {
     if (!open) return
@@ -58,6 +60,7 @@ export default function DialogOrdine({
     setConsegna(ordine?.data_consegna_prevista ?? '')
     setStato(ordine?.stato ?? 'da_ordinare')
     setNote(ordine?.note ?? '')
+    setAllegatiInAttesa([])
     setRighe(
       ordine?.righe.map((r) => ({
         descrizione: r.descrizione,
@@ -72,6 +75,15 @@ export default function DialogOrdine({
       ]
     )
   }, [open, ordine, numeroProposto, commessaId])
+
+  /** Carica gli allegati scelti prima del salvataggio. Torna l'errore, o null. */
+  const caricaAllegati = async (ordineId: string): Promise<string | null> => {
+    for (const f of allegatiInAttesa) {
+      const errore = await caricaAllegatoOrdine(ordineId, f)
+      if (errore) return errore
+    }
+    return null
+  }
 
   const salva = async () => {
     if (righe.every((r) => r.descrizione.trim() === '')) {
@@ -101,9 +113,17 @@ export default function DialogOrdine({
         note: note.trim() || null,
         righe,
       }
-      if (ordine) await updateOrdine(ordine.id, input)
-      else await createOrdine(input)
-      toast.success(ordine ? 'Ordine aggiornato' : 'Ordine creato')
+      if (ordine) {
+        await updateOrdine(ordine.id, input)
+        toast.success('Ordine aggiornato')
+      } else {
+        const nuovoId = await createOrdine(input)
+        // L'ordine c'e' comunque: se gli allegati falliscono lo si dice senza
+        // buttare via il resto, e si riaprono per riprovare.
+        const erroreAllegati = await caricaAllegati(nuovoId)
+        if (erroreAllegati) toast.error(`Ordine creato, allegati non caricati: ${erroreAllegati}`)
+        else toast.success('Ordine creato')
+      }
       onOpenChange(false)
       router.refresh()
     } catch (e) {
@@ -200,13 +220,11 @@ export default function DialogOrdine({
 
           <div className="space-y-1.5">
             <Label>Allegati</Label>
-            {ordine ? (
-              <AllegatiOrdine ordineId={ordine.id} />
-            ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Salva l&apos;ordine per poter aggiungere allegati.
-              </p>
-            )}
+            <AllegatiOrdine
+              ordineId={ordine?.id ?? null}
+              inAttesa={allegatiInAttesa}
+              onInAttesaChange={setAllegatiInAttesa}
+            />
           </div>
         </div>
 

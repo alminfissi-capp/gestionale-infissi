@@ -12,18 +12,30 @@ import DialogVisualizzatore from './DialogVisualizzatore'
 import type { AllegatoOrdine } from '@/types/produzione'
 
 interface Props {
-  ordineId: string
+  /**
+   * null = ordine non ancora salvato. I file scelti restano in attesa qui e li
+   * carica il dialog appena l'ordine ha un id: senza ordine_id non esiste una
+   * riga a cui agganciarli, ma far salvare prima e riaprire dopo costa tempo a
+   * ogni ordine.
+   */
+  ordineId: string | null
+  inAttesa?: File[]
+  onInAttesaChange?: (files: File[]) => void
 }
 
 const isImmagine = (a: AllegatoOrdine) => (a.content_type ?? '').startsWith('image/')
 
-export default function AllegatiOrdine({ ordineId }: Props) {
+export default function AllegatiOrdine({ ordineId, inAttesa = [], onInAttesaChange }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [allegati, setAllegati] = useState<AllegatoOrdine[]>([])
   const [caricamento, setCaricamento] = useState(false)
   const [viewer, setViewer] = useState<{ url: string; nome: string } | null>(null)
 
   const ricarica = useCallback(() => {
+    if (!ordineId) {
+      setAllegati([])
+      return
+    }
     getAllegatiOrdine(ordineId).then(setAllegati).catch(() => setAllegati([]))
   }, [ordineId])
 
@@ -32,17 +44,22 @@ export default function AllegatiOrdine({ ordineId }: Props) {
   }, [ricarica])
 
   const carica = async (files: FileList) => {
+    // Ordine non ancora salvato: si accodano e basta, li carica il dialog.
+    if (!ordineId) {
+      onInAttesaChange?.([...inAttesa, ...Array.from(files)])
+      if (inputRef.current) inputRef.current.value = ''
+      return
+    }
     setCaricamento(true)
     try {
-      const fd = new FormData()
-      fd.append('ordineId', ordineId)
-      Array.from(files).forEach((f) => fd.append('files', f))
-      const { error } = await uploadAllegatiOrdine(fd)
-      if (error) toast.error(error)
-      else {
-        toast.success('Allegati caricati')
-        ricarica()
+      let errore: string | null = null
+      for (const f of Array.from(files)) {
+        errore = await caricaAllegatoOrdine(ordineId, f)
+        if (errore) break
       }
+      if (errore) toast.error(errore)
+      else toast.success('Allegati caricati')
+      ricarica()
     } finally {
       setCaricamento(false)
       if (inputRef.current) inputRef.current.value = ''
@@ -70,7 +87,7 @@ export default function AllegatiOrdine({ ordineId }: Props) {
     <div className="space-y-2">
       <input
         ref={inputRef}
-        id={`allegati-ordine-${ordineId}`}
+        id={`allegati-ordine-${ordineId ?? 'nuovo'}`}
         type="file"
         multiple
         className="hidden"
@@ -81,13 +98,40 @@ export default function AllegatiOrdine({ ordineId }: Props) {
         }}
       />
       <Button asChild size="sm" variant="outline" disabled={caricamento}>
-        <label htmlFor={`allegati-ordine-${ordineId}`} className="cursor-pointer gap-2">
+        <label htmlFor={`allegati-ordine-${ordineId ?? 'nuovo'}`} className="cursor-pointer gap-2">
           <Upload className="h-4 w-4" />
           {caricamento ? 'Caricamento...' : 'Aggiungi allegati'}
         </label>
       </Button>
 
-      {allegati.length === 0 ? (
+      {inAttesa.length > 0 && (
+        <div className="space-y-1.5">
+          {inAttesa.map((f, i) => (
+            <div
+              key={`${f.name}-${i}`}
+              className="flex items-center gap-3 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-2.5"
+            >
+              {f.type.startsWith('image/') ? (
+                <ImageIcon className="h-4 w-4 text-gray-400 shrink-0" />
+              ) : (
+                <FileText className="h-4 w-4 text-gray-400 shrink-0" />
+              )}
+              <span className="min-w-0 flex-1 truncate text-sm">{f.name}</span>
+              <span className="shrink-0 text-xs text-gray-500">al salvataggio</span>
+              <Button
+                type="button"
+                variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-600 shrink-0"
+                onClick={() => onInAttesaChange?.(inAttesa.filter((_, idx) => idx !== i))}
+                aria-label="Togli allegato"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {allegati.length === 0 && inAttesa.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">Nessun allegato.</p>
       ) : (
         <div className="space-y-1.5">
@@ -127,4 +171,24 @@ export default function AllegatiOrdine({ ordineId }: Props) {
       />
     </div>
   )
+}
+
+/**
+ * Carica UN allegato. Un file per richiesta di proposito: su Vercel il body di
+ * una Server Action si ferma intorno ai 4,5 MB e oltre quella soglia fallisce
+ * in silenzio, e tre foto scattate col telefono la superano insieme senza
+ * problemi. Cosi' il limite vale per il singolo file, non per la selezione.
+ *
+ * Un file preso da iCloud/Dropbox su iOS e' inoltre pigro: passato com'e' a una
+ * Server Action arriva vuoto, e arrayBuffer() lo materializza prima.
+ *
+ * Torna il messaggio d'errore, oppure null.
+ */
+export async function caricaAllegatoOrdine(ordineId: string, f: File): Promise<string | null> {
+  const buffer = await f.arrayBuffer()
+  const fd = new FormData()
+  fd.append('ordineId', ordineId)
+  fd.append('files', new File([buffer], f.name, { type: f.type }))
+  const { error } = await uploadAllegatiOrdine(fd)
+  return error ?? null
 }
