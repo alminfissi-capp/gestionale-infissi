@@ -6,7 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { formatEuro } from '@/lib/pricing'
-import { calcolaTotaleRigaOrdine, interpretaQuantita } from '@/lib/produzione'
+import {
+  calcolaTotaleRigaOrdine,
+  interpretaQuantita,
+  rigaSenzaContenuto,
+} from '@/lib/produzione'
 import DialogSelezioneArticolo, { type ArticoloScelto } from './DialogSelezioneArticolo'
 import type { RigaOrdineInput } from '@/types/produzione'
 
@@ -41,6 +45,15 @@ function Campo({
 
 export default function RigheOrdine({ righe, onChange }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false)
+  /**
+   * Quello che l'utente sta digitando nella casella quantita', riga per riga.
+   *
+   * Serve perche' il valore salvato e' un numero: mostrando quello, "1," non
+   * puo' esistere e la virgola veniva mangiata a ogni battuta, rendendo
+   * impossibile scrivere 1,5. Qui si mostra il testo com'e' finche' il campo ha
+   * il fuoco, e alla sua uscita si torna al numero.
+   */
+  const [bozzaQta, setBozzaQta] = useState<Record<number, string>>({})
 
   const aggiorna = (i: number, patch: Partial<RigaOrdineInput>) => {
     onChange(righe.map((r, idx) => (idx === i ? { ...r, ...patch } : r)))
@@ -49,16 +62,35 @@ export default function RigheOrdine({ righe, onChange }: Props) {
   /**
    * La casella quantita' accetta anche un segno: serve a lasciare una riga
    * vuota fra una tipologia di materiale e l'altra senza prendere il mouse.
+   *
+   * Il segno pero' apre il separatore solo su una riga ancora vuota. Su una
+   * riga gia' compilata un carattere non numerico e' quasi sempre un passaggio
+   * intermedio della digitazione (la virgola di "1,5") o un errore di battuta:
+   * trasformarla in separatore faceva sparire dalla vista quello che c'era
+   * scritto e impediva di salvare l'ordine.
    */
   const scriviQuantita = (i: number, testo: string) => {
+    setBozzaQta((b) => ({ ...b, [i]: testo }))
     const letto = interpretaQuantita(testo)
     if (letto.tipo === 'separatore') {
-      aggiorna(i, { tipo: 'separatore', quantita: null })
+      if (rigaSenzaContenuto(righe[i])) {
+        aggiorna(i, { tipo: 'separatore', quantita: null })
+      } else {
+        aggiorna(i, { tipo: 'articolo', quantita: null })
+      }
       return
     }
     aggiorna(i, {
       tipo: 'articolo',
       quantita: letto.tipo === 'vuota' ? null : letto.valore,
+    })
+  }
+
+  /** Uscendo dal campo si torna a mostrare il numero salvato. */
+  const chiudiBozza = (i: number) => {
+    setBozzaQta((b) => {
+      const { [i]: _via, ...resto } = b
+      return resto
     })
   }
 
@@ -130,8 +162,9 @@ export default function RigheOrdine({ righe, onChange }: Props) {
               <Input
                 inputMode="decimal"
                 aria-label={`Quantità riga ${i + 1} (riga vuota)`}
-                value="-"
+                value={bozzaQta[i] ?? '-'}
                 onChange={(e) => scriviQuantita(i, e.target.value)}
+                onBlur={() => chiudiBozza(i)}
               />
             </Campo>
             <div className="col-span-2 flex items-center lg:col-span-6">
@@ -161,9 +194,10 @@ export default function RigheOrdine({ righe, onChange }: Props) {
             <Input
               inputMode="decimal"
               placeholder="Quantità"
-              title="Scrivi un segno (per esempio -) per lasciare una riga vuota"
-              value={riga.quantita ?? ''}
+              title="Su una riga ancora vuota, scrivi un segno (per esempio -) per lasciare una riga di stacco"
+              value={bozzaQta[i] ?? (riga.quantita ?? '')}
               onChange={(e) => scriviQuantita(i, e.target.value)}
+              onBlur={() => chiudiBozza(i)}
             />
           </Campo>
 

@@ -344,7 +344,10 @@ async function salvaRighe(ordineId: string, orgId: string, righe: OrdineInput['r
   await supabase.from('righe_ordine_fornitore').delete().eq('ordine_id', ordineId)
   // I separatori restano anche se non hanno testo: sono righe vuote apposta.
   const valide = righe.filter((r) => r.tipo === 'separatore' || r.descrizione.trim() !== '')
-  if (valide.length === 0) return
+  // Le righe vecchie sono gia' state cancellate qui sopra: uscire in silenzio
+  // lascerebbe l'ordine senza nessuna riga e senza dirlo a nessuno. E'
+  // successo davvero (ordine 042-2026), quindi qui si urla.
+  if (valide.length === 0) throw new Error("L'ordine deve avere almeno una riga")
   // Il CHECK impone la quantita' ai soli articoli: senza questo controllo
   // l'insert fallirebbe con un errore generico invece di dire cosa manca.
   const senzaQuantita = valide.findIndex(
