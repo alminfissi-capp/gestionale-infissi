@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   interpretaQuantita,
+  rigaSenzaContenuto,
   calcolaTotaleRigaOrdine,
   calcolaTotaleOrdine,
   isInRitardo,
@@ -236,5 +237,23 @@ describe('interpretaQuantita', () => {
   it('zero e i negativi restano numeri, non separatori', () => {
     expect(interpretaQuantita('0')).toEqual({ tipo: 'numero', valore: 0 })
     expect(interpretaQuantita('-5')).toEqual({ tipo: 'numero', valore: -5 })
+  })
+})
+
+describe('rigaSenzaContenuto', () => {
+  const vuota = { descrizione: '', codice_articolo: null, finitura: null, prezzo_unitario: null }
+
+  it('una riga appena aggiunta e vuota', () => {
+    expect(rigaSenzaContenuto(vuota)).toBe(true)
+    expect(rigaSenzaContenuto({ ...vuota, descrizione: '   ' })).toBe(true)
+  })
+
+  // Il punto di tutto: un segno battuto per sbaglio su una riga gia' compilata
+  // non deve trasformarla in un separatore e far sparire quello che c'e' scritto.
+  it('una riga con qualcosa dentro non e vuota', () => {
+    expect(rigaSenzaContenuto({ ...vuota, descrizione: 'Tubo quadro' })).toBe(false)
+    expect(rigaSenzaContenuto({ ...vuota, codice_articolo: '100x100' })).toBe(false)
+    expect(rigaSenzaContenuto({ ...vuota, finitura: 'Zincato' })).toBe(false)
+    expect(rigaSenzaContenuto({ ...vuota, prezzo_unitario: 12 })).toBe(false)
   })
 })

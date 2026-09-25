@@ -20,6 +20,28 @@ export type QuantitaDigitata =
   | { tipo: 'numero'; valore: number }
   | { tipo: 'separatore' }
 
+/**
+ * Vero se nella riga non c'e' ancora niente oltre alla quantita'.
+ *
+ * Il segno apre un separatore **solo** su una riga cosi': battuto per sbaglio
+ * su una riga gia' compilata farebbe sparire dalla vista descrizione, codice e
+ * prezzo, ed e' esattamente quello che e' successo scrivendo la virgola di
+ * "1,5" (la virgola da sola non e' un numero).
+ */
+export function rigaSenzaContenuto(riga: {
+  descrizione: string
+  codice_articolo: string | null
+  finitura: string | null
+  prezzo_unitario: number | null
+}): boolean {
+  return (
+    riga.descrizione.trim() === '' &&
+    (riga.codice_articolo?.trim() ?? '') === '' &&
+    (riga.finitura?.trim() ?? '') === '' &&
+    riga.prezzo_unitario === null
+  )
+}
+
 export function interpretaQuantita(testo: string): QuantitaDigitata {
   const t = testo.trim()
   if (t === '') return { tipo: 'vuota' }
