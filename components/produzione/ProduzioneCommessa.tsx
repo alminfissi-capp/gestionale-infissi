@@ -28,6 +28,7 @@ import {
 import { deleteOrdine, setStatoOrdine } from '@/actions/produzione'
 import { updateStatoCommessa } from '@/actions/commesse'
 import { salvaPdfOrdine, aggiornaPdfDocumentoOrdine } from '@/actions/produzione-pdf'
+import { caricaPdfOrdine } from '@/lib/produzione-pdf-upload'
 import { getAllegatiOrdine } from '@/actions/produzione-allegati'
 import { getDocumentoSignedUrl } from '@/actions/produzione-documenti'
 import { unisciAllegatiAlPdf, type AllegatoDaUnire } from '@/lib/produzione-allegati-pdf'
@@ -193,8 +194,8 @@ export default function ProduzioneCommessa({
     const allegati = await scaricaAllegati(o.id)
     // Copia da archiviare: mai il footer di tracking, è quella che va al fornitore.
     const archivioBytes = await renderizzaPdf(o, undefined, allegati, true)
-    const base64 = Buffer.from(archivioBytes).toString('base64')
-    const { error } = await salvaPdfOrdine(o.id, commessa.id, base64, nomeFile)
+    const archivio = await caricaPdfOrdine(o.id, commessa.id, archivioBytes)
+    const { error } = await salvaPdfOrdine(o.id, commessa.id, archivio, nomeFile)
     return error ?? null
   }
 
@@ -216,8 +217,8 @@ export default function ProduzioneCommessa({
     const allegati = await scaricaAllegati(o.id)
     const conRicevuta = await renderizzaPdf(o, t, allegati, false)
     const nomeFile = nomeFilePdfOrdine(o.numero_ordine, o.fornitore_nome, o.id)
-    const base64 = Buffer.from(conRicevuta).toString('base64')
-    const { error } = await aggiornaPdfDocumentoOrdine(o.id, commessa.id, base64, nomeFile)
+    const documento = await caricaPdfOrdine(o.id, commessa.id, conRicevuta, '-doc')
+    const { error } = await aggiornaPdfDocumentoOrdine(o.id, commessa.id, documento, nomeFile)
     if (error) console.warn('[ProduzioneCommessa] ricevuta non archiviata:', error)
   }
 
@@ -248,11 +249,11 @@ export default function ProduzioneCommessa({
       // fornitore viene congelata al momento dell'invio in pdf_inviato_path.
       // Se c'è una ricevuta da raccontare, l'elenco documenti riceve la copia
       // col footer, mentre pdf_path resta pulito per il fornitore.
-      const base64 = Buffer.from(archivioBytes).toString('base64')
-      const documentoBase64 = outBytes === archivioBytes
+      const archivio = await caricaPdfOrdine(o.id, commessa.id, archivioBytes)
+      const documento = outBytes === archivioBytes
         ? undefined
-        : Buffer.from(outBytes).toString('base64')
-      const { error } = await salvaPdfOrdine(o.id, commessa.id, base64, nomeFile, documentoBase64)
+        : await caricaPdfOrdine(o.id, commessa.id, outBytes, '-doc')
+      const { error } = await salvaPdfOrdine(o.id, commessa.id, archivio, nomeFile, documento)
       toast.dismiss(attesa)
       if (error) toast.error(`PDF mostrato ma non archiviato: ${error}`)
       else router.refresh()
