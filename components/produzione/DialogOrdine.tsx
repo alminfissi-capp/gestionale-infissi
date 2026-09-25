@@ -63,6 +63,7 @@ export default function DialogOrdine({
     setAllegatiInAttesa([])
     setRighe(
       ordine?.righe.map((r) => ({
+        tipo: r.tipo,
         descrizione: r.descrizione,
         codice_articolo: r.codice_articolo,
         finitura: r.finitura,
@@ -71,7 +72,7 @@ export default function DialogOrdine({
         prezzo_unitario: r.prezzo_unitario,
         ordine: r.ordine,
       })) ?? [
-        { descrizione: '', codice_articolo: null, finitura: null, quantita: null, unita_misura: 'pz', prezzo_unitario: null, ordine: 0 },
+        { tipo: 'articolo', descrizione: '', codice_articolo: null, finitura: null, quantita: null, unita_misura: 'pz', prezzo_unitario: null, ordine: 0 },
       ]
     )
   }, [open, ordine, numeroProposto, commessaId])
@@ -86,13 +87,18 @@ export default function DialogOrdine({
   }
 
   const salva = async () => {
-    if (righe.every((r) => r.descrizione.trim() === '')) {
+    // I separatori sono righe vuote: da soli non fanno un ordine.
+    if (righe.every((r) => r.tipo === 'separatore' || r.descrizione.trim() === '')) {
       toast.error('Aggiungi almeno una riga')
       return
     }
-    // Il DB impone quantita > 0: fermiamo qui le righe compilate senza quantita.
+    // Il DB impone quantita > 0 ai soli articoli: fermiamo qui quelli compilati
+    // senza quantita.
     const senzaQuantita = righe.findIndex(
-      (r) => r.descrizione.trim() !== '' && !(r.quantita !== null && r.quantita > 0)
+      (r) =>
+        r.tipo === 'articolo' &&
+        r.descrizione.trim() !== '' &&
+        !(r.quantita !== null && r.quantita > 0)
     )
     if (senzaQuantita !== -1) {
       toast.error(`Inserisci la quantità della riga ${senzaQuantita + 1}`)

@@ -10,9 +10,16 @@ import OrdinePDF from './OrdinePDF'
 import type { OrdineCompleto, RigaOrdine } from '@/types/produzione'
 
 const riga = (i: number, codice: string, descrizione: string, finitura: string, um: string): RigaOrdine => ({
-  id: `r${i}`, ordine_id: 'o1', organization_id: 'org', descrizione,
+  id: `r${i}`, ordine_id: 'o1', organization_id: 'org', tipo: 'articolo', descrizione,
   codice_articolo: codice, finitura, quantita: 5, unita_misura: um,
   prezzo_unitario: 1234.56, ordine: i, created_at: '2026-09-10T08:00:00Z',
+})
+
+/** Riga vuota fra una tipologia di materiale e l'altra. */
+const separatore = (i: number): RigaOrdine => ({
+  id: `s${i}`, ordine_id: 'o1', organization_id: 'org', tipo: 'separatore', descrizione: '',
+  codice_articolo: null, finitura: null, quantita: null, unita_misura: '',
+  prezzo_unitario: null, ordine: i, created_at: '2026-09-10T08:00:00Z',
 })
 
 // Righe ricalcate su un ordine vero (ORD 025-2026 a PROFILSIDER).
@@ -153,5 +160,52 @@ describe('impaginazione tabella righe ordine', () => {
     // comparirebbero frammenti che non contengono la virgola dei centesimi.
     const importi = items.filter((i) => /^€?\s?[\d.]+,\d{2}$/.test(i.t.trim()))
     expect(importi.length).toBeGreaterThanOrEqual(righe.length)
+  })
+})
+
+describe('righe separatore', () => {
+  /** Frammenti della prima pagina di un ordine costruito su misura. */
+  async function pezziDi(righeOrdine: RigaOrdine[]) {
+    const ord = { ...ordine, righe: righeOrdine } as unknown as OrdineCompleto
+    const buffer = await renderToBuffer(
+      <OrdinePDF ordine={ord} intestazione={intestazione} fornitoreNome="X"
+        numeroCommessa="1" clienteNome="" tracking={undefined} />
+    )
+    const pdf = await pdfjs.getDocument({ data: new Uint8Array(buffer), useSystemFonts: true }).promise
+    const tc = await pdf.getPage(1).then((p) => p.getTextContent())
+    return (tc.items as { str: string; transform: number[] }[])
+      .filter((i) => i.str?.trim())
+      .map((i) => ({ t: i.str.trim(), x: i.transform[4], y: Math.round(i.transform[5]) }))
+  }
+
+  // Va guardata la geometria, non il testo: un separatore non scrive niente,
+  // quindi l'unica prova che esista e' lo spazio che apre fra le due righe.
+  it('stacca i due gruppi lasciando spazio, senza scrivere niente', async () => {
+    const senza = await pezziDi([riga(0, 'A', 'Primo materiale', 'Zincato', 'Pz'),
+                                 riga(1, 'B', 'Secondo materiale', 'Zincato', 'Pz')])
+    const con = await pezziDi([riga(0, 'A', 'Primo materiale', 'Zincato', 'Pz'),
+                               separatore(1),
+                               riga(2, 'B', 'Secondo materiale', 'Zincato', 'Pz')])
+
+    const distanza = (pezzi: { t: string; y: number }[]) => {
+      const primo = pezzi.find((i) => i.t === 'Primo materiale')
+      const secondo = pezzi.find((i) => i.t === 'Secondo materiale')
+      expect(primo, 'prima riga non trovata').toBeDefined()
+      expect(secondo, 'seconda riga non trovata').toBeDefined()
+      return primo!.y - secondo!.y
+    }
+
+    expect(distanza(con)).toBeGreaterThan(distanza(senza))
+  })
+
+  it('non stampa quantita ne prezzo al posto del separatore', async () => {
+    const pezzi = await pezziDi([riga(0, 'A', 'Primo materiale', 'Zincato', 'Pz'),
+                                 separatore(1)])
+    const yPrimo = pezzi.find((i) => i.t === 'Primo materiale')!.y
+    const yTotale = pezzi.find((i) => i.t.startsWith('Totale'))!.y
+    // Fra la riga dell'articolo e il totale non deve esserci testo: il
+    // separatore e' solo spazio, non stampa quantita' ne' prezzo.
+    const inMezzo = pezzi.filter((i) => i.y < yPrimo - 2 && i.y > yTotale + 2)
+    expect(inMezzo.map((i) => i.t)).toEqual([])
   })
 })

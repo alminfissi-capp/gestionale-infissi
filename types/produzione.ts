@@ -50,14 +50,18 @@ export const TIPI_DOCUMENTO_PRODUZIONE: { value: string; label: string }[] = [
 
 export const TIPI_DOCUMENTO_PRODUZIONE_VALUES = TIPI_DOCUMENTO_PRODUZIONE.map((t) => t.value)
 
+/** `separatore` = riga vuota che spezza l'elenco: niente quantita', testo o prezzo. */
+export type TipoRigaOrdine = 'articolo' | 'separatore'
+
 export type RigaOrdine = {
   id: string
   ordine_id: string
   organization_id: string
+  tipo: TipoRigaOrdine
   descrizione: string
   codice_articolo: string | null
   finitura: string | null
-  quantita: number
+  quantita: number | null
   unita_misura: string
   prezzo_unitario: number | null
   ordine: number
@@ -65,6 +69,7 @@ export type RigaOrdine = {
 }
 
 export type RigaOrdineInput = {
+  tipo: TipoRigaOrdine
   descrizione: string
   codice_articolo: string | null
   finitura: string | null

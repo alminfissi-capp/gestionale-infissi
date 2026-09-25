@@ -109,21 +109,31 @@ export default function OrdinePDF({
           <Text style={styles.colTot}>Totale</Text>
         </View>
 
-        {ordine.righe.map((r) => (
-          <View key={r.id} style={styles.riga}>
-            <Text style={styles.colCodice}>{r.codice_articolo ? preservaSpazi(r.codice_articolo) : '—'}</Text>
-            <Text style={styles.colDesc}>{preservaSpazi(r.descrizione)}</Text>
-            <Text style={styles.colFinitura}>{r.finitura ? preservaSpazi(r.finitura) : '—'}</Text>
-            <Text style={styles.colQta}>{r.quantita}</Text>
-            <Text style={styles.colUm}>{r.unita_misura}</Text>
-            <Text style={styles.colPrezzo}>
-              {r.prezzo_unitario === null ? '—' : formatEuro(r.prezzo_unitario)}
-            </Text>
-            <Text style={styles.colTot}>
-              {r.prezzo_unitario === null ? '—' : formatEuro(r.quantita * r.prezzo_unitario)}
-            </Text>
-          </View>
-        ))}
+        {ordine.righe.map((r) =>
+          // Separatore: riga vuota, cosi' il fornitore vede i gruppi staccati
+          // come li ha scritti chi ha compilato l'ordine.
+          r.tipo === 'separatore' ? (
+            <View key={r.id} style={styles.riga}>
+              <Text> </Text>
+            </View>
+          ) : (
+            <View key={r.id} style={styles.riga}>
+              <Text style={styles.colCodice}>{r.codice_articolo ? preservaSpazi(r.codice_articolo) : '—'}</Text>
+              <Text style={styles.colDesc}>{preservaSpazi(r.descrizione)}</Text>
+              <Text style={styles.colFinitura}>{r.finitura ? preservaSpazi(r.finitura) : '—'}</Text>
+              <Text style={styles.colQta}>{r.quantita}</Text>
+              <Text style={styles.colUm}>{r.unita_misura}</Text>
+              <Text style={styles.colPrezzo}>
+                {r.prezzo_unitario === null ? '—' : formatEuro(r.prezzo_unitario)}
+              </Text>
+              <Text style={styles.colTot}>
+                {r.prezzo_unitario === null || r.quantita === null
+                  ? '—'
+                  : formatEuro(r.quantita * r.prezzo_unitario)}
+              </Text>
+            </View>
+          )
+        )}
 
         <Text style={styles.totale}>Totale: {formatEuro(ordine.totale)}</Text>
 

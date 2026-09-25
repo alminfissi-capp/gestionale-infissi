@@ -28,10 +28,12 @@ import { getAspettiTipo } from '@/actions/calendario'
 
 type FornitoreOpzione = { id: string; nome: string; email: string | null }
 
+// I NUMERIC arrivano da PostgREST come stringhe. Il null va tenuto tale: i
+// separatori non hanno quantita', e Number(null) la trasformerebbe in 0.
 const numeraRighe = (righe: RigaOrdine[]): RigaOrdine[] =>
   righe.map((r) => ({
     ...r,
-    quantita: Number(r.quantita),
+    quantita: r.quantita === null ? null : Number(r.quantita),
     prezzo_unitario: r.prezzo_unitario === null ? null : Number(r.prezzo_unitario),
   }))
 
@@ -340,28 +342,37 @@ export async function getProssimoNumeroOrdine(): Promise<string> {
 async function salvaRighe(ordineId: string, orgId: string, righe: OrdineInput['righe']) {
   const supabase = await createClient()
   await supabase.from('righe_ordine_fornitore').delete().eq('ordine_id', ordineId)
-  const valide = righe.filter((r) => r.descrizione.trim() !== '')
+  // I separatori restano anche se non hanno testo: sono righe vuote apposta.
+  const valide = righe.filter((r) => r.tipo === 'separatore' || r.descrizione.trim() !== '')
   if (valide.length === 0) return
-  // La colonna ha CHECK (quantita > 0): senza questo controllo l'insert
-  // fallirebbe con un errore generico invece di dire cosa manca.
-  const senzaQuantita = valide.findIndex((r) => !(r.quantita !== null && r.quantita > 0))
+  // Il CHECK impone la quantita' ai soli articoli: senza questo controllo
+  // l'insert fallirebbe con un errore generico invece di dire cosa manca.
+  const senzaQuantita = valide.findIndex(
+    (r) => r.tipo === 'articolo' && !(r.quantita !== null && r.quantita > 0)
+  )
   if (senzaQuantita !== -1) {
     throw new Error(
       `Quantità mancante nella riga "${valide[senzaQuantita].descrizione.trim()}"`
     )
   }
   const { error } = await supabase.from('righe_ordine_fornitore').insert(
-    valide.map((r, i) => ({
-      ordine_id: ordineId,
-      organization_id: orgId,
-      descrizione: r.descrizione.trim(),
-      codice_articolo: r.codice_articolo?.trim() || null,
-      finitura: r.finitura?.trim() || null,
-      quantita: r.quantita,
-      unita_misura: r.unita_misura,
-      prezzo_unitario: r.prezzo_unitario,
-      ordine: i,
-    }))
+    valide.map((r, i) => {
+      // Un separatore e' solo spazio: qualunque residuo di testo o prezzo
+      // rimasto nella riga prima della conversione non va salvato.
+      const separatore = r.tipo === 'separatore'
+      return {
+        ordine_id: ordineId,
+        organization_id: orgId,
+        tipo: r.tipo,
+        descrizione: separatore ? '' : r.descrizione.trim(),
+        codice_articolo: separatore ? null : r.codice_articolo?.trim() || null,
+        finitura: separatore ? null : r.finitura?.trim() || null,
+        quantita: separatore ? null : r.quantita,
+        unita_misura: separatore ? '' : r.unita_misura,
+        prezzo_unitario: separatore ? null : r.prezzo_unitario,
+        ordine: i,
+      }
+    })
   )
   if (error) throw new Error(error.message)
 }
