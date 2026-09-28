@@ -52,6 +52,7 @@ const MODULO_HOME: Record<ModuloApp, string> = {
   commesse:     '/commesse',
   dipendenti:   '/dipendenti',
   produzione:   '/produzione',
+  fatture_fornitori: '/fatture-fornitori',
   impostazioni: '/impostazioni',
 }
 
