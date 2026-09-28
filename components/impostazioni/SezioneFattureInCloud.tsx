@@ -52,8 +52,23 @@ export default function SezioneFattureInCloud({
     setCompanyId(null)
   }
 
-  function verifica() {
+  /**
+   * Le Server Action restituiscono gli errori come valori, ma la chiamata stessa
+   * puo' fallire (rete caduta, deploy in corso): senza catch React 19 porterebbe
+   * l'errore al boundary e l'utente vedrebbe la pagina d'errore invece di un avviso.
+   */
+  function esegui(azione: () => Promise<void>) {
     startTransition(async () => {
+      try {
+        await azione()
+      } catch {
+        toast.error('Connessione interrotta: riprova fra poco')
+      }
+    })
+  }
+
+  function verifica() {
+    esegui(async () => {
       const r = await verificaTokenFic(token)
       if (!r.ok) {
         setAziende(null)
@@ -67,7 +82,7 @@ export default function SezioneFattureInCloud({
 
   function salva(conferma: boolean) {
     if (companyId === null) return
-    startTransition(async () => {
+    esegui(async () => {
       const r = await salvaCollegamentoFic({ token, companyId, sincronizzaDal: dal, confermaCambioAzienda: conferma })
       if (!r.ok) {
         if (r.richiedeConferma) setConfermaCambio(r.errore)
@@ -82,18 +97,20 @@ export default function SezioneFattureInCloud({
     })
   }
 
-  function salvaDal(nuova: string) {
-    setDal(nuova)
-    if (!collegamento || !nuova) return
-    startTransition(async () => {
-      const r = await aggiornaSincronizzaDal(nuova)
-      if (!r.ok) toast.error(r.errore)
-      else router.refresh()
+  function salvaDal() {
+    esegui(async () => {
+      const r = await aggiornaSincronizzaDal(dal)
+      if (!r.ok) {
+        toast.error(r.errore)
+        return
+      }
+      toast.success('Data salvata')
+      router.refresh()
     })
   }
 
   function scollega() {
-    startTransition(async () => {
+    esegui(async () => {
       const r = await scollegaFic()
       setConfermaScollega(false)
       if (!r.ok) {
@@ -206,14 +223,23 @@ export default function SezioneFattureInCloud({
       {puoModificare && collegamento && !inModifica && dalModificabile && (
         <div className="space-y-2">
           <Label htmlFor="fic-dal-coll">Sincronizza dal</Label>
-          <Input
-            id="fic-dal-coll"
-            type="date"
-            className="w-44"
-            value={dal}
-            onChange={(e) => salvaDal(e.target.value)}
-            disabled={pending}
-          />
+          {/* Si salva col pulsante, non a ogni tasto: da tastiera l'anno passa per 0002, 0020... */}
+          <div className="flex gap-2">
+            <Input
+              id="fic-dal-coll"
+              type="date"
+              className="w-44"
+              value={dal}
+              onChange={(e) => setDal(e.target.value)}
+            />
+            <Button
+              variant="outline"
+              onClick={salvaDal}
+              disabled={pending || !dal || dal === collegamento.sincronizza_dal}
+            >
+              Salva data
+            </Button>
+          </div>
           <p className="text-xs text-muted-foreground">
             Modificabile fino alla prima sincronizzazione completata.
           </p>

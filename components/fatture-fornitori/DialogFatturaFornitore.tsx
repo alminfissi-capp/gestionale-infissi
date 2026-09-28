@@ -27,14 +27,20 @@ export default function DialogFatturaFornitore({
     // i browser mobili la bloccherebbero come popup.
     const finestra = window.open('', '_blank')
     setApertura(true)
-    const r = await getUrlPdfFatturaFornitore(fattura.id)
-    setApertura(false)
-    if (r.url) {
-      if (finestra) finestra.location.href = r.url
-      else window.location.href = r.url
-    } else {
+    try {
+      const r = await getUrlPdfFatturaFornitore(fattura.id)
+      if (r.url) {
+        if (finestra) finestra.location.href = r.url
+        else window.location.href = r.url
+      } else {
+        finestra?.close()
+        toast.error(r.errore ?? 'PDF non disponibile')
+      }
+    } catch {
       finestra?.close()
-      toast.error(r.errore ?? 'PDF non disponibile')
+      toast.error('Connessione interrotta: riprova fra poco')
+    } finally {
+      setApertura(false)
     }
   }
 

@@ -22,10 +22,16 @@ export default function BarraSincronizzazione({
 
   function sincronizzaOra() {
     startTransition(async () => {
-      const r = await sincronizzaFattureFornitori()
-      if (r.esito === 'ok') toast.success(`Sincronizzazione completata: ${descriviConteggi(r.conteggi)}`)
-      else if (r.esito === 'parziale') toast.warning(r.messaggio)
-      else toast.error(r.messaggio)
+      // La chiamata dura fino a qualche minuto: se cade la connessione (telefono in
+      // standby, timeout) React 19 porterebbe l'errore al boundary. Meglio un avviso.
+      try {
+        const r = await sincronizzaFattureFornitori()
+        if (r.esito === 'ok') toast.success(`Sincronizzazione completata: ${descriviConteggi(r.conteggi)}`)
+        else if (r.esito === 'parziale') toast.warning(r.messaggio)
+        else toast.error(r.messaggio)
+      } catch {
+        toast.error('Connessione interrotta durante la sincronizzazione: ricarica la pagina per vedere l\'esito')
+      }
       router.refresh()
     })
   }

@@ -134,6 +134,23 @@ describe('sincronizza', () => {
     )
   })
 
+  it('salva la data di modifica dell\'elenco anche se il dettaglio ne riporta un\'altra', async () => {
+    const docs = [d(1, '2026-01-10 10:00:00', false)]
+    const client = clientFinto({ expense: docs }, {
+      dettaglio: (id) => ({ ...d(id), updated_at: '2026-01-10T10:00:00+01:00' }),
+    })
+    const primo = archivioFinto()
+    await sincronizza({ ...base, client, archivio: primo.archivio })
+    expect(primo.salvati[0].fattura.fic_updated_at).toBe('2026-01-10 10:00:00')
+
+    // Il giro dopo non la rivede come modificata.
+    const secondoClient = clientFinto({ expense: docs })
+    const secondo = archivioFinto([{ fic_id: 1, fic_updated_at: primo.salvati[0].fattura.fic_updated_at }])
+    const r = await sincronizza({ ...base, client: secondoClient, archivio: secondo.archivio })
+    expect(r.conteggi).toEqual({ nuove: 0, aggiornate: 0, eliminate: 0 })
+    expect(secondoClient.richiesteDettaglio).toEqual([])
+  })
+
   it('tempo esaurito → parziale per tempo', async () => {
     let t = 0
     const client = clientFinto({ expense: [d(1, 'u', false), d(2, 'u', false)] }, {

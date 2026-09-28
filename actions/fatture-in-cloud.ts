@@ -10,6 +10,9 @@ import { selectAll } from '@/lib/supabase/paginate'
 import { creaClientFic, FicNonAutorizzato, FicTroppeRichieste } from '@/lib/fic/client'
 import { sincronizza, messaggioParziale, type ArchivioFatture } from '@/lib/fic/sincronizza'
 import type { VoceLocale } from '@/lib/fic/confronto'
+import { salvaDocumenti, type TabelleFatture } from '@/lib/fic/salvataggio'
+import { erroreDataSincronizzaDal } from '@/lib/fic/validazione'
+import { oggiRoma } from '@/lib/fic/stato-pagamento'
 import {
   CONTEGGI_VUOTI,
   type AziendaFic,
@@ -87,9 +90,8 @@ export async function salvaCollegamentoFic(input: {
   const vietato = await erroreSeNonPuoiModificareImpostazioni()
   if (vietato) return { ok: false, errore: vietato }
   const token = input.token.trim()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.sincronizzaDal)) {
-    return { ok: false, errore: 'Data "Sincronizza dal" non valida' }
-  }
+  const erroreDal = erroreDataSincronizzaDal(input.sincronizzaDal, oggiRoma())
+  if (erroreDal) return { ok: false, errore: `Sincronizza dal: ${erroreDal}` }
 
   // Il server non si fida di nome e id arrivati dal browser: riverifica il token.
   const verifica = await verificaTokenFic(token)
@@ -152,7 +154,8 @@ export async function salvaCollegamentoFic(input: {
 export async function aggiornaSincronizzaDal(data: string): Promise<RisultatoFic> {
   const vietato = await erroreSeNonPuoiModificareImpostazioni()
   if (vietato) return { ok: false, errore: vietato }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return { ok: false, errore: 'Data non valida' }
+  const erroreDal = erroreDataSincronizzaDal(data, oggiRoma())
+  if (erroreDal) return { ok: false, errore: erroreDal }
   const orgId = await getOrgId()
   const svc = createServiceClient()
   const { data: aggiornate, error } = await svc
@@ -183,6 +186,31 @@ export async function scollegaFic(): Promise<RisultatoFic> {
 
 // ── Sincronizzazione ────────────────────────────────────────────────────────
 
+function tabelleSupabase(svc: SupabaseClient): TabelleFatture {
+  return {
+    async upsertFatture(righe) {
+      const { data, error } = await svc
+        .from('fatture_fornitori')
+        .upsert(righe, { onConflict: 'organization_id,fic_id' })
+        .select('id, fic_id')
+      if (error) throw new Error(error.message)
+      return (data ?? []).map((r) => ({ id: r.id as string, fic_id: Number(r.fic_id) }))
+    },
+    async eliminaRate(fatturaIds) {
+      for (const blocco of blocchi(fatturaIds, LOTTO_DB)) {
+        const { error } = await svc.from('fatture_fornitori_rate').delete().in('fattura_id', blocco)
+        if (error) throw new Error(error.message)
+      }
+    },
+    async inserisciRate(righe) {
+      for (const blocco of blocchi(righe, LOTTO_DB)) {
+        const { error } = await svc.from('fatture_fornitori_rate').insert(blocco)
+        if (error) throw new Error(error.message)
+      }
+    },
+  }
+}
+
 function archivioSupabase(svc: SupabaseClient, orgId: string): ArchivioFatture {
   return {
     vociLocali: async () => {
@@ -197,29 +225,7 @@ function archivioSupabase(svc: SupabaseClient, orgId: string): ArchivioFatture {
       return righe.map((r): VoceLocale => ({ fic_id: Number(r.fic_id), fic_updated_at: r.fic_updated_at }))
     },
 
-    async salva(documenti) {
-      const { data: salvate, error } = await svc
-        .from('fatture_fornitori')
-        .upsert(
-          documenti.map((d) => ({ ...d.fattura, organization_id: orgId })),
-          { onConflict: 'organization_id,fic_id' },
-        )
-        .select('id, fic_id')
-      if (error) throw new Error(error.message)
-
-      const idPerFic = new Map((salvate ?? []).map((r) => [Number(r.fic_id), r.id as string]))
-      const ids = [...idPerFic.values()]
-      const { error: errDel } = await svc.from('fatture_fornitori_rate').delete().in('fattura_id', ids)
-      if (errDel) throw new Error(errDel.message)
-
-      const rate = documenti.flatMap((d) =>
-        d.rate.map((r) => ({ ...r, organization_id: orgId, fattura_id: idPerFic.get(d.fattura.fic_id)! })),
-      )
-      for (const blocco of blocchi(rate, LOTTO_DB)) {
-        const { error: errIns } = await svc.from('fatture_fornitori_rate').insert(blocco)
-        if (errIns) throw new Error(errIns.message)
-      }
-    },
+    salva: (documenti) => salvaDocumenti(tabelleSupabase(svc), orgId, documenti),
 
     async elimina(ficIds) {
       for (const blocco of blocchi(ficIds, LOTTO_DB)) {

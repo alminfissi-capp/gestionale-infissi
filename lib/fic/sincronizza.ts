@@ -97,7 +97,9 @@ export async function sincronizza(o: OpzioniSync): Promise<RisultatoSync> {
         throw e
       }
     }
-    lotto.push(mappaDocumento(completo, tipo, ora))
+    // Si salva la data di modifica dell'elenco, la stessa che il confronto usera' al giro dopo:
+    // se il dettaglio la riportasse in un altro formato, ogni giro rivedrebbe la fattura come modificata.
+    lotto.push(mappaDocumento({ ...completo, updated_at: doc.updated_at }, tipo, ora))
     scaricate++
     if (nuove.has(id)) conteggi.nuove++
     else conteggi.aggiornate++
