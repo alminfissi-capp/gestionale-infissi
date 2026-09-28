@@ -2,7 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import { getSettings, getNoteTemplates, getLogoSignedUrl } from '@/actions/impostazioni'
 import { getIconePreventivo } from '@/actions/icone-preventivo'
 import { getConti } from '@/actions/conti'
-import { requireAccesso } from '@/lib/permessi'
+import { requireAccesso, getMyPermissions } from '@/lib/permessi'
+import { getCollegamentoFic } from '@/actions/fatture-in-cloud'
+import SezioneFattureInCloud from '@/components/impostazioni/SezioneFattureInCloud'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import FormAzienda from '@/components/impostazioni/FormAzienda'
@@ -33,7 +35,7 @@ export default async function ImpostazioniPage() {
     .eq('id', user!.id)
     .single()
 
-  const [settings, templates, icone, conti, orariLavoro, chiusure, tipiAttivita, linee, anticipi] =
+  const [settings, templates, icone, conti, orariLavoro, chiusure, tipiAttivita, linee, anticipi, collegamentoFic, { permessi }] =
     await Promise.all([
       getSettings(),
       getNoteTemplates(),
@@ -44,6 +46,8 @@ export default async function ImpostazioniPage() {
       getTipiAttivita(),
       getLineeCredito(),
       getAnticipi(),
+      getCollegamentoFic(),
+      getMyPermissions(),
     ])
 
   // Quanti anticipi porterebbe via la cancellazione di una linea (ON DELETE CASCADE).
@@ -77,10 +81,11 @@ export default async function ImpostazioniPage() {
       </div>
 
       <Tabs defaultValue="dati" className="gap-6">
-        <TabsList>
+        <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="dati">Dati</TabsTrigger>
           <TabsTrigger value="produzione">Produzione</TabsTrigger>
           <TabsTrigger value="banca">Banca</TabsTrigger>
+          <TabsTrigger value="fic">Fatture in Cloud</TabsTrigger>
           <TabsTrigger value="altro">Preventivi e altro</TabsTrigger>
         </TabsList>
 
@@ -212,6 +217,25 @@ export default async function ImpostazioniPage() {
         </CardContent>
       </Card>
 
+        </TabsContent>
+
+        {/* ── Fatture in Cloud: collegamento per scaricare le fatture fornitori ── */}
+        <TabsContent value="fic" className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Fatture in Cloud</CardTitle>
+          <CardDescription>
+            Collega il tuo account Fatture in Cloud per scaricare le fatture dei fornitori
+            registrate come spese. La sincronizzazione si avvia a mano dalla pagina Fatture fornitori.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SezioneFattureInCloud
+            collegamento={collegamentoFic}
+            puoModificare={permessi.impostazioni === 'scrittura'}
+          />
+        </CardContent>
+      </Card>
         </TabsContent>
 
         {/* ── Preventivi e altro: tutto il resto ── */}
