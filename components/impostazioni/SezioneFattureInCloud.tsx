@@ -159,16 +159,22 @@ export default function SezioneFattureInCloud({
       {puoModificare && inModifica && (
         <div className="space-y-4">
           <ol className="list-decimal space-y-1 pl-5 text-sm">
-            <li>Entra in Fatture in Cloud e apri <strong>Impostazioni → Applicazioni collegate</strong>.</li>
             <li>
-              Crea un nuovo <strong>token manuale</strong> e spunta questi permessi:
+              In Fatture in Cloud apri <strong>Impostazioni → Sviluppatore</strong>, premi <strong>Nuova app</strong>,
+              dagli un nome (es. WinStudio), scegli visibilità <strong>privata</strong> e salva.
+              Copia il <strong>Client ID</strong> dell&apos;app (il Client Secret non serve).
+            </li>
+            <li>
+              Apri <strong>Impostazioni → Applicazioni collegate</strong>, premi{' '}
+              <strong>Collega una nuova applicazione</strong>, incolla il Client ID, scegli l&apos;azienda
+              e spunta questi permessi:
               <ul className="mt-1 list-disc pl-5">
                 {PERMESSI_FIC.map(([voce, livello]) => (
                   <li key={voce}>{voce}: <strong>{livello}</strong></li>
                 ))}
               </ul>
             </li>
-            <li>Copia il token, incollalo qui sotto e premi <strong>Verifica</strong>.</li>
+            <li>Copia il token che Fatture in Cloud ti mostra, incollalo qui sotto e premi <strong>Verifica</strong>.</li>
           </ol>
 
           <div className="space-y-2">
