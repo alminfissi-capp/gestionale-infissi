@@ -9,9 +9,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import {
-  uploadDocumentoProduzione, deleteDocumentoProduzione, getDocumentoSignedUrl,
+  deleteDocumentoProduzione, getDocumentoSignedUrl,
 } from '@/actions/produzione-documenti'
 import DialogVisualizzatore from './DialogVisualizzatore'
+import { caricaDocumentoCommessa } from '@/lib/upload-documento'
 import { TIPI_DOCUMENTO_PRODUZIONE } from '@/types/produzione'
 import type { DocumentoCommessa } from '@/types/commessa'
 
@@ -35,12 +36,18 @@ export default function DocumentiProduzione({ commessaId, documenti }: Props) {
     let caricati = 0
     try {
       for (const file of Array.from(files)) {
-        const formData = new FormData()
-        formData.append('file', file)
-        formData.append('commessaId', commessaId)
-        formData.append('tipo', tipo)
-        const { error } = await uploadDocumentoProduzione(formData)
-        if (error) toast.error(`${file.name}: ${error}`)
+        // Stessa strada della condivisione e dei documenti di commessa: il file si
+        // legge per intero nel browser e va dritto su Supabase. Passarlo cosi'
+        // com'e' a una Server Action, su Android (file "pigri" letti solo a
+        // richiesta) lasciava il caricamento appeso senza mai partire, e oltre
+        // ~4,5 MB fallisce comunque in silenzio.
+        let errore: string | null
+        try {
+          errore = await caricaDocumentoCommessa(file, file.name, commessaId, tipo)
+        } catch {
+          errore = 'Caricamento non riuscito: riprova'
+        }
+        if (errore) toast.error(`${file.name}: ${errore}`)
         else caricati++
       }
       if (caricati > 0) {
