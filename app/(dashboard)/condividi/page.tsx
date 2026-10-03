@@ -10,9 +10,9 @@ import ImbutoCondivisione from '@/components/condivisione/ImbutoCondivisione'
 export default async function CondividiPage({
   searchParams,
 }: {
-  searchParams: Promise<{ errore?: string }>
+  searchParams: Promise<{ errore?: string; dettagli?: string }>
 }) {
-  const { errore } = await searchParams
+  const { errore, dettagli } = await searchParams
 
   return (
     <div className="p-4 sm:p-6 max-w-lg mx-auto space-y-4">
@@ -22,7 +22,7 @@ export default async function CondividiPage({
           Scegli dove far finire il file che hai condiviso
         </p>
       </div>
-      <ImbutoCondivisione errore={errore} />
+      <ImbutoCondivisione errore={errore} dettagli={dettagli} />
 
       {/* Spia per quando il codice della pagina non si avvia sul dispositivo: lo
           script parte comunque, e se dopo 12 secondi l'imbuto non ha segnalato di
