@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   parseImporto,
+  periodoIniziale,
   residuoDisponibile, ripartisci, controllaRipartizione, normalizzaFornitore, fornitoreCorrisponde,
   type DaRipartire,
 } from '@/lib/fic/pagamenti'
@@ -132,5 +133,17 @@ describe('parseImporto', () => {
   it('testo non valido → null', () => {
     expect(parseImporto('')).toBeNull()
     expect(parseImporto('abc')).toBeNull()
+  })
+})
+
+describe('periodoIniziale', () => {
+  it('sei mesi di calendario fino alla data della scadenza', () => {
+    expect(periodoIniziale('2026-10-31', '2026-10-03')).toEqual({ dal: '2026-05-01', al: '2026-10-31' })
+  })
+  it('a cavallo d\'anno', () => {
+    expect(periodoIniziale('2027-02-15', '2026-10-03')).toEqual({ dal: '2026-09-01', al: '2027-02-15' })
+  })
+  it('senza data della scadenza parte da oggi', () => {
+    expect(periodoIniziale(null, '2026-10-03')).toEqual({ dal: '2026-05-01', al: '2026-10-03' })
   })
 })

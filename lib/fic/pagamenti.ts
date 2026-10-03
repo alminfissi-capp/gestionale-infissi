@@ -147,3 +147,20 @@ export function parseImporto(testo: string): number | null {
   if (!/^-?\d+(\.\d+)?$/.test(normale)) return null
   return cent(Number(normale))
 }
+
+export type Periodo = { dal: string; al: string }
+
+/**
+ * Periodo proposto nella finestra di collegamento: sei mesi di calendario fino
+ * alla data della scadenza (il mese della scadenza e i cinque prima), dove di
+ * solito stanno le fatture che quell'assegno paga. Senza data si parte da oggi.
+ */
+export function periodoIniziale(dataScadenza: string | null, oggi: string): Periodo {
+  const al = dataScadenza ?? oggi
+  const anno = Number(al.slice(0, 4))
+  const mese = Number(al.slice(5, 7))
+  const indice = anno * 12 + (mese - 1) - 5
+  const annoDal = Math.floor(indice / 12)
+  const meseDal = (indice % 12) + 1
+  return { dal: `${annoDal}-${String(meseDal).padStart(2, '0')}-01`, al }
+}
