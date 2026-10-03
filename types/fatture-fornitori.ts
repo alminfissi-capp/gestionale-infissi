@@ -111,8 +111,10 @@ export type DatiCollegamento = {
   }
   collegamenti: CollegamentoScadenza[]
   metodi: MetodoFic[]
-  /** Tutti i documenti con residuo per questa scadenza (piu' quelli gia' collegati): il filtro per fornitore e' nel browser. */
+  /** Documenti con residuo nel periodo (piu' quelli gia' collegati o selezionati): il filtro per fornitore e' nel browser. */
   documenti: DocumentoCollegabile[]
+  /** Periodo usato per caricare le fatture (date ISO incluse). */
+  periodo: { dal: string; al: string }
 }
 
 export type SalvaCollegamentiInput = {

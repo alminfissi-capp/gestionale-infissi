@@ -33,6 +33,9 @@ export default function DialogCollegaFatture({ scadenza, onClose }: { scadenza: 
   const [quote, setQuote] = useState<Record<number, number>>({})
   const [testoQuote, setTestoQuote] = useState<Record<number, string>>({})
   const [pending, startTransition] = useTransition()
+  const [dal, setDal] = useState('')
+  const [al, setAl] = useState('')
+  const [caricando, setCaricando] = useState(false)
 
   // Caricamento alla prima apertura: un'unica lettura, poi tutto nel browser.
   useEffect(() => {
@@ -42,6 +45,8 @@ export default function DialogCollegaFatture({ scadenza, onClose }: { scadenza: 
         if (annullato) return
         if ('errore' in d) { setErrore(d.errore); return }
         setDati(d)
+        setDal(d.periodo.dal)
+        setAl(d.periodo.al)
         const assegno = d.metodi.find((m) => m.nome.toLowerCase() === 'assegno')
         setMetodoId(d.scadenza.fic_metodo_id ?? (d.scadenza.categoria === 'assegno' ? assegno?.id ?? null : null))
         const presenti = new Set(d.documenti.map((x) => x.fic_id))
@@ -52,6 +57,27 @@ export default function DialogCollegaFatture({ scadenza, onClose }: { scadenza: 
       .catch(() => { if (!annullato) setErrore('Connessione interrotta: riprova') })
     return () => { annullato = true }
   }, [scadenza.id])
+
+  /**
+   * Ricarica le fatture di un altro periodo. Le selezioni fatte restano: i loro
+   * documenti vengono caricati comunque, anche se fuori dal periodo nuovo.
+   */
+  function cambiaPeriodo(nuovoDal: string, nuovoAl: string) {
+    setDal(nuovoDal)
+    setAl(nuovoAl)
+    if (!nuovoDal || !nuovoAl || nuovoDal > nuovoAl || nuovoDal < '2000-01-01') return
+    setCaricando(true)
+    getDatiCollegamento(scadenza.id, {
+      periodo: { dal: nuovoDal, al: nuovoAl },
+      idsExtra: Object.keys(quote).map(Number),
+    })
+      .then((d) => {
+        if ('errore' in d) toast.error(d.errore)
+        else setDati(d)
+      })
+      .catch(() => toast.error('Connessione interrotta: riprova'))
+      .finally(() => setCaricando(false))
+  }
 
   const perId = useMemo(() => new Map((dati?.documenti ?? []).map((d) => [d.fic_id, d])), [dati])
   const selezionati = Object.keys(quote).map(Number)
@@ -170,9 +196,32 @@ export default function DialogCollegaFatture({ scadenza, onClose }: { scadenza: 
               </div>
             </div>
 
+            {/* Periodo delle fatture: si ricarica uscendo dal campo, non a ogni tasto
+                (da tastiera l'anno passa per 0002, 0020... e caricherebbe tutto l'archivio). */}
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="fic-dal">Fatture dal</Label>
+                <Input
+                  id="fic-dal" type="date" className="w-40" value={dal}
+                  onChange={(e) => setDal(e.target.value)}
+                  onBlur={() => { if (dal !== dati.periodo.dal) cambiaPeriodo(dal, al) }}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="fic-al">al</Label>
+                <Input
+                  id="fic-al" type="date" className="w-40" value={al}
+                  onChange={(e) => setAl(e.target.value)}
+                  onBlur={() => { if (al !== dati.periodo.al) cambiaPeriodo(dal, al) }}
+                />
+              </div>
+              {caricando && <Loader2 className="mb-2 h-4 w-4 animate-spin" />}
+              {dal && al && dal > al && <span className="mb-2 text-sm text-destructive">La data iniziale e&apos; dopo quella finale</span>}
+            </div>
+
             <div className="max-h-[45vh] overflow-y-auto rounded-md border">
               {visibili.length === 0 ? (
-                <p className="p-4 text-sm text-muted-foreground">Nessuna fattura da pagare per questo fornitore.</p>
+                <p className="p-4 text-sm text-muted-foreground">Nessuna fattura da pagare per questo fornitore nel periodo scelto.</p>
               ) : visibili.map((d) => {
                 const spuntato = quote[d.fic_id] !== undefined
                 const collegamento = dati.collegamenti.find((c) => c.fic_documento_id === d.fic_id)

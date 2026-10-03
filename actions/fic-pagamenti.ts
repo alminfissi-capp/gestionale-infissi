@@ -7,7 +7,10 @@ import { getMyPermissions } from '@/lib/permessi'
 import { selectAll } from '@/lib/supabase/paginate'
 import { creaClientFic } from '@/lib/fic/client'
 import { allineaScadenzaFic, annullaSingolo } from '@/lib/fic/allinea-scadenza'
-import { controllaRipartizione, residuoDisponibile, type QuotaAltraScadenza } from '@/lib/fic/pagamenti'
+import {
+  controllaRipartizione, periodoIniziale, residuoDisponibile, type Periodo, type QuotaAltraScadenza,
+} from '@/lib/fic/pagamenti'
+import { oggiRoma } from '@/lib/fic/stato-pagamento'
 import { riepilogaCollegamenti, ESITO_VUOTO } from '@/lib/fic/allineamento'
 import type {
   DatiCollegamento, DocumentoCollegabile, EsitoFic, MetodoFic, PagamentoFattura, ProblemiFic,
@@ -40,13 +43,27 @@ async function metodiFic(orgId: string): Promise<MetodoFic[]> {
   }
 }
 
+const COLONNE_DOC =
+  'fic_id, tipo, numero, data, fornitore_nome, importo_lordo, rate:fatture_fornitori_rate(importo, stato, scadenza)'
+
 type RigaDoc = {
   fic_id: number | string; tipo: TipoFatturaFornitore; numero: string | null; data: string
   fornitore_nome: string; importo_lordo: number | string
   rate: { importo: number | string; stato: string; scadenza: string | null }[]
 }
 
-export async function getDatiCollegamento(scadenzaId: string): Promise<DatiCollegamento | { errore: string }> {
+const DATA = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Dati della finestra di collegamento. Le fatture si caricano solo nel periodo
+ * scelto (di default i sei mesi fino alla scadenza), piu' quelle gia' collegate a
+ * questa scadenza e quelle indicate in `idsExtra` (selezionate nella finestra ma
+ * fuori dal periodo): il carico non cresce con gli anni di storico.
+ */
+export async function getDatiCollegamento(
+  scadenzaId: string,
+  filtro: { periodo?: Periodo; idsExtra?: number[] } = {},
+): Promise<DatiCollegamento | { errore: string }> {
   const vietato = await permessoCollegare()
   if (vietato) return { errore: vietato }
   const orgId = await getOrgId()
@@ -58,7 +75,12 @@ export async function getDatiCollegamento(scadenzaId: string): Promise<DatiColle
     .eq('id', scadenzaId).eq('organization_id', orgId).maybeSingle()
   if (!sc) return { errore: 'Scadenza non trovata' }
 
-  const [tutti, docs, metodi] = await Promise.all([
+  const periodo =
+    filtro.periodo && DATA.test(filtro.periodo.dal) && DATA.test(filtro.periodo.al) && filtro.periodo.dal <= filtro.periodo.al
+      ? filtro.periodo
+      : periodoIniziale(sc.data_scadenza as string | null, oggiRoma())
+
+  const [tutti, docsPeriodo, metodi] = await Promise.all([
     selectAll<{
       scadenza_id: string; fic_documento_id: number | string; tipo_documento: TipoFatturaFornitore
       importo: number | string; stato_fic: StatoFic; messaggio_fic: string | null
@@ -69,12 +91,28 @@ export async function getDatiCollegamento(scadenzaId: string): Promise<DatiColle
         .eq('organization_id', orgId).order('id').range(da, a)),
     selectAll<RigaDoc>((da, a) =>
       svc.from('fatture_fornitori')
-        .select('fic_id, tipo, numero, data, fornitore_nome, importo_lordo, rate:fatture_fornitori_rate(importo, stato, scadenza)')
-        .eq('organization_id', orgId).order('id').range(da, a)),
+        .select(COLONNE_DOC)
+        .eq('organization_id', orgId).gte('data', periodo.dal).lte('data', periodo.al)
+        .order('id').range(da, a)),
     metodiFic(orgId),
   ])
 
   const qui = tutti.filter((c) => c.scadenza_id === scadenzaId)
+
+  // Fuori dal periodo ma da mostrare comunque: gia' collegate qui o appena selezionate.
+  const nelPeriodo = new Set(docsPeriodo.map((d) => Number(d.fic_id)))
+  const daAggiungere = [...new Set([
+    ...qui.map((c) => Number(c.fic_documento_id)),
+    ...(filtro.idsExtra ?? []).filter((x) => Number.isFinite(x)),
+  ])].filter((id) => !nelPeriodo.has(id))
+  const docsExtra: RigaDoc[] = []
+  for (let i = 0; i < daAggiungere.length; i += 200) {
+    const { data, error } = await svc.from('fatture_fornitori').select(COLONNE_DOC)
+      .eq('organization_id', orgId).in('fic_id', daAggiungere.slice(i, i + 200))
+    if (error) return { errore: error.message }
+    docsExtra.push(...((data ?? []) as unknown as RigaDoc[]))
+  }
+  const docs = [...docsPeriodo, ...docsExtra]
   // Le scadenze annullate non promettono piu' niente: il loro residuo torna libero.
   const altre: QuotaAltraScadenza[] = tutti
     .filter((c) => c.scadenza_id !== scadenzaId && !annullataDi(c.scadenza))
@@ -112,6 +150,7 @@ export async function getDatiCollegamento(scadenzaId: string): Promise<DatiColle
     })),
     metodi,
     documenti,
+    periodo,
   }
 }
 
@@ -124,7 +163,7 @@ export async function salvaCollegamentiScadenza(
   const svc = createServiceClient()
 
   // Il server rifà il controllo: il browser non decide i residui.
-  const dati = await getDatiCollegamento(input.scadenzaId)
+  const dati = await getDatiCollegamento(input.scadenzaId, { idsExtra: input.quote.map((q) => q.fic_documento_id) })
   if ('errore' in dati) return { ok: false, errore: dati.errore }
   const perId = new Map(dati.documenti.map((d) => [d.fic_id, d]))
   // Il tipo lo decide il server (dal documento FiC), non il browser: sbagliarlo
