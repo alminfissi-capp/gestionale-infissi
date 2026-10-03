@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  parseImporto,
   residuoDisponibile, ripartisci, controllaRipartizione, normalizzaFornitore, fornitoreCorrisponde,
   type DaRipartire,
 } from '@/lib/fic/pagamenti'
@@ -45,6 +46,10 @@ describe('ripartisci', () => {
   it('senza scadenza ordina per data fattura, poi per id', () => {
     expect(ripartisci(150, [fatt(2, 100, null, '2026-01-05'), fatt(1, 100, null, '2026-01-05')])).toEqual({ 1: 100, 2: 50 })
   })
+  it('la nota di credito si usa solo fino a quanto servono le fatture', () => {
+    // scadenza 100, fattura 300, nota 500: della nota servono 300, non 500
+    expect(ripartisci(100, [fatt(1, 300, '2026-01-31'), nc(9, 500)])).toEqual({ 1: 300, 9: 300 })
+  })
   it('arrotonda al centesimo', () => {
     expect(ripartisci(0.3, [fatt(1, 0.1, '2026-01-01'), fatt(2, 0.2, '2026-01-02')])).toEqual({ 1: 0.1, 2: 0.2 })
   })
@@ -84,10 +89,10 @@ describe('controllaRipartizione', () => {
     expect(e.livello).toBe('blocco')
     expect(e.messaggi).toContain('FT 2: nessun importo assegnato, toglila o aumenta l\'importo')
   })
-  it("nota di credito piu' grande delle fatture → avviso, niente quote negative", () => {
+  it("nota di credito piu' grande delle fatture → avviso dedicato, niente quote negative", () => {
     const e = controllaRipartizione(100, [riga(1, 300, 300), riga(9, 500, 500, 'nota_credito', 'NC 1')])
     expect(e.livello).toBe('avviso')
-    expect(e.differenza).toBe(300)
+    expect(e.messaggi).toContain('Le note di credito superano le fatture di 200,00 €')
   })
 })
 
@@ -108,5 +113,24 @@ describe('fornitore', () => {
   })
   it('ricerca vuota trova tutto', () => {
     expect(fornitoreCorrisponde('  ', 'Qualsiasi')).toBe(true)
+  })
+})
+
+describe('parseImporto', () => {
+  it('virgola decimale e punti delle migliaia', () => {
+    expect(parseImporto('12,50')).toBe(12.5)
+    expect(parseImporto('1.234,56')).toBe(1234.56)
+  })
+  it('punto decimale da tastiera senza virgola', () => {
+    expect(parseImporto('12.50')).toBe(12.5)
+    expect(parseImporto('12.5')).toBe(12.5)
+  })
+  it('punto delle migliaia senza decimali', () => {
+    expect(parseImporto('1.234')).toBe(1234)
+    expect(parseImporto('1.234.567')).toBe(1234567)
+  })
+  it('testo non valido → null', () => {
+    expect(parseImporto('')).toBeNull()
+    expect(parseImporto('abc')).toBeNull()
   })
 })

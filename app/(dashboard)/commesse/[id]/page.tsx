@@ -22,6 +22,11 @@ import type { PreventivoPerCommessa } from '@/types/commessa'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 
+
+// Le azioni sulle scadenze collegate a fatture FiC possono scrivere su FiC
+// documento per documento: tempo sufficiente anche per un assegno su molte fatture.
+export const maxDuration = 300
+
 export default async function CommesseGruppoPage({
   params,
   searchParams,

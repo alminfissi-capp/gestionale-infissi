@@ -22,7 +22,8 @@ const documenti = (n: number) => `${n} ${n === 1 ? 'documento' : 'documenti'}`
 
 export function messaggioEsitoFic(e: EsitoFic): { tipo: 'successo' | 'avviso' | 'niente'; testo: string } {
   if (e.problemi.length) {
-    return { tipo: 'avviso', testo: `Pagato in WinStudio, ma non tutto e' su FiC. ${e.problemi.join(' · ')}` }
+    // Vale per ogni azione (pagato, tolto, annullato, eliminato): la scadenza e' salvata, FiC no.
+    return { tipo: 'avviso', testo: `Salvato in WinStudio, ma FiC non e' allineato. ${e.problemi.join(' · ')}` }
   }
   if (e.avvisi.length) return { tipo: 'avviso', testo: e.avvisi.join(' · ') }
   if (e.scritti) return { tipo: 'successo', testo: `Pagamento scritto su FiC: ${documenti(e.scritti)}` }

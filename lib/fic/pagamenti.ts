@@ -36,9 +36,16 @@ const chiaveOrdine = (d: DaRipartire) => d.prima_scadenza ?? d.data
 export function ripartisci(importoScadenza: number, selezionati: DaRipartire[]): Record<number, number> {
   const quote: Record<number, number> = {}
   let disponibile = cent(importoScadenza)
+  // Una nota di credito si usa solo per quanto servono le fatture selezionate:
+  // il resto del credito resta disponibile sulla nota, non si brucia.
+  let fattureDaCoprire = cent(
+    selezionati.filter((d) => d.tipo === 'fattura').reduce((s, d) => s + d.residuo, 0),
+  )
   for (const n of selezionati.filter((d) => d.tipo === 'nota_credito')) {
-    quote[n.fic_id] = cent(n.residuo)
-    disponibile = cent(disponibile + n.residuo)
+    const q = cent(Math.min(n.residuo, Math.max(0, fattureDaCoprire)))
+    quote[n.fic_id] = q
+    disponibile = cent(disponibile + q)
+    fattureDaCoprire = cent(fattureDaCoprire - q)
   }
   const fatture = selezionati
     .filter((d) => d.tipo === 'fattura')
@@ -88,7 +95,11 @@ export function controllaRipartizione(importoScadenza: number, righe: RigaContro
       avvisi.push(`${formatEuro(cent(r.residuo - r.quota))} € resteranno da pagare sulla fattura ${etichetta(r)}`)
     }
   }
-  if (differenza > 0) avvisi.push(`${formatEuro(differenza)} € della scadenza non coprono nessuna fattura`)
+  if (totaleNote > totaleFatture) {
+    avvisi.push(`Le note di credito superano le fatture di ${formatEuro(cent(totaleNote - totaleFatture))} €`)
+  } else if (differenza > 0) {
+    avvisi.push(`${formatEuro(differenza)} € della scadenza non coprono nessuna fattura`)
+  }
   if (differenza < 0) avvisi.push(`Le quote superano l'importo della scadenza di ${formatEuro(-differenza)} €`)
 
   return { livello: avvisi.length ? 'avviso' : 'ok', totaleFatture, totaleNote, differenza, messaggi: avvisi }
@@ -119,4 +130,20 @@ export function fornitoreCorrisponde(cercato: string, nome: string): boolean {
   const n = normalizzaFornitore(nome)
   const nCompatto = n.replace(/ /g, '')
   return c.split(' ').every((p) => n.includes(p) || nCompatto.includes(p))
+}
+
+/**
+ * Importo scritto a mano. La virgola e' il separatore decimale italiano; senza
+ * virgola, un solo punto seguito da una o due cifre e' un decimale (tastiere
+ * dei telefoni che hanno solo il punto), altrimenti i punti sono migliaia.
+ */
+export function parseImporto(testo: string): number | null {
+  const t = testo.trim().replace(/\s/g, '').replace('€', '')
+  if (!t) return null
+  let normale: string
+  if (t.includes(',')) normale = t.replace(/\./g, '').replace(',', '.')
+  else if (/^\d+\.\d{1,2}$/.test(t)) normale = t
+  else normale = t.replace(/\./g, '')
+  if (!/^-?\d+(\.\d+)?$/.test(normale)) return null
+  return cent(Number(normale))
 }

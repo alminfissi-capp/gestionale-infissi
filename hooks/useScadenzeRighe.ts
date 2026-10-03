@@ -44,6 +44,7 @@ export function useScadenzeRighe(scadenze: Scadenza[]) {
   const [copyingId, setCopyingId] = useState<string | null>(null)
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const cameraRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const inCorsoPagato = useRef<Set<string>>(new Set())
 
   // Carica gli URL firmati delle righe con allegato. Per i PDF si usa
   // l'anteprima: e' quella che si mostra a schermo e in stampa.
@@ -66,6 +67,10 @@ export function useScadenzeRighe(scadenze: Scadenza[]) {
   }, [items])
 
   const handleTogglePagato = async (s: Scadenza) => {
+    // Con fatture FiC collegate la spunta scrive su FiC e puo' durare qualche
+    // secondo: un secondo clic nel frattempo si ignora.
+    if (inCorsoPagato.current.has(s.id)) return
+    inCorsoPagato.current.add(s.id)
     const nuovo = !s.pagato
     setItems((cur) => cur.map((x) => (x.id === s.id ? { ...x, pagato: nuovo } : x)))
     try {
@@ -74,8 +79,11 @@ export function useScadenzeRighe(scadenze: Scadenza[]) {
       // L'icona Fatture nella riga cambia colore secondo l'esito su FiC.
       if (fic) router.refresh()
     } catch {
-      setItems((cur) => cur.map((x) => (x.id === s.id ? { ...x, pagato: !nuovo } : x)))
-      toast.error('Errore nel salvataggio')
+      // Non si sa se il salvataggio e' avvenuto: si rilegge invece di indovinare.
+      toast.error('Errore nel salvataggio: ricarico lo stato')
+      router.refresh()
+    } finally {
+      inCorsoPagato.current.delete(s.id)
     }
   }
 

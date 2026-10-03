@@ -68,7 +68,7 @@ export type EsitoSincronizzazione = {
   conteggi: ConteggiSync
 }
 
-export type StatoFic = 'non_scritto' | 'scritto' | 'da_allineare' | 'da_verificare'
+export type StatoFic = 'non_scritto' | 'scritto' | 'da_allineare' | 'da_verificare' | 'in_corso'
 
 /** Documento FiC proponibile nella finestra di collegamento: residuo gia' al netto delle altre scadenze. */
 export type DocumentoCollegabile = {

@@ -87,6 +87,72 @@ export function costruisciScrittura(
   return { data, metodo_id: metodoId, rate_pagate, rata_divisa }
 }
 
+/**
+ * Cosa WinStudio sta per scrivere, salvato PRIMA del PUT. Se la risposta di FiC
+ * si perde (rete, timeout) la scrittura puo' essere avvenuta senza che WinStudio
+ * lo sappia: al tentativo successivo l'intenzione permette di riconoscerla invece
+ * di pagare una seconda volta.
+ */
+export type IntenzioneFic = {
+  data: string
+  metodo_id: number
+  /** Id delle rate esistenti prima del PUT: la rata resto e' quella che non c'era. */
+  id_prima: number[]
+  rate_pagate: { id: number; importo: number }[]
+  rata_divisa: { pagata_id: number; importo_originale: number } | null
+}
+
+export function intenzioneDa(
+  prima: RataFic[],
+  esito: Extract<PagamentoApplicato, { ok: true }>,
+  data: string,
+  metodoId: number,
+): IntenzioneFic {
+  return {
+    data,
+    metodo_id: metodoId,
+    id_prima: prima.map((r) => r.id).filter((id): id is number => typeof id === 'number'),
+    rate_pagate: esito.indiciPagati.map((i) => ({ id: esito.rate[i].id as number, importo: cent(esito.rate[i].amount ?? 0) })),
+    rata_divisa: esito.divisa
+      ? { pagata_id: esito.rate[esito.divisa.indicePagata].id as number, importo_originale: esito.divisa.importoOriginale }
+      : null,
+  }
+}
+
+/**
+ * Se le rate attuali su FiC mostrano gia' il pagamento descritto
+ * dall'intenzione, restituisce la scrittura corrispondente; altrimenti null.
+ */
+export function ritrovaScrittura(rate: RataFic[], i: IntenzioneFic): ScritturaFic | null {
+  for (const p of i.rate_pagate) {
+    const r = rate.find((x) => x.id === p.id)
+    if (!r || !pagata(r) || cent(r.amount ?? 0) !== cent(p.importo) || r.paid_date !== i.data) return null
+    if (r.payment_account?.id !== i.metodo_id) return null
+  }
+  let rata_divisa: ScritturaFic['rata_divisa'] = null
+  if (i.rata_divisa) {
+    const principale = rate.find((x) => x.id === i.rata_divisa!.pagata_id)
+    const nuova = rate.find(
+      (x) => typeof x.id === 'number' && !i.id_prima.includes(x.id) && !pagata(x) && x.due_date === principale?.due_date,
+    )
+    if (nuova?.id) {
+      rata_divisa = { pagata_id: i.rata_divisa.pagata_id, resto_id: nuova.id, importo_originale: i.rata_divisa.importo_originale }
+    }
+  }
+  return { data: i.data, metodo_id: i.metodo_id, rate_pagate: i.rate_pagate, rata_divisa }
+}
+
+/**
+ * Vero se tutte le rate pagate da WinStudio risultano gia' da pagare: un
+ * annullamento precedente e' arrivato a FiC ma se n'e' persa la risposta.
+ */
+export function giaAnnullato(rate: RataFic[], s: ScritturaFic): boolean {
+  return s.rate_pagate.every((p) => {
+    const r = rate.find((x) => x.id === p.id)
+    return r !== undefined && !pagata(r)
+  })
+}
+
 export type Annullamento = { ok: true; rate: RataFic[] } | { ok: false; motivo: string }
 
 /**

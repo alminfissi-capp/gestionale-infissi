@@ -36,7 +36,7 @@ describe('messaggioEsitoFic', () => {
   })
   it('problemi e avvisi vincono e si elencano', () => {
     expect(messaggioEsitoFic({ scritti: 1, annullati: 0, problemi: ['FT 3: FiC non ha risposto'], avvisi: [] }))
-      .toEqual({ tipo: 'avviso', testo: 'Pagato in WinStudio, ma non tutto e\' su FiC. FT 3: FiC non ha risposto' })
+      .toEqual({ tipo: 'avviso', testo: 'Salvato in WinStudio, ma FiC non e\' allineato. FT 3: FiC non ha risposto' })
     expect(messaggioEsitoFic({ ...ESITO_VUOTO, avvisi: ['Gli importi non tornano'] }))
       .toEqual({ tipo: 'avviso', testo: 'Gli importi non tornano' })
   })

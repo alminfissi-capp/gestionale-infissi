@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { applicaPagamento, costruisciScrittura, annullaPagamento, totaleRate, type ScritturaFic } from '@/lib/fic/pagamenti-fic'
+import {
+  applicaPagamento, costruisciScrittura, annullaPagamento, totaleRate, intenzioneDa, ritrovaScrittura, giaAnnullato,
+  type ScritturaFic,
+} from '@/lib/fic/pagamenti-fic'
 import type { RataFic } from '@/lib/fic/tipi'
 
 const OGGI = '2026-10-03'
@@ -115,5 +118,63 @@ describe('annullaPagamento', () => {
     const a = annullaPagamento([{ ...r(1, 500, '2026-01-31', 'paid', OGGI), payment_account: { id: ASSEGNO } }], s)
     if (!a.ok) throw new Error('atteso ok')
     expect(a.rate[0]).toMatchObject({ amount: 500, status: 'not_paid', paid_date: null })
+  })
+})
+
+describe('giaAnnullato', () => {
+  const s: ScritturaFic = {
+    data: OGGI, metodo_id: ASSEGNO,
+    rate_pagate: [{ id: 1, importo: 300 }],
+    rata_divisa: { pagata_id: 1, resto_id: 55, importo_originale: 1000 },
+  }
+  it('vero se le rate scritte da WinStudio risultano gia\' da pagare (risposta del PUT persa)', () => {
+    expect(giaAnnullato([r(1, 1000, '2026-01-31')], s)).toBe(true)
+  })
+  it('falso se sono ancora pagate', () => {
+    expect(giaAnnullato([{ ...r(1, 300, '2026-01-31', 'paid', OGGI), payment_account: { id: ASSEGNO } }, r(55, 700, '2026-01-31')], s)).toBe(false)
+  })
+  it('falso se una rata non esiste piu\'', () => {
+    expect(giaAnnullato([r(55, 700, '2026-01-31')], s)).toBe(false)
+  })
+})
+
+describe("intenzione: ritrovare una scrittura gia' applicata da FiC", () => {
+  const prima = [r(1, 1000, '2026-01-31'), r(2, 500, '2026-02-28')]
+  const esito = applicaPagamento(prima, 1200, OGGI, ASSEGNO)
+  if (!esito.ok) throw new Error('atteso ok')
+  const intenzione = intenzioneDa(prima, esito, OGGI, ASSEGNO)
+
+  it("descrive le rate che verranno pagate, con gli id gia' esistenti", () => {
+    expect(intenzione).toEqual({
+      data: OGGI, metodo_id: ASSEGNO, id_prima: [1, 2],
+      rate_pagate: [{ id: 1, importo: 1000 }, { id: 2, importo: 200 }],
+      rata_divisa: { pagata_id: 2, importo_originale: 500 },
+    })
+  })
+
+  it("se FiC l'ha gia' applicata la ritrova, rata resto compresa", () => {
+    const suFic = [
+      { ...r(1, 1000, '2026-01-31', 'paid', OGGI), payment_account: { id: ASSEGNO } },
+      { ...r(2, 200, '2026-02-28', 'paid', OGGI), payment_account: { id: ASSEGNO } },
+      r(77, 300, '2026-02-28'),
+    ]
+    expect(ritrovaScrittura(suFic, intenzione)).toEqual<ScritturaFic>({
+      data: OGGI, metodo_id: ASSEGNO,
+      rate_pagate: [{ id: 1, importo: 1000 }, { id: 2, importo: 200 }],
+      rata_divisa: { pagata_id: 2, resto_id: 77, importo_originale: 500 },
+    })
+  })
+
+  it("se FiC non l'ha applicata → null", () => {
+    expect(ritrovaScrittura(prima, intenzione)).toBeNull()
+  })
+
+  it("pagata con un'altra data → null", () => {
+    const altra = [
+      { ...r(1, 1000, '2026-01-31', 'paid', '2026-09-01'), payment_account: { id: ASSEGNO } },
+      { ...r(2, 200, '2026-02-28', 'paid', OGGI), payment_account: { id: ASSEGNO } },
+      r(77, 300, '2026-02-28'),
+    ]
+    expect(ritrovaScrittura(altra, intenzione)).toBeNull()
   })
 })

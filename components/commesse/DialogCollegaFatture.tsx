@@ -11,15 +11,18 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { getDatiCollegamento, salvaCollegamentiScadenza, riprovaScadenzaFic } from '@/actions/fic-pagamenti'
-import { ripartisci, controllaRipartizione, fornitoreCorrisponde } from '@/lib/fic/pagamenti'
+import { getDatiCollegamento, salvaCollegamentiScadenza, riprovaScadenzaFic, scollegaSenzaFic } from '@/actions/fic-pagamenti'
+import { ripartisci, controllaRipartizione, fornitoreCorrisponde, parseImporto } from '@/lib/fic/pagamenti'
 import { formatData } from '@/lib/fic/formato'
 import { formatEuro } from '@/lib/pricing'
 import { mostraEsitoFic } from '@/components/commesse/esito-fic'
 import type { DatiCollegamento, DocumentoCollegabile } from '@/types/fatture-fornitori'
 import type { Scadenza } from '@/types/commessa'
 
-const STATO_LABEL = { non_scritto: 'Non ancora su FiC', scritto: 'Scritto su FiC', da_allineare: 'Da allineare', da_verificare: 'Da verificare' } as const
+const STATO_LABEL = {
+  non_scritto: 'Non ancora su FiC', scritto: 'Scritto su FiC', da_allineare: 'Da allineare',
+  da_verificare: 'Da verificare', in_corso: 'Operazione in corso',
+} as const
 
 export default function DialogCollegaFatture({ scadenza, onClose }: { scadenza: Scadenza; onClose: () => void }) {
   const router = useRouter()
@@ -41,7 +44,10 @@ export default function DialogCollegaFatture({ scadenza, onClose }: { scadenza: 
         setDati(d)
         const assegno = d.metodi.find((m) => m.nome.toLowerCase() === 'assegno')
         setMetodoId(d.scadenza.fic_metodo_id ?? (d.scadenza.categoria === 'assegno' ? assegno?.id ?? null : null))
-        setQuote(Object.fromEntries(d.collegamenti.map((c) => [c.fic_documento_id, c.importo])))
+        const presenti = new Set(d.documenti.map((x) => x.fic_id))
+        setQuote(Object.fromEntries(
+          d.collegamenti.filter((c) => presenti.has(c.fic_documento_id)).map((c) => [c.fic_documento_id, c.importo]),
+        ))
       })
       .catch(() => { if (!annullato) setErrore('Connessione interrotta: riprova') })
     return () => { annullato = true }
@@ -71,11 +77,13 @@ export default function DialogCollegaFatture({ scadenza, onClose }: { scadenza: 
 
   function cambiaQuota(id: number, testo: string) {
     setTestoQuote((t) => ({ ...t, [id]: testo }))
-    const n = Number(testo.replace(/\./g, '').replace(',', '.'))
-    if (Number.isFinite(n)) setQuote((q) => ({ ...q, [id]: Math.round(n * 100) / 100 }))
+    const n = parseImporto(testo)
+    if (n !== null) setQuote((q) => ({ ...q, [id]: n }))
   }
 
   function salva() {
+    // Una differenza puo' essere giusta (acconto, sconto), ma va confermata a occhi aperti.
+    if (controllo.livello === 'avviso' && !confirm(`${controllo.messaggi.join('\n')}\n\nSalvare comunque?`)) return
     startTransition(async () => {
       try {
         const r = await salvaCollegamentiScadenza({
@@ -86,6 +94,21 @@ export default function DialogCollegaFatture({ scadenza, onClose }: { scadenza: 
         if (!r.ok) { toast.error(r.errore); return }
         toast.success('Collegamenti salvati')
         mostraEsitoFic(r.esito)
+        router.refresh()
+        onClose()
+      } catch {
+        toast.error('Connessione interrotta: riprova')
+      }
+    })
+  }
+
+  function scollegaSoloQui(ficId: number) {
+    if (!confirm("Il collegamento viene tolto senza modificare Fatture in Cloud. Usalo solo se su FiC hai gia' sistemato a mano. Continuare?")) return
+    startTransition(async () => {
+      try {
+        const r = await scollegaSenzaFic(scadenza.id, ficId)
+        if (!r.ok) { toast.error(r.errore); return }
+        toast.success('Collegamento tolto')
         router.refresh()
         onClose()
       } catch {
@@ -108,6 +131,7 @@ export default function DialogCollegaFatture({ scadenza, onClose }: { scadenza: 
     })
   }
 
+  const orfani = (dati?.collegamenti ?? []).filter((c) => !perId.has(c.fic_documento_id))
   const coloreBarra = controllo.livello === 'ok' ? 'bg-emerald-50 border-emerald-300' : controllo.livello === 'avviso' ? 'bg-amber-50 border-amber-300' : 'bg-rose-50 border-rose-300'
   const conProblemi = dati?.collegamenti.some((c) => c.stato_fic === 'da_allineare' || c.stato_fic === 'da_verificare')
 
@@ -165,6 +189,14 @@ export default function DialogCollegaFatture({ scadenza, onClose }: { scadenza: 
                         {d.prima_scadenza ? ` · scade ${formatData(d.prima_scadenza)}` : ''}
                         {collegamento ? ` · ${STATO_LABEL[collegamento.stato_fic]}` : ''}
                       </div>
+                      {collegamento?.stato_fic === 'da_verificare' && (
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-rose-700">
+                          <span>{collegamento.messaggio_fic}</span>
+                          <Button size="sm" variant="outline" onClick={() => scollegaSoloQui(d.fic_id)} disabled={pending}>
+                            Sistemato a mano: scollega senza toccare FiC
+                          </Button>
+                        </div>
+                      )}
                     </div>
                     {spuntato && (
                       <Input
@@ -179,6 +211,20 @@ export default function DialogCollegaFatture({ scadenza, onClose }: { scadenza: 
                 )
               })}
             </div>
+
+            {orfani.length > 0 && (
+              <div className="space-y-1 rounded-md border border-rose-300 bg-rose-50 p-3 text-sm dark:bg-rose-950/30">
+                <strong>Documenti collegati non più presenti su FiC</strong>
+                {orfani.map((c) => (
+                  <div key={c.fic_documento_id} className="flex flex-wrap items-center gap-2">
+                    <span>#{c.fic_documento_id} · € {formatEuro(c.importo)} · {STATO_LABEL[c.stato_fic]}</span>
+                    <Button size="sm" variant="outline" onClick={() => scollegaSoloQui(c.fic_documento_id)} disabled={pending}>
+                      Scollega senza toccare FiC
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className={`rounded-md border p-3 text-sm ${coloreBarra}`}>
               <div className="flex flex-wrap gap-x-4">
