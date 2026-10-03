@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { FileText, Image as IconaImmagine, Share2 } from 'lucide-react'
 import { db } from '@/lib/db'
 import { AREE } from './aree'
+import DiagnosiCondivisione from './DiagnosiCondivisione'
 import type { AreaCondivisione, FileCondiviso } from '@/types/condivisione'
 
 /** Dimensione leggibile, per far capire subito se è il file giusto. */
@@ -22,6 +23,16 @@ export default function ImbutoCondivisione({ errore }: { errore?: string }) {
   // useLiveQuery: se la condivisione arriva mentre la pagina è già aperta
   // (redirect del service worker su una scheda viva) il file compare da solo.
   const record = useLiveQuery(() => db.condivisioni.orderBy('createdAt').last(), [])
+
+  // Spia: dice alla pagina che il codice si e' avviato (vedi lo script in
+  // app/(dashboard)/condividi/page.tsx) e, se dopo 10 secondi il file non e'
+  // ancora stato letto, mostra la diagnosi invece di "Caricamento..." per sempre.
+  const [troppoTempo, setTroppoTempo] = useState(false)
+  useEffect(() => {
+    ;(window as Window & { __condividiPronto?: boolean }).__condividiPronto = true
+    const t = setTimeout(() => setTroppoTempo(true), 10_000)
+    return () => clearTimeout(t)
+  }, [])
 
   if (errore === 'sw') {
     return (
@@ -42,6 +53,7 @@ export default function ImbutoCondivisione({ errore }: { errore?: string }) {
   }
 
   if (record === undefined) {
+    if (troppoTempo) return <DiagnosiCondivisione />
     return <p className="text-sm text-gray-400 py-8 text-center">Caricamento...</p>
   }
 
