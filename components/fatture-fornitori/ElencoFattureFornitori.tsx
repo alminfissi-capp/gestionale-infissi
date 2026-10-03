@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { CalendarClock } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -13,7 +14,8 @@ import { filtraFatture, totaliFatture, type FiltroStato } from '@/lib/fic/filtri
 import { statoPagamento, oggiRoma, ETICHETTA_STATO_PAGAMENTO } from '@/lib/fic/stato-pagamento'
 import BarraSincronizzazione from '@/components/fatture-fornitori/BarraSincronizzazione'
 import DialogFatturaFornitore from '@/components/fatture-fornitori/DialogFatturaFornitore'
-import type { CollegamentoFic, FatturaFornitore, StatoPagamento } from '@/types/fatture-fornitori'
+import BannerPagamentiFic from '@/components/fatture-fornitori/BannerPagamentiFic'
+import type { CollegamentoFic, FatturaFornitore, PagamentoFattura, ProblemiFic, StatoPagamento } from '@/types/fatture-fornitori'
 
 const VARIANTE_STATO: Record<StatoPagamento, 'secondary' | 'outline' | 'destructive' | 'default'> = {
   pagata: 'secondary',
@@ -27,11 +29,15 @@ export default function ElencoFattureFornitori({
   anni,
   anno,
   collegamento,
+  pagamenti,
+  problemi,
 }: {
   fatture: FatturaFornitore[]
   anni: number[]
   anno: number
   collegamento: CollegamentoFic | null
+  pagamenti: Record<number, PagamentoFattura[]>
+  problemi: ProblemiFic
 }) {
   const router = useRouter()
   const { canEdit } = usePermissions()
@@ -51,6 +57,7 @@ export default function ElencoFattureFornitori({
       </div>
 
       <BarraSincronizzazione collegamento={collegamento} puoSincronizzare={canEdit('fatture_fornitori')} />
+      <BannerPagamentiFic problemi={problemi} puoRiprovare={canEdit('commesse')} />
 
       <div className="flex flex-wrap gap-2">
         <Select value={String(anno)} onValueChange={(v) => router.push(`/fatture-fornitori?anno=${v}`)}>
@@ -112,7 +119,14 @@ export default function ElencoFattureFornitori({
                       <TableCell className="text-right">€ {formatEuro(f.importo_iva)}</TableCell>
                       <TableCell className="text-right font-medium">€ {formatEuro(f.importo_lordo)}</TableCell>
                       <TableCell>{f.prossima_scadenza ? formatData(f.prossima_scadenza) : '—'}</TableCell>
-                      <TableCell><Badge variant={VARIANTE_STATO[s]}>{ETICHETTA_STATO_PAGAMENTO[s]}</Badge></TableCell>
+                      <TableCell>
+                        <Badge variant={VARIANTE_STATO[s]}>{ETICHETTA_STATO_PAGAMENTO[s]}</Badge>
+                        {(pagamenti[f.fic_id] ?? []).some((p) => !p.scadenza_pagata) && (
+                          <span title="Pagamento programmato con una scadenza">
+                            <CalendarClock className="ml-1 inline h-4 w-4 text-sky-600" />
+                          </span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   )
                 })}
@@ -150,6 +164,11 @@ export default function ElencoFattureFornitori({
                     <div className="text-right">
                       <div className="font-medium">€ {formatEuro(f.importo_lordo)}</div>
                       <Badge variant={VARIANTE_STATO[s]}>{ETICHETTA_STATO_PAGAMENTO[s]}</Badge>
+                      {(pagamenti[f.fic_id] ?? []).some((p) => !p.scadenza_pagata) && (
+                        <span title="Pagamento programmato con una scadenza">
+                          <CalendarClock className="ml-1 inline h-4 w-4 text-sky-600" />
+                        </span>
+                      )}
                     </div>
                   </div>
                 </button>
@@ -162,7 +181,11 @@ export default function ElencoFattureFornitori({
         </>
       )}
 
-      <DialogFatturaFornitore fattura={aperta} onClose={() => setAperta(null)} />
+      <DialogFatturaFornitore
+        fattura={aperta}
+        pagamenti={aperta ? pagamenti[aperta.fic_id] ?? [] : []}
+        onClose={() => setAperta(null)}
+      />
     </div>
   )
 }

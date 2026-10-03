@@ -1,5 +1,5 @@
 import type { AziendaFic } from '@/types/fatture-fornitori'
-import type { DocumentoFic, TipoSpesaFic } from '@/lib/fic/tipi'
+import type { DocumentoFic, RataFic, TipoSpesaFic } from '@/lib/fic/tipi'
 
 export const FIC_BASE_URL = 'https://api-v2.fattureincloud.it'
 
@@ -37,6 +37,8 @@ export type FicClient = {
   aziende: () => Promise<AziendaFic[]>
   elencoSpese: (companyId: number, tipo: TipoSpesaFic, dal: string) => Promise<DocumentoFic[]>
   spesa: (companyId: number, id: number) => Promise<DocumentoFic>
+  aggiornaRate: (companyId: number, id: number, rate: RataFic[]) => Promise<DocumentoFic>
+  metodiPagamento: (companyId: number) => Promise<{ id: number; nome: string }[]>
 }
 
 type RispostaElenco = {
@@ -57,10 +59,21 @@ function querystring(parametri: Record<string, string>): string {
 export function creaClientFic(token: string, fetchImpl: typeof fetch = fetch): FicClient {
   let n = 0
 
-  async function get<T>(percorso: string, parametri: Record<string, string> = {}): Promise<T> {
+  async function richiesta<T>(
+    metodo: 'GET' | 'PUT',
+    percorso: string,
+    parametri: Record<string, string> = {},
+    corpo?: unknown,
+  ): Promise<T> {
     n++
     const res = await fetchImpl(`${FIC_BASE_URL}${percorso}${querystring(parametri)}`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      method: metodo,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+        ...(corpo === undefined ? {} : { 'Content-Type': 'application/json' }),
+      },
+      body: corpo === undefined ? undefined : JSON.stringify(corpo),
       cache: 'no-store',
     })
     if (res.status === 401) throw new FicNonAutorizzato()
@@ -80,6 +93,9 @@ export function creaClientFic(token: string, fetchImpl: typeof fetch = fetch): F
     }
     return (await res.json()) as T
   }
+
+  const get = <T,>(percorso: string, parametri: Record<string, string> = {}) =>
+    richiesta<T>('GET', percorso, parametri)
 
   return {
     chiamate: () => n,
@@ -113,6 +129,19 @@ export function creaClientFic(token: string, fetchImpl: typeof fetch = fetch): F
         fieldset: 'detailed',
       })
       return r.data
+    },
+
+    async aggiornaRate(companyId, id, rate) {
+      // Modalita' delta di FiC: si manda solo il campo che cambia.
+      const r = await richiesta<{ data: DocumentoFic }>('PUT', `/c/${companyId}/received_documents/${id}`, {}, {
+        data: { payments_list: rate },
+      })
+      return r.data
+    },
+
+    async metodiPagamento(companyId) {
+      const r = await get<{ data?: { id: number; name: string }[] | null }>(`/c/${companyId}/settings/payment_accounts`)
+      return (r.data ?? []).map((m) => ({ id: m.id, nome: m.name }))
     },
   }
 }

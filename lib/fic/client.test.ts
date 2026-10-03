@@ -97,4 +97,31 @@ describe('creaClientFic', () => {
     expect((err as FicErrore).status).toBe(403)
     expect((err as Error).message).toContain('Scope mancante')
   })
+
+  it('aggiorna le rate con un PUT del solo payments_list', async () => {
+    const chiamate: { url: string; metodo: string; corpo: string | null }[] = []
+    const impl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      chiamate.push({ url: String(input), metodo: init?.method ?? 'GET', corpo: (init?.body as string) ?? null })
+      return new Response(JSON.stringify({ data: { id: 7, date: '2026-01-01', updated_at: 'x', payments_list: [] } }), { status: 200 })
+    }) as typeof fetch
+    const rate = [{ id: 1, amount: 10, due_date: '2026-02-01', paid_date: '2026-02-01', status: 'paid', payment_account: { id: 5 } }]
+    const doc = await creaClientFic('t', impl).aggiornaRate(42, 7, rate)
+    expect(doc.id).toBe(7)
+    expect(chiamate[0].url).toBe(`${FIC_BASE_URL}/c/42/received_documents/7`)
+    expect(chiamate[0].metodo).toBe('PUT')
+    expect(JSON.parse(chiamate[0].corpo!)).toEqual({ data: { payments_list: rate } })
+  })
+
+  it('legge i metodi di pagamento', async () => {
+    const f = fetchFinto([{ status: 200, body: { data: [{ id: 546834, name: 'Assegno' }, { id: 546835, name: 'Bonifico' }] } }])
+    const metodi = await creaClientFic('t', f.impl).metodiPagamento(42)
+    expect(metodi).toEqual([{ id: 546834, nome: 'Assegno' }, { id: 546835, nome: 'Bonifico' }])
+    expect(f.chiamate[0].url).toBe(`${FIC_BASE_URL}/c/42/settings/payment_accounts`)
+  })
+
+  it('un 404 diventa FicErrore con status 404', async () => {
+    const f = fetchFinto([{ status: 404, body: { error: { message: 'Not found' } } }])
+    const err = await creaClientFic('t', f.impl).spesa(42, 9).catch((e) => e)
+    expect((err as FicErrore).status).toBe(404)
+  })
 })

@@ -26,6 +26,8 @@ function clientFinto(
     richiesteDettaglio,
     chiamate: () => n,
     aziende: async () => [],
+    aggiornaRate: async () => { throw new Error('non usato') },
+    metodiPagamento: async () => [],
     elencoSpese: async (_c, tipo) => {
       n++
       const r = elenco[tipo] ?? []

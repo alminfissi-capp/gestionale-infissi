@@ -26,12 +26,16 @@ import VisualizzatoreDocumento from '@/components/ui/VisualizzatoreDocumento'
 import DialogScadenza from './DialogScadenza'
 import RigaScadenza from './RigaScadenza'
 import type { Scadenza, ContoCorrente } from '@/types/commessa'
+import type { RiepilogoCollegamento } from '@/types/fatture-fornitori'
+import DialogCollegaFatture from './DialogCollegaFatture'
 
 interface Props {
   gruppoId: string
   scadenze: Scadenza[]
   fornitori: string[]
   conti: ContoCorrente[]
+  /** Riepiloghi dei collegamenti FiC per scadenza; null se la funzione non e' disponibile. */
+  collegamentiFic?: Record<string, RiepilogoCollegamento> | null
 }
 
 /**
@@ -40,7 +44,7 @@ interface Props {
  * riceve una data ed e' segnata come pagata: a quel punto il salvataggio la
  * sposta nel blocco dell'anno giusto.
  */
-export default function ScadenzeDaProgrammareView({ gruppoId, scadenze, fornitori, conti }: Props) {
+export default function ScadenzeDaProgrammareView({ gruppoId, scadenze, fornitori, conti, collegamentiFic = null }: Props) {
   const router = useRouter()
   const contoNome = useMemo(
     () => Object.fromEntries(conti.map((c) => [c.id, c.nome])) as Record<string, string>,
@@ -56,6 +60,7 @@ export default function ScadenzeDaProgrammareView({ gruppoId, scadenze, fornitor
   // `pagaSubito`: la scheda si apre con la data di oggi e la spunta "pagata"
   // gia' messa, cosi' dal cerchietto verde resta solo da confermare il giorno
   const [dialog, setDialog] = useState<{ scadenza: Scadenza | null; pagaSubito: boolean } | null>(null)
+  const [scadenzaFatture, setScadenzaFatture] = useState<Scadenza | null>(null)
   const [lightbox, setLightbox] = useState<{ url: string; scadenza: Scadenza } | null>(null)
 
   const righe = useMemo(() => [...items].sort((a, b) => a.ordine - b.ordine), [items])
@@ -133,6 +138,8 @@ export default function ScadenzeDaProgrammareView({ gruppoId, scadenze, fornitor
                   <RigaScadenza
                     key={s.id}
                     s={s}
+                    riepilogoFatture={collegamentiFic?.[s.id]}
+                    onApriFatture={collegamentiFic ? setScadenzaFatture : undefined}
                     daProgrammare
                     contoNome={contoNome}
                     fotoUrl={fotoUrls[s.id]}
@@ -198,6 +205,9 @@ export default function ScadenzeDaProgrammareView({ gruppoId, scadenze, fornitor
           }
           onClose={() => setLightbox(null)}
         />
+      )}
+      {scadenzaFatture && (
+        <DialogCollegaFatture scadenza={scadenzaFatture} onClose={() => setScadenzaFatture(null)} />
       )}
     </div>
   )

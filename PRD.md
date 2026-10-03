@@ -889,7 +889,7 @@ L'applicazione funziona parzialmente offline:
 | Media | Email integrata | Invio PDF direttamente dall'app |
 | Media | Multi-utente avanzato | Ruoli per commerciale, tecnico, admin |
 | Bassa | App mobile nativa | Wrapper Capacitor se offline PWA insufficiente |
-| — | Integrazione contabilità | Fase 1 fatta (2026-09-29): fatture fornitori da Fatture in Cloud. Fasi 2-3: pagamenti su FiC, costi per commessa |
+| — | Integrazione contabilità | Fasi 1-2 fatte: fatture fornitori da Fatture in Cloud (2026-09-29) e pagamenti dalle scadenze scritti su FiC (2026-10-03). Fase 3: costi per commessa |
 
 ---
 

@@ -10,7 +10,8 @@ import { selectAll } from '@/lib/supabase/paginate'
 import { creaClientFic, FicNonAutorizzato, FicTroppeRichieste } from '@/lib/fic/client'
 import { sincronizza, messaggioParziale, type ArchivioFatture } from '@/lib/fic/sincronizza'
 import type { VoceLocale } from '@/lib/fic/confronto'
-import { salvaDocumenti, type TabelleFatture } from '@/lib/fic/salvataggio'
+import { salvaDocumenti } from '@/lib/fic/salvataggio'
+import { tabelleSupabase } from '@/lib/fic/tabelle-supabase'
 import { erroreDataSincronizzaDal } from '@/lib/fic/validazione'
 import { oggiRoma } from '@/lib/fic/stato-pagamento'
 import {
@@ -185,31 +186,6 @@ export async function scollegaFic(): Promise<RisultatoFic> {
 }
 
 // ── Sincronizzazione ────────────────────────────────────────────────────────
-
-function tabelleSupabase(svc: SupabaseClient): TabelleFatture {
-  return {
-    async upsertFatture(righe) {
-      const { data, error } = await svc
-        .from('fatture_fornitori')
-        .upsert(righe, { onConflict: 'organization_id,fic_id' })
-        .select('id, fic_id')
-      if (error) throw new Error(error.message)
-      return (data ?? []).map((r) => ({ id: r.id as string, fic_id: Number(r.fic_id) }))
-    },
-    async eliminaRate(fatturaIds) {
-      for (const blocco of blocchi(fatturaIds, LOTTO_DB)) {
-        const { error } = await svc.from('fatture_fornitori_rate').delete().in('fattura_id', blocco)
-        if (error) throw new Error(error.message)
-      }
-    },
-    async inserisciRate(righe) {
-      for (const blocco of blocchi(righe, LOTTO_DB)) {
-        const { error } = await svc.from('fatture_fornitori_rate').insert(blocco)
-        if (error) throw new Error(error.message)
-      }
-    },
-  }
-}
 
 function archivioSupabase(svc: SupabaseClient, orgId: string): ArchivioFatture {
   return {

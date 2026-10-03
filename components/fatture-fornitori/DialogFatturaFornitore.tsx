@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -10,13 +11,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { getUrlPdfFatturaFornitore } from '@/actions/fatture-in-cloud'
 import { formatEuro } from '@/lib/pricing'
 import { formatData } from '@/lib/fic/formato'
-import type { FatturaFornitore } from '@/types/fatture-fornitori'
+import type { FatturaFornitore, PagamentoFattura } from '@/types/fatture-fornitori'
 
 export default function DialogFatturaFornitore({
   fattura,
+  pagamenti,
   onClose,
 }: {
   fattura: FatturaFornitore | null
+  pagamenti: PagamentoFattura[]
   onClose: () => void
 }) {
   const [apertura, setApertura] = useState(false)
@@ -120,6 +123,32 @@ export default function DialogFatturaFornitore({
                 </div>
               )}
             </div>
+
+            {pagamenti.length > 0 && (
+              <div>
+                <h3 className="mb-2 text-sm font-medium">Pagata con</h3>
+                <ul className="space-y-1 text-sm">
+                  {pagamenti.map((p) => (
+                    <li key={p.scadenza_id} className="flex flex-wrap items-center gap-2">
+                      <Link href={`/commesse/${p.gruppo_id}`} className="underline">
+                        {p.descrizione || p.fornitore || 'Scadenza'}
+                      </Link>
+                      <span>{p.data_scadenza ? formatData(p.data_scadenza) : 'senza data'}</span>
+                      <span>€ {formatEuro(p.importo)}</span>
+                      {!p.scadenza_pagata
+                        ? <Badge variant="outline">Programmato</Badge>
+                        : p.stato_fic === 'scritto'
+                          ? <Badge variant="secondary">Su FiC</Badge>
+                          : (
+                            <Badge variant="destructive" title={p.messaggio_fic ?? ''}>
+                              {p.stato_fic === 'da_verificare' ? 'Da verificare' : 'Da allineare'}
+                            </Badge>
+                          )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {fattura.ha_allegato && (
               <div className="flex justify-end">

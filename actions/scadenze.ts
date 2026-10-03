@@ -4,8 +4,11 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { revalidatePath } from 'next/cache'
 import { getOrgId } from '@/lib/auth'
+import { getMyPermissions } from '@/lib/permessi'
 import { sincronizzaEventoScadenza } from '@/actions/calendario'
 import type { GruppoCommesse, Scadenza, ScadenzaInput } from '@/types/commessa'
+import type { EsitoFic } from '@/types/fatture-fornitori'
+import { allineaSeCollegata, liberaPerEliminazione } from '@/lib/fic/allinea-scadenza'
 
 const BUCKET = 'commesse-docs'
 
@@ -29,6 +32,16 @@ const MIME_BY_EXT: Record<string, string> = {
   webp: 'image/webp',
   heic: 'image/heic',
   pdf: 'application/pdf',
+}
+
+/**
+ * Le azioni che cambiano pagato, importo, data o esistenza di una scadenza
+ * possono scrivere su Fatture in Cloud: serve la scrittura sulle Commesse,
+ * verificata qui perche' nascondere un pulsante non impedisce la chiamata.
+ */
+async function permessoScritturaScadenze(): Promise<string | null> {
+  const { permessi } = await getMyPermissions()
+  return permessi.commesse === 'scrittura' ? null : 'Non autorizzato a modificare le scadenze'
 }
 
 export async function getScadenze(gruppoId: string): Promise<Scadenza[]> {
@@ -141,7 +154,9 @@ export async function riordinaScadenze(ids: string[]): Promise<void> {
   revalidatePath('/commesse', 'layout')
 }
 
-export async function updateScadenza(id: string, input: Partial<ScadenzaInput>): Promise<void> {
+export async function updateScadenza(id: string, input: Partial<ScadenzaInput>): Promise<EsitoFic | null> {
+  const vietato = await permessoScritturaScadenze()
+  if (vietato) throw new Error(vietato)
   const supabase = await createClient()
   const orgId = await getOrgId()
   const { error } = await supabase
@@ -152,10 +167,15 @@ export async function updateScadenza(id: string, input: Partial<ScadenzaInput>):
   if (error) throw new Error(error.message)
   // Chi e' in agenda ci resta con i dati aggiornati; chi non c'e' non entra.
   await sincronizzaEventoScadenza(id)
+  // Se la scadenza paga fatture FiC, FiC segue: scrive, toglie o riscrive il pagamento.
+  const fic = await allineaSeCollegata(orgId, id)
   revalidatePath('/commesse', 'layout')
+  return fic
 }
 
-export async function setPagatoScadenza(id: string, pagato: boolean): Promise<void> {
+export async function setPagatoScadenza(id: string, pagato: boolean): Promise<EsitoFic | null> {
+  const vietato = await permessoScritturaScadenze()
+  if (vietato) throw new Error(vietato)
   const supabase = await createClient()
   const orgId = await getOrgId()
   const { error } = await supabase
@@ -164,7 +184,10 @@ export async function setPagatoScadenza(id: string, pagato: boolean): Promise<vo
     .eq('id', id)
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
+  // Se la scadenza paga fatture FiC, FiC segue: scrive, toglie o riscrive il pagamento.
+  const fic = await allineaSeCollegata(orgId, id)
   revalidatePath('/commesse', 'layout')
+  return fic
 }
 
 /**
@@ -175,7 +198,9 @@ export async function setPagatoScadenza(id: string, pagato: boolean): Promise<vo
  * la stella dei Calcoli, altrimenti resterebbe appesa in una lista da cui e'
  * comunque esclusa.
  */
-export async function setAnnullataScadenza(id: string, annullata: boolean): Promise<void> {
+export async function setAnnullataScadenza(id: string, annullata: boolean): Promise<EsitoFic | null> {
+  const vietato = await permessoScritturaScadenze()
+  if (vietato) throw new Error(vietato)
   const supabase = await createClient()
   const orgId = await getOrgId()
   const { error } = await supabase
@@ -188,12 +213,21 @@ export async function setAnnullataScadenza(id: string, annullata: boolean): Prom
     .eq('id', id)
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
+  // Se la scadenza paga fatture FiC, FiC segue: scrive, toglie o riscrive il pagamento.
+  const fic = await allineaSeCollegata(orgId, id)
   revalidatePath('/commesse', 'layout')
+  return fic
 }
 
-export async function deleteScadenza(id: string): Promise<void> {
+export async function deleteScadenza(id: string): Promise<{ ok: true } | { ok: false; errore: string }> {
+  const vietato = await permessoScritturaScadenze()
+  if (vietato) return { ok: false, errore: vietato }
   const supabase = await createClient()
   const orgId = await getOrgId()
+  // Prima si toglie da FiC quanto WinStudio ci ha scritto: dopo non resterebbe traccia.
+  const libera = await liberaPerEliminazione(orgId, id)
+  // Restituito, non lanciato: in produzione Next.js nasconde i messaggi delle eccezioni.
+  if (!libera.ok) return libera
   const { data: row } = await supabase
     .from('scadenze')
     .select('foto_path')
@@ -206,6 +240,7 @@ export async function deleteScadenza(id: string): Promise<void> {
   const { error } = await supabase.from('scadenze').delete().eq('id', id).eq('organization_id', orgId)
   if (error) throw new Error(error.message)
   revalidatePath('/commesse', 'layout')
+  return { ok: true }
 }
 
 /**
@@ -459,7 +494,9 @@ export async function getGruppoDaProgrammare(): Promise<GruppoCommesse> {
 export async function programmaScadenza(
   id: string,
   input: Partial<ScadenzaInput>,
-): Promise<{ spostata: boolean; anno: number | null }> {
+): Promise<{ spostata: boolean; anno: number | null; fic: EsitoFic | null }> {
+  const vietato = await permessoScritturaScadenze()
+  if (vietato) throw new Error(vietato)
   const supabase = await createClient()
   const orgId = await getOrgId()
 
@@ -498,15 +535,18 @@ export async function programmaScadenza(
     spostata = true
   }
 
+  const fic = await allineaSeCollegata(orgId, id)
   revalidatePath('/commesse', 'layout')
-  return { spostata, anno }
+  return { spostata, anno, fic }
 }
 
 /**
  * Riporta nel limbo una scadenza gia' collocata in un mese: perde la data e la
  * spunta di pagamento, conserva tutto il resto (allegato, conto, categoria, rata).
  */
-export async function spostaInDaProgrammare(id: string): Promise<void> {
+export async function spostaInDaProgrammare(id: string): Promise<EsitoFic | null> {
+  const vietato = await permessoScritturaScadenze()
+  if (vietato) throw new Error(vietato)
   const supabase = await createClient()
   const orgId = await getOrgId()
   const gruppo = await resolveGruppoDaProgrammare(supabase, orgId)
@@ -523,7 +563,10 @@ export async function spostaInDaProgrammare(id: string): Promise<void> {
     .eq('id', id)
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
+  // Se la scadenza paga fatture FiC, FiC segue: scrive, toglie o riscrive il pagamento.
+  const fic = await allineaSeCollegata(orgId, id)
   revalidatePath('/commesse', 'layout')
+  return fic
 }
 
 /** Trova il blocco scadenze dell'anno indicato (per nome), creandolo se non esiste. Ritorna il gruppo_id. */

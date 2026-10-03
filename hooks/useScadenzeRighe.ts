@@ -19,6 +19,7 @@ import { conRiprova } from '@/lib/riprova'
 import { ocrAssegno, type OcrAssegnoResult } from '@/lib/ocrAssegno'
 import { parseBonificoScadenza, type BonificoScadenza } from '@/lib/parseBonificoScadenza'
 import type { Scadenza } from '@/types/commessa'
+import { mostraEsitoFic } from '@/components/commesse/esito-fic'
 
 /**
  * Stato e comandi comuni alle due viste delle scadenze: quella per mesi dei
@@ -43,6 +44,7 @@ export function useScadenzeRighe(scadenze: Scadenza[]) {
   const [copyingId, setCopyingId] = useState<string | null>(null)
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const cameraRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const inCorsoPagato = useRef<Set<string>>(new Set())
 
   // Carica gli URL firmati delle righe con allegato. Per i PDF si usa
   // l'anteprima: e' quella che si mostra a schermo e in stampa.
@@ -65,13 +67,23 @@ export function useScadenzeRighe(scadenze: Scadenza[]) {
   }, [items])
 
   const handleTogglePagato = async (s: Scadenza) => {
+    // Con fatture FiC collegate la spunta scrive su FiC e puo' durare qualche
+    // secondo: un secondo clic nel frattempo si ignora.
+    if (inCorsoPagato.current.has(s.id)) return
+    inCorsoPagato.current.add(s.id)
     const nuovo = !s.pagato
     setItems((cur) => cur.map((x) => (x.id === s.id ? { ...x, pagato: nuovo } : x)))
     try {
-      await setPagatoScadenza(s.id, nuovo)
+      const fic = await setPagatoScadenza(s.id, nuovo)
+      mostraEsitoFic(fic)
+      // L'icona Fatture nella riga cambia colore secondo l'esito su FiC.
+      if (fic) router.refresh()
     } catch {
-      setItems((cur) => cur.map((x) => (x.id === s.id ? { ...x, pagato: !nuovo } : x)))
-      toast.error('Errore nel salvataggio')
+      // Non si sa se il salvataggio e' avvenuto: si rilegge invece di indovinare.
+      toast.error('Errore nel salvataggio: ricarico lo stato')
+      router.refresh()
+    } finally {
+      inCorsoPagato.current.delete(s.id)
     }
   }
 
@@ -96,7 +108,7 @@ export function useScadenzeRighe(scadenze: Scadenza[]) {
       )
     )
     try {
-      await setAnnullataScadenza(s.id, nuovo)
+      mostraEsitoFic(await setAnnullataScadenza(s.id, nuovo))
       toast.success(nuovo ? 'Scadenza annullata' : 'Scadenza ripristinata')
       router.refresh()
     } catch {
@@ -110,7 +122,13 @@ export function useScadenzeRighe(scadenze: Scadenza[]) {
     const prev = items
     setItems((cur) => cur.filter((x) => x.id !== s.id))
     try {
-      await deleteScadenza(s.id)
+      const r = await deleteScadenza(s.id)
+      if (!r.ok) {
+        // Il motivo conta: "prima va tolto il pagamento da FiC".
+        setItems(prev)
+        toast.error(r.errore)
+        return
+      }
       router.refresh()
     } catch {
       setItems(prev)
@@ -123,7 +141,7 @@ export function useScadenzeRighe(scadenze: Scadenza[]) {
     const prev = items
     setItems((cur) => cur.filter((x) => x.id !== s.id))
     try {
-      await spostaInDaProgrammare(s.id)
+      mostraEsitoFic(await spostaInDaProgrammare(s.id))
       toast.success('Spostata in Da programmare')
       router.refresh()
     } catch {
