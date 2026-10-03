@@ -16,13 +16,16 @@ function dimensione(byte: number): string {
   return `${(byte / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export default function ImbutoCondivisione({ errore }: { errore?: string }) {
+export default function ImbutoCondivisione({ errore, dettagli }: { errore?: string; dettagli?: string }) {
   const router = useRouter()
   const [area, setArea] = useState<AreaCondivisione | null>(null)
 
   // useLiveQuery: se la condivisione arriva mentre la pagina è già aperta
   // (redirect del service worker su una scheda viva) il file compare da solo.
-  const record = useLiveQuery(() => db.condivisioni.orderBy('createdAt').last(), [])
+  // `?? null`: con la tabella vuota `.last()` restituisce undefined, che per
+  // useLiveQuery vuol dire anche "sto ancora caricando". Senza, una memoria vuota
+  // restava su "Caricamento..." per sempre invece di dire che non c'e' nessun file.
+  const record = useLiveQuery(async () => (await db.condivisioni.orderBy('createdAt').last()) ?? null, [])
 
   // Spia: dice alla pagina che il codice si e' avviato (vedi lo script in
   // app/(dashboard)/condividi/page.tsx) e, se dopo 10 secondi il file non e'
@@ -39,6 +42,16 @@ export default function ImbutoCondivisione({ errore }: { errore?: string }) {
       <Avviso titolo="Condivisione non completata">
         WinStudio era appena stato aggiornato e non era pronto a ricevere il file.
         Riapri l&apos;app e condividi di nuovo: è l&apos;unica volta che serve.
+      </Avviso>
+    )
+  }
+
+  if (errore === 'vuoto') {
+    return (
+      <Avviso titolo="Il file non è arrivato">
+        Android ha aperto WinStudio ma senza consegnare il file. Riferisci a chi ti assiste
+        questa riga: <span className="font-mono text-xs break-all">{dettagli ?? 'nessun dettaglio'}</span>.
+        Intanto puoi caricare il file dalla scheda della commessa.
       </Avviso>
     )
   }

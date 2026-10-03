@@ -82,8 +82,15 @@ self.addEventListener('fetch', (event: FetchEvent) => {
             blob: file,
             createdAt: new Date().toISOString(),
           })
+          return Response.redirect('/condividi', 303)
         }
-        return Response.redirect('/condividi', 303)
+        // Nessun file utilizzabile: si dice alla pagina cosa e' arrivato da
+        // Android (nomi dei campi, tipo e dimensione), per capire il perche'.
+        const arrivato =
+          [...form.entries()]
+            .map(([k, v]) => (v instanceof File ? `${k}: file ${v.type || 'senza tipo'}, ${v.size} byte` : `${k}: testo`))
+            .join('; ') || 'nessun campo'
+        return Response.redirect(`/condividi?errore=vuoto&dettagli=${encodeURIComponent(arrivato)}`, 303)
       } catch {
         return Response.redirect('/condividi?errore=lettura', 303)
       }
