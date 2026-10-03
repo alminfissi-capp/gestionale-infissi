@@ -8,7 +8,8 @@ import { selectAll } from '@/lib/supabase/paginate'
 import { creaClientFic } from '@/lib/fic/client'
 import { allineaScadenzaFic, annullaSingolo } from '@/lib/fic/allinea-scadenza'
 import {
-  controllaRipartizione, periodoIniziale, residuoDisponibile, type Periodo, type QuotaAltraScadenza,
+  controllaRipartizione, erroreMetodo, metodoProposto, normalizzaFornitore, periodoIniziale, residuoDisponibile,
+  type Periodo, type QuotaAltraScadenza,
 } from '@/lib/fic/pagamenti'
 import { oggiRoma } from '@/lib/fic/stato-pagamento'
 import { riepilogaCollegamenti, ESITO_VUOTO } from '@/lib/fic/allineamento'
@@ -138,7 +139,28 @@ export async function getDatiCollegamento(
     })
   }
 
+  // Metodo usato l'ultima volta con lo stesso fornitore, su un'altra scadenza.
+  const { data: precedenti } = await svc
+    .from('scadenze')
+    .select('fornitore, fic_metodo_id')
+    .eq('organization_id', orgId)
+    .neq('id', scadenzaId)
+    .not('fic_metodo_id', 'is', null)
+    .order('updated_at', { ascending: false })
+    .limit(500)
+  const chiaveFornitore = normalizzaFornitore(sc.fornitore)
+  const ultimo = chiaveFornitore
+    ? (precedenti ?? []).find((x) => normalizzaFornitore(x.fornitore as string) === chiaveFornitore)
+    : undefined
+  const metodo_suggerito = metodoProposto({
+    categoria: sc.categoria,
+    metodoScadenza: sc.fic_metodo_id === null ? null : Number(sc.fic_metodo_id),
+    ultimoDelFornitore: ultimo ? Number(ultimo.fic_metodo_id) : null,
+    metodi,
+  })
+
   return {
+    metodo_suggerito,
     scadenza: {
       id: sc.id, fornitore: sc.fornitore, descrizione: sc.descrizione, importo: Number(sc.importo),
       pagato: sc.pagato, data_scadenza: sc.data_scadenza, categoria: sc.categoria,
@@ -179,6 +201,8 @@ export async function salvaCollegamentiScadenza(
   })
   const controllo = controllaRipartizione(dati.scadenza.importo, righe)
   if (controllo.livello === 'blocco') return { ok: false, errore: controllo.messaggi.join(' · ') }
+  const senzaMetodo = erroreMetodo(input.metodoId, quote.length)
+  if (senzaMetodo) return { ok: false, errore: senzaMetodo }
 
   const { error: errMetodo } = await svc
     .from('scadenze').update({ fic_metodo_id: input.metodoId, updated_at: new Date().toISOString() })

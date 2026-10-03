@@ -10,3 +10,14 @@ export function erroreDataSincronizzaDal(data: string, oggi: string): string | n
   if (data > oggi) return 'La data non può essere nel futuro'
   return null
 }
+
+/** "Scarica fatture dal": la data si puo' solo anticipare, mai posticipare. */
+export function erroreAnticipo(nuova: string, attuale: string, oggi: string): string | null {
+  const base = erroreDataSincronizzaDal(nuova, oggi)
+  if (base) return base
+  if (nuova >= attuale) {
+    const [a, m, g] = attuale.split('-')
+    return `La nuova data deve essere precedente al ${g}/${m}/${a}`
+  }
+  return null
+}

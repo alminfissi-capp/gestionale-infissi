@@ -164,3 +164,28 @@ export function periodoIniziale(dataScadenza: string | null, oggi: string): Peri
   const meseDal = (indice % 12) + 1
   return { dal: `${annoDal}-${String(meseDal).padStart(2, '0')}-01`, al }
 }
+
+/** Senza metodo WinStudio non sa cosa dire a FiC: con documenti collegati e' obbligatorio. */
+export function erroreMetodo(metodoId: number | null, numeroDocumenti: number): string | null {
+  return numeroDocumenti > 0 && metodoId === null ? 'Scegli il metodo di pagamento su Fatture in Cloud' : null
+}
+
+/**
+ * Metodo da proporre nella finestra: quello gia' scelto sulla scadenza, poi
+ * quello usato l'ultima volta con lo stesso fornitore (un'utenza in SDD resta in
+ * SDD, un fornitore pagato con bonifico resta bonifico anche se la categoria e'
+ * "Ass./Bon."), poi Assegno per la categoria assegno. Mai un metodo che su FiC
+ * non esiste piu'.
+ */
+export function metodoProposto(p: {
+  categoria: string
+  metodoScadenza: number | null
+  ultimoDelFornitore: number | null
+  metodi: { id: number; nome: string }[]
+}): number | null {
+  const esiste = (id: number | null) => id !== null && p.metodi.some((m) => m.id === id)
+  if (esiste(p.metodoScadenza)) return p.metodoScadenza
+  if (esiste(p.ultimoDelFornitore)) return p.ultimoDelFornitore
+  if (p.categoria === 'assegno') return p.metodi.find((m) => m.nome.toLowerCase() === 'assegno')?.id ?? null
+  return null
+}

@@ -12,7 +12,7 @@ import { sincronizza, messaggioParziale, type ArchivioFatture } from '@/lib/fic/
 import type { VoceLocale } from '@/lib/fic/confronto'
 import { salvaDocumenti } from '@/lib/fic/salvataggio'
 import { tabelleSupabase } from '@/lib/fic/tabelle-supabase'
-import { erroreDataSincronizzaDal } from '@/lib/fic/validazione'
+import { erroreAnticipo, erroreDataSincronizzaDal } from '@/lib/fic/validazione'
 import { oggiRoma } from '@/lib/fic/stato-pagamento'
 import {
   CONTEGGI_VUOTI,
@@ -167,6 +167,44 @@ export async function aggiornaSincronizzaDal(data: string): Promise<RisultatoFic
     .select('organization_id')
   if (error) return { ok: false, errore: error.message }
   if (!aggiornate?.length) return { ok: false, errore: 'Non modificabile dopo la prima sincronizzazione' }
+  revalidatePath('/impostazioni')
+  return { ok: true }
+}
+
+/**
+ * "Scarica fatture dal": porta indietro la data da cui si sincronizza, per
+ * scaricare gli anni precedenti. Solo indietro: posticiparla farebbe sembrare
+ * eliminate su FiC le fatture piu' vecchie, e la sincronizzazione le toglierebbe.
+ * Le fatture nuove arrivano col prossimo "Sincronizza".
+ */
+export async function anticipaSincronizzaDal(data: string): Promise<RisultatoFic> {
+  const { permessi } = await getMyPermissions()
+  if (permessi.fatture_fornitori !== 'scrittura') return { ok: false, errore: 'Non autorizzato a sincronizzare' }
+  const orgId = await getOrgId()
+  const svc = createServiceClient()
+  const { data: coll, error: errColl } = await svc
+    .from('fic_collegamenti').select('sincronizza_dal').eq('organization_id', orgId).maybeSingle()
+  if (errColl) return { ok: false, errore: errColl.message }
+  if (!coll) return { ok: false, errore: "Fatture in Cloud non e' collegato" }
+
+  const errore = erroreAnticipo(data, coll.sincronizza_dal as string, oggiRoma())
+  if (errore) return { ok: false, errore }
+
+  const [a, m, g] = data.split('-')
+  const { error } = await svc
+    .from('fic_collegamenti')
+    .update({
+      sincronizza_dal: data,
+      // "Ultima sincronizzazione" resta quella vera; l'esito dice che manca un giro.
+      ultimo_esito: 'parziale',
+      ultimo_esito_at: new Date().toISOString(),
+      ultimo_messaggio: `Data anticipata al ${g}/${m}/${a}: premi Sincronizza per scaricare le fatture precedenti`,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('organization_id', orgId)
+    .gt('sincronizza_dal', data)
+  if (error) return { ok: false, errore: error.message }
+  revalidatePath('/fatture-fornitori')
   revalidatePath('/impostazioni')
   return { ok: true }
 }

@@ -1,13 +1,14 @@
 'use client'
 
 import Link from 'next/link'
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { sincronizzaFattureFornitori } from '@/actions/fatture-in-cloud'
-import { formatDataOra, descriviConteggi } from '@/lib/fic/formato'
+import { Input } from '@/components/ui/input'
+import { anticipaSincronizzaDal, sincronizzaFattureFornitori } from '@/actions/fatture-in-cloud'
+import { formatData, formatDataOra, descriviConteggi } from '@/lib/fic/formato'
 import type { CollegamentoFic } from '@/types/fatture-fornitori'
 
 export default function BarraSincronizzazione({
@@ -19,6 +20,22 @@ export default function BarraSincronizzazione({
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
+  const [nuovaData, setNuovaData] = useState<string | null>(null)
+
+  function anticipa() {
+    if (!nuovaData) return
+    startTransition(async () => {
+      try {
+        const r = await anticipaSincronizzaDal(nuovaData)
+        if (!r.ok) { toast.error(r.errore); return }
+        toast.success('Data anticipata: ora premi Sincronizza')
+        setNuovaData(null)
+        router.refresh()
+      } catch {
+        toast.error('Connessione interrotta: riprova')
+      }
+    })
+  }
 
   function sincronizzaOra() {
     startTransition(async () => {
@@ -69,6 +86,28 @@ export default function BarraSincronizzazione({
             {collegamento.ultimo_esito === 'ok' && collegamento.ultimi_conteggi && ` · ${descriviConteggi(collegamento.ultimi_conteggi)}`}
           </>
         ) : 'mai'}
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        Fatture dal <span className="font-medium text-foreground">{formatData(collegamento.sincronizza_dal)}</span>
+        {puoSincronizzare && nuovaData === null && (
+          <Button size="sm" variant="outline" onClick={() => setNuovaData(collegamento.sincronizza_dal)} disabled={pending}>
+            Scarica anche gli anni precedenti
+          </Button>
+        )}
+        {puoSincronizzare && nuovaData !== null && (
+          <>
+            <Input
+              type="date" className="h-8 w-40" value={nuovaData}
+              max={collegamento.sincronizza_dal}
+              onChange={(e) => setNuovaData(e.target.value)}
+              aria-label="Scarica fatture dal"
+            />
+            <Button size="sm" onClick={anticipa} disabled={pending || !nuovaData || nuovaData >= collegamento.sincronizza_dal}>
+              Conferma
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setNuovaData(null)} disabled={pending}>Annulla</Button>
+          </>
+        )}
       </div>
       {esitoDaMostrare && (
         <div className={`w-full text-sm ${collegamento.ultimo_esito === 'errore' ? 'text-destructive' : 'text-amber-700 dark:text-amber-400'}`}>
