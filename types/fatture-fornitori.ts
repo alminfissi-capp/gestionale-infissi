@@ -83,3 +83,13 @@ export type DocumentoCollegabile = {
   residuo: number
   prima_scadenza: string | null
 }
+
+/** Cosa e' successo su FiC dopo un'azione su una scadenza. */
+export type EsitoFic = { scritti: number; annullati: number; problemi: string[]; avvisi: string[] }
+
+/** Per l'icona nella riga della scadenza. */
+export type RiepilogoCollegamento = {
+  n: number
+  stato: 'non_scritto' | 'scritto' | 'problema'
+  messaggio: string | null
+}
