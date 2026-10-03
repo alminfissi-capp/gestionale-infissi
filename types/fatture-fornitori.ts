@@ -113,6 +113,8 @@ export type DatiCollegamento = {
   metodi: MetodoFic[]
   /** Documenti con residuo nel periodo (piu' quelli gia' collegati o selezionati): il filtro per fornitore e' nel browser. */
   documenti: DocumentoCollegabile[]
+  /** Metodo FiC da proporre: quello della scadenza, poi l'ultimo usato col fornitore, poi Assegno. */
+  metodo_suggerito: number | null
   /** Periodo usato per caricare le fatture (date ISO incluse). */
   periodo: { dal: string; al: string }
 }

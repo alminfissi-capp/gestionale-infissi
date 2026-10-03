@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { getDatiCollegamento, salvaCollegamentiScadenza, riprovaScadenzaFic, scollegaSenzaFic } from '@/actions/fic-pagamenti'
-import { ripartisci, controllaRipartizione, fornitoreCorrisponde, parseImporto } from '@/lib/fic/pagamenti'
+import { ripartisci, controllaRipartizione, erroreMetodo, fornitoreCorrisponde, parseImporto } from '@/lib/fic/pagamenti'
 import { formatData } from '@/lib/fic/formato'
 import { formatEuro } from '@/lib/pricing'
 import { mostraEsitoFic } from '@/components/commesse/esito-fic'
@@ -47,8 +47,7 @@ export default function DialogCollegaFatture({ scadenza, onClose }: { scadenza: 
         setDati(d)
         setDal(d.periodo.dal)
         setAl(d.periodo.al)
-        const assegno = d.metodi.find((m) => m.nome.toLowerCase() === 'assegno')
-        setMetodoId(d.scadenza.fic_metodo_id ?? (d.scadenza.categoria === 'assegno' ? assegno?.id ?? null : null))
+        setMetodoId(d.metodo_suggerito)
         const presenti = new Set(d.documenti.map((x) => x.fic_id))
         setQuote(Object.fromEntries(
           d.collegamenti.filter((c) => presenti.has(c.fic_documento_id)).map((c) => [c.fic_documento_id, c.importo]),
@@ -93,6 +92,7 @@ export default function DialogCollegaFatture({ scadenza, onClose }: { scadenza: 
     return { fic_id: id, tipo: d?.tipo ?? 'fattura', numero: d?.numero ?? null, residuo: d?.residuo ?? 0, quota: quote[id] }
   })
   const controllo = controllaRipartizione(scadenza.importo, righeControllo)
+  const senzaMetodo = erroreMetodo(metodoId, selezionati.length)
 
   function cambiaSelezione(d: DocumentoCollegabile, spuntato: boolean) {
     const nuovi = spuntato ? [...selezionati, d.fic_id] : selezionati.filter((x) => x !== d.fic_id)
@@ -189,6 +189,7 @@ export default function DialogCollegaFatture({ scadenza, onClose }: { scadenza: 
                     {dati.metodi.map((m) => <SelectItem key={m.id} value={String(m.id)}>{m.nome}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {senzaMetodo && <p className="text-sm text-destructive">{senzaMetodo}</p>}
               </div>
               <div className="space-y-1">
                 <Label htmlFor="fic-fornitore">Fornitore su FiC</Label>
@@ -290,7 +291,7 @@ export default function DialogCollegaFatture({ scadenza, onClose }: { scadenza: 
               <Button variant="ghost" onClick={onClose} disabled={pending}>Annulla</Button>
               <Button
                 onClick={salva}
-                disabled={pending || controllo.livello === 'blocco'}
+                disabled={pending || controllo.livello === 'blocco' || senzaMetodo !== null}
                 className={controllo.livello === 'avviso' ? 'bg-amber-600 hover:bg-amber-700' : ''}
               >
                 {pending ? 'Salvataggio…' : controllo.livello === 'avviso' ? 'Salva comunque' : 'Salva'}

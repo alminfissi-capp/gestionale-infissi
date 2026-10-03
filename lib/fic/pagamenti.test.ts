@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   parseImporto,
+  erroreMetodo,
+  metodoProposto,
   periodoIniziale,
   residuoDisponibile, ripartisci, controllaRipartizione, normalizzaFornitore, fornitoreCorrisponde,
   type DaRipartire,
@@ -145,5 +147,35 @@ describe('periodoIniziale', () => {
   })
   it('senza data della scadenza parte da oggi', () => {
     expect(periodoIniziale(null, '2026-10-03')).toEqual({ dal: '2026-05-01', al: '2026-10-03' })
+  })
+})
+
+describe('erroreMetodo', () => {
+  it('serve il metodo se c\'e\' almeno un documento', () => {
+    expect(erroreMetodo(null, 2)).toBe('Scegli il metodo di pagamento su Fatture in Cloud')
+  })
+  it('nessun errore col metodo o senza documenti', () => {
+    expect(erroreMetodo(546834, 2)).toBeNull()
+    expect(erroreMetodo(null, 0)).toBeNull()
+  })
+})
+
+describe('metodoProposto', () => {
+  const metodi = [{ id: 1, nome: 'Contanti' }, { id: 2, nome: 'Assegno' }, { id: 3, nome: 'Bonifico' }, { id: 5, nome: 'SDD (Addebito Diretto)' }]
+  it('vince il metodo gia\' scelto sulla scadenza', () => {
+    expect(metodoProposto({ categoria: 'utenza', metodoScadenza: 3, ultimoDelFornitore: 5, metodi })).toBe(3)
+  })
+  it('poi quello usato l\'ultima volta con lo stesso fornitore', () => {
+    expect(metodoProposto({ categoria: 'utenza', metodoScadenza: null, ultimoDelFornitore: 5, metodi })).toBe(5)
+    expect(metodoProposto({ categoria: 'assegno', metodoScadenza: null, ultimoDelFornitore: 3, metodi })).toBe(3)
+  })
+  it('poi Assegno per la categoria assegno', () => {
+    expect(metodoProposto({ categoria: 'assegno', metodoScadenza: null, ultimoDelFornitore: null, metodi })).toBe(2)
+  })
+  it('altrimenti nessuno: va scelto', () => {
+    expect(metodoProposto({ categoria: 'utenza', metodoScadenza: null, ultimoDelFornitore: null, metodi })).toBeNull()
+  })
+  it('un metodo che non esiste piu\' su FiC non si propone', () => {
+    expect(metodoProposto({ categoria: 'utenza', metodoScadenza: null, ultimoDelFornitore: 99, metodi })).toBeNull()
   })
 })
