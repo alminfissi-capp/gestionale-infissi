@@ -67,3 +67,19 @@ export type EsitoSincronizzazione = {
   messaggio: string
   conteggi: ConteggiSync
 }
+
+export type StatoFic = 'non_scritto' | 'scritto' | 'da_allineare' | 'da_verificare'
+
+/** Documento FiC proponibile nella finestra di collegamento: residuo gia' al netto delle altre scadenze. */
+export type DocumentoCollegabile = {
+  fic_id: number
+  tipo: TipoFatturaFornitore
+  numero: string | null
+  data: string
+  fornitore_nome: string
+  /** Con segno: note di credito negative, come in fatture_fornitori. */
+  importo_lordo: number
+  /** Positivo: quanto si puo' ancora assegnare da questa scadenza. */
+  residuo: number
+  prima_scadenza: string | null
+}
