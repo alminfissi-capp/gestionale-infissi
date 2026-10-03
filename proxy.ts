@@ -55,6 +55,11 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mjs|ico|webmanifest)$).*)',
+    // Fuori dal controllo del login:
+    // - sw.js (e i file del worker): Chrome rifiuta di installare o aggiornare un
+    //   service worker il cui script arriva da un redirect;
+    // - condividi/ricevi: il POST della condivisione da Android lo gestisce il
+    //   service worker; se arriva al server deve trovare il ripiego, non il login.
+    '/((?!_next/static|_next/image|favicon.ico|sw\\.js|swe-worker-.*\\.js|condividi/ricevi|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mjs|ico|webmanifest)$).*)',
   ],
 }
