@@ -38,6 +38,8 @@ import DialogScadenza, { CADENZE } from './DialogScadenza'
 import DialogRicercaScadenze from './DialogRicercaScadenze'
 import RigaScadenza from './RigaScadenza'
 import type { Scadenza, ContoCorrente } from '@/types/commessa'
+import type { RiepilogoCollegamento } from '@/types/fatture-fornitori'
+import DialogCollegaFatture from './DialogCollegaFatture'
 
 const MESI = [
   'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
@@ -230,10 +232,12 @@ interface Props {
   conti: ContoCorrente[]
   /** Id delle scadenze che hanno gia' un evento specchio in agenda. */
   inCalendario?: string[]
+  /** Riepiloghi dei collegamenti FiC per scadenza; null se la funzione non e' disponibile. */
+  collegamentiFic?: Record<string, RiepilogoCollegamento> | null
 }
 
 export default function ScadenzeView({
-  gruppoId, gruppoNome, scadenze, fornitori, conti, inCalendario = [],
+  gruppoId, gruppoNome, scadenze, fornitori, conti, inCalendario = [], collegamentiFic = null,
 }: Props) {
   const router = useRouter()
   const idInCalendario = useMemo(() => new Set(inCalendario), [inCalendario])
@@ -280,6 +284,7 @@ export default function ScadenzeView({
 
   // Dialog add/edit
   const [dialog, setDialog] = useState<{ scadenza: Scadenza | null; defaultData: string } | null>(null)
+  const [scadenzaFatture, setScadenzaFatture] = useState<Scadenza | null>(null)
 
   // Lightbox foto
   const [lightbox, setLightbox] = useState<{ url: string; scadenza: Scadenza } | null>(null)
@@ -448,6 +453,8 @@ export default function ScadenzeView({
                       <RigaScadenza
                         key={s.id}
                         s={s}
+                        riepilogoFatture={collegamentiFic?.[s.id]}
+                        onApriFatture={collegamentiFic ? setScadenzaFatture : undefined}
                         contoNome={contoNome}
                         fotoUrl={fotoUrls[s.id]}
                         uploading={uploadingId === s.id}
@@ -535,6 +542,9 @@ export default function ScadenzeView({
           }
           onClose={() => setLightbox(null)}
         />
+      )}
+      {scadenzaFatture && (
+        <DialogCollegaFatture scadenza={scadenzaFatture} onClose={() => setScadenzaFatture(null)} />
       )}
     </div>
   )

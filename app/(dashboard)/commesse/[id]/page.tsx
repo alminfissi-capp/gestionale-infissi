@@ -1,3 +1,5 @@
+import { getCollegamentoFic } from '@/actions/fatture-in-cloud'
+import { getRiepiloghiCollegamenti } from '@/actions/fic-pagamenti'
 import { redirect } from 'next/navigation'
 import {
   getCommesse,
@@ -80,6 +82,12 @@ async function ScadenzeViewLoader({
   ])
   const nomiFornitori = fornitori.map((f) => f.nome)
 
+  // La funzione Fatture compare solo con FiC collegato e i permessi giusti.
+  const [{ permessi }, collegamentoFic] = await Promise.all([getMyPermissions(), getCollegamentoFic()])
+  const ficDisponibile =
+    collegamentoFic !== null && permessi.fatture_fornitori !== 'nessuno' && permessi.commesse === 'scrittura'
+  const collegamentiFic = ficDisponibile ? await getRiepiloghiCollegamenti(scadenze.map((s) => s.id)) : null
+
   // Stessi dati, due letture diverse: per mesi nei blocchi anno, elenco piatto
   // dove le date non ci sono ancora
   return daProgrammare ? (
@@ -88,6 +96,7 @@ async function ScadenzeViewLoader({
       scadenze={scadenze}
       fornitori={nomiFornitori}
       conti={conti}
+      collegamentiFic={collegamentiFic}
     />
   ) : (
     <ScadenzeView
@@ -97,6 +106,7 @@ async function ScadenzeViewLoader({
       fornitori={nomiFornitori}
       conti={conti}
       inCalendario={inCalendario}
+      collegamentiFic={collegamentiFic}
     />
   )
 }

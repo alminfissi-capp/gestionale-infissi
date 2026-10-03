@@ -18,6 +18,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { formatEuro } from '@/lib/pricing'
 import type { Scadenza, CategoriaScadenza } from '@/types/commessa'
+import type { RiepilogoCollegamento } from '@/types/fatture-fornitori'
+import IconaFattureScadenza from './IconaFattureScadenza'
 
 const CAT_BADGE: Record<CategoriaScadenza, { label: string; cls: string } | null> = {
   finanziamento: { label: 'Finanz.', cls: 'bg-purple-100 text-purple-700 border-purple-200' },
@@ -84,6 +86,10 @@ export type RigaScadenzaProps = {
    * apre la scheda invece di funzionare da interruttore.
    */
   daProgrammare?: boolean
+  /** Riepilogo dei documenti FiC collegati; assente se non collegata. */
+  riepilogoFatture?: RiepilogoCollegamento
+  /** Assente quando la funzione non e' disponibile (FiC non collegato o niente permesso). */
+  onApriFatture?: (s: Scadenza) => void
 }
 
 export default function RigaScadenza({
@@ -91,6 +97,7 @@ export default function RigaScadenza({
   onTogglePagato, onToggleCalcoli, onToggleAnnullata, inCalendario = false,
   onToggleCalendario, onDelete, onFotoSelected, onOpenFoto, onEdit,
   onCopia, onApriPiano, onSpostaInLimbo, copying, evidenziata = false,
+  riepilogoFatture, onApriFatture,
   daProgrammare = false,
 }: RigaScadenzaProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
@@ -311,6 +318,11 @@ export default function RigaScadenza({
           {formatEuro(s.importo)}
         </span>
       </div>
+
+      {/* Fatture FiC pagate da questa scadenza */}
+      {onApriFatture && (
+        <IconaFattureScadenza riepilogo={riepilogoFatture} onClick={() => onApriFatture(s)} />
+      )}
 
       {/* Stella Calcoli */}
       <Button
