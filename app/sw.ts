@@ -88,7 +88,9 @@ self.addEventListener('fetch', (event: FetchEvent) => {
         // Android (nomi dei campi, tipo e dimensione), per capire il perche'.
         const arrivato =
           [...form.entries()]
-            .map(([k, v]) => (v instanceof File ? `${k}: file ${v.type || 'senza tipo'}, ${v.size} byte` : `${k}: testo`))
+            .map(([k, v]) =>
+              v instanceof File ? `${k}: file ${v.type || 'senza tipo'}, ${v.size} byte` : `${k}: ${String(v).slice(0, 120)}`,
+            )
             .join('; ') || 'nessun campo'
         return Response.redirect(`/condividi?errore=vuoto&dettagli=${encodeURIComponent(arrivato)}`, 303)
       } catch {
