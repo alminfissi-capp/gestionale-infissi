@@ -1,6 +1,7 @@
 import { requireAccesso } from '@/lib/permessi'
 import { getFattureFornitori, getAnniFattureFornitori } from '@/actions/fatture-fornitori'
 import { getCollegamentoFic } from '@/actions/fatture-in-cloud'
+import { getPagamentiFatture, getProblemiFic } from '@/actions/fic-pagamenti'
 import ElencoFattureFornitori from '@/components/fatture-fornitori/ElencoFattureFornitori'
 
 export const dynamic = 'force-dynamic'
@@ -22,6 +23,10 @@ export default async function FattureFornitoriPage({
     getAnniFattureFornitori(),
     getCollegamentoFic(),
   ])
+  const [pagamenti, problemi] = await Promise.all([
+    getPagamentiFatture(fatture.map((f) => f.fic_id)),
+    getProblemiFic(),
+  ])
 
   return (
     <ElencoFattureFornitori
@@ -29,6 +34,8 @@ export default async function FattureFornitoriPage({
       anni={anni.includes(annoScelto) ? anni : [annoScelto, ...anni].sort((a, b) => b - a)}
       anno={annoScelto}
       collegamento={collegamento}
+      pagamenti={pagamenti}
+      problemi={problemi}
     />
   )
 }
