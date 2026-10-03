@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { mostraEsitoFic } from '@/components/commesse/esito-fic'
 import { createScadenza, updateScadenza, programmaScadenza, copiaScadenzaRate } from '@/actions/scadenze'
 import { ocrAssegno } from '@/lib/ocrAssegno'
 import { parseBonificoScadenza } from '@/lib/parseBonificoScadenza'
@@ -258,9 +259,10 @@ export default function DialogScadenza({
       if (scadenza) {
         if (daProgrammare) {
           const esito = await programmaScadenza(scadenza.id, payload)
+          mostraEsitoFic(esito.fic)
           if (esito.spostata) spostataIn = meseAnnoDi(form.data_scadenza)
         } else {
-          await updateScadenza(scadenza.id, payload)
+          mostraEsitoFic(await updateScadenza(scadenza.id, payload))
         }
         id = scadenza.id
       } else {

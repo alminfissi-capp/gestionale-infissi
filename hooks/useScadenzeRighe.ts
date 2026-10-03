@@ -19,6 +19,7 @@ import { conRiprova } from '@/lib/riprova'
 import { ocrAssegno, type OcrAssegnoResult } from '@/lib/ocrAssegno'
 import { parseBonificoScadenza, type BonificoScadenza } from '@/lib/parseBonificoScadenza'
 import type { Scadenza } from '@/types/commessa'
+import { mostraEsitoFic } from '@/components/commesse/esito-fic'
 
 /**
  * Stato e comandi comuni alle due viste delle scadenze: quella per mesi dei
@@ -68,7 +69,10 @@ export function useScadenzeRighe(scadenze: Scadenza[]) {
     const nuovo = !s.pagato
     setItems((cur) => cur.map((x) => (x.id === s.id ? { ...x, pagato: nuovo } : x)))
     try {
-      await setPagatoScadenza(s.id, nuovo)
+      const fic = await setPagatoScadenza(s.id, nuovo)
+      mostraEsitoFic(fic)
+      // L'icona Fatture nella riga cambia colore secondo l'esito su FiC.
+      if (fic) router.refresh()
     } catch {
       setItems((cur) => cur.map((x) => (x.id === s.id ? { ...x, pagato: !nuovo } : x)))
       toast.error('Errore nel salvataggio')
@@ -96,7 +100,7 @@ export function useScadenzeRighe(scadenze: Scadenza[]) {
       )
     )
     try {
-      await setAnnullataScadenza(s.id, nuovo)
+      mostraEsitoFic(await setAnnullataScadenza(s.id, nuovo))
       toast.success(nuovo ? 'Scadenza annullata' : 'Scadenza ripristinata')
       router.refresh()
     } catch {
@@ -110,7 +114,13 @@ export function useScadenzeRighe(scadenze: Scadenza[]) {
     const prev = items
     setItems((cur) => cur.filter((x) => x.id !== s.id))
     try {
-      await deleteScadenza(s.id)
+      const r = await deleteScadenza(s.id)
+      if (!r.ok) {
+        // Il motivo conta: "prima va tolto il pagamento da FiC".
+        setItems(prev)
+        toast.error(r.errore)
+        return
+      }
       router.refresh()
     } catch {
       setItems(prev)
@@ -123,7 +133,7 @@ export function useScadenzeRighe(scadenze: Scadenza[]) {
     const prev = items
     setItems((cur) => cur.filter((x) => x.id !== s.id))
     try {
-      await spostaInDaProgrammare(s.id)
+      mostraEsitoFic(await spostaInDaProgrammare(s.id))
       toast.success('Spostata in Da programmare')
       router.refresh()
     } catch {
