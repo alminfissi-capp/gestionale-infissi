@@ -103,7 +103,8 @@ export default function DialogAcconto({ open, onOpenChange, commessaId, clienteN
   const handleDelete = async (id: string) => {
     setDeletingId(id)
     try {
-      await deleteAcconto(id)
+      const r = await deleteAcconto(id)
+      if (!r.ok) { toast.error(r.errore); return }
       toast.success('Acconto eliminato')
       router.refresh()
     } catch {

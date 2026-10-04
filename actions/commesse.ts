@@ -22,6 +22,7 @@ import type {
 } from '@/types/commessa'
 import { TIPI_DOCUMENTO_PRODUZIONE_VALUES } from '@/types/produzione'
 import { selectAll } from '@/lib/supabase/paginate'
+import { liberaIncassoPerEliminazione } from '@/lib/fic/allinea-incasso'
 
 // I documenti di produzione (disegni, DDT, ordini fornitore, ...) sono di
 // competenza della sezione Produzione e NON devono comparire nel lato Commesse.
@@ -239,22 +240,41 @@ export async function updateCommessa(id: string, input: Partial<CommessaInput>):
   revalidatePath('/commesse', 'layout')
 }
 
-export async function deleteCommessa(id: string): Promise<void> {
-  const supabase = await createClient()
-  const { error } = await supabase.from('commesse').delete().eq('id', id)
-  if (error) throw new Error(error.message)
-  revalidatePath('/commesse', 'layout')
-  revalidatePath('/preventivi')
-}
+export type EsitoEliminazione = { ok: true } | { ok: false; errore: string }
 
-export async function addAcconto(commessaId: string, input: AccontoInput): Promise<void> {
+/**
+ * Gli incassi scritti su Fatture in Cloud si tolgono da FiC prima di eliminare la
+ * commessa: dopo non resterebbe traccia di cosa togliere (e il vincolo RESTRICT di
+ * incassi_fatture fermerebbe comunque l'eliminazione).
+ */
+export async function deleteCommessa(id: string): Promise<EsitoEliminazione> {
   const supabase = await createClient()
   const orgId = await getOrgId()
-  const { error } = await supabase
+  const { data: acconti, error: errAcconti } = await supabase.from('acconti_commessa').select('id').eq('commessa_id', id)
+  if (errAcconti) return { ok: false, errore: errAcconti.message }
+  for (const a of acconti ?? []) {
+    const libero = await liberaIncassoPerEliminazione(orgId, a.id as string)
+    if (!libero.ok) return libero
+  }
+  const { error } = await supabase.from('commesse').delete().eq('id', id)
+  if (error) return { ok: false, errore: error.message }
+  revalidatePath('/commesse', 'layout')
+  revalidatePath('/preventivi')
+  return { ok: true }
+}
+
+/** Restituisce l'id: la finestra dell'incasso lo usa per collegarlo alle fatture FiC. */
+export async function addAcconto(commessaId: string, input: AccontoInput): Promise<string> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data, error } = await supabase
     .from('acconti_commessa')
     .insert({ ...normalizzaRitenuta(input), commessa_id: commessaId, organization_id: orgId })
+    .select('id')
+    .single()
   if (error) throw new Error(error.message)
   revalidatePath('/commesse', 'layout')
+  return data.id as string
 }
 
 /**
@@ -294,11 +314,16 @@ export async function updateAccontoRitenuta(
   revalidatePath('/commesse', 'layout')
 }
 
-export async function deleteAcconto(id: string): Promise<void> {
+/** Prima toglie da FiC i pagamenti che l'incasso vi ha scritto; se non riesce, non elimina. */
+export async function deleteAcconto(id: string): Promise<EsitoEliminazione> {
   const supabase = await createClient()
+  const orgId = await getOrgId()
+  const libero = await liberaIncassoPerEliminazione(orgId, id)
+  if (!libero.ok) return libero
   const { error } = await supabase.from('acconti_commessa').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) return { ok: false, errore: error.message }
   revalidatePath('/commesse', 'layout')
+  return { ok: true }
 }
 
 export async function addDocumentoCommessa(

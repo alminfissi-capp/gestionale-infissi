@@ -530,7 +530,8 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
   const handleDeleteAcconto = async (id: string) => {
     setDeletingAccontoId(id)
     try {
-      await deleteAcconto(id)
+      const r = await deleteAcconto(id)
+      if (!r.ok) { toast.error(r.errore); return }
       toast.success('Acconto eliminato')
       router.refresh()
     } catch {
