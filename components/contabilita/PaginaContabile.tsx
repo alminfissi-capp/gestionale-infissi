@@ -176,7 +176,8 @@ export default function PaginaContabile({ dati }: { dati: Dati }) {
             const manuale = g.ficId === null
             return (
               <div key={g.chiave} className="border-b last:border-b-0">
-                <div className="flex flex-wrap items-center gap-2 p-2 text-sm">
+                {/* Azzurro chiaro sulle fatture: si contano a colpo d'occhio; i costi a mano restano bianchi. */}
+                <div className={`flex flex-wrap items-center gap-2 p-2 text-sm ${manuale ? '' : 'bg-sky-50 dark:bg-sky-950/40'}`}>
                   {!manuale ? (
                     <button type="button" className="flex items-center gap-1" onClick={() => setAperti((s) => {
                       const n = new Set(s); if (n.has(g.chiave)) n.delete(g.chiave); else n.add(g.chiave); return n
