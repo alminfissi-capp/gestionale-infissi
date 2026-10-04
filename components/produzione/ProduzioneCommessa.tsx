@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Pencil, Trash2, AlertTriangle, Eye, Mail, Factory } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, Trash2, AlertTriangle, Eye, Mail, Factory, Calculator } from 'lucide-react'
 import { pdf } from '@react-pdf/renderer'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -62,6 +62,8 @@ export default function ProduzioneCommessa({
   // richiesto e' la scrittura su quel modulo. Chi non l'ha vede il badge
   // sbiadito (vedi BadgeStatoCommessa) e l'action lo rifiuterebbe comunque.
   const puoModificareStato = usePermissions().canEdit('commesse')
+  // La contabilita' mostra utile e costi: solo per chi ha il permesso Commesse.
+  const puoVedereContabilita = usePermissions().canView('commesse')
   const [stato, setStato] = useState(commessa.stato)
   const [open, setOpen] = useState(false)
   const [inModifica, setInModifica] = useState<OrdineCompleto | null>(null)
@@ -316,6 +318,13 @@ export default function ProduzioneCommessa({
           />
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400">{commessa.cliente_nome}</p>
+        {puoVedereContabilita && (
+          <Link href={`/commesse/contabilita/${commessa.id}`} className="mt-2 inline-block">
+            <Button variant="outline" size="sm" className="gap-2">
+              <Calculator className="h-4 w-4" /> Contabilità
+            </Button>
+          </Link>
+        )}
       </div>
 
       <section className="space-y-3">
