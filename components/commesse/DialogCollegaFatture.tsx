@@ -163,7 +163,7 @@ export default function DialogCollegaFatture({ scadenza, onClose }: { scadenza: 
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-h-[94vh] overflow-y-auto sm:max-w-3xl xl:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Fatture pagate da questa scadenza</DialogTitle>
         </DialogHeader>

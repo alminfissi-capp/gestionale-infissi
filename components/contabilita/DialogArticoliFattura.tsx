@@ -146,7 +146,8 @@ export default function DialogArticoliFattura({
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-5xl">
+      {/* La larghezza va data con sm:/xl: (vedi components/ui/dialog.tsx), altrimenti resta quella di base. */}
+      <DialogContent className="flex max-h-[94vh] w-[96vw] flex-col sm:max-w-[96vw] xl:max-w-[1400px] p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>{aperto ? 'Articoli da attribuire alla commessa' : 'Aggiungi da fattura'}</DialogTitle>
         </DialogHeader>
@@ -170,7 +171,7 @@ export default function DialogArticoliFattura({
               </div>
               {caricando && <Loader2 className="mb-2 h-4 w-4 animate-spin" />}
             </div>
-            <div className="max-h-[55vh] overflow-y-auto rounded-md border">
+            <div className="max-h-[60vh] overflow-y-auto rounded-md border bg-background">
               {documenti === null ? (
                 <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin" /></div>
               ) : visibili.length === 0 ? (
@@ -195,7 +196,7 @@ export default function DialogArticoliFattura({
         )}
 
         {aperto && (
-          <div className="space-y-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2 text-sm">
               {ficIdIniziale === null && (
                 <Button size="sm" variant="ghost" onClick={() => { setAperto(null); setScelte({}) }}>
@@ -206,9 +207,14 @@ export default function DialogArticoliFattura({
               {aperto.documento.tipo === 'nota_credito' && <Badge variant="outline">Nota di credito</Badge>}
               <span>{aperto.documento.numero} · {formatData(aperto.documento.data)}</span>
             </div>
-            <div className="max-h-[55vh] overflow-auto rounded-md border">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-muted text-left">
+            <div className="min-h-0 flex-1 overflow-auto rounded-md border bg-background">
+              {/* Colonne in proporzione: sul tablet si stringe tutto, senza uscire dalla finestra. */}
+              <table className="w-full table-fixed text-xs lg:text-sm">
+                <colgroup>
+                  <col className="w-[5%]" /><col className="w-[30%]" /><col className="w-[9%]" /><col className="w-[12%]" />
+                  <col className="w-[11%]" /><col className="w-[8%]" /><col className="w-[9%]" /><col className="w-[16%]" />
+                </colgroup>
+                <thead className="sticky top-0 z-10 bg-muted text-left">
                   <tr>
                     <th className="p-2" />
                     <th className="p-2">Articolo</th>
@@ -230,7 +236,7 @@ export default function DialogArticoliFattura({
                           <Checkbox disabled={!r.selezionabile} checked={!!s} onCheckedChange={(v) => spunta(r, v === true)} />
                         </td>
                         <td className="p-2">
-                          <div>{r.descrizione}</div>
+                          <div className="break-words">{r.descrizione}</div>
                           {r.codice && <div className="text-xs text-muted-foreground">{r.codice}</div>}
                           {oltre && <div className="text-xs text-amber-700">Ne restano {r.rimanente}, ne stai attribuendo {s.quantita}</div>}
                         </td>
@@ -241,7 +247,7 @@ export default function DialogArticoliFattura({
                         <td className="p-2 text-right">
                           {s && (
                             <Input
-                              className="ml-auto w-24 text-right" inputMode="decimal"
+                              className="ml-auto h-8 w-full max-w-24 px-2 text-right text-xs lg:text-sm" inputMode="decimal"
                               value={s.testo ?? String(s.quantita).replace('.', ',')}
                               onChange={(e) => {
                                 const n = parseImporto(e.target.value)
@@ -256,7 +262,7 @@ export default function DialogArticoliFattura({
                         <td className="p-2">
                           {s && (
                             <Select value={s.categoria ?? ''} onValueChange={(v) => cambia(r.riga_id, { categoria: v as CategoriaCosto })}>
-                              <SelectTrigger className="h-8 w-44"><SelectValue placeholder="Scegli" /></SelectTrigger>
+                              <SelectTrigger className="h-8 w-full px-2 text-xs lg:text-sm"><SelectValue placeholder="Scegli" /></SelectTrigger>
                               <SelectContent>
                                 {CATEGORIE_COSTO.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                               </SelectContent>

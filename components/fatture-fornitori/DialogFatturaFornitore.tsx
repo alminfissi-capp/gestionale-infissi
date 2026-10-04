@@ -49,7 +49,7 @@ export default function DialogFatturaFornitore({
 
   return (
     <Dialog open={fattura !== null} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[94vh] overflow-y-auto sm:max-w-2xl xl:max-w-3xl">
         {fattura && (
           <>
             <DialogHeader>
