@@ -423,24 +423,33 @@ export async function salvaQuoteIncasso(accontoId: string, quote: QuotaIncasso[]
   }
 }
 
-/** Stato FiC di ogni incasso della commessa, per l'icona accanto all'incasso. */
-export async function getRiepilogoIncassi(commessaId: string): Promise<Record<string, RiepilogoCollegamento>> {
-  if (await permessoLeggere()) return {}
+export type StatoFicCommessa = { haFatture: boolean; incassi: Record<string, RiepilogoCollegamento> }
+
+/** Se la commessa ha fatture collegate, e lo stato FiC di ogni incasso (per l'icona accanto all'incasso). */
+export async function getStatoFicCommessa(commessaId: string): Promise<StatoFicCommessa> {
+  const vuoto: StatoFicCommessa = { haFatture: false, incassi: {} }
+  if (await permessoLeggere()) return vuoto
   const orgId = await getOrgId()
   const svc = createServiceClient()
-  const { data, error } = await svc
-    .from('incassi_fatture')
-    .select('acconto_id, stato_fic, messaggio_fic, acconti_commessa!inner(commessa_id)')
-    .eq('organization_id', orgId)
-    .eq('acconti_commessa.commessa_id', commessaId)
-  if (error) return {}
+  const [{ count }, { data, error }] = await Promise.all([
+    svc.from('commesse_fatture').select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgId).eq('commessa_id', commessaId),
+    svc.from('incassi_fatture')
+      .select('acconto_id, stato_fic, messaggio_fic, acconti_commessa!inner(commessa_id)')
+      .eq('organization_id', orgId)
+      .eq('acconti_commessa.commessa_id', commessaId),
+  ])
+  if (error) return vuoto
   const perAcconto = new Map<string, { stato_fic: StatoFic; messaggio_fic: string | null }[]>()
   for (const x of data ?? []) {
     const lista = perAcconto.get(x.acconto_id as string) ?? []
     lista.push({ stato_fic: x.stato_fic as StatoFic, messaggio_fic: (x.messaggio_fic as string | null) ?? null })
     perAcconto.set(x.acconto_id as string, lista)
   }
-  return Object.fromEntries([...perAcconto].map(([id, c]) => [id, riepilogaCollegamenti(c)]))
+  return {
+    haFatture: (count ?? 0) > 0,
+    incassi: Object.fromEntries([...perAcconto].map(([id, c]) => [id, riepilogaCollegamenti(c)])),
+  }
 }
 
 // ── Storico ─────────────────────────────────────────────────────────────────

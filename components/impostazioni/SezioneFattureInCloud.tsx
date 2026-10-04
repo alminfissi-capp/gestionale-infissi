@@ -15,6 +15,7 @@ import {
 import {
   verificaTokenFic, salvaCollegamentoFic, aggiornaSincronizzaDal, scollegaFic,
 } from '@/actions/fatture-in-cloud'
+import MetodiIncassoFic from '@/components/impostazioni/MetodiIncassoFic'
 import { formatDataOra, descriviConteggi } from '@/lib/fic/formato'
 import type { AziendaFic, CollegamentoFic } from '@/types/fatture-fornitori'
 
@@ -251,6 +252,8 @@ export default function SezioneFattureInCloud({
           </p>
         </div>
       )}
+
+      {collegamento?.stato === 'attivo' && !inModifica && <MetodiIncassoFic puoModificare={puoModificare} />}
 
       {!puoModificare && !collegamento && (
         <p className="text-sm text-muted-foreground">Fatture in Cloud non è collegato.</p>

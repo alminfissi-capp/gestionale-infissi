@@ -55,7 +55,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/commesse',            label: 'Commesse / Scadenze', icon: Briefcase,       modulo: 'commesse' },
   { href: '/dipendenti',          label: 'Dipendenti',          icon: IdCard,          modulo: 'dipendenti' },
   { href: '/produzione',          label: 'Produzione',          icon: Factory,         modulo: 'produzione' },
-  { href: '/fatture-fornitori',   label: 'Fatture fornitori',   icon: Receipt,         modulo: 'fatture_fornitori' },
+  { href: '/fatture-fornitori',   label: 'Fatture',             icon: Receipt,         modulo: 'fatture_fornitori' },
   { href: '/import-export',       label: 'Import / Export',     icon: Database,        modulo: 'impostazioni' },
   { href: '/impostazioni',        label: 'Impostazioni',        icon: Settings,        modulo: 'impostazioni' },
   { href: '/impostazioni/utenti', label: 'Gestione Utenti',     icon: UserCog,         modulo: 'impostazioni', adminOnly: true },
