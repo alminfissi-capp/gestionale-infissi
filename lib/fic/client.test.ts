@@ -124,4 +124,35 @@ describe('creaClientFic', () => {
     const err = await creaClientFic('t', f.impl).spesa(42, 9).catch((e) => e)
     expect((err as FicErrore).status).toBe(404)
   })
+  it('elenca le fatture emesse con lo stesso filtro e la stessa paginazione', async () => {
+    const f = fetchFinto([
+      { status: 200, body: { current_page: 1, last_page: 1, data: [{ id: 5, date: '2026-02-01', updated_at: 'a' }] } },
+    ])
+    const docs = await creaClientFic('t', f.impl).elencoEmessi(42, 'credit_note', '2025-01-01')
+    expect(docs.map((d) => d.id)).toEqual([5])
+    const u = f.chiamate[0].url
+    expect(u.startsWith(`${FIC_BASE_URL}/c/42/issued_documents?`)).toBe(true)
+    expect(u).toContain('type=credit_note')
+    expect(u).toContain(`q=${encodeURIComponent("date >= '2025-01-01'")}`)
+  })
+
+  it('legge il dettaglio di una fattura emessa', async () => {
+    const f = fetchFinto([{ status: 200, body: { data: { id: 8, date: '2026-01-05', updated_at: 'x', payments_list: [] } } }])
+    const d = await creaClientFic('t', f.impl).emesso(42, 8)
+    expect(d.id).toBe(8)
+    expect(f.chiamate[0].url).toBe(`${FIC_BASE_URL}/c/42/issued_documents/8?fieldset=detailed`)
+  })
+
+  it('aggiorna le rate di una fattura emessa con un PUT del solo payments_list', async () => {
+    const chiamate: { url: string; metodo: string; corpo: string | null }[] = []
+    const impl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      chiamate.push({ url: String(input), metodo: init?.method ?? 'GET', corpo: (init?.body as string) ?? null })
+      return new Response(JSON.stringify({ data: { id: 8, date: '2026-01-01', updated_at: 'x', payments_list: [] } }), { status: 200 })
+    }) as typeof fetch
+    const rate = [{ id: 1, amount: 10, status: 'paid', paid_date: '2026-02-01', payment_account: { id: 5 } }]
+    await creaClientFic('t', impl).aggiornaRateEmesso(42, 8, rate)
+    expect(chiamate[0].url).toBe(`${FIC_BASE_URL}/c/42/issued_documents/8`)
+    expect(chiamate[0].metodo).toBe('PUT')
+    expect(JSON.parse(chiamate[0].corpo!)).toEqual({ data: { payments_list: rate } })
+  })
 })
