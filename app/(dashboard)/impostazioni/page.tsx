@@ -5,6 +5,8 @@ import { getConti } from '@/actions/conti'
 import { requireAccesso, getMyPermissions } from '@/lib/permessi'
 import { getCollegamentoFic } from '@/actions/fatture-in-cloud'
 import SezioneFattureInCloud from '@/components/impostazioni/SezioneFattureInCloud'
+import FormParametriContabilita from '@/components/impostazioni/FormParametriContabilita'
+import { getParametriContabilita } from '@/actions/contabilita-commessa'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import FormAzienda from '@/components/impostazioni/FormAzienda'
@@ -35,7 +37,7 @@ export default async function ImpostazioniPage() {
     .eq('id', user!.id)
     .single()
 
-  const [settings, templates, icone, conti, orariLavoro, chiusure, tipiAttivita, linee, anticipi, collegamentoFic, { permessi }] =
+  const [settings, templates, icone, conti, orariLavoro, chiusure, tipiAttivita, linee, anticipi, collegamentoFic, { permessi }, parametriContabilita] =
     await Promise.all([
       getSettings(),
       getNoteTemplates(),
@@ -48,6 +50,7 @@ export default async function ImpostazioniPage() {
       getAnticipi(),
       getCollegamentoFic(),
       getMyPermissions(),
+      getParametriContabilita(),
     ])
 
   // Quanti anticipi porterebbe via la cancellazione di una linea (ON DELETE CASCADE).
@@ -240,6 +243,20 @@ export default async function ImpostazioniPage() {
 
         {/* ── Preventivi e altro: tutto il resto ── */}
         <TabsContent value="altro" className="space-y-6">
+
+      {/* Contabilita' di commessa */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Contabilità di commessa</CardTitle>
+          <CardDescription>
+            Valori di partenza della pagina contabile di ogni commessa. Sulla singola commessa
+            si possono cambiare.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FormParametriContabilita tariffa={parametriContabilita.tariffa} percFissi={parametriContabilita.percFissi} />
+        </CardContent>
+      </Card>
 
       {/* Tema */}
       <Card>

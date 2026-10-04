@@ -7,7 +7,7 @@ import Link from 'next/link'
 import {
   Pencil, X, Plus, Trash2, Upload, FileText,
   Eye, Share2, Check, ExternalLink, Printer,
-  MapPin, Navigation, MoreVertical, FileBarChart, TriangleAlert, ChevronsUpDown,
+  MapPin, Navigation, MoreVertical, FileBarChart, TriangleAlert, ChevronsUpDown, Calculator,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -733,6 +733,12 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                     <DropdownMenuItem onClick={() => setResocontoAperto(true)}>
                       <FileBarChart className="h-3.5 w-3.5 mr-2" />
                       Resoconto economico
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href={`/commesse/contabilita/${commessa.id}`}>
+                        <Calculator className="h-3.5 w-3.5 mr-2" />
+                        Contabilità
+                      </Link>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
