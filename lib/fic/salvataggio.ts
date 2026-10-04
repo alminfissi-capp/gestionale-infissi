@@ -1,11 +1,13 @@
-import type { DocumentoMappato, RigaFattura, RigaRata } from '@/lib/fic/mappa'
+import type { RigaFattura, RigaRata } from '@/lib/fic/mappa'
 
-export type RigaFatturaDb = RigaFattura & { organization_id: string }
+/** Quanto serve al salvataggio di una riga fattura: vale per le ricevute e per le emesse. */
+export type RigaBase = { fic_id: number; fic_updated_at: string }
+export type RigaFatturaDb<F extends RigaBase = RigaFattura> = F & { organization_id: string }
 export type RigaRataDb = RigaRata & { organization_id: string; fattura_id: string }
 
 /** Le tre scritture che servono, senza dipendere dal client Supabase: nei test c'e' un finto. */
-export type TabelleFatture = {
-  upsertFatture: (righe: RigaFatturaDb[]) => Promise<{ id: string; fic_id: number }[]>
+export type TabelleFatture<F extends RigaBase = RigaFattura> = {
+  upsertFatture: (righe: RigaFatturaDb<F>[]) => Promise<{ id: string; fic_id: number }[]>
   eliminaRate: (fatturaIds: string[]) => Promise<void>
   inserisciRate: (righe: RigaRataDb[]) => Promise<void>
 }
@@ -20,14 +22,14 @@ export type TabelleFatture = {
  * giro dopo la vede diversa da FiC e la riscarica: mai una fattura "aggiornata"
  * rimasta senza rate.
  */
-export async function salvaDocumenti(
-  tabelle: TabelleFatture,
+export async function salvaDocumenti<F extends RigaBase = RigaFattura>(
+  tabelle: TabelleFatture<F>,
   orgId: string,
-  documenti: DocumentoMappato[],
+  documenti: { fattura: F; rate: RigaRata[] }[],
 ): Promise<void> {
   if (documenti.length === 0) return
 
-  const righe = documenti.map((d): RigaFatturaDb => ({ ...d.fattura, organization_id: orgId }))
+  const righe = documenti.map((d): RigaFatturaDb<F> => ({ ...d.fattura, organization_id: orgId }))
   const salvate = await tabelle.upsertFatture(righe.map((r) => ({ ...r, fic_updated_at: '' })))
   const idPerFic = new Map(salvate.map((r) => [Number(r.fic_id), r.id]))
 

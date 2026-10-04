@@ -51,16 +51,11 @@ export default function ElencoFattureFornitori({
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Fatture fornitori</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Spese registrate su Fatture in Cloud.</p>
-      </div>
-
       <BarraSincronizzazione collegamento={collegamento} puoSincronizzare={canEdit('fatture_fornitori')} />
       <BannerPagamentiFic problemi={problemi} puoRiprovare={canEdit('commesse')} />
 
       <div className="flex flex-wrap gap-2">
-        <Select value={String(anno)} onValueChange={(v) => router.push(`/fatture-fornitori?anno=${v}`)}>
+        <Select value={String(anno)} onValueChange={(v) => router.push(`/fatture-fornitori?scheda=fornitori&anno=${v}`)}>
           <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
           <SelectContent>
             {anni.map((a) => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}

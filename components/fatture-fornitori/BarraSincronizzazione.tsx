@@ -8,16 +8,28 @@ import { RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { anticipaSincronizzaDal, sincronizzaFattureFornitori } from '@/actions/fatture-in-cloud'
+import { anticipaSincronizzaDalEmesse, sincronizzaFattureEmesse } from '@/actions/fatture-emesse'
 import { formatData, formatDataOra, descriviConteggi } from '@/lib/fic/formato'
 import type { CollegamentoFic } from '@/types/fatture-fornitori'
+
+/** Quanto serve alla barra: vale per la sincronizzazione dei fornitori e per quella delle emesse. */
+export type StatoSincronizzazione = Pick<
+  CollegamentoFic,
+  'stato' | 'sincronizza_dal' | 'ultima_sync_at' | 'ultimo_esito' | 'ultimo_messaggio' | 'ultimi_conteggi'
+>
 
 export default function BarraSincronizzazione({
   collegamento,
   puoSincronizzare,
+  tipo = 'fornitori',
 }: {
-  collegamento: CollegamentoFic | null
+  collegamento: StatoSincronizzazione | null
   puoSincronizzare: boolean
+  tipo?: 'fornitori' | 'clienti'
 }) {
+  const azioni = tipo === 'clienti'
+    ? { sincronizza: sincronizzaFattureEmesse, anticipa: anticipaSincronizzaDalEmesse }
+    : { sincronizza: sincronizzaFattureFornitori, anticipa: anticipaSincronizzaDal }
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [nuovaData, setNuovaData] = useState<string | null>(null)
@@ -26,7 +38,7 @@ export default function BarraSincronizzazione({
     if (!nuovaData) return
     startTransition(async () => {
       try {
-        const r = await anticipaSincronizzaDal(nuovaData)
+        const r = await azioni.anticipa(nuovaData)
         if (!r.ok) { toast.error(r.errore); return }
         toast.success('Data anticipata: ora premi Sincronizza')
         setNuovaData(null)
@@ -42,7 +54,7 @@ export default function BarraSincronizzazione({
       // La chiamata dura fino a qualche minuto: se cade la connessione (telefono in
       // standby, timeout) React 19 porterebbe l'errore al boundary. Meglio un avviso.
       try {
-        const r = await sincronizzaFattureFornitori()
+        const r = await azioni.sincronizza()
         if (r.esito === 'ok') toast.success(`Sincronizzazione completata: ${descriviConteggi(r.conteggi)}`)
         else if (r.esito === 'parziale') toast.warning(r.messaggio)
         else toast.error(r.messaggio)

@@ -1,14 +1,40 @@
 import type { ConteggiSync } from '@/types/fatture-fornitori'
 import { FicTroppeRichieste, type FicClient } from '@/lib/fic/client'
 import { confronta, type VoceLocale } from '@/lib/fic/confronto'
-import { mappaDocumento, type DocumentoMappato } from '@/lib/fic/mappa'
-import type { DocumentoFic, TipoSpesaFic } from '@/lib/fic/tipi'
+import { mappaDocumento, mappaEmesso, type DocumentoMappato, type EmessoMappato } from '@/lib/fic/mappa'
+import type { DocumentoFic, TipoEmessoFic, TipoSpesaFic } from '@/lib/fic/tipi'
 
 /** Dove finiscono i dati: Supabase nelle Server Action, un finto nei test. */
-export type ArchivioFatture = {
+export type ArchivioFatture<M = DocumentoMappato> = {
   vociLocali: () => Promise<VoceLocale[]>
-  salva: (documenti: DocumentoMappato[]) => Promise<void>
+  salva: (documenti: M[]) => Promise<void>
   elimina: (ficIds: number[]) => Promise<void>
+}
+
+/** Da dove si leggono i documenti e come diventano righe: fatture ricevute o emesse. */
+export type FonteDocumenti<M> = {
+  tipi: string[]
+  elenco: (tipo: string, dal: string) => Promise<DocumentoFic[]>
+  dettaglio: (id: number) => Promise<DocumentoFic>
+  mappa: (doc: DocumentoFic, tipo: string, ora: string) => M
+}
+
+export function fonteFornitori(client: FicClient, companyId: number): FonteDocumenti<DocumentoMappato> {
+  return {
+    tipi: ['expense', 'passive_credit_note'],
+    elenco: (tipo, dal) => client.elencoSpese(companyId, tipo as TipoSpesaFic, dal),
+    dettaglio: (id) => client.spesa(companyId, id),
+    mappa: (doc, tipo, ora) => mappaDocumento(doc, tipo as TipoSpesaFic, ora),
+  }
+}
+
+export function fonteEmesse(client: FicClient, companyId: number): FonteDocumenti<EmessoMappato> {
+  return {
+    tipi: ['invoice', 'credit_note'],
+    elenco: (tipo, dal) => client.elencoEmessi(companyId, tipo as TipoEmessoFic, dal),
+    dettaglio: (id) => client.emesso(companyId, id),
+    mappa: (doc, tipo, ora) => mappaEmesso(doc, tipo as TipoEmessoFic, ora),
+  }
 }
 
 export type MotivoStop = 'budget' | 'tempo' | 'troppe_richieste'
@@ -21,19 +47,19 @@ export type RisultatoSync = {
   motivoStop: MotivoStop | null
 }
 
-export type OpzioniSync = {
+export type OpzioniSync<M = DocumentoMappato> = {
   client: FicClient
-  archivio: ArchivioFatture
+  archivio: ArchivioFatture<M>
   companyId: number
   dal: string
   budgetChiamate: number
   limiteMs: number
   adesso?: () => number
+  /** Senza fonte: fatture dei fornitori. */
+  fonte?: FonteDocumenti<M>
 }
 
 export const LOTTO_SALVATAGGIO = 50
-
-const TIPI: TipoSpesaFic[] = ['expense', 'passive_credit_note']
 
 /**
  * Un giro di sincronizzazione.
@@ -46,14 +72,15 @@ const TIPI: TipoSpesaFic[] = ['expense', 'passive_credit_note']
  *    esaurito il budget il giro e' parziale e il successivo riprende da solo,
  *    perche' il confronto ritrova le mancanti.
  */
-export async function sincronizza(o: OpzioniSync): Promise<RisultatoSync> {
+export async function sincronizza<M = DocumentoMappato>(o: OpzioniSync<M>): Promise<RisultatoSync> {
   const adesso = o.adesso ?? Date.now
   const inizio = adesso()
   const ora = new Date().toISOString()
+  const fonte = o.fonte ?? (fonteFornitori(o.client, o.companyId) as unknown as FonteDocumenti<M>)
 
-  const perId = new Map<number, { doc: DocumentoFic; tipo: TipoSpesaFic }>()
-  for (const tipo of TIPI) {
-    for (const doc of await o.client.elencoSpese(o.companyId, tipo, o.dal)) {
+  const perId = new Map<number, { doc: DocumentoFic; tipo: string }>()
+  for (const tipo of fonte.tipi) {
+    for (const doc of await fonte.elenco(tipo, o.dal)) {
       perId.set(doc.id, { doc, tipo })
     }
   }
@@ -75,7 +102,7 @@ export async function sincronizza(o: OpzioniSync): Promise<RisultatoSync> {
   const conteggi: ConteggiSync = { nuove: 0, aggiornate: 0, eliminate: diff.eliminate.length }
   let motivoStop: MotivoStop | null = null
   let scaricate = 0
-  let lotto: DocumentoMappato[] = []
+  let lotto: M[] = []
   const svuota = async () => {
     if (lotto.length === 0) return
     const daSalvare = lotto
@@ -90,7 +117,7 @@ export async function sincronizza(o: OpzioniSync): Promise<RisultatoSync> {
       if (o.client.chiamate() >= o.budgetChiamate) { motivoStop = 'budget'; break }
       if (adesso() - inizio >= o.limiteMs) { motivoStop = 'tempo'; break }
       try {
-        completo = await o.client.spesa(o.companyId, id)
+        completo = await fonte.dettaglio(id)
       } catch (e) {
         if (e instanceof FicTroppeRichieste) { motivoStop = 'troppe_richieste'; break }
         await svuota()
@@ -99,7 +126,7 @@ export async function sincronizza(o: OpzioniSync): Promise<RisultatoSync> {
     }
     // Si salva la data di modifica dell'elenco, la stessa che il confronto usera' al giro dopo:
     // se il dettaglio la riportasse in un altro formato, ogni giro rivedrebbe la fattura come modificata.
-    lotto.push(mappaDocumento({ ...completo, updated_at: doc.updated_at }, tipo, ora))
+    lotto.push(fonte.mappa({ ...completo, updated_at: doc.updated_at }, tipo, ora))
     scaricate++
     if (nuove.has(id)) conteggi.nuove++
     else conteggi.aggiornate++

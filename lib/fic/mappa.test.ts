@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mappaDocumento } from '@/lib/fic/mappa'
+import { mappaDocumento, mappaEmesso } from '@/lib/fic/mappa'
 import type { DocumentoFic } from '@/lib/fic/tipi'
 
 const ORA = '2026-09-28T12:00:00.000Z'
@@ -118,5 +118,85 @@ describe('mappaDocumento', () => {
     expect(fattura.importo_netto).toBe(10.01)
     expect(fattura.importo_iva).toBe(2.2)
     expect(fattura.importo_lordo).toBe(12.21)
+  })
+})
+
+describe('mappaEmesso', () => {
+  const emesso = (over: Partial<DocumentoFic> = {}): DocumentoFic => ({
+    id: 549033531,
+    date: '2026-08-31',
+    updated_at: '2026-09-16 07:34:40',
+    number: 89,
+    numeration: '',
+    e_invoice: true,
+    entity: { id: 77, name: 'CONDOMINIO SCIURCA', vat_number: '', tax_code: '90004160827' },
+    amount_net: 200,
+    amount_vat: 44,
+    amount_withholding_tax: 8,
+    amount_gross: 236,
+    url: 'https://temporaneo/pdf',
+    attachment_url: null,
+    permanent_token: 'segreto',
+    payments_list: [
+      { id: 1, amount: 100, due_date: '2026-09-30', paid_date: null, status: 'not_paid' },
+      { id: 2, amount: 136, due_date: '2026-08-31', paid_date: '2026-09-16', status: 'paid', payment_account: { id: 546835, name: 'Bonifico' } },
+    ],
+    ...over,
+  })
+
+  it('mappa una fattura con numero, cliente, ritenuta e rate', () => {
+    const { fattura, rate } = mappaEmesso(emesso(), 'invoice', ORA)
+    expect(fattura).toMatchObject({
+      fic_id: 549033531,
+      tipo: 'fattura',
+      numero: '89',
+      data: '2026-08-31',
+      cliente_fic_id: 77,
+      cliente_nome: 'CONDOMINIO SCIURCA',
+      cliente_piva: '90004160827',
+      importo_netto: 200,
+      importo_iva: 44,
+      ritenuta: 8,
+      importo_lordo: 236,
+      elettronica: true,
+      fic_updated_at: '2026-09-16 07:34:40',
+      sincronizzata_at: ORA,
+    })
+    expect(rate.map((r) => [r.importo, r.stato])).toEqual([[100, 'da_pagare'], [136, 'pagata']])
+    expect(rate[1]).toMatchObject({ conto_fic_id: 546835, conto_nome: 'Bonifico', pagata_il: '2026-09-16' })
+  })
+
+  it('prossima scadenza = la prima rata non incassata', () => {
+    expect(mappaEmesso(emesso(), 'invoice', ORA).fattura.prossima_scadenza).toBe('2026-09-30')
+    const tutteIncassate = emesso({ payments_list: [{ id: 1, amount: 236, due_date: '2026-08-31', status: 'paid' }] })
+    expect(mappaEmesso(tutteIncassate, 'invoice', ORA).fattura.prossima_scadenza).toBeNull()
+  })
+
+  it('compone il numero col suffisso della numerazione', () => {
+    expect(mappaEmesso(emesso({ numeration: '/A' }), 'invoice', ORA).fattura.numero).toBe('89/A')
+    expect(mappaEmesso(emesso({ numeration: 'FE' }), 'invoice', ORA).fattura.numero).toBe('89/FE')
+    expect(mappaEmesso(emesso({ number: null }), 'invoice', ORA).fattura.numero).toBeNull()
+  })
+
+  it('le note di credito hanno importi negativi e rate positive', () => {
+    const { fattura, rate } = mappaEmesso(emesso({ amount_withholding_tax: 0, amount_gross: 244 }), 'credit_note', ORA)
+    expect(fattura.tipo).toBe('nota_credito')
+    expect(fattura.importo_netto).toBe(-200)
+    expect(fattura.importo_iva).toBe(-44)
+    expect(fattura.importo_lordo).toBe(-244)
+    expect(rate.every((r) => r.importo > 0)).toBe(true)
+  })
+
+  it('senza partita IVA usa il codice fiscale; senza nome un segnaposto', () => {
+    const f = mappaEmesso(emesso({ entity: { name: '  ', vat_number: '01234567890', tax_code: 'X' } }), 'invoice', ORA).fattura
+    expect(f.cliente_piva).toBe('01234567890')
+    expect(f.cliente_nome).toBe('(senza cliente)')
+  })
+
+  it('non conserva link temporanei ne\' il token permanente', () => {
+    const { fattura } = mappaEmesso(emesso(), 'invoice', ORA)
+    expect(fattura.fic_dati).not.toHaveProperty('url')
+    expect(fattura.fic_dati).not.toHaveProperty('attachment_url')
+    expect(fattura.fic_dati).not.toHaveProperty('permanent_token')
   })
 })

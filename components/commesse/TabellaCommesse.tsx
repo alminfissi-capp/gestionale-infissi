@@ -679,7 +679,8 @@ export default function TabellaCommesse({
     if (!deletingId) return
     setDeleting(true)
     try {
-      await deleteCommessa(deletingId)
+      const r = await deleteCommessa(deletingId)
+      if (!r.ok) { toast.error(r.errore); return }
       toast.success('Commessa eliminata')
       router.refresh()
     } catch {

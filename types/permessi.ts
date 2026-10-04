@@ -32,7 +32,7 @@ export const MODULO_LABELS: Record<ModuloApp, string> = {
   commesse:     'Commesse',
   dipendenti:   'Dipendenti',
   produzione:   'Produzione',
-  fatture_fornitori: 'Fatture fornitori',
+  fatture_fornitori: 'Fatture',
   impostazioni: 'Impostazioni',
 }
 

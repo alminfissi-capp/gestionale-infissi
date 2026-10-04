@@ -14,6 +14,7 @@ import { salvaDocumenti } from '@/lib/fic/salvataggio'
 import { tabelleSupabase } from '@/lib/fic/tabelle-supabase'
 import { erroreAnticipo, erroreDataSincronizzaDal } from '@/lib/fic/validazione'
 import { oggiRoma } from '@/lib/fic/stato-pagamento'
+import { blocchi, leggiToken, messaggioErrore } from '@/lib/fic/servizio'
 import {
   CONTEGGI_VUOTI,
   type AziendaFic,
@@ -40,23 +41,6 @@ async function erroreSeNonPuoiModificareImpostazioni(): Promise<string | null> {
   return permessi.impostazioni === 'scrittura' ? null : 'Non autorizzato a modificare le impostazioni'
 }
 
-/** Il token esce dal Vault solo qui, lato server, e solo per l'organizzazione dell'utente. */
-async function leggiToken(svc: SupabaseClient, orgId: string): Promise<string> {
-  const { data, error } = await svc.rpc('fic_leggi_token', { p_org: orgId })
-  if (error) throw new Error(error.message)
-  if (!data) throw new FicNonAutorizzato()
-  return data as string
-}
-
-function messaggioErrore(e: unknown): string {
-  if (e instanceof FicNonAutorizzato) return 'Token non valido, revocato o senza i permessi necessari'
-  if (e instanceof FicTroppeRichieste) return 'Troppe richieste a Fatture in Cloud: riprova fra qualche minuto'
-  return e instanceof Error ? e.message : 'Errore sconosciuto'
-}
-
-function blocchi<T>(xs: T[], n: number): T[][] {
-  return Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n))
-}
 
 // ── Collegamento ────────────────────────────────────────────────────────────
 
@@ -125,6 +109,8 @@ export async function salvaCollegamentoFic(input: {
   if (cambioAzienda) {
     const { error } = await svc.from('fatture_fornitori').delete().eq('organization_id', orgId)
     if (error) return { ok: false, errore: error.message }
+    const { error: errEmesse } = await svc.from('fatture_emesse').delete().eq('organization_id', orgId)
+    if (errEmesse) return { ok: false, errore: errEmesse.message }
   }
 
   // "Sincronizza dal" non si cambia dopo la prima sincronizzazione completata della stessa azienda.
@@ -140,7 +126,11 @@ export async function salvaCollegamentoFic(input: {
       stato: 'attivo',
       updated_at: new Date().toISOString(),
       ...(cambioAzienda
-        ? { ultima_sync_at: null, ultimo_esito: null, ultimo_esito_at: null, ultimo_messaggio: null, ultimi_conteggi: null }
+        ? {
+            ultima_sync_at: null, ultimo_esito: null, ultimo_esito_at: null, ultimo_messaggio: null, ultimi_conteggi: null,
+            emesse_sincronizza_dal: null, emesse_ultima_sync_at: null, emesse_ultimo_esito: null,
+            emesse_ultimo_esito_at: null, emesse_ultimo_messaggio: null, emesse_ultimi_conteggi: null, metodi_incasso: null,
+          }
         : {}),
     },
     { onConflict: 'organization_id' },

@@ -1,5 +1,5 @@
 import type { AziendaFic } from '@/types/fatture-fornitori'
-import type { DocumentoFic, RataFic, TipoSpesaFic } from '@/lib/fic/tipi'
+import type { DocumentoFic, RataFic, TipoEmessoFic, TipoSpesaFic } from '@/lib/fic/tipi'
 
 export const FIC_BASE_URL = 'https://api-v2.fattureincloud.it'
 
@@ -39,7 +39,13 @@ export type FicClient = {
   spesa: (companyId: number, id: number) => Promise<DocumentoFic>
   aggiornaRate: (companyId: number, id: number, rate: RataFic[]) => Promise<DocumentoFic>
   metodiPagamento: (companyId: number) => Promise<{ id: number; nome: string }[]>
+  elencoEmessi: (companyId: number, tipo: TipoEmessoFic, dal: string) => Promise<DocumentoFic[]>
+  emesso: (companyId: number, id: number) => Promise<DocumentoFic>
+  aggiornaRateEmesso: (companyId: number, id: number, rate: RataFic[]) => Promise<DocumentoFic>
 }
+
+/** Documenti ricevuti (spese) ed emessi (vendite) hanno la stessa API, cambia solo il percorso. */
+type Archivio = 'received_documents' | 'issued_documents'
 
 type RispostaElenco = {
   data?: DocumentoFic[] | null
@@ -97,6 +103,36 @@ export function creaClientFic(token: string, fetchImpl: typeof fetch = fetch): F
   const get = <T,>(percorso: string, parametri: Record<string, string> = {}) =>
     richiesta<T>('GET', percorso, parametri)
 
+  async function elenco(companyId: number, archivio: Archivio, tipo: string, dal: string) {
+    const documenti: DocumentoFic[] = []
+    for (let pagina = 1; pagina <= MAX_PAGINE; pagina++) {
+      const r = await get<RispostaElenco>(`/c/${companyId}/${archivio}`, {
+        type: tipo,
+        fieldset: 'detailed',
+        per_page: '100',
+        page: String(pagina),
+        sort: 'id',
+        q: `date >= '${dal}'`,
+      })
+      documenti.push(...(r.data ?? []))
+      if (!r.last_page || pagina >= r.last_page) return documenti
+    }
+    throw new FicErrore(`Elenco Fatture in Cloud oltre ${MAX_PAGINE} pagine`, 0)
+  }
+
+  async function dettaglio(companyId: number, archivio: Archivio, id: number) {
+    const r = await get<{ data: DocumentoFic }>(`/c/${companyId}/${archivio}/${id}`, { fieldset: 'detailed' })
+    return r.data
+  }
+
+  async function aggiorna(companyId: number, archivio: Archivio, id: number, rate: RataFic[]) {
+    // Modalita' delta di FiC: si manda solo il campo che cambia.
+    const r = await richiesta<{ data: DocumentoFic }>('PUT', `/c/${companyId}/${archivio}/${id}`, {}, {
+      data: { payments_list: rate },
+    })
+    return r.data
+  }
+
   return {
     chiamate: () => n,
 
@@ -107,37 +143,12 @@ export function creaClientFic(token: string, fetchImpl: typeof fetch = fetch): F
       return (r.data?.companies ?? []).map((c) => ({ id: c.id, nome: c.name }))
     },
 
-    async elencoSpese(companyId, tipo, dal) {
-      const documenti: DocumentoFic[] = []
-      for (let pagina = 1; pagina <= MAX_PAGINE; pagina++) {
-        const r = await get<RispostaElenco>(`/c/${companyId}/received_documents`, {
-          type: tipo,
-          fieldset: 'detailed',
-          per_page: '100',
-          page: String(pagina),
-          sort: 'id',
-          q: `date >= '${dal}'`,
-        })
-        documenti.push(...(r.data ?? []))
-        if (!r.last_page || pagina >= r.last_page) return documenti
-      }
-      throw new FicErrore(`Elenco Fatture in Cloud oltre ${MAX_PAGINE} pagine`, 0)
-    },
-
-    async spesa(companyId, id) {
-      const r = await get<{ data: DocumentoFic }>(`/c/${companyId}/received_documents/${id}`, {
-        fieldset: 'detailed',
-      })
-      return r.data
-    },
-
-    async aggiornaRate(companyId, id, rate) {
-      // Modalita' delta di FiC: si manda solo il campo che cambia.
-      const r = await richiesta<{ data: DocumentoFic }>('PUT', `/c/${companyId}/received_documents/${id}`, {}, {
-        data: { payments_list: rate },
-      })
-      return r.data
-    },
+    elencoSpese: (companyId, tipo, dal) => elenco(companyId, 'received_documents', tipo, dal),
+    spesa: (companyId, id) => dettaglio(companyId, 'received_documents', id),
+    aggiornaRate: (companyId, id, rate) => aggiorna(companyId, 'received_documents', id, rate),
+    elencoEmessi: (companyId, tipo, dal) => elenco(companyId, 'issued_documents', tipo, dal),
+    emesso: (companyId, id) => dettaglio(companyId, 'issued_documents', id),
+    aggiornaRateEmesso: (companyId, id, rate) => aggiorna(companyId, 'issued_documents', id, rate),
 
     async metodiPagamento(companyId) {
       const r = await get<{ data?: { id: number; name: string }[] | null }>(`/c/${companyId}/settings/payment_accounts`)

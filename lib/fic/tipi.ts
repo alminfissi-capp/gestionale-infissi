@@ -4,6 +4,7 @@
  * vuoti, e l'elenco "detailed" potrebbe non includere payments_list.
  */
 export type TipoSpesaFic = 'expense' | 'passive_credit_note'
+export type TipoEmessoFic = 'invoice' | 'credit_note'
 
 export type RataFic = {
   id?: number | null
@@ -18,6 +19,7 @@ export type EntitaFic = {
   id?: number | null
   name?: string | null
   vat_number?: string | null
+  tax_code?: string | null
 } | null
 
 export type DocumentoFic = {
@@ -29,6 +31,9 @@ export type DocumentoFic = {
   category?: string | null
   description?: string | null
   invoice_number?: string | null
+  /** Solo documenti emessi: numero progressivo e suffisso della numerazione. */
+  number?: number | null
+  numeration?: string | null
   e_invoice?: boolean | null
   amount_net?: number | null
   amount_vat?: number | null

@@ -7,7 +7,7 @@ import Link from 'next/link'
 import {
   Pencil, X, Plus, Trash2, Upload, FileText,
   Eye, Share2, Check, ExternalLink, Printer,
-  MapPin, Navigation, MoreVertical, FileBarChart, TriangleAlert, ChevronsUpDown, Calculator,
+  MapPin, Navigation, MoreVertical, FileBarChart, ReceiptText, TriangleAlert, ChevronsUpDown, Calculator,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -45,6 +45,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import DialogResoconto from '@/components/commesse/DialogResoconto'
+import DialogFattureEmesse from '@/components/fatture-emesse/DialogFattureEmesse'
+import {
+  PulsanteFicIncasso, SezioneFattureIncasso, quoteConfermate, salvaFattureDiIncasso, useFattureIncasso,
+} from '@/components/fatture-emesse/SezioneFattureIncasso'
+import { getStatoFicCommessa, type StatoFicCommessa } from '@/actions/fic-incassi'
 import SpuntaRitenuta from '@/components/commesse/SpuntaRitenuta'
 import RitenutaAccontoRiga from '@/components/commesse/RitenutaAccontoRiga'
 import { createClient } from '@/lib/supabase/client'
@@ -190,6 +195,21 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
   // Acconti
   const [showAddAcconto, setShowAddAcconto] = useState(false)
   const [newAcconto, setNewAcconto] = useState<AccontoInput>(emptyAcconto())
+  const [registrati, setRegistrati] = useState(0)
+  const [statoFic, setStatoFic] = useState<StatoFicCommessa | null>(null)
+  const incassoNuovo = useMemo(
+    () => ({ importo: newAcconto.importo, ritenuta: newAcconto.ritenuta, ritenuta_tipo: newAcconto.ritenuta_tipo }),
+    [newAcconto.importo, newAcconto.ritenuta, newAcconto.ritenuta_tipo],
+  )
+  const fattureIncasso = useFattureIncasso(
+    commessa?.id ?? '', null, incassoNuovo, open && isOnline && showAddAcconto && Boolean(commessa), registrati,
+  )
+  useEffect(() => {
+    if (!open || !isOnline || !commessa) return
+    let annullato = false
+    getStatoFicCommessa(commessa.id).then((s) => { if (!annullato) setStatoFic(s) }).catch(() => {})
+    return () => { annullato = true }
+  }, [open, isOnline, commessa, registrati])
   const [addingAcconto, setAddingAcconto] = useState(false)
   const [deletingAccontoId, setDeletingAccontoId] = useState<string | null>(null)
 
@@ -200,6 +220,7 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
 
   // Stampa
   const [resocontoAperto, setResocontoAperto] = useState(false)
+  const [fattureEmesseAperte, setFattureEmesseAperte] = useState(false)
   const [stampaDialogOpen, setStampaDialogOpen] = useState(false)
   const [stampaDocSelezioni, setStampaDocSelezioni] = useState<string[]>([])
 
@@ -513,10 +534,14 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
       toast.error('Inserisci un importo valido')
       return
     }
+    if (!quoteConfermate(fattureIncasso)) return
     setAddingAcconto(true)
     try {
-      await addAcconto(commessa.id, newAcconto)
+      const id = await addAcconto(commessa.id, newAcconto)
       toast.success('Acconto registrato')
+      await salvaFattureDiIncasso(id, fattureIncasso)
+      fattureIncasso.setManuali(null)
+      setRegistrati((n) => n + 1)
       setNewAcconto(emptyAcconto())
       setShowAddAcconto(false)
       router.refresh()
@@ -530,7 +555,8 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
   const handleDeleteAcconto = async (id: string) => {
     setDeletingAccontoId(id)
     try {
-      await deleteAcconto(id)
+      const r = await deleteAcconto(id)
+      if (!r.ok) { toast.error(r.errore); return }
       toast.success('Acconto eliminato')
       router.refresh()
     } catch {
@@ -740,6 +766,10 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                         Contabilità
                       </Link>
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setFattureEmesseAperte(true)}>
+                      <ReceiptText className="h-3.5 w-3.5 mr-2" />
+                      Fatture emesse
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
@@ -752,6 +782,13 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
           open={resocontoAperto}
           onOpenChange={setResocontoAperto}
           commessa={commessa}
+        />
+
+        {/* ── Fatture emesse su FiC collegate alla commessa ── */}
+        <DialogFattureEmesse
+          open={fattureEmesseAperte}
+          onOpenChange={setFattureEmesseAperte}
+          commessaId={commessa.id}
         />
 
         {/* ── Dialog selezione documenti per stampa ── */}
@@ -1170,6 +1207,9 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                       >
                         <FileText className="h-3.5 w-3.5" />
                       </Button>
+                      {statoFic && (statoFic.haFatture || statoFic.incassi[a.id]) && (
+                        <PulsanteFicIncasso commessaId={commessa.id} acconto={a} riepilogo={statoFic.incassi[a.id]} />
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -1257,6 +1297,7 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
                     motivoDetrazioniDisabilitata={motiviRitenutaCommessa.detrazioni}
                     motivoCondominioDisabilitata={motiviRitenutaCommessa.condominio}
                   />
+                  {isOnline && <SezioneFattureIncasso stato={fattureIncasso} metodo={newAcconto.metodo_pagamento} />}
                   <div className="flex gap-2 justify-end">
                     <Button type="button" variant="ghost" size="sm" onClick={() => setShowAddAcconto(false)}>
                       Annulla

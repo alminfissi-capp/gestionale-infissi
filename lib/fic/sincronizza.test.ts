@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { sincronizza, messaggioParziale, type ArchivioFatture } from '@/lib/fic/sincronizza'
+import { sincronizza, messaggioParziale, fonteEmesse, type ArchivioFatture } from '@/lib/fic/sincronizza'
 import { FicErrore, FicTroppeRichieste, type FicClient } from '@/lib/fic/client'
-import type { DocumentoFic, TipoSpesaFic } from '@/lib/fic/tipi'
-import type { DocumentoMappato } from '@/lib/fic/mappa'
+import type { DocumentoFic, TipoEmessoFic, TipoSpesaFic } from '@/lib/fic/tipi'
+import type { DocumentoMappato, EmessoMappato } from '@/lib/fic/mappa'
 import type { VoceLocale } from '@/lib/fic/confronto'
 
 const rata = { id: 1, amount: 10, due_date: '2026-01-31', status: 'not_paid' }
@@ -17,7 +17,7 @@ const d = (id: number, updated_at = 'u1', conRate = true, date = '2026-01-10'): 
 })
 
 function clientFinto(
-  elenco: Partial<Record<TipoSpesaFic, DocumentoFic[] | Error>>,
+  elenco: Partial<Record<TipoSpesaFic | TipoEmessoFic, DocumentoFic[] | Error>>,
   opz: { dettaglio?: (id: number) => DocumentoFic | Error } = {},
 ): FicClient & { richiesteDettaglio: number[] } {
   let n = 0
@@ -28,11 +28,23 @@ function clientFinto(
     aziende: async () => [],
     aggiornaRate: async () => { throw new Error('non usato') },
     metodiPagamento: async () => [],
+    aggiornaRateEmesso: async () => { throw new Error('non usato') },
     elencoSpese: async (_c, tipo) => {
       n++
       const r = elenco[tipo] ?? []
       if (r instanceof Error) throw r
       return r
+    },
+    elencoEmessi: async (_c, tipo) => {
+      n++
+      const r = elenco[tipo] ?? []
+      if (r instanceof Error) throw r
+      return r
+    },
+    emesso: async (_c, id) => {
+      n++
+      richiesteDettaglio.push(id)
+      return { ...d(id), payments_list: [rata] }
     },
     spesa: async (_c, id) => {
       n++
@@ -189,6 +201,24 @@ describe('sincronizza', () => {
     const a = archivioFinto()
     await sincronizza({ ...base, client: clientFinto({ expense: docs }), archivio: a.archivio })
     expect(a.lotti).toEqual([50, 50, 20])
+  })
+})
+
+describe('sincronizza con la fonte delle fatture emesse', () => {
+  it('legge fatture e note di credito emesse e le mappa come emesse', async () => {
+    const client = clientFinto({ invoice: [d(1)], credit_note: [d(2, 'u1', false)], expense: [d(9)] })
+    const salvati: EmessoMappato[] = []
+    const archivio: ArchivioFatture<EmessoMappato> = {
+      vociLocali: async () => [],
+      salva: async (docs) => { salvati.push(...docs) },
+      elimina: async () => {},
+    }
+    const r = await sincronizza({ ...base, client, archivio, fonte: fonteEmesse(client, 42) })
+    expect(r.conteggi.nuove).toBe(2)
+    expect(salvati.map((s) => [s.fattura.fic_id, s.fattura.tipo, s.fattura.cliente_nome])).toEqual(
+      expect.arrayContaining([[1, 'fattura', 'Fornitore 1'], [2, 'nota_credito', 'Fornitore 2']]),
+    )
+    expect(client.richiesteDettaglio).toEqual([2])
   })
 })
 

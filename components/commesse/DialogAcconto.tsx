@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Trash2, Plus } from 'lucide-react'
@@ -30,6 +30,10 @@ import { formatEuro } from '@/lib/pricing'
 import type { AccontoCommessa, AccontoInput, MetodoPagamento } from '@/types/commessa'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { db } from '@/lib/db'
+import { getStatoFicCommessa, type StatoFicCommessa } from '@/actions/fic-incassi'
+import {
+  PulsanteFicIncasso, SezioneFattureIncasso, quoteConfermate, salvaFattureDiIncasso, useFattureIncasso,
+} from '@/components/fatture-emesse/SezioneFattureIncasso'
 
 interface Props {
   open: boolean
@@ -70,6 +74,20 @@ export default function DialogAcconto({ open, onOpenChange, commessaId, clienteN
   const [form, setForm] = useState<AccontoInput>(emptyForm())
   const [loading, setLoading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [registrati, setRegistrati] = useState(0)
+  const [statoFic, setStatoFic] = useState<StatoFicCommessa | null>(null)
+  const incasso = useMemo(
+    () => ({ importo: form.importo, ritenuta: form.ritenuta, ritenuta_tipo: form.ritenuta_tipo }),
+    [form.importo, form.ritenuta, form.ritenuta_tipo],
+  )
+  const fattureIncasso = useFattureIncasso(commessaId, null, incasso, open && isOnline, registrati)
+
+  useEffect(() => {
+    if (!open || !isOnline) return
+    let annullato = false
+    getStatoFicCommessa(commessaId).then((s) => { if (!annullato) setStatoFic(s) }).catch(() => {})
+    return () => { annullato = true }
+  }, [open, isOnline, commessaId, registrati, acconti])
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -88,9 +106,13 @@ export default function DialogAcconto({ open, onOpenChange, commessaId, clienteN
         toast.success('Acconto salvato offline. Verrà sincronizzato al ritorno in rete.')
         setForm(emptyForm())
       } else {
-        await addAcconto(commessaId, form)
+        if (!quoteConfermate(fattureIncasso)) return
+        const id = await addAcconto(commessaId, form)
         toast.success('Acconto registrato')
+        await salvaFattureDiIncasso(id, fattureIncasso)
         setForm(emptyForm())
+        fattureIncasso.setManuali(null)
+        setRegistrati((n) => n + 1)
         router.refresh()
       }
     } catch {
@@ -103,7 +125,8 @@ export default function DialogAcconto({ open, onOpenChange, commessaId, clienteN
   const handleDelete = async (id: string) => {
     setDeletingId(id)
     try {
-      await deleteAcconto(id)
+      const r = await deleteAcconto(id)
+      if (!r.ok) { toast.error(r.errore); return }
       toast.success('Acconto eliminato')
       router.refresh()
     } catch {
@@ -125,7 +148,7 @@ export default function DialogAcconto({ open, onOpenChange, commessaId, clienteN
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md xl:max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg xl:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Acconti — {clienteNome}</DialogTitle>
         </DialogHeader>
@@ -148,6 +171,10 @@ export default function DialogAcconto({ open, onOpenChange, commessaId, clienteN
                     motivoCondominioDisabilitata={motivi.condominio}
                   />
                 </div>
+                <div className="flex items-center">
+                {statoFic && (statoFic.haFatture || statoFic.incassi[a.id]) && (
+                  <PulsanteFicIncasso commessaId={commessaId} acconto={a} riepilogo={statoFic.incassi[a.id]} />
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -157,6 +184,7 @@ export default function DialogAcconto({ open, onOpenChange, commessaId, clienteN
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
+                </div>
               </div>
             ))}
             <p className="text-xs text-right text-gray-500 font-medium">
@@ -241,6 +269,7 @@ export default function DialogAcconto({ open, onOpenChange, commessaId, clienteN
               placeholder="Riferimento, descrizione..."
             />
           </div>
+          {isOnline && <SezioneFattureIncasso stato={fattureIncasso} metodo={form.metodo_pagamento} />}
           <Button type="submit" disabled={loading} className="w-full">
             {loading ? 'Registrazione...' : 'Registra acconto'}
           </Button>
