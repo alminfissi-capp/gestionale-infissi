@@ -93,7 +93,7 @@ export default function PaginaDipendenti({ dipendenti }: Props) {
                       </span>
                     )}
                     {d.riceve_busta_paga && d.mesi_aperti > 0 && (
-                      <span className="mt-0.5 block text-[10px] font-normal text-gray-500 sm:hidden">
+                      <span className="mt-0.5 block text-[10px] font-medium text-red-600 dark:text-red-400 sm:hidden">
                         {d.mesi_aperti === 1 ? '1 mese aperto' : `${d.mesi_aperti} mesi aperti`}
                       </span>
                     )}
@@ -119,7 +119,10 @@ export default function PaginaDipendenti({ dipendenti }: Props) {
                   >
                     {d.riceve_busta_paga ? formatEuro(d.residuo) : '—'}
                   </td>
-                  <td className="hidden px-3 py-2.5 text-right sm:table-cell">
+                  <td className={cn(
+                    'hidden px-3 py-2.5 text-right sm:table-cell',
+                    d.riceve_busta_paga && d.mesi_aperti > 0 && 'font-semibold text-red-600 dark:text-red-400',
+                  )}>
                     {d.riceve_busta_paga
                       ? d.mesi_aperti
                       : <span className="text-gray-400">—</span>}
@@ -140,7 +143,7 @@ export default function PaginaDipendenti({ dipendenti }: Props) {
                 >
                   {formatEuro(totali.residuo)}
                 </td>
-                <td className="hidden px-3 py-2.5 text-right sm:table-cell">{totali.mesi_aperti}</td>
+                <td className={cn('hidden px-3 py-2.5 text-right sm:table-cell', totali.mesi_aperti > 0 && 'text-red-600 dark:text-red-400')}>{totali.mesi_aperti}</td>
               </tr>
             </tfoot>
           </table>
