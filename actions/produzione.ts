@@ -500,6 +500,7 @@ export async function createOrdine(input: OrdineInput): Promise<string> {
   if (calendario !== undefined) {
     await sincronizzaEventoOrdine(data.id, orgId, { ...input, calendario })
     revalidatePath('/calendario')
+    revalidatePath('/produzione/calendario')
   }
   revalidatePath('/produzione', 'layout')
   return data.id
@@ -524,6 +525,7 @@ export async function updateOrdine(id: string, input: OrdineInput): Promise<void
   if (calendario !== undefined) {
     await sincronizzaEventoOrdine(id, orgId, { ...input, calendario })
     revalidatePath('/calendario')
+    revalidatePath('/produzione/calendario')
   }
   revalidatePath('/produzione', 'layout')
 }

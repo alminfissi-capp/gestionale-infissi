@@ -1,4 +1,5 @@
 // app/(dashboard)/produzione/calendario/page.tsx
+import { istanteGenerazione } from '@/lib/istante-generazione'
 import { getMyPermissions, requireAccesso } from '@/lib/permessi'
 import {
   getEventiProduzione, getOrariLavoro, getChiusure, getCommesseAperte, getTipiAttivita,
@@ -45,6 +46,7 @@ export default async function CalendarioProduzionePage({
       chiusure={chiusure}
       commesse={commesse}
       modificabile={modificabile}
+      generataAlle={istanteGenerazione()}
     />
   )
 }
