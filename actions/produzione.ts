@@ -27,6 +27,7 @@ import type {
 import type { StatoCommessa } from '@/types/commessa'
 import { calcolaAvanzamento, AVANZAMENTO_VUOTO } from '@/lib/avanzamento'
 import { getAspettiTipo } from '@/actions/calendario'
+import { getSettings, getLogoSignedUrl } from '@/actions/impostazioni'
 
 type FornitoreOpzione = { id: string; nome: string; email: string | null }
 
@@ -190,6 +191,44 @@ export async function getTuttiGliOrdini(): Promise<OrdineConContesto[]> {
       cliente_nome: ctx?.cliente_nome ?? null,
     }
   })
+}
+
+/**
+ * Un solo ordine con righe e contesto commessa, piu' l'intestazione aziendale:
+ * quanto serve per generarne il PDF da fuori dall'elenco ordini (es. dal calendario).
+ */
+export async function getOrdinePerPdf(ordineId: string): Promise<{
+  ordine: OrdineConContesto
+  intestazione: { denominazione: string; indirizzo: string; piva: string; logoUrl: string | null }
+} | null> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const [{ data: ordine }, fornitori, settings] = await Promise.all([
+    supabase.from('ordini_fornitore').select('*').eq('organization_id', orgId).eq('id', ordineId).maybeSingle(),
+    getFornitoriPerOrdine(),
+    getSettings(),
+  ])
+  if (!ordine) return null
+
+  const [{ data: righe }, { data: commessa }, logoUrl] = await Promise.all([
+    supabase.from('righe_ordine_fornitore').select('*').eq('ordine_id', ordineId).order('ordine', { ascending: true }),
+    ordine.commessa_id
+      ? supabase.from('commesse').select('numero_commessa, cliente_nome').eq('id', ordine.commessa_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    settings?.logo_url ? getLogoSignedUrl(settings.logo_url) : Promise.resolve(null),
+  ])
+  const righePerOrdine = new Map<string, RigaOrdine[]>([[ordineId, numeraRighe((righe ?? []) as RigaOrdine[])]])
+  const [completo] = componiOrdini([ordine], fornitori, righePerOrdine)
+  const ctx = commessa as { numero_commessa: string; cliente_nome: string } | null
+  return {
+    ordine: { ...completo, numero_commessa: ctx?.numero_commessa ?? null, cliente_nome: ctx?.cliente_nome ?? null },
+    intestazione: {
+      denominazione: settings?.denominazione ?? 'A.L.M. Infissi',
+      indirizzo: settings?.indirizzo ?? '',
+      piva: settings?.piva ?? '',
+      logoUrl,
+    },
+  }
 }
 
 export async function getCruscottoProduzione(

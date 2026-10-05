@@ -15,6 +15,7 @@ import { fasciaGriglia, minutiDaOra, oraDaMinuti, snapMinuti } from '@/lib/calen
 import { spostaEvento } from '@/actions/calendario'
 import GrigliaGantt from './GrigliaGantt'
 import DialogEvento, { type NuovoEvento } from './DialogEvento'
+import { usePdfOrdine } from '@/components/produzione/usePdfOrdine'
 import CodaDaPianificare, { PREFISSO_VOCE } from './CodaDaPianificare'
 import DialogSceltaCommessa from './DialogSceltaCommessa'
 import ListaGiorniMobile from './ListaGiorniMobile'
@@ -58,6 +59,12 @@ export default function CalendarioProduzione({
   useAggiornaSeVecchia(generataAlle)
   const [inCorso, startTransition] = useTransition()
   const [eventoAperto, setEventoAperto] = useState<EventoConContesto | null>(null)
+  const pdfOrdine = usePdfOrdine()
+  // Gli arrivi di un ordine si gestiscono dall'ordine: il clic ne apre il PDF.
+  const apriEvento = (evento: EventoConContesto) => {
+    if (evento.ordine_id) void pdfOrdine.apri(evento.ordine_id)
+    else setEventoAperto(evento)
+  }
   const [nuovo, setNuovo] = useState<NuovoEvento | null>(null)
   const [slotScelta, setSlotScelta] = useState<{ data: string; ora: string } | null>(null)
 
@@ -230,7 +237,7 @@ export default function CalendarioProduzione({
                 tipi={tipiProduzione}
                 orari={orari}
                 chiusure={chiusure}
-                onApriEvento={setEventoAperto}
+                onApriEvento={apriEvento}
                 onPistaNodo={(nodo) => {
                   const larghezza = nodo?.offsetWidth ?? 0
                   if (larghezza > 0 && larghezza !== larghezzaPista) setLarghezzaPista(larghezza)
@@ -252,7 +259,7 @@ export default function CalendarioProduzione({
           aspetti={aspetti}
           orari={orari}
           chiusure={chiusure}
-          onApriEvento={setEventoAperto}
+          onApriEvento={apriEvento}
         />
       </div>
 
@@ -276,6 +283,8 @@ export default function CalendarioProduzione({
           }}
         />
       )}
+
+      {pdfOrdine.visualizzatore}
 
       {(eventoAperto || nuovo) && (
         <DialogEvento
