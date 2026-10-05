@@ -246,9 +246,9 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      {/* Header: su schermi stretti i tasti scendono sotto al titolo e vanno a capo */}
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between xl:gap-4">
+        <div className="min-w-0">
           <div className="flex items-center gap-3 mb-1">
             <Button variant="ghost" size="sm" asChild className="-ml-2">
               <Link href={backHref}>
@@ -257,8 +257,8 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
               </Link>
             </Button>
           </div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h1 className="break-words text-xl font-bold text-gray-900 sm:text-2xl">
               {p.numero ? `Preventivo ${p.numero}` : 'Preventivo senza numero'}
             </h1>
             <Badge variant={cfg.variant}>{cfg.label}</Badge>
@@ -276,14 +276,14 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" asChild>
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 xl:shrink-0 xl:justify-end">
+          <Button variant="outline" size="sm" className="max-sm:h-8 max-sm:px-2 max-sm:text-xs" asChild>
             <Link href={`/preventivi/${p.id}/stampa`}>
               <Printer className="h-4 w-4 mr-1" />
               Stampa
             </Link>
           </Button>
-          <Button variant="outline" size="sm" asChild className="text-amber-700 border-amber-300 hover:bg-amber-50">
+          <Button variant="outline" size="sm" asChild className="max-sm:h-8 max-sm:px-2 max-sm:text-xs text-amber-700 border-amber-300 hover:bg-amber-50">
             <Link href={`/preventivi/${p.id}/stampa-calcoli`}>
               <BarChart2 className="h-4 w-4 mr-1" />
               Stampa calcoli
@@ -292,7 +292,7 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
           {(s.email || whatsappUrl) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="max-sm:h-8 max-sm:px-2 max-sm:text-xs">
                   <Share2 className="h-4 w-4 mr-1" />
                   Condividi
                   <ChevronDown className="h-3 w-3 ml-1" />
@@ -316,11 +316,11 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <Button variant="outline" size="sm" onClick={handleDuplica} disabled={isDuplicating}>
+          <Button variant="outline" size="sm" className="max-sm:h-8 max-sm:px-2 max-sm:text-xs" onClick={handleDuplica} disabled={isDuplicating}>
             <Copy className="h-4 w-4 mr-1" />
             {isDuplicating ? 'Duplicazione...' : 'Duplica'}
           </Button>
-          <Button variant="outline" size="sm" asChild>
+          <Button variant="outline" size="sm" className="max-sm:h-8 max-sm:px-2 max-sm:text-xs" asChild>
             <Link href={`/preventivi/${p.id}/modifica`}>
               <Pencil className="h-4 w-4 mr-1" />
               Modifica
@@ -329,7 +329,7 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
           <Button
             variant="outline"
             size="sm"
-            className="text-blue-700 border-blue-300 hover:bg-blue-50"
+            className="max-sm:h-8 max-sm:px-2 max-sm:text-xs text-blue-700 border-blue-300 hover:bg-blue-50"
             onClick={() => setFirmaOpen(true)}
           >
             <FileSignature className="h-4 w-4 mr-1" />
@@ -338,7 +338,7 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
           <Button
             variant="ghost"
             size="sm"
-            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+            className="max-sm:h-8 max-sm:px-2 max-sm:text-xs text-red-500 hover:text-red-700 hover:bg-red-50"
             onClick={() => setConfirmDelete(true)}
           >
             <Trash2 className="h-4 w-4" />
@@ -349,7 +349,7 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
       {/* Cliente */}
       <div className="bg-white rounded-lg border p-4">
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Cliente</p>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm">
+        <div className="grid grid-cols-1 gap-x-8 gap-y-1 text-sm sm:grid-cols-2">
           <div>
             <span className="text-gray-500">Nome: </span>
             <span className="font-medium">{nomeCliente}</span>
@@ -367,7 +367,7 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
             </div>
           )}
           {(s.via || s.indirizzo) && (
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <span className="text-gray-500">Indirizzo: </span>
               <span>
                 {s.via
@@ -378,7 +378,7 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
             </div>
           )}
           {s.nazione && (
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <span className="text-gray-500">Nazione: </span>
               <span>{s.nazione}</span>
             </div>
