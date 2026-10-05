@@ -7,6 +7,9 @@ import { getCollegamentoFic } from '@/actions/fatture-in-cloud'
 import SezioneFattureInCloud from '@/components/impostazioni/SezioneFattureInCloud'
 import FormParametriContabilita from '@/components/impostazioni/FormParametriContabilita'
 import { getParametriContabilita } from '@/actions/contabilita-commessa'
+import { getPreferenzeInterfaccia } from '@/actions/preferenze'
+import SceltaVistaCommesse from '@/components/impostazioni/SceltaVistaCommesse'
+import { VISTA_COMMESSE_DEFAULT } from '@/types/preferenze'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import FormAzienda from '@/components/impostazioni/FormAzienda'
@@ -37,7 +40,7 @@ export default async function ImpostazioniPage() {
     .eq('id', user!.id)
     .single()
 
-  const [settings, templates, icone, conti, orariLavoro, chiusure, tipiAttivita, linee, anticipi, collegamentoFic, { permessi }, parametriContabilita] =
+  const [settings, templates, icone, conti, orariLavoro, chiusure, tipiAttivita, linee, anticipi, collegamentoFic, { permessi }, parametriContabilita, preferenze] =
     await Promise.all([
       getSettings(),
       getNoteTemplates(),
@@ -51,6 +54,7 @@ export default async function ImpostazioniPage() {
       getCollegamentoFic(),
       getMyPermissions(),
       getParametriContabilita(),
+      getPreferenzeInterfaccia(),
     ])
 
   // Quanti anticipi porterebbe via la cancellazione di una linea (ON DELETE CASCADE).
@@ -87,6 +91,7 @@ export default async function ImpostazioniPage() {
         <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="dati">Dati</TabsTrigger>
           <TabsTrigger value="produzione">Produzione</TabsTrigger>
+          <TabsTrigger value="commesse">Commesse e scadenze</TabsTrigger>
           <TabsTrigger value="banca">Banca</TabsTrigger>
           <TabsTrigger value="fic">Fatture in Cloud</TabsTrigger>
           <TabsTrigger value="altro">Preventivi e altro</TabsTrigger>
@@ -187,6 +192,37 @@ export default async function ImpostazioniPage() {
 
         </TabsContent>
 
+        {/* ── Commesse e scadenze: come si vedono e i valori di partenza ── */}
+        <TabsContent value="commesse" className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Elenco commesse sul telefono</CardTitle>
+          <CardDescription>
+            Scegli come vedere l&apos;elenco delle commesse sul cellulare: tocca l&apos;anteprima che preferisci.
+            È una scelta personale, vale solo per il tuo utente. Su tablet e PC resta la tabella.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SceltaVistaCommesse iniziale={preferenze.vistaCommesseMobile ?? VISTA_COMMESSE_DEFAULT} />
+        </CardContent>
+      </Card>
+
+      {/* Contabilita' di commessa */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Contabilità di commessa</CardTitle>
+          <CardDescription>
+            Valori di partenza della pagina contabile di ogni commessa. Sulla singola commessa
+            si possono cambiare.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FormParametriContabilita tariffa={parametriContabilita.tariffa} percFissi={parametriContabilita.percFissi} />
+        </CardContent>
+      </Card>
+
+        </TabsContent>
+
         {/* ── Banca: conti, fidi e linee di credito ── */}
         <TabsContent value="banca" className="space-y-6">
 
@@ -243,20 +279,6 @@ export default async function ImpostazioniPage() {
 
         {/* ── Preventivi e altro: tutto il resto ── */}
         <TabsContent value="altro" className="space-y-6">
-
-      {/* Contabilita' di commessa */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Contabilità di commessa</CardTitle>
-          <CardDescription>
-            Valori di partenza della pagina contabile di ogni commessa. Sulla singola commessa
-            si possono cambiare.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FormParametriContabilita tariffa={parametriContabilita.tariffa} percFissi={parametriContabilita.percFissi} />
-        </CardContent>
-      </Card>
 
       {/* Tema */}
       <Card>

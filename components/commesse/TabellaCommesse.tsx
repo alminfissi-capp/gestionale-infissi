@@ -58,6 +58,7 @@ import {
 import { deleteCommessa, duplicaCommessa, updateOrdineCommesse, updateStatoCommessa, spostaCommessa, toggleCalcoli, toggleInesigibile } from '@/actions/commesse'
 import { formatEuro } from '@/lib/pricing'
 import { labelStatoCommessa } from '@/lib/stato-commessa'
+import { rigaClass, formatMese } from '@/lib/commesse-vista'
 import { usePermissions } from '@/contexts/PermissionsContext'
 import { statoAllineamento } from '@/lib/allineamento-commessa'
 import type { CommessaCompleta, PreventivoPerCommessa, StatoCommessa, UtentePerCommessa, GruppoCommesse } from '@/types/commessa'
@@ -104,18 +105,9 @@ function pendingToCommessa(p: PendingCommessa): CommessaCompleta {
   }
 }
 
-// Il viola dell'inesigibile vince sul colore dello stato: la riga deve dire
-// prima di tutto che quei soldi non arriveranno.
-function rigaClass(c: { stato: StatoCommessa; inesigibile?: boolean }): string {
-  if (c.inesigibile)           return 'bg-violet-50'
-  if (c.stato === 'concluso')  return 'bg-sky-50'
-  if (c.stato === 'bloccato')  return 'bg-orange-50'
-  if (c.stato === 'annullato') return 'bg-red-50'
-  if (c.stato === 'in_attesa') return ''
-  return 'bg-yellow-50'
-}
-
 import BadgeStatoCommessa from './BadgeStatoCommessa'
+import ElencoCommesseMobile from './ElencoCommesseMobile'
+import { VISTA_COMMESSE_DEFAULT, type VistaCommesseMobile } from '@/types/preferenze'
 import DialogCommessa from './DialogCommessa'
 import DialogAcconto from './DialogAcconto'
 import DialogDocumenti from './DialogDocumenti'
@@ -134,13 +126,8 @@ interface Props {
   // Deciso sul server: il numero commessa diventa un link a Produzione solo per
   // chi ha accesso a quel modulo.
   puoAprireProduzione: boolean
-}
-
-function formatMese(data: string): string {
-  const [y, m] = data.split('-').map(Number)
-  const d = new Date(y, m - 1, 1)
-  const mese = d.toLocaleDateString('it-IT', { month: 'short' })
-  return `${mese.charAt(0).toUpperCase() + mese.slice(1)} ${String(y).slice(-2)}`
+  /** Come mostrare l'elenco sul telefono: preferenza dell'utente (Impostazioni → Commesse e scadenze). */
+  vistaMobile?: VistaCommesseMobile
 }
 
 /* ── Colgroup condiviso — garantisce allineamento tra tabella e footer ── */
@@ -517,6 +504,7 @@ function PendingCommessaRow({ c }: { c: CommessaCompleta }) {
 /* ── Componente principale ─────────────────────────────────── */
 
 export default function TabellaCommesse({
+  vistaMobile = VISTA_COMMESSE_DEFAULT,
   commesse,
   preventivi,
   utenti,
@@ -613,7 +601,10 @@ export default function TabellaCommesse({
   useEffect(() => {
     if (!highlightId) return
     setHighlighted(highlightId)
-    document.getElementById(`commessa-${highlightId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const visibile = [`commessa-${highlightId}`, `commessa-m-${highlightId}`]
+      .map((id) => document.getElementById(id))
+      .find((el) => el && el.offsetParent !== null)
+    visibile?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     const t = setTimeout(() => setHighlighted(null), 5000)
     return () => clearTimeout(t)
   }, [highlightId])
@@ -764,9 +755,35 @@ export default function TabellaCommesse({
         </div>
       )}
 
-      {/* Tabella */}
+      {/* Telefono: la vista scelta in Impostazioni → Commesse e scadenze */}
       {(filtered.length > 0 || filteredPending.length > 0) && (
-        <div className="rounded-md border bg-white overflow-x-auto">
+        <div className="md:hidden">
+          <ElencoCommesseMobile
+            vista={vistaMobile}
+            commesse={filtered}
+            inAttesa={filteredPending}
+            preventiviById={preventiviById}
+            altriGruppi={altriGruppi}
+            puoAprireProduzione={puoAprireProduzione}
+            puoModificareStato={puoModificareStato}
+            azioni={(c) => ({
+              onScheda: () => setSchedaCommessaId(c.id),
+              onAcconto: () => setDialogAcconto(c),
+              onDocumenti: () => setDialogDocumenti(c),
+              onToggleCalcoli: () => handleToggleCalcoli(c.id, !c.in_calcoli),
+              onToggleInesigibile: () => handleToggleInesigibile(c.id, !c.inesigibile),
+              onStatoChange: (st) => handleStatoChange(c.id, st),
+              onDuplica: () => handleDuplica(c.id),
+              onDelete: () => setDeletingId(c.id),
+              onSposta: (gId) => handleSposta(c.id, gId),
+            })}
+          />
+        </div>
+      )}
+
+      {/* Tabella (tablet e PC) */}
+      {(filtered.length > 0 || filteredPending.length > 0) && (
+        <div className="hidden rounded-md border bg-white overflow-x-auto md:block">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <Table className="table-fixed">
               <CommessaColGroup />
@@ -822,8 +839,18 @@ export default function TabellaCommesse({
         </div>
       )}
 
+      {/* Barra totali del telefono: conteggio e saldo, il resto non ci sta */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-3 border-t-2 border-gray-200 bg-white px-4 py-2 text-xs print:hidden md:hidden">
+        <span className="text-gray-500">
+          {totali.count} {totali.count === 1 ? 'commessa' : 'commesse'}{search ? ' trovate' : ''}
+        </span>
+        <span className="tabular-nums">
+          Saldo <b className={totali.saldo > 0.005 ? 'text-orange-600' : 'text-green-600'}>{formatEuro(totali.saldo)}</b>
+        </span>
+      </div>
+
       {/* Barra totali fissa in fondo — table-fixed + stesso colgroup = allineamento garantito */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-gray-200 print:hidden overflow-x-auto lg:[left:var(--sidebar-w,16rem)]">
+      <div className="fixed bottom-0 left-0 right-0 z-40 hidden bg-white border-t-2 border-gray-200 print:hidden overflow-x-auto md:block lg:[left:var(--sidebar-w,16rem)]">
         <Table className="table-fixed">
           <CommessaColGroup />
           <TableBody>

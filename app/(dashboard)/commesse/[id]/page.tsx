@@ -12,6 +12,7 @@ import { getConti } from '@/actions/conti'
 import { getFornitori } from '@/actions/magazzino'
 import { getClienti } from '@/actions/clienti'
 import TabellaCommesse from '@/components/commesse/TabellaCommesse'
+import { getPreferenzeInterfaccia } from '@/actions/preferenze'
 import { getMyPermissions } from '@/lib/permessi'
 import SezioniAnonime from '@/components/commesse/SezioniAnonime'
 import { getSezioniAnonime } from '@/actions/vendite-anonime'
@@ -125,13 +126,14 @@ async function CommesseTable({
   from?: string
   highlight?: string
 }) {
-  const [commesse, preventivi, utenti, clienti, gruppi, sezioniAnonime] = await Promise.all([
+  const [commesse, preventivi, utenti, clienti, gruppi, sezioniAnonime, preferenze] = await Promise.all([
     getCommesse(gruppoId),
     getPreventiviPerCommessa(),
     getUtentiPerCommessa(),
     getClienti(),
     getGruppiCommesse(),
     getSezioniAnonime(gruppoId),
+    getPreferenzeInterfaccia(),
   ])
 
   // Il numero commessa diventa un link a Produzione solo per chi quel modulo
@@ -157,6 +159,7 @@ async function CommesseTable({
         gruppoCorrenteId={gruppoId}
         highlightId={highlight ?? null}
         puoAprireProduzione={permessi.produzione !== 'nessuno'}
+        vistaMobile={preferenze.vistaCommesseMobile}
       />
     </div>
   )
