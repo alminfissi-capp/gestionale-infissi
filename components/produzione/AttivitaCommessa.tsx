@@ -2,8 +2,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { Ban, Check, Loader2, Pencil, Play, Plus, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { setStatoOrdine } from '@/actions/produzione'
+import { usePdfOrdine } from './usePdfOrdine'
 import DialogEvento, { type NuovoEvento } from '@/components/calendario/DialogEvento'
 import { formattaDurata } from '@/lib/avanzamento'
 import { aspettoDi, STATO_EVENTO_LABEL } from '@/types/calendario'
@@ -62,6 +70,29 @@ export default function AttivitaCommessa({
   const { eventi, tipi, aspetti, caricamento, salvando, cambiaStato, ricarica } = attivita
   const [inModifica, setInModifica] = useState<EventoConContesto | null>(null)
   const [nuovo, setNuovo] = useState<NuovoEvento | null>(null)
+  const router = useRouter()
+  const pdfOrdine = usePdfOrdine()
+  // Evento collegato a un ordine appena segnato completato: si chiede se l'ordine e' arrivato.
+  const [arrivoDaConfermare, setArrivoDaConfermare] = useState<EventoConContesto | null>(null)
+
+  const premiStato = async (evento: EventoConContesto, stato: StatoEvento) => {
+    const eraCompletato = evento.stato === 'completato'
+    await cambiaStato(evento, stato)
+    if (stato === 'completato' && !eraCompletato && evento.ordine_id) setArrivoDaConfermare(evento)
+  }
+
+  const confermaArrivo = async () => {
+    const evento = arrivoDaConfermare
+    setArrivoDaConfermare(null)
+    if (!evento?.ordine_id) return
+    try {
+      await setStatoOrdine(evento.ordine_id, 'arrivato')
+      toast.success('Ordine segnato come arrivato')
+      router.refresh()
+    } catch {
+      toast.error('Non sono riuscito a cambiare lo stato dell’ordine: riprova dall’elenco ordini')
+    }
+  }
 
   // Un solo battito per tutta la lista, e solo mentre un cronometro corre.
   const [ora, setOra] = useState(() => Date.now())
@@ -139,7 +170,20 @@ export default function AttivitaCommessa({
                   opacity: chiusa || evento.stato === 'bloccato' ? 0.62 : 1,
                 }}
               >
-                <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                <div
+                  className={`flex min-w-0 flex-1 items-baseline gap-2 ${evento.ordine_id ? 'cursor-pointer' : ''}`}
+                  {...(evento.ordine_id
+                    ? {
+                        role: 'button',
+                        tabIndex: 0,
+                        title: 'Apri il PDF dell’ordine',
+                        onClick: () => pdfOrdine.apri(evento.ordine_id!),
+                        onKeyDown: (e: React.KeyboardEvent) => {
+                          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void pdfOrdine.apri(evento.ordine_id!) }
+                        },
+                      }
+                    : {})}
+                >
                   <span className="shrink-0 font-mono text-[11px] opacity-80">
                     {giornoBreve(evento.data)} · {oreBrevi(evento)}
                   </span>
@@ -176,7 +220,7 @@ export default function AttivitaCommessa({
                         aria-label={titolo}
                         aria-pressed={attiva}
                         disabled={salvando === evento.id}
-                        onClick={() => cambiaStato(evento, stato)}
+                        onClick={() => premiStato(evento, stato)}
                         className={`rounded p-1.5 transition-colors hover:bg-black/15 disabled:opacity-50 ${
                           attiva ? 'bg-black/20 ring-1 ring-current' : 'opacity-70 hover:opacity-100'
                         }`}
@@ -201,6 +245,25 @@ export default function AttivitaCommessa({
           })}
         </ul>
       )}
+
+      {pdfOrdine.visualizzatore}
+
+      <AlertDialog open={arrivoDaConfermare !== null} onOpenChange={(o) => { if (!o) setArrivoDaConfermare(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>L’ordine è arrivato?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {arrivoDaConfermare?.fornitore_nome
+                ? `Segno come arrivato l’ordine di ${arrivoDaConfermare.fornitore_nome}.`
+                : 'Segno come arrivato l’ordine collegato a questa attività.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No</AlertDialogCancel>
+            <AlertDialogAction onClick={confermaArrivo}>Sì, è arrivato</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {(inModifica || nuovo) && (
         <DialogEvento
