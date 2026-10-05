@@ -12,7 +12,7 @@ import {
   calcolaRigheAltro, calcolaSaldoAltro, formatPeriodoAltro, CADENZA_LABELS,
 } from '@/lib/altri-dipendenti'
 import { deleteAltroDipendente, deleteMovimentoAltro } from '@/actions/altri-dipendenti'
-import type { AltroDipendente, MovimentoAltroDipendente } from '@/types/dipendente'
+import type { AltroDipendente, MetodoPagamentoDipendente, MovimentoAltroDipendente } from '@/types/dipendente'
 import DialogAltroDipendente from './DialogAltroDipendente'
 import DialogMovimento from './DialogMovimento'
 
@@ -26,12 +26,28 @@ export default function DettaglioAltroDipendente({ dipendente, movimenti }: Prop
   const [editOpen, setEditOpen] = useState(false)
   const [movOpen, setMovOpen] = useState(false)
   const [movTipo, setMovTipo] = useState<'stipendio' | 'pagamento'>('stipendio')
+  const [movIniziale, setMovIniziale] = useState<{
+    data_periodo: string; importo: number; metodo: MetodoPagamentoDipendente | null
+  } | null>(null)
 
   const righe = calcolaRigheAltro(movimenti)
   const saldo = calcolaSaldoAltro(movimenti)
 
   const apriMovimento = (tipo: 'stipendio' | 'pagamento') => {
     setMovTipo(tipo)
+    setMovIniziale(null)
+    setMovOpen(true)
+  }
+
+  /** Metodo dell'ultimo pagamento registrato: di solito si paga sempre allo stesso modo. */
+  const ultimoMetodo = [...movimenti]
+    .filter((m) => m.tipo === 'pagamento' && m.metodo)
+    .sort((a, b) => (b.data_pagamento ?? '').localeCompare(a.data_pagamento ?? ''))[0]?.metodo ?? null
+
+  /** Il "+" di un periodo: pagamento gia' compilato col residuo di quel periodo. */
+  const pagaResiduo = (periodo: string, residuo: number) => {
+    setMovTipo('pagamento')
+    setMovIniziale({ data_periodo: periodo, importo: residuo, metodo: ultimoMetodo as MetodoPagamentoDipendente | null })
     setMovOpen(true)
   }
 
@@ -126,17 +142,38 @@ export default function DettaglioAltroDipendente({ dipendente, movimenti }: Prop
         <div className="space-y-3">
           {righe.map((r) => (
             <div key={r.periodo} className="rounded-md border">
-              <div className="flex items-center justify-between border-b bg-gray-50 dark:bg-gray-900 px-3 py-2">
-                <span className="text-sm font-semibold">
+              {/* Testata del periodo: il dovuto e' gia' nella riga Stipendio. Il "+" c'e' solo
+                  finche' resta un residuo e precompila il pagamento di quel periodo. */}
+              <div className="flex items-center justify-between gap-2 border-b bg-gray-50 dark:bg-gray-900 px-3 py-2">
+                <span className="min-w-0 text-sm font-semibold">
                   {formatPeriodoAltro(r.periodo, dipendente.cadenza)}
                 </span>
-                <span className="flex items-center gap-3 text-sm">
-                  <span className="text-gray-500">Dovuto {formatEuro(r.dovuto)}</span>
-                  <span className="text-gray-500">Pagato {formatEuro(r.pagato)}</span>
-                  <span className={cn('font-semibold',
-                    r.residuo > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400')}>
-                    Residuo {formatEuro(r.residuo)}
+                <span className="flex shrink-0 items-center gap-3 text-sm sm:gap-4">
+                  <span className="text-right">
+                    <span className="block text-[11px] text-gray-500">Pagato</span>
+                    <span className="block tabular-nums">{formatEuro(r.pagato)}</span>
                   </span>
+                  <span className="text-right">
+                    <span className={cn('block text-[11px]',
+                      r.residuo > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400')}>
+                      Residuo
+                    </span>
+                    <span className={cn('block font-semibold tabular-nums',
+                      r.residuo > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400')}>
+                      {formatEuro(r.residuo)}
+                    </span>
+                  </span>
+                  {r.residuo > 0 ? (
+                    <Button
+                      type="button" size="icon" className="h-8 w-8 shrink-0"
+                      title="Paga il residuo di questo periodo" aria-label="Paga il residuo di questo periodo"
+                      onClick={() => pagaResiduo(r.periodo, r.residuo)}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <span className="w-8 shrink-0" aria-hidden />
+                  )}
                 </span>
               </div>
               <div className="divide-y">
@@ -176,7 +213,9 @@ export default function DettaglioAltroDipendente({ dipendente, movimenti }: Prop
       )}
 
       <DialogAltroDipendente open={editOpen} onOpenChange={setEditOpen} dipendente={dipendente} />
-      <DialogMovimento open={movOpen} onOpenChange={setMovOpen} dipendente={dipendente} tipo={movTipo} />
+      <DialogMovimento
+        open={movOpen} onOpenChange={setMovOpen} dipendente={dipendente} tipo={movTipo} iniziale={movIniziale}
+      />
     </div>
   )
 }

@@ -21,6 +21,8 @@ interface Props {
   onOpenChange: (v: boolean) => void
   dipendente: AltroDipendente
   tipo: TipoMovimentoAltro
+  /** Precompila periodo, importo e metodo (es. "paga il residuo di questo periodo"). */
+  iniziale?: { data_periodo: string; importo: number; metodo?: MetodoPagamentoDipendente | null } | null
 }
 
 const oggi = () => new Date().toISOString().slice(0, 10)
@@ -31,7 +33,7 @@ const METODI: { value: MetodoPagamentoDipendente; label: string }[] = [
   { value: 'altro', label: 'Altro' },
 ]
 
-export default function DialogMovimento({ open, onOpenChange, dipendente, tipo }: Props) {
+export default function DialogMovimento({ open, onOpenChange, dipendente, tipo, iniziale }: Props) {
   const router = useRouter()
   const [dataPeriodo, setDataPeriodo] = useState(oggi())
   const [importo, setImporto] = useState('')
@@ -42,13 +44,13 @@ export default function DialogMovimento({ open, onOpenChange, dipendente, tipo }
 
   useEffect(() => {
     if (open) {
-      setDataPeriodo(oggi())
-      setImporto('')
+      setDataPeriodo(iniziale?.data_periodo ?? oggi())
+      setImporto(iniziale ? iniziale.importo.toFixed(2).replace('.', ',') : '')
       setDataPagamento(oggi())
-      setMetodo('bonifico')
+      setMetodo(iniziale?.metodo ?? 'bonifico')
       setNote('')
     }
-  }, [open])
+  }, [open, iniziale])
 
   const etichettaPeriodo = formatPeriodoAltro(
     normalizzaPeriodo(dataPeriodo, dipendente.cadenza),
