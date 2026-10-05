@@ -7,6 +7,7 @@ import {
   calcolaTotaleOrdine,
   isInRitardo,
   normalizzaNumeroOrdine,
+  noteEventoOrdine,
   prossimoNumeroOrdine,
 } from '@/lib/produzione'
 import {
@@ -18,6 +19,7 @@ import type {
   OrdineConContesto,
   CommessaOpzione,
   OrdineInput,
+  EventoOrdineInput,
   RigaOrdine,
   StatoOrdine,
   CommessaProduzione,
@@ -380,10 +382,110 @@ async function salvaRighe(ordineId: string, orgId: string, righe: OrdineInput['r
   if (error) throw new Error(error.message)
 }
 
-export async function createOrdine(input: OrdineInput): Promise<string> {
+/** Prima di salvare l'ordine: un evento senza giorno o con orari al contrario non si puo' creare. */
+function controllaCalendario(input: OrdineInput) {
+  if (!input.calendario) return
+  if (!input.data_consegna_prevista) {
+    throw new Error("Per inserire l'arrivo in calendario serve la data di consegna prevista")
+  }
+  if (!input.calendario.tipo) throw new Error('Scegli il tipo di attività per il calendario')
+  if (input.calendario.ora_fine <= input.calendario.ora_inizio) {
+    throw new Error("Calendario: l'orario di fine deve venire dopo quello di inizio")
+  }
+}
+
+/**
+ * Porta l'evento "arrivo previsto" dell'ordine allo stato chiesto: lo crea,
+ * lo aggiorna (giorno = consegna prevista, note = fornitore e numero ordine) o lo toglie.
+ */
+async function sincronizzaEventoOrdine(
+  ordineId: string, orgId: string, input: OrdineInput & { calendario: EventoOrdineInput | null },
+) {
+  const supabase = await createClient()
+  const { data: esistenti, error: errLettura } = await supabase
+    .from('eventi_calendario')
+    .select('id')
+    .eq('organization_id', orgId)
+    .eq('ordine_id', ordineId)
+    .order('created_at', { ascending: true })
+  if (errLettura) throw new Error(errLettura.message)
+  const ids = (esistenti ?? []).map((e) => e.id as string)
+
+  if (!input.calendario) {
+    if (ids.length) {
+      const { error } = await supabase.from('eventi_calendario').delete().in('id', ids)
+      if (error) throw new Error(error.message)
+    }
+    return
+  }
+
+  const [{ data: fornitore }, { data: commessa }, { data: { user } }] = await Promise.all([
+    input.fornitore_id
+      ? supabase.from('fornitori').select('nome').eq('id', input.fornitore_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    input.commessa_id
+      ? supabase.from('commesse').select('cliente_nome').eq('id', input.commessa_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase.auth.getUser(),
+  ])
+  const campi = {
+    tipo: input.calendario.tipo,
+    data: input.data_consegna_prevista,
+    ora_inizio: input.calendario.ora_inizio,
+    ora_fine: input.calendario.ora_fine,
+    tutto_il_giorno: false,
+    commessa_id: input.commessa_id,
+    cliente_nome: (commessa as { cliente_nome?: string } | null)?.cliente_nome ?? null,
+    fornitore_id: input.fornitore_id,
+    ordine_id: ordineId,
+    note: noteEventoOrdine((fornitore as { nome?: string } | null)?.nome, normalizzaNumeroOrdine(input.numero_ordine)),
+  }
+
+  if (ids.length === 0) {
+    const { error } = await supabase.from('eventi_calendario').insert({
+      ...campi,
+      organization_id: orgId,
+      created_by: user?.id ?? null,
+      titolo: null,
+      cliente_id: null,
+      catena_id: null,
+      confermato_cliente: false,
+      visibile_produzione: true,
+      visibile_amministrazione: false,
+    })
+    if (error) throw new Error(error.message)
+    return
+  }
+  const [primo, ...doppi] = ids
+  const { error } = await supabase
+    .from('eventi_calendario')
+    .update({ ...campi, updated_at: new Date().toISOString() })
+    .eq('id', primo)
+  if (error) throw new Error(error.message)
+  if (doppi.length) await supabase.from('eventi_calendario').delete().in('id', doppi)
+}
+
+/** L'evento "arrivo previsto" di un ordine, per riaprirlo nella finestra dell'ordine. */
+export async function getEventoOrdine(ordineId: string): Promise<EventoOrdineInput | null> {
   const supabase = await createClient()
   const orgId = await getOrgId()
-  const { righe, ...testata } = input
+  const { data } = await supabase
+    .from('eventi_calendario')
+    .select('tipo, ora_inizio, ora_fine')
+    .eq('organization_id', orgId)
+    .eq('ordine_id', ordineId)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  if (!data) return null
+  return { tipo: data.tipo, ora_inizio: String(data.ora_inizio).slice(0, 5), ora_fine: String(data.ora_fine).slice(0, 5) }
+}
+
+export async function createOrdine(input: OrdineInput): Promise<string> {
+  controllaCalendario(input)
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { righe, calendario, ...testata } = input
   const { data, error } = await supabase
     .from('ordini_fornitore')
     .insert({
@@ -395,14 +497,19 @@ export async function createOrdine(input: OrdineInput): Promise<string> {
     .single()
   if (error || !data) throw new Error(error?.message ?? 'Errore creazione ordine')
   await salvaRighe(data.id, orgId, righe)
+  if (calendario !== undefined) {
+    await sincronizzaEventoOrdine(data.id, orgId, { ...input, calendario })
+    revalidatePath('/calendario')
+  }
   revalidatePath('/produzione', 'layout')
   return data.id
 }
 
 export async function updateOrdine(id: string, input: OrdineInput): Promise<void> {
+  controllaCalendario(input)
   const supabase = await createClient()
   const orgId = await getOrgId()
-  const { righe, ...testata } = input
+  const { righe, calendario, ...testata } = input
   const { error } = await supabase
     .from('ordini_fornitore')
     .update({
@@ -414,6 +521,10 @@ export async function updateOrdine(id: string, input: OrdineInput): Promise<void
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
   await salvaRighe(id, orgId, righe)
+  if (calendario !== undefined) {
+    await sincronizzaEventoOrdine(id, orgId, { ...input, calendario })
+    revalidatePath('/calendario')
+  }
   revalidatePath('/produzione', 'layout')
 }
 
@@ -432,6 +543,11 @@ export async function setStatoOrdine(id: string, stato: StatoOrdine): Promise<vo
 export async function deleteOrdine(id: string): Promise<void> {
   const supabase = await createClient()
   const orgId = await getOrgId()
+  // Il vincolo sugli eventi mette ordine_id a NULL: l'arrivo previsto resterebbe
+  // in calendario senza piu' ordine. Si toglie prima.
+  const { error: errEventi } = await supabase
+    .from('eventi_calendario').delete().eq('organization_id', orgId).eq('ordine_id', id)
+  if (errEventi) throw new Error(errEventi.message)
   const { error } = await supabase
     .from('ordini_fornitore')
     .delete()

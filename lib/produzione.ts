@@ -125,6 +125,13 @@ export function formattaNumeroOrdine(numero: string | null | undefined): string 
   return `${PREFISSO_ORDINE} ${String(parsed.progressivo).padStart(3, '0')}-${parsed.anno}`
 }
 
+/** Note dell'evento in calendario creato da un ordine: si riscrivono a ogni salvataggio dell'ordine. */
+export function noteEventoOrdine(fornitoreNome: string | null | undefined, numeroOrdine: string): string {
+  const fornitore = (fornitoreNome ?? '').trim()
+  const ordine = `Ordine: ${formattaNumeroOrdine(numeroOrdine)}`
+  return fornitore ? `Fornitore: ${fornitore}\n${ordine}` : ordine
+}
+
 /**
  * Progressivo NNN-AAAA. Usa il massimo esistente dell'anno, non il conteggio:
  * con i numeri modificabili a mano possono esserci buchi e duplicati.
