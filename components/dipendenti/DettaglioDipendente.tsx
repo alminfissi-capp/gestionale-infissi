@@ -113,17 +113,34 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
   }
 
   return (
-    <div className="p-4 lg:p-6 space-y-4">
+    <div className="p-3 sm:p-4 lg:p-6 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" asChild>
+        <div className="flex min-w-0 items-center gap-2">
+          <Button variant="ghost" size="icon" asChild className="shrink-0">
             <Link href="/dipendenti"><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold">
-              {dipendente.cognome} {dipendente.nome}
-            </h1>
-            <p className="text-xs text-gray-500">
+          <div className="min-w-0">
+            {/* Modifica ed elimina accanto al nome, solo icone */}
+            <div className="flex items-center gap-1">
+              <h1 className="break-words text-xl font-bold sm:text-2xl">
+                {dipendente.cognome} {dipendente.nome}
+              </h1>
+              <Button
+                variant="ghost" size="icon" className="h-8 w-8 shrink-0"
+                title="Modifica dipendente" aria-label="Modifica dipendente"
+                onClick={() => setEditOpen(true)}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-red-500 hover:text-red-700"
+                title="Elimina dipendente" aria-label="Elimina dipendente"
+                disabled={deleting} onClick={rimuoviDipendente}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="break-all text-xs text-gray-500">
               {dipendente.ruolo === 'amministratore' ? 'Amministratore · ' : ''}
               {senzaBusta ? 'senza busta paga · ' : ''}
               {dipendente.codice_fiscale ?? 'CF non inserito'}
@@ -132,35 +149,31 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        {/* Sul telefono due tasti per riga: carica busta | carica bonifico, busta manuale | paga manuale */}
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
           {!senzaBusta && (
-            <Button variant="outline" asChild>
+            <Button variant="outline" asChild className="max-sm:h-9 max-sm:px-2 max-sm:text-xs">
               <Link href={`/dipendenti/carica?dip=${dipendente.id}`}>
-                <Upload className="h-4 w-4 mr-2" /> Carica busta
+                <Upload className="h-4 w-4 mr-2 max-sm:mr-1" /> Carica busta
               </Link>
             </Button>
           )}
-          <Button variant="outline" asChild>
+          <Button variant="outline" asChild className="max-sm:h-9 max-sm:px-2 max-sm:text-xs">
             <Link href={`/dipendenti/carica?tipo=bonifico&dip=${dipendente.id}`}>
-              <Banknote className="h-4 w-4 mr-2" /> Carica bonifico
+              <Banknote className="h-4 w-4 mr-2 max-sm:mr-1" /> Carica bonifico
             </Link>
           </Button>
           {!senzaBusta && (
             <Button
               variant="outline"
+              className="max-sm:h-9 max-sm:px-2 max-sm:text-xs"
               onClick={() => { setBustaInModifica(null); setBustaOpen(true) }}
             >
-              <Plus className="h-4 w-4 mr-2" /> Busta manuale
+              <Plus className="h-4 w-4 mr-2 max-sm:mr-1" /> Busta manuale
             </Button>
           )}
-          <Button variant="outline" onClick={() => setPagamentoOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" /> {senzaBusta ? 'Registra compenso' : 'Pagamento manuale'}
-          </Button>
-          <Button variant="outline" onClick={() => setEditOpen(true)}>
-            <Pencil className="h-4 w-4 mr-2" /> Modifica
-          </Button>
-          <Button variant="ghost" className="text-red-500 hover:text-red-700" disabled={deleting} onClick={rimuoviDipendente}>
-            <Trash2 className="h-4 w-4" />
+          <Button variant="outline" className="max-sm:h-9 max-sm:px-2 max-sm:text-xs" onClick={() => setPagamentoOpen(true)}>
+            <Plus className="h-4 w-4 mr-2 max-sm:mr-1" /> {senzaBusta ? 'Registra compenso' : 'Paga manuale'}
           </Button>
         </div>
       </div>
