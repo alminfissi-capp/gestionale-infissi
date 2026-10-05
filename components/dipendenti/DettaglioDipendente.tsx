@@ -243,12 +243,14 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
             {pagamentiOrdinati.map((p) => (
               <div
                 key={p.id}
-                className="flex items-center justify-between gap-2 rounded-md border p-3 text-sm"
+                className="flex items-center justify-between gap-2 p-3 text-sm rounded-md border border-dashed border-gray-400 bg-gray-100 dark:border-gray-500 dark:bg-gray-800"
               >
-                <span>
-                  {formatData(p.data_pagamento)} {'·'} {METODO_LABELS[p.metodo] ?? p.metodo}{' '}
-                  {'·'} <span className="font-semibold">{formatEuro(Number(p.importo))}</span>
-                  {p.note ? ` · ${p.note}` : ''}
+                <span className="min-w-0">
+                  <span className="block">
+                    {formatData(p.data_pagamento)} {'·'} {METODO_LABELS[p.metodo] ?? p.metodo}{' '}
+                    {'·'} <span className="font-semibold">{formatEuro(Number(p.importo))}</span>
+                  </span>
+                  {p.note && <span className="block text-xs text-gray-500 dark:text-gray-400">{p.note}</span>}
                 </span>
                 <span className="flex gap-1">
                   {p.file_path && (
@@ -281,23 +283,29 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
               key={`${r.periodo}|${r.mensilita}`}
               className="rounded-md border p-3 space-y-2"
             >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-semibold capitalize">
-                  {formatPeriodo(r.periodo)}
-                  {r.mensilita !== 'mensile' && (
-                    <span className="ml-2 text-xs rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 px-1.5 py-0.5">
-                      {MENSILITA_LABELS[r.mensilita]}
-                    </span>
-                  )}
-                </p>
-                <p className="text-sm">
-                  Netto: <span className="font-semibold">{r.buste.length > 0 ? formatEuro(r.dovuto) : '—'}</span>
-                  {' · '}Pagato: <span className="font-semibold">{formatEuro(r.pagato)}</span>
-                  {' · '}Residuo:{' '}
-                  <span className={cn('font-bold', r.residuo > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400')}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold capitalize">
+                    {formatPeriodo(r.periodo)}
+                    {r.mensilita !== 'mensile' && (
+                      <span className="ml-2 text-xs normal-case rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 px-1.5 py-0.5">
+                        {MENSILITA_LABELS[r.mensilita]}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Netto: <span className="font-semibold text-gray-900 dark:text-gray-100">{r.buste.length > 0 ? formatEuro(r.dovuto) : '—'}</span>
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Pagato: <span className="font-semibold text-gray-900 dark:text-gray-100">{formatEuro(r.pagato)}</span>
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-xs text-gray-500">Residuo</p>
+                  <p className={cn('text-lg font-bold', r.residuo > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400')}>
                     {formatEuro(r.residuo)}
-                  </span>
-                </p>
+                  </p>
+                </div>
               </div>
 
               {r.buste.length === 0 && (
@@ -307,10 +315,15 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
               )}
 
               {r.buste.map((busta) => (
-                <div key={busta.id} className="flex items-center justify-between text-sm bg-gray-50 dark:bg-gray-900 rounded p-2">
-                  <span>
-                    Busta paga · netto {formatEuro(Number(busta.netto))}
-                    {busta.lordo ? ` · lordo ${formatEuro(Number(busta.lordo))}` : ''}
+                <div key={busta.id} className="flex items-center justify-between gap-2 text-sm rounded-md border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-950">
+                  <span className="min-w-0">
+                    <span className="block font-medium">Busta paga</span>
+                    <span className="block text-gray-600 dark:text-gray-300">
+                      Netto <span className="font-semibold text-gray-900 dark:text-gray-100">{formatEuro(Number(busta.netto))}</span>
+                    </span>
+                    {busta.lordo ? (
+                      <span className="block text-xs text-gray-500">Lordo {formatEuro(Number(busta.lordo))}</span>
+                    ) : null}
                   </span>
                   <span className="flex gap-1">
                     {busta.file_path && (
@@ -341,11 +354,13 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
               ))}
 
               {r.pagamenti.map((p) => (
-                <div key={p.id} className="flex items-center justify-between text-sm rounded p-2 border border-dashed">
-                  <span>
-                    {formatData(p.data_pagamento)} · {METODO_LABELS[p.metodo] ?? p.metodo} ·{' '}
-                    <span className="font-semibold">{formatEuro(Number(p.importo))}</span>
-                    {p.note ? ` · ${p.note}` : ''}
+                <div key={p.id} className="flex items-center justify-between gap-2 text-sm p-2 rounded-md border border-dashed border-gray-400 bg-gray-100 dark:border-gray-500 dark:bg-gray-800">
+                  <span className="min-w-0">
+                    <span className="block">
+                      {formatData(p.data_pagamento)} · {METODO_LABELS[p.metodo] ?? p.metodo} ·{' '}
+                      <span className="font-semibold">{formatEuro(Number(p.importo))}</span>
+                    </span>
+                    {p.note && <span className="block text-xs text-gray-500 dark:text-gray-400">{p.note}</span>}
                   </span>
                   <span className="flex gap-1">
                     {p.file_path && (
