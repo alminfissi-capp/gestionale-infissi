@@ -13,13 +13,16 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import RigheOrdine from './RigheOrdine'
 import AllegatiOrdine, { caricaAllegatoOrdine } from './AllegatiOrdine'
 import { formatEuro } from '@/lib/pricing'
 import { calcolaTotaleOrdine, normalizzaNumeroOrdine, PREFISSO_ORDINE } from '@/lib/produzione'
-import { createOrdine, updateOrdine } from '@/actions/produzione'
+import { createOrdine, getEventoOrdine, updateOrdine } from '@/actions/produzione'
+import { getTipiAttivita } from '@/actions/calendario'
+import type { TipoAttivita } from '@/types/calendario'
 import { STATI_ORDINE } from '@/types/produzione'
-import type { OrdineCompleto, RigaOrdineInput, StatoOrdine, CommessaOpzione } from '@/types/produzione'
+import type { OrdineCompleto, RigaOrdineInput, StatoOrdine, CommessaOpzione, EventoOrdineInput } from '@/types/produzione'
 
 interface Props {
   open: boolean
@@ -34,6 +37,14 @@ interface Props {
 
 const oggiISO = () => new Date().toISOString().slice(0, 10)
 const MAGAZZINO = '__magazzino__'
+const ORARI_CALENDARIO = { ora_inizio: '08:00', ora_fine: '10:00' }
+
+/** Tipo proposto per l'arrivo: il primo "ricezione" dell'anagrafica, altrimenti il primo di Produzione. */
+function tipoArrivoProposto(tipi: TipoAttivita[]): string {
+  return (tipi.find((t) => t.chiave.startsWith('ricez')) ?? tipi[0])?.chiave ?? ''
+}
+
+const formatGiorno = (iso: string) => iso.split('-').reverse().join('/')
 
 export default function DialogOrdine({
   open, onOpenChange, commessaId, ordine, fornitori, numeroProposto, commesse,
@@ -50,6 +61,36 @@ export default function DialogOrdine({
   const [righe, setRighe] = useState<RigaOrdineInput[]>([])
   // Allegati scelti prima che l'ordine esista: si caricano appena ha un id.
   const [allegatiInAttesa, setAllegatiInAttesa] = useState<File[]>([])
+  // Arrivo previsto in calendario. `calendarioLetto` dice se si conosce gia' lo stato
+  // dell'evento esistente: finche' non lo si sa, il salvataggio non lo tocca.
+  const [tipiProduzione, setTipiProduzione] = useState<TipoAttivita[]>([])
+  const [inCalendario, setInCalendario] = useState(false)
+  const [calendario, setCalendario] = useState<EventoOrdineInput>({ tipo: '', ...ORARI_CALENDARIO })
+  const [calendarioLetto, setCalendarioLetto] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    let annullato = false
+    setInCalendario(false)
+    setCalendarioLetto(false)
+    void (async () => {
+      try {
+        const [tipi, esistente] = await Promise.all([
+          getTipiAttivita(),
+          ordine ? getEventoOrdine(ordine.id) : Promise.resolve(null),
+        ])
+        if (annullato) return
+        const produzione = tipi.filter((t) => t.ambito === 'produzione')
+        setTipiProduzione(produzione)
+        setCalendario(esistente ?? { tipo: tipoArrivoProposto(produzione), ...ORARI_CALENDARIO })
+        setInCalendario(esistente !== null)
+        setCalendarioLetto(true)
+      } catch {
+        // senza tipi l'interruttore resta spento: l'ordine si salva lo stesso
+      }
+    })()
+    return () => { annullato = true }
+  }, [open, ordine])
 
   useEffect(() => {
     if (!open) return
@@ -104,6 +145,20 @@ export default function DialogOrdine({
       toast.error(`Inserisci la quantità della riga ${senzaQuantita + 1}`)
       return
     }
+    if (inCalendario) {
+      if (!consegna) {
+        toast.error('Per inserire l’arrivo in calendario serve la consegna prevista')
+        return
+      }
+      if (!calendario.tipo) {
+        toast.error('Scegli il tipo di attività per il calendario')
+        return
+      }
+      if (calendario.ora_fine <= calendario.ora_inizio) {
+        toast.error('Calendario: l’orario di fine deve venire dopo quello di inizio')
+        return
+      }
+    }
     setSaving(true)
     try {
       const commessa_id = commesse
@@ -118,17 +173,18 @@ export default function DialogOrdine({
         stato,
         note: note.trim() || null,
         righe,
+        calendario: !calendarioLetto ? undefined : inCalendario ? calendario : null,
       }
       if (ordine) {
         await updateOrdine(ordine.id, input)
-        toast.success('Ordine aggiornato')
+        toast.success(inCalendario ? 'Ordine aggiornato, arrivo in calendario' : 'Ordine aggiornato')
       } else {
         const nuovoId = await createOrdine(input)
         // L'ordine c'e' comunque: se gli allegati falliscono lo si dice senza
         // buttare via il resto, e si riaprono per riprovare.
         const erroreAllegati = await caricaAllegati(nuovoId)
         if (erroreAllegati) toast.error(`Ordine creato, allegati non caricati: ${erroreAllegati}`)
-        else toast.success('Ordine creato')
+        else toast.success(inCalendario ? 'Ordine creato e arrivo inserito in calendario' : 'Ordine creato')
       }
       onOpenChange(false)
       router.refresh()
@@ -209,6 +265,51 @@ export default function DialogOrdine({
               </Select>
             </div>
           </div>
+
+          {calendarioLetto && tipiProduzione.length > 0 && (
+            <div className="space-y-3 rounded-md border p-3">
+              <label className="flex items-center gap-3 text-sm font-medium">
+                <Switch checked={inCalendario} onCheckedChange={setInCalendario} />
+                Inserisci l’arrivo in calendario
+              </label>
+              {inCalendario && (
+                <>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ordine-cal-tipo">Tipo di attività</Label>
+                      <Select value={calendario.tipo} onValueChange={(v) => setCalendario((c) => ({ ...c, tipo: v }))}>
+                        <SelectTrigger id="ordine-cal-tipo"><SelectValue placeholder="Scegli" /></SelectTrigger>
+                        <SelectContent>
+                          {tipiProduzione.map((t) => (
+                            <SelectItem key={t.id} value={t.chiave}>{t.etichetta}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ordine-cal-inizio">Dalle</Label>
+                      <Input
+                        id="ordine-cal-inizio" type="time" value={calendario.ora_inizio}
+                        onChange={(e) => setCalendario((c) => ({ ...c, ora_inizio: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ordine-cal-fine">Alle</Label>
+                      <Input
+                        id="ordine-cal-fine" type="time" value={calendario.ora_fine}
+                        onChange={(e) => setCalendario((c) => ({ ...c, ora_fine: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <p className={`text-xs ${consegna ? 'text-muted-foreground' : 'text-amber-700 dark:text-amber-400'}`}>
+                    {consegna
+                      ? `Giorno: ${formatGiorno(consegna)} (consegna prevista). Nelle note dell’evento vanno fornitore e numero d’ordine.`
+                      : 'Inserisci la consegna prevista: è il giorno dell’evento in calendario.'}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label>Righe</Label>

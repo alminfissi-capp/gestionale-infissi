@@ -132,7 +132,15 @@ export type OrdineInput = {
   stato: StatoOrdine
   note: string | null
   righe: RigaOrdineInput[]
+  /**
+   * Arrivo previsto in calendario, nel giorno della consegna prevista.
+   * undefined = non toccare l'evento; null = toglierlo; valorizzato = crearlo o aggiornarlo.
+   */
+  calendario?: EventoOrdineInput | null
 }
+
+/** Tipo d'attivita' (chiave dell'anagrafica) e orari 'HH:MM' dell'arrivo in calendario. */
+export type EventoOrdineInput = { tipo: string; ora_inizio: string; ora_fine: string }
 
 export type OrdineCompleto = OrdineFornitore & {
   righe: RigaOrdine[]

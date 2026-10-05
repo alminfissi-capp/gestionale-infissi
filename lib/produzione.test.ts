@@ -11,6 +11,7 @@ import {
   normalizzaNumeroOrdine,
   formattaNumeroOrdine,
   nomeFilePdfOrdine,
+  noteEventoOrdine,
 } from '@/lib/produzione'
 
 describe('calcolaTotaleRigaOrdine', () => {
@@ -255,5 +256,15 @@ describe('rigaSenzaContenuto', () => {
     expect(rigaSenzaContenuto({ ...vuota, codice_articolo: '100x100' })).toBe(false)
     expect(rigaSenzaContenuto({ ...vuota, finitura: 'Zincato' })).toBe(false)
     expect(rigaSenzaContenuto({ ...vuota, prezzo_unitario: 12 })).toBe(false)
+  })
+})
+
+describe('noteEventoOrdine', () => {
+  it('scrive fornitore e numero ordine nel formato mostrato a video', () => {
+    expect(noteEventoOrdine('Vetreria Rossi', '11-2026')).toBe('Fornitore: Vetreria Rossi\nOrdine: ORD 011-2026')
+  })
+  it('senza fornitore scrive solo l\'ordine', () => {
+    expect(noteEventoOrdine(null, '011-2026')).toBe('Ordine: ORD 011-2026')
+    expect(noteEventoOrdine('  ', '011-2026')).toBe('Ordine: ORD 011-2026')
   })
 })
