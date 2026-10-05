@@ -723,7 +723,7 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
           </div>
 
           {/* Barra azioni — vicino alla linea separatrice */}
-          <div className="flex items-center gap-2 mt-3">
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 sm:gap-2">
             {editMode ? (
               <>
                 <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
@@ -737,25 +737,25 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
               </>
             ) : (
               <>
-                <Button variant="outline" size="sm" onClick={handleEnterEdit}>
-                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                <Button variant="outline" size="sm" className="max-sm:h-8 max-sm:px-2 max-sm:text-xs" onClick={handleEnterEdit}>
+                  <Pencil className="h-3.5 w-3.5 mr-1.5 max-sm:mr-1" />
                   Modifica
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleClickStampa}>
-                  <Printer className="h-3.5 w-3.5 mr-1.5" />
+                <Button variant="outline" size="sm" className="max-sm:h-8 max-sm:px-2 max-sm:text-xs" onClick={handleClickStampa}>
+                  <Printer className="h-3.5 w-3.5 mr-1.5 max-sm:mr-1" />
                   Stampa
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleCondividi}>
-                  <Share2 className="h-3.5 w-3.5 mr-1.5" />
+                <Button variant="outline" size="sm" className="max-sm:h-8 max-sm:px-2 max-sm:text-xs" onClick={handleCondividi}>
+                  <Share2 className="h-3.5 w-3.5 mr-1.5 max-sm:mr-1" />
                   Condividi
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="px-2">
+                    <Button variant="outline" size="sm" className="px-2 max-sm:h-8" aria-label="Altre azioni: resoconto, contabilità, fatture">
                       <MoreVertical className="h-3.5 w-3.5" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
+                  <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => setResocontoAperto(true)}>
                       <FileBarChart className="h-3.5 w-3.5 mr-2" />
                       Resoconto economico
