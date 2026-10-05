@@ -54,17 +54,20 @@ export default function DrawerFirmaRicevuta({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto">
-        <SheetHeader className="mb-4">
+      {/* Il tasto Salva sta in un piede fisso: sul telefono il pannello e' piu' alto dello
+          schermo e, in fondo al contenuto, finiva sotto la barra di sistema. */}
+      <SheetContent side="bottom" className="flex max-h-[90dvh] flex-col gap-0 rounded-t-2xl p-0">
+        <SheetHeader className="shrink-0 pb-2">
           <SheetTitle className="flex items-center gap-2">
             <PenLine className="h-4 w-4" />
             Firma del ricevente
           </SheetTitle>
         </SheetHeader>
 
+        <div className="min-h-0 flex-1 overflow-y-auto px-4">
         {/* Firma default */}
         {firmaDefault && (
-          <div className="mb-4 border rounded-lg p-3 bg-gray-50">
+          <div className="mb-3 border rounded-lg p-3 bg-gray-50">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
               Firma predefinita
             </p>
@@ -92,14 +95,16 @@ export default function DrawerFirmaRicevuta({
 
         {/* Canvas */}
         {!usaDefault && (
-          <div className="mb-4">
+          <div className="mb-3">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
               {firmaDefault ? 'Oppure traccia una nuova firma:' : 'Traccia la firma con il dito:'}
             </p>
             <SignaturePad onChange={setFirmaCanvas} />
           </div>
         )}
+        </div>
 
+        <div className="shrink-0 border-t bg-background px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <Button
           type="button"
           className="w-full"
@@ -108,6 +113,7 @@ export default function DrawerFirmaRicevuta({
         >
           {saving ? 'Salvataggio...' : 'Salva e applica'}
         </Button>
+        </div>
       </SheetContent>
     </Sheet>
   )
