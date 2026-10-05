@@ -598,6 +598,7 @@ export default function TabellaCommesse({
 
   // Evidenzia la commessa indicata da ?highlight= e scrolla fino a lei, poi dissolve
   const [highlighted, setHighlighted] = useState<string | null>(highlightId ?? null)
+  const tabellaOvunque = vistaMobile === 'tabella'
   useEffect(() => {
     if (!highlightId) return
     setHighlighted(highlightId)
@@ -755,8 +756,8 @@ export default function TabellaCommesse({
         </div>
       )}
 
-      {/* Telefono: la vista scelta in Impostazioni → Commesse e scadenze */}
-      {(filtered.length > 0 || filteredPending.length > 0) && (
+      {/* Telefono: la vista scelta in Impostazioni → Commesse e scadenze ("tabella" = come su PC) */}
+      {!tabellaOvunque && (filtered.length > 0 || filteredPending.length > 0) && (
         <div className="md:hidden">
           <ElencoCommesseMobile
             vista={vistaMobile}
@@ -783,7 +784,7 @@ export default function TabellaCommesse({
 
       {/* Tabella (tablet e PC) */}
       {(filtered.length > 0 || filteredPending.length > 0) && (
-        <div className="hidden rounded-md border bg-white overflow-x-auto md:block">
+        <div className={`rounded-md border bg-white overflow-x-auto ${tabellaOvunque ? '' : 'hidden md:block'}`}>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <Table className="table-fixed">
               <CommessaColGroup />
@@ -840,7 +841,7 @@ export default function TabellaCommesse({
       )}
 
       {/* Barra totali del telefono: conteggio e saldo, il resto non ci sta */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-3 border-t-2 border-gray-200 bg-white px-4 py-2 text-xs print:hidden md:hidden">
+      <div className={`fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-3 border-t-2 border-gray-200 bg-white px-4 py-2 text-xs print:hidden md:hidden ${tabellaOvunque ? '!hidden' : ''}`}>
         <span className="text-gray-500">
           {totali.count} {totali.count === 1 ? 'commessa' : 'commesse'}{search ? ' trovate' : ''}
         </span>
@@ -850,7 +851,7 @@ export default function TabellaCommesse({
       </div>
 
       {/* Barra totali fissa in fondo — table-fixed + stesso colgroup = allineamento garantito */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 hidden bg-white border-t-2 border-gray-200 print:hidden overflow-x-auto md:block lg:[left:var(--sidebar-w,16rem)]">
+      <div className={`fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-gray-200 print:hidden overflow-x-auto lg:[left:var(--sidebar-w,16rem)] ${tabellaOvunque ? '' : 'hidden md:block'}`}>
         <Table className="table-fixed">
           <CommessaColGroup />
           <TableBody>

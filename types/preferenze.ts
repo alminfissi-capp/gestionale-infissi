@@ -1,5 +1,5 @@
 /** Come si mostra l'elenco commesse sul telefono (tablet e PC hanno sempre la tabella). */
-export type VistaCommesseMobile = 'schede' | 'righe' | 'espandibili'
+export type VistaCommesseMobile = 'schede' | 'righe' | 'espandibili' | 'tabella'
 
 export const VISTA_COMMESSE_DEFAULT: VistaCommesseMobile = 'schede'
 
@@ -18,6 +18,11 @@ export const VISTE_COMMESSE_MOBILE: { valore: VistaCommesseMobile; titolo: strin
     valore: 'espandibili',
     titolo: 'Righe espandibili',
     descrizione: 'Riga corta con cliente, stato e saldo; la freccia apre importi e tasti.',
+  },
+  {
+    valore: 'tabella',
+    titolo: 'Tabella come su PC',
+    descrizione: 'La tabella completa del PC, con tutte le colonne: si scorre di lato.',
   },
 ]
 

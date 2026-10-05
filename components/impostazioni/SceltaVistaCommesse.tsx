@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { Check } from 'lucide-react'
+import { Check, Plus, Star, Paperclip, MoreVertical, GripVertical } from 'lucide-react'
+import { formatEuro } from '@/lib/pricing'
+import { rigaClass } from '@/lib/commesse-vista'
 import ElencoCommesseMobile, { type AzioniCommessaMobile } from '@/components/commesse/ElencoCommesseMobile'
 import { setVistaCommesseMobile } from '@/actions/preferenze'
 import { VISTE_COMMESSE_MOBILE, type VistaCommesseMobile } from '@/types/preferenze'
@@ -62,7 +64,7 @@ export default function SceltaVistaCommesse({ iniziale }: { iniziale: VistaComme
   }
 
   return (
-    <div role="radiogroup" aria-label="Visualizzazione dell'elenco commesse sul telefono" className="grid gap-3 md:grid-cols-3">
+    <div role="radiogroup" aria-label="Visualizzazione dell'elenco commesse sul telefono" className="grid gap-3 sm:grid-cols-2">
       {VISTE_COMMESSE_MOBILE.map((v) => {
         const attiva = scelta === v.valore
         return (
@@ -98,7 +100,7 @@ export default function SceltaVistaCommesse({ iniziale }: { iniziale: VistaComme
                 <div className="h-[640px] w-[340px] overflow-hidden">
                 <div className="bg-[#0E8F9C] px-3 py-1.5 text-xs text-white">Commesse · 2026</div>
                 <div className="p-2.5">
-                  <ElencoCommesseMobile
+                  {v.valore === 'tabella' ? <AnteprimaTabella /> : <ElencoCommesseMobile
                     vista={v.valore}
                     commesse={ESEMPI}
                     azioni={() => nessunaAzione}
@@ -107,7 +109,7 @@ export default function SceltaVistaCommesse({ iniziale }: { iniziale: VistaComme
                     puoAprireProduzione={false}
                     puoModificareStato={false}
                     anteprima
-                  />
+                  />}
                 </div>
                 </div>
               </div>
@@ -115,6 +117,56 @@ export default function SceltaVistaCommesse({ iniziale }: { iniziale: VistaComme
           </div>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * La tabella del PC vista da un telefono: le prime colonne, il resto oltre il
+ * bordo destro (si scorre di lato). Disegno statico: la tabella vera porta con
+ * se' trascinamento e finestre che in un'anteprima non servono.
+ */
+function AnteprimaTabella() {
+  return (
+    <div className="pointer-events-none select-none overflow-hidden rounded-md border bg-white" inert>
+      <table className="w-[620px] table-fixed text-[13px]">
+        <colgroup>
+          <col className="w-6" /><col className="w-[150px]" /><col className="w-[120px]" />
+          <col className="w-[100px]" /><col className="w-[110px]" /><col className="w-[110px]" />
+        </colgroup>
+        <thead>
+          <tr className="border-b text-left text-[12px] text-gray-500">
+            <th /><th className="py-2">Cliente</th><th>N. Prev.</th>
+            <th className="text-right">Totale</th><th className="text-right">Acconti</th><th className="pr-2 text-right">Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ESEMPI.map((c) => (
+            <tr key={c.id} className={`border-b ${rigaClass(c)}`}>
+              <td className="pl-1 text-gray-300"><GripVertical className="h-3.5 w-3.5" /></td>
+              <td className="truncate py-2.5 font-medium">{c.cliente_nome}</td>
+              <td>
+                <span className="rounded border border-gray-200 bg-gray-100 px-1 font-mono text-[11px] text-gray-600">
+                  {c.preventivi_collegati[0]?.numero_preventivo}
+                </span>
+              </td>
+              <td className="text-right font-semibold tabular-nums">{formatEuro(c.totale)}</td>
+              <td className="text-right tabular-nums">
+                {formatEuro(c.totale_acconti)} <Plus className="inline h-3 w-3 text-gray-400" />
+              </td>
+              <td className="pr-2 text-right">
+                <span className={`rounded-full px-1.5 text-[12px] font-semibold tabular-nums ${
+                  c.saldo > 0.005 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
+                }`}>{formatEuro(c.saldo)}</span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="flex items-center gap-1.5 px-2 py-2 text-[12px] text-gray-500">
+        <Star className="h-3 w-3" /><Paperclip className="h-3 w-3" /><MoreVertical className="h-3 w-3" />
+        … e le altre colonne scorrendo di lato →
+      </p>
     </div>
   )
 }
