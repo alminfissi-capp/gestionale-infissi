@@ -420,9 +420,11 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
         ) : (
           <div className="space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <code className="text-xs bg-gray-50 border rounded px-2 py-1 text-gray-600 break-all flex-1 min-w-0">
-                {shareUrl}
-              </code>
+              {/* Il link non si mostra: e' lungo e sul telefono allungava la scheda. Si copia o si manda. */}
+              <span className="flex items-center gap-1.5 text-sm font-medium text-green-700">
+                <Link2 className="h-3.5 w-3.5" />
+                Link attivo
+              </span>
               <Button size="sm" variant="outline" onClick={handleCopiaLink} title="Copia link">
                 <Copy className="h-3.5 w-3.5 mr-1" />
                 Copia
@@ -439,7 +441,7 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
                 {shareLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
               </Button>
             </div>
-            <div className="flex items-center gap-4 text-xs text-gray-400">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400">
               {condivisoAt && (
                 <span>Condiviso il {new Date(condivisoAt).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
               )}
