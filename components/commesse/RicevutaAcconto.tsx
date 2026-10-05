@@ -115,8 +115,8 @@ export default function RicevutaAcconto({ commessa, acconto, settings, logoUrl, 
       </div>
 
       {/* Sfondo grigio schermo */}
-      <div className="print:hidden bg-gray-100 min-h-screen py-10 px-4 flex items-start justify-center">
-        <div className="bg-white shadow-md w-full max-w-[600px] p-10">
+      <div className="print:hidden bg-gray-100 min-h-screen px-3 py-4 sm:px-4 sm:py-10 flex items-start justify-center">
+        <div className="bg-white shadow-md w-full max-w-[600px] p-5 sm:p-10">
           <Ricevuta
             commessa={commessa}
             acconto={acconto}
@@ -173,30 +173,29 @@ function Ricevuta({ commessa, acconto, settings, logoUrl, ricevutaRef, firmaCorr
   return (
     <div className="font-sans text-gray-900 text-[13px] space-y-6">
 
-      {/* Intestazione azienda */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {logoUrl && (
-
-            <img src={logoUrl} alt="Logo" className="h-14 w-auto object-contain" />
+      {/* Intestazione: logo e numero della ricevuta in alto, dati aziendali sotto a tutta larghezza */}
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-4">
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="h-14 w-auto max-w-[55%] object-contain object-left" />
+          ) : (
+            <p className="font-bold text-[15px]">{settings?.denominazione}</p>
           )}
-          {settings?.denominazione && (
-            <div>
-              <p className="font-bold text-[15px]">{settings.denominazione}</p>
-              <p className="text-gray-500 text-[11px]">
-                {[settings.indirizzo, settings.piva ? `P.IVA ${settings.piva}` : null]
-                  .filter(Boolean).join(' — ')}
-              </p>
-              <p className="text-gray-500 text-[11px]">
-                {[settings.telefono, settings.email].filter(Boolean).join(' — ')}
-              </p>
-            </div>
-          )}
+          <div className="shrink-0 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-right">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Ricevuta n.</p>
+            <p className="font-mono font-bold text-[15px] text-gray-700">{ricevutaRef}</p>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Rif.</p>
-          <p className="font-mono font-bold text-[15px] text-gray-700">{ricevutaRef}</p>
-        </div>
+        {settings?.denominazione && (
+          <div className="space-y-0.5 text-[11px] leading-snug text-gray-500">
+            {logoUrl && <p className="font-bold text-[14px] text-gray-900">{settings.denominazione}</p>}
+            {settings.indirizzo && <p>{settings.indirizzo}</p>}
+            {settings.piva && <p>P.IVA {settings.piva}</p>}
+            {(settings.telefono || settings.email) && (
+              <p>{[settings.telefono, settings.email].filter(Boolean).join(' · ')}</p>
+            )}
+          </div>
+        )}
       </div>
 
       <hr className="border-gray-300" />
@@ -229,7 +228,7 @@ function Ricevuta({ commessa, acconto, settings, logoUrl, ricevutaRef, firmaCorr
       {/* Riferimento e causale */}
       <div className="space-y-2">
         {(commessa.numero_commessa || commessa.numero_preventivo) && (
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex flex-wrap gap-x-8 gap-y-2">
             {commessa.numero_commessa && (
               <div>
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">N. Commessa</p>
@@ -237,7 +236,7 @@ function Ricevuta({ commessa, acconto, settings, logoUrl, ricevutaRef, firmaCorr
               </div>
             )}
             {commessa.numero_preventivo && (
-              <div className="ml-8">
+              <div>
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">N. Preventivo</p>
                 <p className="font-mono font-medium">{commessa.numero_preventivo}</p>
               </div>
@@ -302,20 +301,20 @@ function Ricevuta({ commessa, acconto, settings, logoUrl, ricevutaRef, firmaCorr
       <hr className="border-gray-300 mt-8" />
 
       {/* Firma */}
-      <div className="flex justify-between items-end pt-4">
-        <div>
+      <div className="grid grid-cols-2 items-end gap-6 pt-4">
+        <div className="min-w-0">
           <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Firma del ricevente</p>
           {firmaCorrente ? (
-
-            <img src={firmaCorrente} alt="Firma" className="h-10 object-contain mb-1" />
+            <img src={firmaCorrente} alt="Firma" className="h-10 max-w-full object-contain object-left mb-1" />
           ) : (
-            <div className="mb-4" />
+            <div className="h-10 mb-1" />
           )}
-          <div className="w-48 border-b border-gray-400" />
+          <div className="border-b border-gray-400" />
         </div>
-        <div className="text-right">
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-6">Data e luogo</p>
-          <div className="w-36 border-b border-gray-400" />
+        <div className="min-w-0">
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Data e luogo</p>
+          <div className="h-10 mb-1" />
+          <div className="border-b border-gray-400" />
         </div>
       </div>
 
