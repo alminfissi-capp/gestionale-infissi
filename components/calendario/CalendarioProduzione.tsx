@@ -3,6 +3,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAggiornaSeVecchia } from '@/hooks/useAggiornaSeVecchia'
 import Link from 'next/link'
 import {
   DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent,
@@ -37,6 +38,7 @@ export default function CalendarioProduzione({
   chiusure,
   commesse,
   modificabile,
+  generataAlle,
 }: {
   anno: number
   mese: number
@@ -48,8 +50,12 @@ export default function CalendarioProduzione({
   /** Commesse aperte: colonna laterale, scelta da slot e selettore del dialog. */
   commesse: CommessaOpzione[]
   modificabile: boolean
+  /** Date.now() alla generazione della pagina: vedi useAggiornaSeVecchia. */
+  generataAlle: number
 }) {
   const router = useRouter()
+  // Un evento creato altrove (es. arrivo di un ordine) deve comparire senza ricaricare.
+  useAggiornaSeVecchia(generataAlle)
   const [inCorso, startTransition] = useTransition()
   const [eventoAperto, setEventoAperto] = useState<EventoConContesto | null>(null)
   const [nuovo, setNuovo] = useState<NuovoEvento | null>(null)

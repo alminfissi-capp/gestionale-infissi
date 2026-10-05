@@ -3,6 +3,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAggiornaSeVecchia } from '@/hooks/useAggiornaSeVecchia'
 import { CalendarDays, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { aggiungiGiorni, settimanaDi } from '@/lib/calendario'
@@ -34,6 +35,7 @@ export default function CalendarioAmministrazione({
   chiusure,
   commesse,
   modificabile,
+  generataAlle,
 }: {
   vista: VistaCalendario
   /** Giorno di riferimento: il mese, la settimana o il giorno mostrato. */
@@ -44,8 +46,12 @@ export default function CalendarioAmministrazione({
   chiusure: Chiusura[]
   commesse: CommessaOpzione[]
   modificabile: boolean
+  /** Date.now() alla generazione della pagina: vedi useAggiornaSeVecchia. */
+  generataAlle: number
 }) {
   const router = useRouter()
+  // Un evento creato altrove (es. arrivo di un ordine) deve comparire senza ricaricare.
+  useAggiornaSeVecchia(generataAlle)
   const [inCorso, startTransition] = useTransition()
   const [eventoAperto, setEventoAperto] = useState<EventoConContesto | null>(null)
   const [nuovo, setNuovo] = useState<NuovoImpegno | null>(null)

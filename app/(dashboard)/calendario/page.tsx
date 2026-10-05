@@ -1,4 +1,5 @@
 // app/(dashboard)/calendario/page.tsx
+import { istanteGenerazione } from '@/lib/istante-generazione'
 import { getMyPermissions, requireAccesso } from '@/lib/permessi'
 import {
   getEventiAmministrazione, getOrariLavoro, getChiusure, getTipiAttivita,
@@ -70,6 +71,7 @@ export default async function CalendarioPage({
       chiusure={chiusure}
       commesse={commesse}
       modificabile={isAdmin || permessi.calendario === 'scrittura'}
+      generataAlle={istanteGenerazione()}
     />
   )
 }
