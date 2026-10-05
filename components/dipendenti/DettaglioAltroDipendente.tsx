@@ -58,14 +58,31 @@ export default function DettaglioAltroDipendente({ dipendente, movimenti }: Prop
   }
 
   return (
-    <div className="p-4 lg:p-6 space-y-4 max-w-4xl">
+    <div className="p-3 sm:p-4 lg:p-6 space-y-4 max-w-4xl">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" asChild>
+        <div className="flex min-w-0 items-center gap-2">
+          <Button variant="ghost" size="icon" asChild className="shrink-0">
             <Link href="/dipendenti/altri"><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold">{dipendente.cognome} {dipendente.nome}</h1>
+          <div className="min-w-0">
+            {/* Modifica ed elimina accanto al nome, solo icone */}
+            <div className="flex items-center gap-1">
+              <h1 className="break-words text-xl font-bold sm:text-2xl">{dipendente.cognome} {dipendente.nome}</h1>
+              <Button
+                variant="ghost" size="icon" className="h-8 w-8 shrink-0"
+                title="Modifica dipendente" aria-label="Modifica dipendente"
+                onClick={() => setEditOpen(true)}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-red-500 hover:text-red-700"
+                title="Elimina dipendente" aria-label="Elimina dipendente"
+                onClick={rimuoviDipendente}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
             <p className="text-sm text-gray-500">
               {CADENZA_LABELS[dipendente.cadenza]}
               {!dipendente.attivo ? ' · NON ATTIVO' : ''}
@@ -73,18 +90,12 @@ export default function DettaglioAltroDipendente({ dipendente, movimenti }: Prop
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => apriMovimento('stipendio')}>
-            <Plus className="h-4 w-4 mr-2" /> Aggiungi stipendio
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+          <Button variant="outline" className="max-sm:h-9 max-sm:px-2 max-sm:text-xs" onClick={() => apriMovimento('stipendio')}>
+            <Plus className="h-4 w-4 mr-2 max-sm:mr-1" /> Aggiungi stipendio
           </Button>
-          <Button variant="outline" onClick={() => apriMovimento('pagamento')}>
-            <Banknote className="h-4 w-4 mr-2" /> Aggiungi pagamento
-          </Button>
-          <Button variant="outline" onClick={() => setEditOpen(true)}>
-            <Pencil className="h-4 w-4 mr-2" /> Modifica
-          </Button>
-          <Button variant="outline" onClick={rimuoviDipendente}>
-            <Trash2 className="h-4 w-4 mr-2" /> Elimina
+          <Button variant="outline" className="max-sm:h-9 max-sm:px-2 max-sm:text-xs" onClick={() => apriMovimento('pagamento')}>
+            <Banknote className="h-4 w-4 mr-2 max-sm:mr-1" /> Aggiungi pagamento
           </Button>
         </div>
       </div>
