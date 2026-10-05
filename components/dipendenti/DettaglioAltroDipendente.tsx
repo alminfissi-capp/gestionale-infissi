@@ -60,8 +60,8 @@ export default function DettaglioAltroDipendente({ dipendente, movimenti }: Prop
   return (
     <div className="p-3 sm:p-4 lg:p-6 space-y-4 max-w-4xl">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <Button variant="ghost" size="icon" asChild className="shrink-0">
+        <div className="flex min-w-0 items-start gap-1">
+          <Button variant="ghost" size="icon" asChild className="-ml-2 shrink-0">
             <Link href="/dipendenti/altri"><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
           <div className="min-w-0">

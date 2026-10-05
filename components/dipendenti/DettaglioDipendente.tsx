@@ -115,8 +115,8 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
   return (
     <div className="p-3 sm:p-4 lg:p-6 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <Button variant="ghost" size="icon" asChild className="shrink-0">
+        <div className="flex min-w-0 items-start gap-1">
+          <Button variant="ghost" size="icon" asChild className="-ml-2 shrink-0">
             <Link href="/dipendenti"><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
           <div className="min-w-0">
@@ -140,13 +140,38 @@ export default function DettaglioDipendente({ dipendente, buste, pagamenti }: Pr
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>
-            <p className="break-all text-xs text-gray-500">
-              {dipendente.ruolo === 'amministratore' ? 'Amministratore · ' : ''}
-              {senzaBusta ? 'senza busta paga · ' : ''}
-              {dipendente.codice_fiscale ?? 'CF non inserito'}
-              {dipendente.iban ? ` · ${dipendente.iban}` : ''}
-              {!dipendente.attivo ? ' · NON ATTIVO' : ''}
-            </p>
+            {/* Dati sotto il nome, una voce per riga: ruolo e stato come etichette, poi CF e IBAN */}
+            <div className="mt-1 space-y-0.5 text-xs text-gray-500">
+              {(dipendente.ruolo === 'amministratore' || senzaBusta || !dipendente.attivo) && (
+                <div className="flex flex-wrap gap-1 pb-0.5">
+                  {dipendente.ruolo === 'amministratore' && (
+                    <span className="rounded bg-indigo-100 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                      Amministratore
+                    </span>
+                  )}
+                  {senzaBusta && (
+                    <span className="rounded bg-gray-100 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                      Senza busta paga
+                    </span>
+                  )}
+                  {!dipendente.attivo && (
+                    <span className="rounded bg-gray-200 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                      Non attivo
+                    </span>
+                  )}
+                </div>
+              )}
+              <p>
+                <span className="text-gray-400">CF </span>
+                <span className="font-mono">{dipendente.codice_fiscale ?? 'non inserito'}</span>
+              </p>
+              {dipendente.iban && (
+                <p className="break-all">
+                  <span className="text-gray-400">IBAN </span>
+                  <span className="font-mono">{dipendente.iban}</span>
+                </p>
+              )}
+            </div>
           </div>
         </div>
         {/* Sul telefono due tasti per riga: carica busta | carica bonifico, busta manuale | paga manuale */}
