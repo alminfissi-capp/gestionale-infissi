@@ -6,6 +6,7 @@ import { getOrgId } from '@/lib/auth'
 import { getSettings } from '@/actions/impostazioni'
 import { formattaNumeroOrdine } from '@/lib/produzione'
 import { cartellaFileFornitore, noteInHtml } from '@/lib/conferme-ordine'
+import { teniSoloFirmata } from '@/lib/conferme-ordine-db'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -40,7 +41,12 @@ export async function POST(request: Request) {
       .eq('id', confermaId)
       .maybeSingle()
     if (!conferma || conferma.tipo !== 'conferma') {
-      return NextResponse.json({ error: 'Conferma non trovata' }, { status: 404 })
+      // Il fornitore puo' averne caricata una nuova mentre la si stava firmando:
+      // la vecchia in quel caso e' gia' stata cancellata.
+      return NextResponse.json(
+        { error: 'Conferma non trovata: forse il fornitore ne ha caricata una nuova. Ricarica la pagina' },
+        { status: 404 }
+      )
     }
 
     const cartella = cartellaFileFornitore(orgId, conferma.ordine_id)
@@ -148,6 +154,9 @@ export async function POST(request: Request) {
       .from('file_fornitore_ordine')
       .update({ inviata_a: email, inviata_at: new Date().toISOString() })
       .eq('id', conferma.id)
+
+    // In archivio resta solo la copia firmata.
+    await teniSoloFirmata(conferma.id, path)
 
     if (ordine.commessa_id) {
       const { error: docError } = await supabase.from('documenti_commessa').insert({

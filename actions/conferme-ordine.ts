@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
 import { cartellaFileFornitore, validaFileFornitore } from '@/lib/conferme-ordine'
 import { formattaNumeroOrdine } from '@/lib/produzione'
+import { eliminaConfermeNonFirmate } from '@/lib/conferme-ordine-db'
 import type { ConfermaDaFirmare, FileFornitoreOrdine } from '@/types/produzione'
 
 const BUCKET = 'commesse-docs'
@@ -212,16 +213,6 @@ export async function registraConfermaManuale(
   const { data: { user } } = await supabase.auth.getUser()
   const adesso = new Date().toISOString()
 
-  // Quella caricata a mano chiude la partita: le conferme che aspettavano la
-  // firma non vanno piu' firmate.
-  await supabase
-    .from('file_fornitore_ordine')
-    .update({ stato: 'sostituita' })
-    .eq('organization_id', orgId)
-    .eq('ordine_id', ordineId)
-    .eq('tipo', 'conferma')
-    .eq('stato', 'da_firmare')
-
   const { error } = await supabase.from('file_fornitore_ordine').insert({
     organization_id: orgId,
     ordine_id: ordineId,
@@ -237,6 +228,10 @@ export async function registraConfermaManuale(
     firmata_da: user?.id ?? null,
   })
   if (error) return { error: error.message }
+
+  // Quella caricata a mano chiude la partita: gli originali che aspettavano
+  // la firma non servono piu' e in archivio resta solo la firmata.
+  await eliminaConfermeNonFirmate(ordineId, null)
 
   if (ordine.commessa_id) {
     await supabase.from('documenti_commessa').insert({

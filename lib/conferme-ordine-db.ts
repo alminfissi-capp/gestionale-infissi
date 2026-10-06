@@ -135,17 +135,6 @@ export async function registraCaricamento(
 
   const nomeVisibile = nome.trim().slice(0, 200) || nomeOggetto
 
-  if (tipo === 'conferma') {
-    // Una conferma nuova prende il posto di quella che aspettava ancora la
-    // firma: firmare la vecchia vorrebbe dire accettare condizioni superate.
-    await service
-      .from('file_fornitore_ordine')
-      .update({ stato: 'sostituita' })
-      .eq('ordine_id', ordine.id)
-      .eq('tipo', 'conferma')
-      .eq('stato', 'da_firmare')
-  }
-
   const { error } = await service.from('file_fornitore_ordine').insert({
     organization_id: ordine.organizationId,
     ordine_id: ordine.id,
@@ -162,21 +151,89 @@ export async function registraCaricamento(
     return { ok: false, errore: 'Registrazione non riuscita, riprovate', status: 500 }
   }
 
-  // Nella commessa giusta: compare tra i documenti di Produzione.
-  if (ordine.commessaId) {
+  if (tipo === 'conferma') {
+    // Una conferma nuova prende il posto di quella che aspettava ancora la
+    // firma: firmare la vecchia vorrebbe dire accettare condizioni superate.
+    // Le superate non servono a nessuno e si cancellano subito.
+    const { data: inserita } = await service
+      .from('file_fornitore_ordine')
+      .select('id')
+      .eq('ordine_id', ordine.id)
+      .eq('storage_path', path)
+      .maybeSingle()
+    if (inserita) await eliminaConfermeNonFirmate(ordine.id, inserita.id)
+  }
+
+  // Solo DDT e documenti entrano subito tra i documenti della commessa: la
+  // conferma ci entra una volta firmata, ed e' l'unica copia che resta.
+  if (tipo === 'documento' && ordine.commessaId) {
     const numero = formattaNumeroOrdine(ordine.numeroOrdine)
-    const etichetta = tipo === 'conferma' ? 'Conferma fornitore' : 'Documento fornitore'
     const { error: docError } = await service.from('documenti_commessa').insert({
       commessa_id: ordine.commessaId,
       organization_id: ordine.organizationId,
-      nome_file: `${etichetta} ${numero} - ${nomeVisibile}`.slice(0, 250),
+      nome_file: `Documento fornitore ${numero} - ${nomeVisibile}`.slice(0, 250),
       storage_path: path,
-      tipo_documento: tipo === 'conferma' ? 'conferma_ordine' : 'documento_fornitore',
+      tipo_documento: 'documento_fornitore',
     })
     if (docError) console.error('[file fornitore] documento commessa:', docError.message)
   }
 
   return { ok: true }
+}
+
+/**
+ * Cancella file e righe delle conferme non firmate di un ordine (da firmare o
+ * superate), tranne `tenere`. In archivio deve restare solo la copia firmata:
+ * gli originali del fornitore occuperebbero spazio senza servire a niente.
+ */
+export async function eliminaConfermeNonFirmate(ordineId: string, tenere: string | null): Promise<void> {
+  const service = createServiceClient()
+  const { data } = await service
+    .from('file_fornitore_ordine')
+    .select('id, storage_path')
+    .eq('ordine_id', ordineId)
+    .eq('tipo', 'conferma')
+    .in('stato', ['da_firmare', 'sostituita'])
+  const daTogliere = (data ?? []).filter((r) => r.id !== tenere)
+  if (daTogliere.length === 0) return
+  await togliFile(daTogliere.map((r) => r.storage_path as string))
+  const { error } = await service
+    .from('file_fornitore_ordine')
+    .delete()
+    .in('id', daTogliere.map((r) => r.id))
+  if (error) console.error('[conferme] eliminazione righe:', error.message)
+}
+
+/**
+ * Dopo la firma: via l'originale del fornitore, la riga punta alla copia
+ * firmata. Via anche le altre conferme non firmate dello stesso ordine.
+ */
+export async function teniSoloFirmata(confermaId: string, pathFirmato: string): Promise<void> {
+  const service = createServiceClient()
+  const { data } = await service
+    .from('file_fornitore_ordine')
+    .select('ordine_id, storage_path')
+    .eq('id', confermaId)
+    .maybeSingle()
+  if (!data) return
+  if (data.storage_path !== pathFirmato) {
+    await togliFile([data.storage_path as string])
+    const { error } = await service
+      .from('file_fornitore_ordine')
+      .update({ storage_path: pathFirmato, content_type: 'application/pdf' })
+      .eq('id', confermaId)
+    if (error) console.error('[conferme] riga firmata:', error.message)
+  }
+  await eliminaConfermeNonFirmate(data.ordine_id as string, confermaId)
+}
+
+/** File via da Storage, con le eventuali voci tra i documenti di commessa. */
+async function togliFile(paths: string[]): Promise<void> {
+  if (paths.length === 0) return
+  const service = createServiceClient()
+  const { error } = await service.storage.from(BUCKET).remove(paths)
+  if (error) console.error('[conferme] rimozione file:', error.message)
+  await service.from('documenti_commessa').delete().in('storage_path', paths)
 }
 
 export type ConfermaFirmataPubblica = {

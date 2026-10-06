@@ -284,7 +284,7 @@ export default function FirmaConferma({ dati }: Props) {
                 </a>
               </Button>
             ) : null}
-            {dati.urlConferma ? (
+            {dati.urlConferma && conferma.storage_path !== conferma.firmata_path ? (
               <Button asChild variant="ghost" size="sm" className="gap-2">
                 <a href={dati.urlConferma} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-4 w-4" /> Originale del fornitore
