@@ -18,6 +18,7 @@ import DialogVisualizzatore from './DialogVisualizzatore'
 import OrdinePDF from './OrdinePDF'
 import type { IntestazionePDF } from './OrdinePDF'
 import StatoInvioOrdine from '@/components/produzione/StatoInvioOrdine'
+import FileFornitoreOrdine from '@/components/produzione/FileFornitoreOrdine'
 import BadgeStatoCommessa from '@/components/commesse/BadgeStatoCommessa'
 import { usePermissions } from '@/contexts/PermissionsContext'
 import { useAttivitaCommessa } from '@/hooks/useAttivitaCommessa'
@@ -34,24 +35,29 @@ import { getDocumentoSignedUrl } from '@/actions/produzione-documenti'
 import { unisciAllegatiAlPdf, type AllegatoDaUnire } from '@/lib/produzione-allegati-pdf'
 import { conFallbackInvio, righeFooterPdf, TRACKING_VUOTO } from '@/lib/produzione-tracking'
 import { STATI_ORDINE } from '@/types/produzione'
-import type { OrdineCompleto, StatoOrdine, TrackingOrdine } from '@/types/produzione'
+import type {
+  FileFornitoreOrdine as FileFornitore, OrdineCompleto, StatoOrdine, TrackingOrdine,
+} from '@/types/produzione'
 import type { StatoCommessa, DocumentoCommessa } from '@/types/commessa'
 
 interface Props {
   commessa: { id: string; numero_commessa: string; cliente_nome: string; stato: StatoCommessa }
   ordini: OrdineCompleto[]
-  fornitori: { id: string; nome: string; email: string | null }[]
+  fornitori: { id: string; nome: string; email: string | null; richiede_conferma?: boolean }[]
   numeroProposto: string
   documenti: DocumentoCommessa[]
   intestazione: IntestazionePDF
   tracking: Record<string, TrackingOrdine>
+  /** File caricati dal fornitore (conferme, DDT) per ordine. */
+  fileFornitore: Record<string, FileFornitore[]>
   // Indirizzo di ritorno all'elenco economico, gia' deciso dal server: null per
   // chi non e' arrivato da li' o non ha accesso a quel modulo.
   tornaACommesse: string | null
 }
 
 export default function ProduzioneCommessa({
-  commessa, ordini, fornitori, numeroProposto, documenti, intestazione, tracking, tornaACommesse,
+  commessa, ordini, fornitori, numeroProposto, documenti, intestazione, tracking, fileFornitore,
+  tornaACommesse,
 }: Props) {
   const router = useRouter()
   // Attivita' e avanzamento vengono dallo stesso stato: l'anello si muove
@@ -408,6 +414,13 @@ export default function ProduzioneCommessa({
                       </Button>
                     </td>
                   </tr>
+                  {o.richiede_conferma || (fileFornitore[o.id]?.length ?? 0) > 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-2 pb-2">
+                        <FileFornitoreOrdine ordine={o} file={fileFornitore[o.id] ?? []} />
+                      </td>
+                    </tr>
+                  ) : null}
                   {o.errore_invio ? (
                     <tr>
                       <td colSpan={7} className="px-2 pb-2">

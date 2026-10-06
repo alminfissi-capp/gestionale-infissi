@@ -29,7 +29,7 @@ interface Props {
   onOpenChange: (open: boolean) => void
   commessaId: string | null
   ordine: OrdineCompleto | null
-  fornitori: { id: string; nome: string; email: string | null }[]
+  fornitori: { id: string; nome: string; email: string | null; richiede_conferma?: boolean }[]
   numeroProposto: string
   /** Se presenti, mostra il selettore commessa (uso dal magazzino). */
   commesse?: CommessaOpzione[]
@@ -57,6 +57,7 @@ export default function DialogOrdine({
   const [dataOrdine, setDataOrdine] = useState(oggiISO())
   const [consegna, setConsegna] = useState('')
   const [stato, setStato] = useState<StatoOrdine>('da_ordinare')
+  const [richiedeConferma, setRichiedeConferma] = useState(false)
   const [note, setNote] = useState('')
   const [righe, setRighe] = useState<RigaOrdineInput[]>([])
   // Allegati scelti prima che l'ordine esista: si caricano appena ha un id.
@@ -100,6 +101,7 @@ export default function DialogOrdine({
     setDataOrdine(ordine?.data_ordine ?? oggiISO())
     setConsegna(ordine?.data_consegna_prevista ?? '')
     setStato(ordine?.stato ?? 'da_ordinare')
+    setRichiedeConferma(ordine?.richiede_conferma ?? false)
     setNote(ordine?.note ?? '')
     setAllegatiInAttesa([])
     setRighe(
@@ -117,6 +119,13 @@ export default function DialogOrdine({
       ]
     )
   }, [open, ordine, numeroProposto, commessaId])
+
+  // Cambiando fornitore l'interruttore prende la sua impostazione d'anagrafica;
+  // resta comunque modificabile sul singolo ordine.
+  const scegliFornitore = (id: string) => {
+    setFornitoreId(id)
+    setRichiedeConferma(Boolean(fornitori.find((f) => f.id === id)?.richiede_conferma))
+  }
 
   /** Carica gli allegati scelti prima del salvataggio. Torna l'errore, o null. */
   const caricaAllegati = async (ordineId: string): Promise<string | null> => {
@@ -171,6 +180,7 @@ export default function DialogOrdine({
         data_ordine: dataOrdine,
         data_consegna_prevista: consegna || null,
         stato,
+        richiede_conferma: richiedeConferma,
         note: note.trim() || null,
         righe,
         calendario: !calendarioLetto ? undefined : inCalendario ? calendario : null,
@@ -222,7 +232,7 @@ export default function DialogOrdine({
             )}
             <div className="space-y-1.5">
               <Label>Fornitore</Label>
-              <Select value={fornitoreId} onValueChange={setFornitoreId}>
+              <Select value={fornitoreId} onValueChange={scegliFornitore}>
                 <SelectTrigger><SelectValue placeholder="Seleziona fornitore" /></SelectTrigger>
                 <SelectContent>
                   {fornitori.map((f) => (
@@ -265,6 +275,21 @@ export default function DialogOrdine({
               </Select>
             </div>
           </div>
+
+          <label htmlFor="ordine-richiede-conferma" className="flex items-start gap-3 rounded-md border p-3">
+            <Switch
+              id="ordine-richiede-conferma"
+              checked={richiedeConferma}
+              onCheckedChange={setRichiedeConferma}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="block text-sm font-medium">Richiedi conferma d’ordine</span>
+              <span className="block text-xs text-muted-foreground">
+                Nella mail compare “Carica conferma d’ordine”: quando il fornitore la carica, la trovi in Produzione da firmare.
+              </span>
+            </span>
+          </label>
 
           {calendarioLetto && tipiProduzione.length > 0 && (
             <div className="space-y-3 rounded-md border p-3">

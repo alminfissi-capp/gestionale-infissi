@@ -29,7 +29,7 @@ import { calcolaAvanzamento, AVANZAMENTO_VUOTO } from '@/lib/avanzamento'
 import { getAspettiTipo } from '@/actions/calendario'
 import { getSettings, getLogoSignedUrl } from '@/actions/impostazioni'
 
-type FornitoreOpzione = { id: string; nome: string; email: string | null }
+type FornitoreOpzione = { id: string; nome: string; email: string | null; richiede_conferma: boolean }
 
 // I NUMERIC arrivano da PostgREST come stringhe. Il null va tenuto tale: i
 // separatori non hanno quantita', e Number(null) la trasformerebbe in 0.
@@ -45,7 +45,7 @@ export async function getFornitoriPerOrdine(): Promise<FornitoreOpzione[]> {
   const orgId = await getOrgId()
   const { data } = await supabase
     .from('fornitori')
-    .select('id, nome, email')
+    .select('id, nome, email, richiede_conferma')
     .eq('organization_id', orgId)
     .order('nome', { ascending: true })
   return data ?? []

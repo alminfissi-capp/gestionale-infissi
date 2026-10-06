@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Dialog,
   DialogContent,
@@ -33,6 +34,7 @@ const empty: FornitoreInput = {
   indirizzo: '',
   note: '',
   categoria_calendario: null,
+  richiede_conferma: false,
 }
 
 export default function DialogFornitore({ open, onOpenChange, fornitore }: Props) {
@@ -47,6 +49,7 @@ export default function DialogFornitore({ open, onOpenChange, fornitore }: Props
           indirizzo: fornitore.indirizzo ?? '',
           note: fornitore.note ?? '',
           categoria_calendario: fornitore.categoria_calendario,
+          richiede_conferma: fornitore.richiede_conferma ?? false,
         }
       : empty
   )
@@ -138,6 +141,20 @@ export default function DialogFornitore({ open, onOpenChange, fornitore }: Props
               Determina il colore della ricezione creata dagli ordini di questo fornitore.
             </p>
           </div>
+          <label htmlFor="richiede-conferma" className="flex items-start gap-3 rounded-md border p-3">
+            <Switch
+              id="richiede-conferma"
+              checked={form.richiede_conferma ?? false}
+              onCheckedChange={(v) => setForm((f) => ({ ...f, richiede_conferma: v }))}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="block text-sm font-medium">Richiede conferma d&apos;ordine firmata</span>
+              <span className="block text-xs text-gray-500">
+                Nei nuovi ordini a questo fornitore &quot;Richiedi conferma d&apos;ordine&quot; parte già acceso.
+              </span>
+            </span>
+          </label>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Annulla
