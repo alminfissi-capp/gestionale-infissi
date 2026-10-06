@@ -46,6 +46,8 @@ export const TIPI_DOCUMENTO_PRODUZIONE: { value: string; label: string }[] = [
   { value: 'conferma_ordine',  label: 'Conferma ordine' },
   { value: 'foto',             label: 'Foto' },
   { value: 'ordine_fornitore', label: 'Ordine fornitore' },
+  // Caricato dal fornitore dal link dell'ordine: DDT, fattura di cortesia, altro.
+  { value: 'documento_fornitore', label: 'Documento fornitore' },
 ]
 
 export const TIPI_DOCUMENTO_PRODUZIONE_VALUES = TIPI_DOCUMENTO_PRODUZIONE.map((t) => t.value)
@@ -118,6 +120,8 @@ export type OrdineFornitore = {
   /** Motivo dell'ultimo invio fallito; resta finché un invio non riesce. */
   errore_invio: string | null
   errore_invio_at: string | null
+  /** Il fornitore deve caricare una conferma d'ordine, da firmare e rimandare. */
+  richiede_conferma: boolean
   note: string | null
   created_at: string
   updated_at: string
@@ -130,6 +134,7 @@ export type OrdineInput = {
   data_ordine: string
   data_consegna_prevista: string | null
   stato: StatoOrdine
+  richiede_conferma: boolean
   note: string | null
   righe: RigaOrdineInput[]
   /**
@@ -212,4 +217,45 @@ export type TrackingOrdine = {
   aperture: number
   /** Quante volte l'ordine è stato inviato in tutto. */
   invii: number
+}
+
+export type TipoFileFornitore = 'conferma' | 'documento'
+
+export type StatoConferma = 'da_firmare' | 'firmata' | 'firmata_manuale' | 'sostituita'
+
+/**
+ * File arrivato dal fornitore dal link dell'ordine (o caricato a mano).
+ * I campi della firma valgono solo per le conferme.
+ */
+export type FileFornitoreOrdine = {
+  id: string
+  organization_id: string
+  ordine_id: string
+  tipo: TipoFileFornitore
+  storage_path: string
+  nome_file: string
+  content_type: string | null
+  dimensione: number | null
+  caricato_da: 'fornitore' | 'utente'
+  created_at: string
+  stato: StatoConferma | null
+  firmata_path: string | null
+  firmata_at: string | null
+  note_firma: string | null
+  inviata_a: string | null
+  inviata_at: string | null
+  letta_at: string | null
+  aperture: number
+}
+
+/** Riga del riquadro "Conferme da firmare" nel cruscotto. */
+export type ConfermaDaFirmare = {
+  id: string
+  ordine_id: string
+  commessa_id: string | null
+  numero_ordine: string
+  fornitore_nome: string | null
+  numero_commessa: string | null
+  cliente_nome: string | null
+  created_at: string
 }

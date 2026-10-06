@@ -23,6 +23,12 @@ export type DatiPaginaOrdine = {
   denominazione: string
   logoUrl: string | null
   pdfDisponibile: boolean
+  /** L'ordine chiede al fornitore di caricare la conferma d'ordine. */
+  richiedeConferma: boolean
+  /** File gia' caricati dal fornitore: solo cio' che serve a mostrarglieli. */
+  fileCaricati: { tipo: 'conferma' | 'documento'; nome: string; caricatoAt: string }[]
+  /** C'e' una conferma firmata da scaricare. */
+  confermaFirmata: boolean
 }
 
 type DatiEvento = {
@@ -98,12 +104,12 @@ export async function getDatiPaginaOrdine(token: string): Promise<DatiPaginaOrdi
 
   const { data: ordine } = await service
     .from('ordini_fornitore')
-    .select('id, organization_id, numero_ordine, data_ordine, pdf_inviato_path, fornitore_id')
+    .select('id, organization_id, numero_ordine, data_ordine, pdf_inviato_path, fornitore_id, richiede_conferma')
     .eq('tracking_token', token)
     .maybeSingle()
   if (!ordine) return null
 
-  const [{ data: fornitore }, { data: settings }] = await Promise.all([
+  const [{ data: fornitore }, { data: settings }, { data: file }] = await Promise.all([
     ordine.fornitore_id
       ? service.from('fornitori').select('nome').eq('id', ordine.fornitore_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -112,6 +118,13 @@ export async function getDatiPaginaOrdine(token: string): Promise<DatiPaginaOrdi
       .select('denominazione, logo_url')
       .eq('organization_id', ordine.organization_id)
       .maybeSingle(),
+    // Solo i file del fornitore: la conferma caricata a mano dall'utente
+    // non lo riguarda.
+    service
+      .from('file_fornitore_ordine')
+      .select('tipo, nome_file, created_at, stato, caricato_da')
+      .eq('ordine_id', ordine.id)
+      .order('created_at', { ascending: true }),
   ])
 
   let logoUrl: string | null = null
@@ -131,5 +144,14 @@ export async function getDatiPaginaOrdine(token: string): Promise<DatiPaginaOrdi
     denominazione: settings?.denominazione ?? 'A.L.M. Infissi',
     logoUrl,
     pdfDisponibile: Boolean(ordine.pdf_inviato_path),
+    richiedeConferma: Boolean(ordine.richiede_conferma),
+    fileCaricati: (file ?? [])
+      .filter((f) => f.caricato_da === 'fornitore')
+      .map((f) => ({
+        tipo: f.tipo as 'conferma' | 'documento',
+        nome: f.nome_file as string,
+        caricatoAt: f.created_at as string,
+      })),
+    confermaFirmata: (file ?? []).some((f) => f.stato === 'firmata'),
   }
 }

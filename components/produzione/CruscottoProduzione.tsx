@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Factory, AlertTriangle, FileText, Package, Search,
   BarChart3, MessageSquare, ClipboardList, Archive, ArchiveRestore, ArrowLeft,
-  CalendarDays,
+  CalendarDays, PenLine,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -17,10 +17,13 @@ import {
 import GraficoAvanzamento from '@/components/produzione/GraficoAvanzamento'
 import SemaforoCommessa from '@/components/produzione/SemaforoCommessa'
 import { setArchiviataCommessa } from '@/actions/produzione'
-import type { OrdineConCommessa, CommessaProduzione } from '@/types/produzione'
+import { formattaNumeroOrdine } from '@/lib/produzione'
+import { formattaDataOra } from '@/lib/produzione-tracking'
+import type { OrdineConCommessa, CommessaProduzione, ConfermaDaFirmare } from '@/types/produzione'
 
 interface Props {
   daFare: OrdineConCommessa[]
+  confermeDaFirmare: ConfermaDaFirmare[]
   commesse: CommessaProduzione[]
   statoFiltro: string
   archiviate: boolean
@@ -70,7 +73,7 @@ function comparatore(ord: Ordinamento) {
   }
 }
 
-export default function CruscottoProduzione({ daFare, commesse, statoFiltro, archiviate }: Props) {
+export default function CruscottoProduzione({ daFare, confermeDaFirmare, commesse, statoFiltro, archiviate }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [ricerca, setRicerca] = useState('')
@@ -140,6 +143,42 @@ export default function CruscottoProduzione({ daFare, commesse, statoFiltro, arc
           </Link>
         </Button>
       </div>
+
+      {/* Conferme caricate dai fornitori: restano qui finche' non si firmano */}
+      {confermeDaFirmare.length > 0 && (
+        <section
+          aria-label="Conferme da firmare"
+          className="rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/40"
+        >
+          <div className="flex items-center gap-2">
+            <PenLine className="h-4 w-4 text-red-600 dark:text-red-400" />
+            <h2 className="text-base font-semibold text-red-700 dark:text-red-300">Conferme da firmare</h2>
+            <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-medium text-white">
+              {confermeDaFirmare.length}
+            </span>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {confermeDaFirmare.map((c) => (
+              <Link
+                key={c.id}
+                href={`/produzione/conferme/${c.id}`}
+                className="flex items-center gap-3 rounded-md border border-red-200 bg-white p-3 hover:bg-red-50 dark:border-red-900 dark:bg-gray-950 dark:hover:bg-red-950/60"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {formattaNumeroOrdine(c.numero_ordine)} · {c.fornitore_nome ?? 'fornitore n.d.'}
+                  </p>
+                  <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                    {c.numero_commessa ? `${c.numero_commessa} · ${c.cliente_nome ?? ''}` : 'Magazzino'}
+                    {` · caricata il ${formattaDataOra(c.created_at)}`}
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-md bg-red-600 px-2.5 py-1 text-xs font-medium text-white">Apri</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Zona superiore: statistiche + da fare + messaggi */}
       <section className="grid gap-3 lg:grid-cols-3">

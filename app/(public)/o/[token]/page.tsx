@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { getDatiPaginaOrdine } from '@/lib/produzione-tracking-db'
 import TracciaVisita from './TracciaVisita'
+import CaricaFile from './CaricaFile'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,6 +55,38 @@ export default async function PaginaOrdineFornitore({
             riceverne una copia.
           </p>
         )}
+
+        {dati.confermaFirmata ? (
+          <a
+            href={`/o/${token}/conferma`}
+            className="mt-3 block w-full rounded-lg border border-[#0E8F9C] px-4 py-3 text-center font-medium text-[#0E8F9C] hover:bg-[#0E8F9C]/5"
+          >
+            Conferma d&apos;ordine firmata
+          </a>
+        ) : null}
+
+        <div className="mt-8 space-y-6">
+          {dati.richiedeConferma ? (
+            <CaricaFile
+              token={token}
+              tipo="conferma"
+              titolo="Conferma d'ordine"
+              descrizione={`Caricate qui la vostra conferma: ${dati.denominazione} la firmerà e ve la rimanderà.`}
+              caricati={dati.fileCaricati
+                .filter((f) => f.tipo === 'conferma')
+                .map(({ nome, caricatoAt }) => ({ nome, caricatoAt }))}
+            />
+          ) : null}
+          <CaricaFile
+            token={token}
+            tipo="documento"
+            titolo="DDT e altri documenti"
+            descrizione="DDT, copia di cortesia della fattura, schede tecniche."
+            caricati={dati.fileCaricati
+              .filter((f) => f.tipo === 'documento')
+              .map(({ nome, caricatoAt }) => ({ nome, caricatoAt }))}
+          />
+        </div>
 
         <p className="mt-6 text-xs text-gray-400">Inviato da {dati.denominazione}</p>
       </div>

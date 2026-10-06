@@ -1,5 +1,6 @@
 import { requireAccesso } from '@/lib/permessi'
 import { getCruscottoProduzione } from '@/actions/produzione'
+import { getConfermeDaFirmare } from '@/actions/conferme-ordine'
 import CruscottoProduzione from '@/components/produzione/CruscottoProduzione'
 import { STATI_COMMESSA_PRODUZIONE, STATI_COMMESSA_COMPLETATE } from '@/types/produzione'
 import type { StatoCommessa } from '@/types/commessa'
@@ -33,11 +34,15 @@ export default async function ProduzionePage({
   const filtro = stato ?? 'aperte'
   const vistaArchivio = archiviate === '1'
 
-  const { daFare, commesse } = await getCruscottoProduzione(statiDaFiltro(filtro), vistaArchivio)
+  const [{ daFare, commesse }, confermeDaFirmare] = await Promise.all([
+    getCruscottoProduzione(statiDaFiltro(filtro), vistaArchivio),
+    getConfermeDaFirmare(),
+  ])
 
   return (
     <CruscottoProduzione
       daFare={daFare}
+      confermeDaFirmare={confermeDaFirmare}
       commesse={commesse}
       statoFiltro={filtro}
       archiviate={vistaArchivio}

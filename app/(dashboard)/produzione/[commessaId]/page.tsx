@@ -6,6 +6,7 @@ import {
 import { getDocumentiProduzione } from '@/actions/produzione-documenti'
 import { getSettings, getLogoSignedUrl } from '@/actions/impostazioni'
 import { getTrackingOrdini } from '@/actions/produzione-tracking'
+import { getFileFornitorePerOrdini } from '@/actions/conferme-ordine'
 import ProduzioneCommessa from '@/components/produzione/ProduzioneCommessa'
 
 export const dynamic = 'force-dynamic'
@@ -33,7 +34,10 @@ export default async function ProduzioneCommessaPage({
     getSettings(),
   ])
 
-  const tracking = await getTrackingOrdini(ordini.map((o) => o.id))
+  const [tracking, fileFornitore] = await Promise.all([
+    getTrackingOrdini(ordini.map((o) => o.id)),
+    getFileFornitorePerOrdini(ordini.map((o) => o.id)),
+  ])
 
   const logoUrl = settings?.logo_url ? await getLogoSignedUrl(settings.logo_url) : null
 
@@ -64,6 +68,7 @@ export default async function ProduzioneCommessaPage({
       documenti={documenti}
       intestazione={intestazione}
       tracking={tracking}
+      fileFornitore={fileFornitore}
       tornaACommesse={tornaACommesse}
     />
   )

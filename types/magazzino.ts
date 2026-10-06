@@ -23,6 +23,8 @@ export type Fornitore = {
   note: string | null
   /** Decide il colore della ricezione generata dagli ordini di questo fornitore. */
   categoria_calendario: 'alluminio' | 'vetri' | 'accessori' | null
+  /** Pre-imposta "Richiedi conferma d'ordine" sui nuovi ordini a questo fornitore. */
+  richiede_conferma: boolean
   created_at: string
   updated_at: string
 }
@@ -35,6 +37,7 @@ export type FornitoreInput = {
   indirizzo?: string
   note?: string
   categoria_calendario?: 'alluminio' | 'vetri' | 'accessori' | null
+  richiede_conferma?: boolean
 }
 
 export type CategoriaMagazzino = {

@@ -22,6 +22,9 @@ export type Settings = {
   num_anno: number
   num_padding: number
   firma_default: string | null
+  /** Timbro e firma (data URL) applicati alle conferme d'ordine dei fornitori. */
+  timbro_conferme: string | null
+  firma_conferme: string | null
   /** Sette elementi, indice 0 = lunedì. Vedi types/calendario.ts */
   orari_lavoro: unknown
   created_at: string

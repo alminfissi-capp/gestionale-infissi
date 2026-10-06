@@ -14,6 +14,7 @@ import DialogVisualizzatore from './DialogVisualizzatore'
 import OrdinePDF from './OrdinePDF'
 import type { IntestazionePDF } from './OrdinePDF'
 import StatoInvioOrdine from '@/components/produzione/StatoInvioOrdine'
+import FileFornitoreOrdine from '@/components/produzione/FileFornitoreOrdine'
 import { formatEuro } from '@/lib/pricing'
 import {
   formattaNumeroOrdine, nomeFilePdfOrdine, puoInviareOrdine, MOTIVO_INVIO_BLOCCATO,
@@ -26,19 +27,24 @@ import { getDocumentoSignedUrl } from '@/actions/produzione-documenti'
 import { unisciAllegatiAlPdf, type AllegatoDaUnire } from '@/lib/produzione-allegati-pdf'
 import { conFallbackInvio, righeFooterPdf, TRACKING_VUOTO } from '@/lib/produzione-tracking'
 import { STATI_ORDINE } from '@/types/produzione'
-import type { OrdineConContesto, OrdineCompleto, StatoOrdine, CommessaOpzione, TrackingOrdine } from '@/types/produzione'
+import type {
+  OrdineConContesto, OrdineCompleto, StatoOrdine, CommessaOpzione, TrackingOrdine,
+  FileFornitoreOrdine as FileFornitore,
+} from '@/types/produzione'
 
 interface Props {
   ordini: OrdineConContesto[]
-  fornitori: { id: string; nome: string; email: string | null }[]
+  fornitori: { id: string; nome: string; email: string | null; richiede_conferma?: boolean }[]
   commesse: CommessaOpzione[]
   numeroProposto: string
   intestazione: IntestazionePDF
   tracking: Record<string, TrackingOrdine>
+  /** File caricati dal fornitore (conferme, DDT) per ordine. */
+  fileFornitore: Record<string, FileFornitore[]>
 }
 
 export default function ElencoOrdini({
-  ordini, fornitori, commesse, numeroProposto, intestazione, tracking,
+  ordini, fornitori, commesse, numeroProposto, intestazione, tracking, fileFornitore,
 }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -337,6 +343,13 @@ export default function ElencoOrdini({
                     </Button>
                   </td>
                 </tr>
+                {o.richiede_conferma || (fileFornitore[o.id]?.length ?? 0) > 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-2 pb-2">
+                      <FileFornitoreOrdine ordine={o} file={fileFornitore[o.id] ?? []} />
+                    </td>
+                  </tr>
+                ) : null}
                 {o.errore_invio ? (
                   <tr>
                     <td colSpan={8} className="px-2 pb-2">

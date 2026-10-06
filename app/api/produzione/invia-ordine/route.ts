@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
     const { data: ordine } = await supabase
       .from('ordini_fornitore')
-      .select('id, numero_ordine, stato, pdf_path, pdf_inviato_path, tracking_token, fornitore_id, commessa_id')
+      .select('id, numero_ordine, stato, pdf_path, pdf_inviato_path, tracking_token, fornitore_id, commessa_id, richiede_conferma')
       .eq('id', ordineId)
       .eq('organization_id', orgId)
       .maybeSingle()
@@ -119,18 +119,33 @@ export async function POST(request: Request) {
     const aziendaHtml = escapeHtml(azienda)
     const numeroHtml = escapeHtml(numeroOrdine)
 
+    // I pulsanti di caricamento portano alla stessa pagina dell'ordine: il file
+    // finisce cosi' nell'ordine giusto senza che nessuno debba smistarlo.
+    const stilePieno = 'background:#0E8F9C;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:6px;display:inline-block;margin:0 8px 8px 0'
+    const stileVuoto = 'background:#ffffff;color:#0E8F9C;text-decoration:none;padding:11px 19px;border-radius:6px;border:1px solid #0E8F9C;display:inline-block;margin:0 8px 8px 0'
+    const pulsanteConferma = ordine.richiede_conferma
+      ? `<a href="${linkOrdine}#conferma" style="${stileVuoto}">Carica conferma d'ordine</a>`
+      : ''
+    const richiestaConferma = ordine.richiede_conferma
+      ? `<p>Vi chiediamo di caricare la <strong>conferma d'ordine</strong> dal pulsante qui sopra: ve la rimanderemo firmata.</p>`
+      : ''
+
     const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111827;line-height:1.5">
   <p>Buongiorno,</p>
   <p>di seguito l'ordine <strong>${numeroHtml}</strong>.</p>
-  <p style="margin:24px 0">
-    <a href="${linkOrdine}" style="background:#0E8F9C;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:6px;display:inline-block">Visualizza l'ordine</a>
+  <p style="margin:24px 0 16px">
+    <a href="${linkOrdine}" style="${stilePieno}">Visualizza l'ordine</a>${pulsanteConferma}<a href="${linkOrdine}#documento" style="${stileVuoto}">Carica DDT / documenti</a>
   </p>
-  <p style="font-size:12px;color:#6b7280">Se il pulsante non funziona, copiate questo indirizzo nel browser:<br>${linkOrdine}</p>
+  ${richiestaConferma}
+  <p style="font-size:12px;color:#6b7280">Se i pulsanti non funzionano, copiate questo indirizzo nel browser:<br>${linkOrdine}</p>
   <p>Cordiali saluti<br>${aziendaHtml}</p>
   <img src="${pixel}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0">
 </div>`
 
-    const text = `Buongiorno,\n\ndi seguito l'ordine ${numeroOrdine}:\n${linkOrdine}\n\nCordiali saluti\n${azienda}`
+    const testoConferma = ordine.richiede_conferma
+      ? `\n\nVi chiediamo di caricare la conferma d'ordine dalla stessa pagina: ve la rimanderemo firmata.`
+      : ''
+    const text = `Buongiorno,\n\ndi seguito l'ordine ${numeroOrdine}:\n${linkOrdine}\n\nDalla stessa pagina potete caricare DDT e documenti.${testoConferma}\n\nCordiali saluti\n${azienda}`
 
     let sendError: { message: string } | null = null
     try {
