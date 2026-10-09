@@ -12,6 +12,14 @@ export const DIMENSIONE_MAX_FILE_FORNITORE = 20 * 1024 * 1024
  */
 export const MAX_FILE_PER_ORDINE = 60
 
+/**
+ * Pezzi del caricamento di riserva, che passa dal nostro server: il corpo di
+ * una richiesta a una function Vercel si ferma a ~4,5 MB, quindi i file piu'
+ * grandi viaggiano a pezzi e il server li ricompone.
+ */
+export const DIMENSIONE_PARTE = 3.5 * 1024 * 1024
+export const MAX_PARTI = Math.ceil(DIMENSIONE_MAX_FILE_FORNITORE / DIMENSIONE_PARTE)
+
 const TIPO_DA_ESTENSIONE: Record<string, (typeof TIPI_FILE_FORNITORE)[number]> = {
   pdf: 'application/pdf',
   jpg: 'image/jpeg',
@@ -55,6 +63,11 @@ export function nomeFileSicuro(nome: string): string {
     .replace(/^[._]+/, '')
     .slice(-80)
   return pulito || 'file'
+}
+
+/** Cartella temporanea dei pezzi del caricamento di riserva: fuori da quella dei file veri. */
+export function cartellaPartiFornitore(orgId: string, ordineId: string, idCaricamento: string): string {
+  return `${orgId}/ordini/${ordineId}/fornitore-parti/${idCaricamento}/`
 }
 
 /** Cartella dei file del fornitore per un ordine: anche il controllo dei path parte da qui. */

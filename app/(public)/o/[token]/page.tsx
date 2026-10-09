@@ -13,6 +13,7 @@ export default async function PaginaOrdineFornitore({
   const { token } = await params
   const dati = await getDatiPaginaOrdine(token)
   if (!dati) notFound()
+  const contatti = { denominazione: dati.denominazione, email: dati.emailAzienda, telefono: dati.telefonoAzienda }
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
@@ -68,6 +69,7 @@ export default async function PaginaOrdineFornitore({
         <div className="mt-8 space-y-6">
           {dati.richiedeConferma ? (
             <CaricaFile
+              contatti={contatti}
               token={token}
               tipo="conferma"
               titolo="Conferma d'ordine"
@@ -78,6 +80,7 @@ export default async function PaginaOrdineFornitore({
             />
           ) : null}
           <CaricaFile
+            contatti={contatti}
             token={token}
             tipo="documento"
             titolo="DDT e altri documenti"

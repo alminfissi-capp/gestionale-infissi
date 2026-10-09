@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { tipoFileFornitore, validaFileFornitore } from '@/lib/conferme-ordine'
+import { DIMENSIONE_PARTE, tipoFileFornitore, validaFileFornitore } from '@/lib/conferme-ordine'
 
 type Props = {
   token: string
@@ -12,6 +12,8 @@ type Props = {
   descrizione: string
   /** File gia' caricati di questo tipo, dal piu' vecchio. */
   caricati: { nome: string; caricatoAt: string }[]
+  /** Ultima spiaggia se il caricamento non riesce in nessun modo. */
+  contatti: { denominazione: string; email: string | null; telefono: string | null }
 }
 
 const formattaData = (iso: string) =>
@@ -19,8 +21,8 @@ const formattaData = (iso: string) =>
     timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
   }).format(new Date(iso))
 
-/** Sotto questa soglia il file puo' passare dal server (tetto Vercel ~4,5 MB, meno il multipart). */
-const MAX_RIPIEGO_SERVER = 4 * 1024 * 1024
+const TENTATIVI_PER_PEZZO = 3
+const attendi = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 type FileLetto = { nome: string; contentType: string; dati: Blob } | { nome: string; errore: string }
 
@@ -93,22 +95,60 @@ async function caricaDiretto(
   return { esito: 'ok' }
 }
 
-/** Ripiego: il file passa dal nostro server (solo file piccoli). */
+/**
+ * Ripiego: il file passa dal nostro server, a pezzi da DIMENSIONE_PARTE
+ * (una function Vercel non accetta piu' di ~4,5 MB per richiesta), cosi'
+ * funziona per qualsiasi dimensione ammessa. Ogni pezzo si ritenta da solo.
+ */
 async function caricaDalServer(
-  token: string, tipo: Props['tipo'], nome: string, dati: Blob, motivo: string
+  token: string,
+  tipo: Props['tipo'],
+  nome: string,
+  contentType: string,
+  dati: Blob,
+  motivo: string,
+  avanzamento: (fatto: number, totale: number) => void
 ): Promise<string | null> {
-  const form = new FormData()
-  form.append('tipo', tipo)
-  form.append('nome', nome)
-  form.append('motivo', motivo)
-  form.append('file', dati, nome)
-  const res = await fetch(`/o/${token}/carica-server`, { method: 'POST', body: form })
-  if (res.ok) return null
-  const d = (await res.json().catch(() => ({}))) as { error?: string }
-  return d.error ?? 'caricamento non riuscito'
+  const totale = Math.max(1, Math.ceil(dati.size / DIMENSIONE_PARTE))
+  const idCaricamento = crypto.randomUUID()
+  for (let parte = 0; parte < totale; parte++) {
+    avanzamento(parte, totale)
+    const pezzo = dati.slice(parte * DIMENSIONE_PARTE, (parte + 1) * DIMENSIONE_PARTE, contentType)
+    let errore: string | null = 'caricamento non riuscito'
+    for (let tentativo = 1; tentativo <= TENTATIVI_PER_PEZZO; tentativo++) {
+      const form = new FormData()
+      form.append('tipo', tipo)
+      form.append('nome', nome)
+      form.append('contentType', contentType)
+      form.append('motivo', motivo)
+      form.append('idCaricamento', idCaricamento)
+      form.append('parte', String(parte))
+      form.append('totale', String(totale))
+      form.append('file', pezzo, nome)
+      try {
+        const res = await fetch(`/o/${token}/carica-server`, { method: 'POST', body: form })
+        if (res.ok) { errore = null; break }
+        const d = (await res.json().catch(() => ({}))) as { error?: string }
+        errore = d.error ?? 'caricamento non riuscito'
+        // Un no motivato (formato, ordine sparito, troppi file) non cambia ritentando.
+        if (res.status >= 400 && res.status < 500 && res.status !== 409 && res.status !== 429) break
+      } catch {
+        errore = 'connessione interrotta'
+      }
+      if (tentativo < TENTATIVI_PER_PEZZO) await attendi(1500 * tentativo)
+    }
+    if (errore) return errore
+  }
+  avanzamento(totale, totale)
+  return null
 }
 
-async function caricaUno(token: string, tipo: Props['tipo'], file: FileLetto): Promise<string | null> {
+async function caricaUno(
+  token: string,
+  tipo: Props['tipo'],
+  file: FileLetto,
+  avanzamento: (fatto: number, totale: number) => void
+): Promise<string | null> {
   if ('errore' in file) return `${file.nome}: ${file.errore}`
   const { nome, contentType, dati } = file
 
@@ -116,20 +156,18 @@ async function caricaUno(token: string, tipo: Props['tipo'], file: FileLetto): P
   if (diretto.esito === 'ok') return null
   if (diretto.esito === 'rifiutato') return `${nome}: ${diretto.errore}`
 
-  if (dati.size > MAX_RIPIEGO_SERVER) {
-    return `${nome}: caricamento non riuscito, controllate la connessione e riprovate`
-  }
-  const errore = await caricaDalServer(token, tipo, nome, dati, diretto.motivo)
+  const errore = await caricaDalServer(token, tipo, nome, contentType, dati, diretto.motivo, avanzamento)
   return errore ? `${nome}: ${errore}` : null
 }
 
-export default function CaricaFile({ token, tipo, titolo, descrizione, caricati }: Props) {
+export default function CaricaFile({ token, tipo, titolo, descrizione, caricati, contatti }: Props) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const [trascinando, setTrascinando] = useState(false)
   const [inCorso, setInCorso] = useState(false)
   const [errori, setErrori] = useState<string[]>([])
   const [esito, setEsito] = useState<string | null>(null)
+  const [progresso, setProgresso] = useState<string | null>(null)
   const inputId = `carica-${tipo}`
 
   const carica = async (lista: FileList | null) => {
@@ -144,7 +182,10 @@ export default function CaricaFile({ token, tipo, titolo, descrizione, caricati 
     let riusciti = 0
     for (const f of letti) {
       try {
-        const e = await caricaUno(token, tipo, f)
+        setProgresso(null)
+        const e = await caricaUno(token, tipo, f, (fatto, totale) => {
+          if (totale > 1) setProgresso(`${Math.round((fatto / totale) * 100)}%`)
+        })
         if (e) nuoviErrori.push(e)
         else riusciti++
       } catch {
@@ -161,6 +202,7 @@ export default function CaricaFile({ token, tipo, titolo, descrizione, caricati 
       router.refresh()
     }
     if (inputRef.current) inputRef.current.value = ''
+    setProgresso(null)
     setInCorso(false)
   }
 
@@ -181,7 +223,7 @@ export default function CaricaFile({ token, tipo, titolo, descrizione, caricati 
         } ${inCorso ? 'pointer-events-none opacity-60' : ''}`}
       >
         <span className="font-medium text-[#0E8F9C]">
-          {inCorso ? 'Caricamento in corso…' : 'Tocca per scegliere il file o trascinalo qui'}
+          {inCorso ? `Caricamento in corso…${progresso ? ` ${progresso}` : ''}` : 'Tocca per scegliere il file o trascinalo qui'}
         </span>
         <span className="text-xs text-gray-500">PDF, JPG o PNG · fino a 20 MB</span>
       </label>
@@ -199,6 +241,13 @@ export default function CaricaFile({ token, tipo, titolo, descrizione, caricati 
       {errori.length > 0 ? (
         <ul className="space-y-1 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
           {errori.map((e) => <li key={e}>{e}</li>)}
+          {contatti.email || contatti.telefono ? (
+            <li className="pt-1 text-red-900">
+              Se il problema continua, inviate il file a {contatti.denominazione}
+              {contatti.email ? <> all&apos;indirizzo <a className="font-medium underline" href={`mailto:${contatti.email}`}>{contatti.email}</a></> : null}
+              {contatti.telefono ? <> o chiamate il <a className="font-medium underline" href={`tel:${contatti.telefono}`}>{contatti.telefono}</a></> : null}.
+            </li>
+          ) : null}
         </ul>
       ) : null}
 
