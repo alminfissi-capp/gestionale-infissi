@@ -8,7 +8,10 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { formattaNumeroOrdine } from '@/lib/produzione'
 import {
   cartellaFileFornitore,
+  cartellaPartiFornitore,
+  DIMENSIONE_PARTE,
   MAX_FILE_PER_ORDINE,
+  MAX_PARTI,
   nomeFileSicuro,
   validaFileFornitore,
 } from '@/lib/conferme-ordine'
@@ -110,11 +113,80 @@ export async function preparaCaricamento(
 /**
  * Ripiego quando il browser non riesce a mandare il file direttamente a
  * Storage (rete aziendale che blocca il dominio di Supabase, browser che
- * interrompe l'invio): il file passa dal nostro server. Vale solo sotto i
- * ~4,5 MB del corpo di una function Vercel, il client lo sa e non ci prova
- * con file piu' grandi.
+ * interrompe l'invio): il file passa dal nostro server. Il corpo di una
+ * function Vercel si ferma a ~4,5 MB, quindi il file arriva a pezzi
+ * (DIMENSIONE_PARTE), uno per richiesta, in ordine: i pezzi intermedi
+ * restano in una cartella temporanea, l'ultimo fa ricomporre il file. Dal
+ * server verso Storage quel limite non c'e'.
  */
-export async function caricaDalServer(
+export async function caricaParteDalServer(
+  token: string,
+  tipo: TipoFileFornitore,
+  nome: string,
+  contentType: string,
+  idCaricamento: string,
+  parte: number,
+  totale: number,
+  contenuto: ArrayBuffer
+): Promise<{ ok: true; completato: boolean } | Errore> {
+  if (
+    !/^[0-9a-f-]{36}$/i.test(idCaricamento) ||
+    !Number.isInteger(parte) || !Number.isInteger(totale) ||
+    totale < 1 || totale > MAX_PARTI || parte < 0 || parte >= totale ||
+    contenuto.byteLength === 0 || contenuto.byteLength > DIMENSIONE_PARTE
+  ) {
+    return { ok: false, errore: 'Richiesta non valida', status: 400 }
+  }
+  // Formato controllato subito, non solo a file ricomposto.
+  const erroreFormato = validaFileFornitore(contentType, contenuto.byteLength)
+  if (erroreFormato) return { ok: false, errore: erroreFormato, status: 400 }
+
+  if (totale === 1) {
+    const esito = await caricaFileDalServer(token, tipo, nome, contentType, contenuto)
+    return esito.ok ? { ok: true, completato: true } : esito
+  }
+
+  const ordine = await getOrdinePubblico(token)
+  if (!ordine) return { ok: false, errore: 'Ordine non trovato', status: 404 }
+  const cartella = cartellaPartiFornitore(ordine.organizationId, ordine.id, idCaricamento)
+  const storage = createServiceClient().storage.from(BUCKET)
+
+  if (parte < totale - 1) {
+    // upsert: se il pezzo viene rimandato (rete che ritenta) si sovrascrive.
+    const { error } = await storage.upload(`${cartella}${parte}`, contenuto, { contentType, upsert: true })
+    if (error) {
+      console.error('[file fornitore] pezzo', parte, error.message)
+      return { ok: false, errore: 'Caricamento non riuscito, riprovate', status: 500 }
+    }
+    return { ok: true, completato: false }
+  }
+
+  // Ultimo pezzo: si ricompone il file con quelli gia' arrivati.
+  const percorsiParti = Array.from({ length: totale - 1 }, (_, i) => `${cartella}${i}`)
+  const pezzi: Uint8Array[] = []
+  for (const percorso of percorsiParti) {
+    const { data, error } = await storage.download(percorso)
+    if (error || !data) {
+      return { ok: false, errore: 'Una parte del file non è arrivata, riprovate', status: 409 }
+    }
+    pezzi.push(new Uint8Array(await data.arrayBuffer()))
+  }
+  pezzi.push(new Uint8Array(contenuto))
+  const intero = new Uint8Array(pezzi.reduce((n, p) => n + p.byteLength, 0))
+  let offset = 0
+  for (const p of pezzi) {
+    intero.set(p, offset)
+    offset += p.byteLength
+  }
+
+  const esito = await caricaFileDalServer(token, tipo, nome, contentType, intero.buffer)
+  const { error: rimozione } = await storage.remove(percorsiParti)
+  if (rimozione) console.error('[file fornitore] pulizia pezzi:', rimozione.message)
+  return esito.ok ? { ok: true, completato: true } : esito
+}
+
+/** File intero gia' sul server: va su Storage e si registra sull'ordine. */
+async function caricaFileDalServer(
   token: string,
   tipo: TipoFileFornitore,
   nome: string,

@@ -21,6 +21,8 @@ export type DatiPaginaOrdine = {
   dataOrdine: string
   fornitoreNome: string
   denominazione: string
+  emailAzienda: string | null
+  telefonoAzienda: string | null
   logoUrl: string | null
   pdfDisponibile: boolean
   /** L'ordine chiede al fornitore di caricare la conferma d'ordine. */
@@ -115,7 +117,7 @@ export async function getDatiPaginaOrdine(token: string): Promise<DatiPaginaOrdi
       : Promise.resolve({ data: null }),
     service
       .from('settings')
-      .select('denominazione, logo_url')
+      .select('denominazione, logo_url, email, telefono')
       .eq('organization_id', ordine.organization_id)
       .maybeSingle(),
     // Solo i file del fornitore: la conferma caricata a mano dall'utente
@@ -142,6 +144,8 @@ export async function getDatiPaginaOrdine(token: string): Promise<DatiPaginaOrdi
     dataOrdine: ordine.data_ordine,
     fornitoreNome: fornitore?.nome ?? '',
     denominazione: settings?.denominazione ?? 'A.L.M. Infissi',
+    emailAzienda: settings?.email || null,
+    telefonoAzienda: settings?.telefono || null,
     logoUrl,
     pdfDisponibile: Boolean(ordine.pdf_inviato_path),
     richiedeConferma: Boolean(ordine.richiede_conferma),
