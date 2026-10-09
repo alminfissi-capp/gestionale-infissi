@@ -22,23 +22,17 @@ export type TimbroComposto = {
 }
 
 /**
- * Timbro sopra, firma sotto, data in fondo: l'ordine con cui si firma a mano
- * un modulo "per accettazione". Disegnato grande e poi rimpicciolito nel PDF,
+ * Timbro (con la firma gia' sopra) e data sotto: l'immagine unica caricata
+ * in Impostazioni → Produzione. Disegnato grande e poi rimpicciolito nel PDF,
  * cosi' resta nitido anche stampato.
  */
-export async function componiTimbro(
-  timbro: string | null,
-  firma: string | null,
-  data: string
-): Promise<TimbroComposto> {
+export async function componiTimbro(timbro: string, data: string): Promise<TimbroComposto> {
   const LARGHEZZA = 900
   const MAX_ALTEZZA_IMG = 330
   const SPAZIO = 12
   const ALTEZZA_DATA = 48
 
-  const immagini = await Promise.all(
-    [timbro, firma].filter((s): s is string => !!s).map(caricaImmagine)
-  )
+  const immagini = [await caricaImmagine(timbro)]
   const misure = immagini.map((img) => {
     const scala = Math.min((LARGHEZZA * 0.9) / img.naturalWidth, MAX_ALTEZZA_IMG / img.naturalHeight)
     return { img, w: img.naturalWidth * scala, h: img.naturalHeight * scala }
@@ -57,8 +51,8 @@ export async function componiTimbro(
     ctx.drawImage(m.img, (LARGHEZZA - m.w) / 2, y, m.w, m.h)
     y += m.h + SPAZIO
   }
-  // Fondo bianco → trasparente: la firma tracciata in Impostazioni e i timbri
-  // scansionati hanno lo sfondo pieno, che coprirebbe le righe del modulo.
+  // Fondo bianco → trasparente: i timbri scansionati hanno lo sfondo pieno,
+  // che coprirebbe le righe del modulo.
   const pixel = ctx.getImageData(0, 0, canvas.width, canvas.height)
   const d = pixel.data
   for (let i = 0; i < d.length; i += 4) {

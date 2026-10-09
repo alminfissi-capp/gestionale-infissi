@@ -21,7 +21,7 @@ import FormNumerazione from '@/components/impostazioni/FormNumerazione'
 import FormValiditaPreventivo from '@/components/impostazioni/FormValiditaPreventivo'
 import ThemeToggle from '@/components/impostazioni/ThemeToggle'
 import SezioneFirmaDefault from '@/components/impostazioni/SezioneFirmaDefault'
-import TimbroFirmaConferme from '@/components/impostazioni/TimbroFirmaConferme'
+import TimbroConferme from '@/components/impostazioni/TimbroConferme'
 import FormConti from '@/components/impostazioni/FormConti'
 import { getLineeCredito, getAnticipi } from '@/actions/banche'
 import FormLineeCredito from '@/components/impostazioni/FormLineeCredito'
@@ -152,16 +152,13 @@ export default async function ImpostazioniPage() {
       {/* Timbro e firma per le conferme d'ordine dei fornitori */}
       <Card>
         <CardHeader>
-          <CardTitle>Timbro e firma per le conferme d&apos;ordine</CardTitle>
+          <CardTitle>Timbro con firma per le conferme d&apos;ordine</CardTitle>
           <CardDescription>
-            Il gestionale li mette sulle conferme caricate dai fornitori quando premi &quot;Firma e invia&quot;.
+            Il gestionale lo mette sulle conferme caricate dai fornitori quando premi &quot;Firma e invia&quot;.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <TimbroFirmaConferme
-            timbro={settings?.timbro_conferme ?? null}
-            firma={settings?.firma_conferme ?? null}
-          />
+          <TimbroConferme timbro={settings?.timbro_conferme ?? null} />
         </CardContent>
       </Card>
 
