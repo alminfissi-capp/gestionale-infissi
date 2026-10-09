@@ -61,7 +61,7 @@ export default function FirmaConferma({ dati }: Props) {
   // pdf.js: il documento caricato, riusato per cambiare pagina.
   const documentoRef = useRef<import('pdfjs-dist').PDFDocumentProxy | null>(null)
 
-  const senzaFirma = !dati.firma
+  const senzaTimbro = !dati.timbro
   const posizione: PosizioneFirma | null =
     ancora && timbro && rapportoPagina
       ? limitaPosizione({ ...ancora, altezza: (ancora.larghezza * timbro.rapporto) / rapportoPagina })
@@ -102,15 +102,15 @@ export default function FirmaConferma({ dati }: Props) {
     return () => { annullato = true }
   }, [daFirmare, dati.urlConferma, conferma.content_type])
 
-  // Timbro + firma + data, composti una volta.
+  // Timbro con firma + data, composti una volta.
   useEffect(() => {
-    if (!daFirmare || senzaFirma) return
+    if (!daFirmare || !dati.timbro) return
     let annullato = false
-    componiTimbro(dati.timbro, dati.firma, oggi())
+    componiTimbro(dati.timbro, oggi())
       .then((t) => { if (!annullato) setTimbro(t) })
-      .catch(() => { if (!annullato) setErrore('Timbro o firma non leggibili: ricaricali in Impostazioni') })
+      .catch(() => { if (!annullato) setErrore('Timbro non leggibile: ricaricalo in Impostazioni') })
     return () => { annullato = true }
-  }, [daFirmare, senzaFirma, dati.timbro, dati.firma])
+  }, [daFirmare, dati.timbro])
 
   // Disegna la pagina scelta alla larghezza dell'area.
   useEffect(() => {
@@ -295,11 +295,11 @@ export default function FirmaConferma({ dati }: Props) {
         </div>
       ) : (
         <>
-          {senzaFirma ? (
+          {senzaTimbro ? (
             <div role="alert" className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>
-                Manca la firma aziendale. Caricala in{' '}
+                Manca il timbro con la firma. Caricalo in{' '}
                 <Link href="/impostazioni" className="font-medium underline">Impostazioni → Produzione</Link>{' '}
                 e torna qui.
               </span>
@@ -371,7 +371,7 @@ export default function FirmaConferma({ dati }: Props) {
                   {posizione && timbro && pdf ? (
                     <div
                       role="img"
-                      aria-label="Timbro e firma: trascina per spostarli"
+                      aria-label="Timbro: trascina per spostarlo"
                       onPointerDown={iniziaTrascinamento('sposta')}
                       onPointerMove={trascina}
                       onPointerUp={fineTrascinamento}
@@ -401,7 +401,7 @@ export default function FirmaConferma({ dati }: Props) {
                 </div>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Timbro, firma e data di oggi. Trascinali nel punto giusto; l&apos;angolo in basso a destra cambia la dimensione.
+                Timbro con firma e data di oggi. Trascinalo nel punto giusto; l&apos;angolo in basso a destra cambia la dimensione.
               </p>
             </section>
           </div>
@@ -422,7 +422,7 @@ export default function FirmaConferma({ dati }: Props) {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button onClick={firmaEInvia} disabled={invio || !posizione || !pdf || senzaFirma} className="gap-2">
+            <Button onClick={firmaEInvia} disabled={invio || !posizione || !pdf || senzaTimbro} className="gap-2">
               {invio ? <Loader2 className="h-4 w-4 animate-spin" /> : <PenLine className="h-4 w-4" />}
               Firma e invia al fornitore
             </Button>

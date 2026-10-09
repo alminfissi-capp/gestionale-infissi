@@ -190,8 +190,8 @@ export type DatiFirmaConferma = {
   urlOrdine: string | null
   /** La copia firmata, quando c'e'. */
   urlFirmata: string | null
+  /** Timbro con la firma gia' sopra: un'immagine sola. */
   timbro: string | null
-  firma: string | null
   /** Versioni precedenti della conferma dello stesso ordine, per il confronto. */
   altreVersioni: { id: string; nome_file: string; created_at: string; stato: string | null }[]
 }
@@ -223,7 +223,7 @@ export async function getDatiFirmaConferma(confermaId: string): Promise<DatiFirm
     ordine.commessa_id
       ? supabase.from('commesse').select('numero_commessa, cliente_nome').eq('id', ordine.commessa_id).maybeSingle()
       : Promise.resolve({ data: null }),
-    supabase.from('settings').select('timbro_conferme, firma_conferme').eq('organization_id', orgId).maybeSingle(),
+    supabase.from('settings').select('timbro_conferme').eq('organization_id', orgId).maybeSingle(),
     supabase
       .from('file_fornitore_ordine')
       .select('id, nome_file, created_at, stato')
@@ -259,7 +259,6 @@ export async function getDatiFirmaConferma(confermaId: string): Promise<DatiFirm
     urlOrdine,
     urlFirmata,
     timbro: settings?.timbro_conferme ?? null,
-    firma: settings?.firma_conferme ?? null,
     altreVersioni: versioni ?? [],
   }
 }
@@ -328,11 +327,8 @@ export async function registraConfermaManuale(
   return {}
 }
 
-/** Data URL di timbro e firma per le conferme; null toglie l'immagine. */
-export async function salvaTimbroFirmaConferme(
-  campo: 'timbro_conferme' | 'firma_conferme',
-  valore: string | null
-): Promise<void> {
+/** Data URL del timbro con firma per le conferme; null toglie l'immagine. */
+export async function salvaTimbroConferme(valore: string | null): Promise<void> {
   if (valore !== null && !/^data:image\/(png|jpeg);base64,/.test(valore)) {
     throw new Error('Immagine non valida: usa PNG o JPG')
   }
@@ -344,7 +340,7 @@ export async function salvaTimbroFirmaConferme(
   const orgId = await getOrgId()
   const { error } = await supabase
     .from('settings')
-    .upsert({ organization_id: orgId, [campo]: valore }, { onConflict: 'organization_id' })
+    .upsert({ organization_id: orgId, timbro_conferme: valore }, { onConflict: 'organization_id' })
   if (error) throw new Error(error.message)
   revalidateTag(`settings-${orgId}`, {})
   revalidatePath('/impostazioni')
