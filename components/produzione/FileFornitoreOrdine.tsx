@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { getUrlFileFornitore, registraConfermaManuale } from '@/actions/conferme-ordine'
 import {
-  cartellaFileFornitore, ETICHETTE_STATO_CONFERMA, nomeFileSicuro, riepilogaConferma, validaFileFornitore,
+  cartellaFileFornitore, ETICHETTE_STATO_CONFERMA, nomeFileSicuro, riepilogaConferma, tipoFileFornitore,
+  validaFileFornitore,
 } from '@/lib/conferme-ordine'
 import { formattaDataOra } from '@/lib/produzione-tracking'
 import type { FileFornitoreOrdine as FileFornitore } from '@/types/produzione'
@@ -51,14 +52,17 @@ export default function FileFornitoreOrdine({ ordine, file }: Props) {
 
   const caricaManuale = async (f: File | undefined) => {
     if (!f) return
-    const contentType = f.type || 'application/octet-stream'
+    const contentType = tipoFileFornitore(f.name, f.type)
     const errore = validaFileFornitore(contentType, f.size)
     if (errore) { toast.error(errore); return }
     setCaricamento(true)
     try {
+      // Letto subito in memoria: su Android un file da Drive/Gmail letto dopo
+      // un'attesa fa interrompere l'invio a Chrome (vedi CaricaFile del fornitore).
+      const dati = new Blob([await f.arrayBuffer()], { type: contentType })
       const path = `${cartellaFileFornitore(ordine.organization_id, ordine.id)}${Date.now()}-manuale-${nomeFileSicuro(f.name)}`
       // Direttamente su Storage: in una Server Action i file grandi non passerebbero.
-      const { error } = await createClient().storage.from('commesse-docs').upload(path, f, { contentType })
+      const { error } = await createClient().storage.from('commesse-docs').upload(path, dati, { contentType })
       if (error) throw new Error(error.message)
       const esito = await registraConfermaManuale(ordine.id, {
         path, nome: f.name, contentType, dimensione: f.size,

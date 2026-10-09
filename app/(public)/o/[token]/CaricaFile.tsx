@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { validaFileFornitore } from '@/lib/conferme-ordine'
+import { tipoFileFornitore, validaFileFornitore } from '@/lib/conferme-ordine'
 
 type Props = {
   token: string
@@ -19,39 +19,108 @@ const formattaData = (iso: string) =>
     timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
   }).format(new Date(iso))
 
-async function caricaUno(token: string, tipo: Props['tipo'], file: File): Promise<string | null> {
-  const contentType = file.type || 'application/octet-stream'
-  const errore = validaFileFornitore(contentType, file.size)
-  if (errore) return `${file.name}: ${errore}`
+/** Sotto questa soglia il file puo' passare dal server (tetto Vercel ~4,5 MB, meno il multipart). */
+const MAX_RIPIEGO_SERVER = 4 * 1024 * 1024
 
-  const prep = await fetch(`/o/${token}/carica`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tipo, nome: file.name, contentType, dimensione: file.size }),
-  })
+type FileLetto = { nome: string; contentType: string; dati: Blob } | { nome: string; errore: string }
+
+/**
+ * Legge il file in memoria appena scelto. Su Android i file presi da Drive,
+ * Gmail o Download sono solo un riferimento: se si aspetta a leggerli (qui
+ * c'e' prima una chiamata al server), Chrome interrompe l'invio a meta' e il
+ * file non arriva mai a Storage. Letti subito, diventano byte veri.
+ */
+async function leggiFile(file: File): Promise<FileLetto> {
+  const contentType = tipoFileFornitore(file.name, file.type)
+  const errore = validaFileFornitore(contentType, file.size)
+  if (errore) return { nome: file.name, errore }
+  try {
+    const dati = new Blob([await file.arrayBuffer()], { type: contentType })
+    if (dati.size === 0) return { nome: file.name, errore: 'Il file è vuoto' }
+    return { nome: file.name, contentType, dati }
+  } catch {
+    return {
+      nome: file.name,
+      errore: 'il telefono non riesce a leggere il file: salvatelo prima sul dispositivo e riprovate',
+    }
+  }
+}
+
+/** Strada principale: il browser carica direttamente su Storage. */
+async function caricaDiretto(
+  token: string, tipo: Props['tipo'], nome: string, contentType: string, dati: Blob
+): Promise<{ esito: 'ok' } | { esito: 'rifiutato'; errore: string } | { esito: 'fallito'; motivo: string }> {
+  let prep: Response
+  try {
+    prep = await fetch(`/o/${token}/carica`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo, nome, contentType, dimensione: dati.size }),
+    })
+  } catch (e) {
+    return { esito: 'fallito', motivo: `prepara: ${e instanceof Error ? e.message : String(e)}` }
+  }
   const datiPrep = (await prep.json().catch(() => ({}))) as {
     path?: string; uploadToken?: string; error?: string
   }
   if (!prep.ok || !datiPrep.path || !datiPrep.uploadToken) {
-    return `${file.name}: ${datiPrep.error ?? 'caricamento non riuscito'}`
+    // Un no motivato (formato, troppi file, ordine sparito) vale anche per il ripiego.
+    if (prep.status >= 400 && prep.status < 500 && datiPrep.error) {
+      return { esito: 'rifiutato', errore: datiPrep.error }
+    }
+    return { esito: 'fallito', motivo: `prepara: HTTP ${prep.status}` }
   }
 
   // Il file va direttamente su Storage: dal server non passerebbe sopra i ~4,5 MB.
-  const { error } = await createClient()
-    .storage.from('commesse-docs')
-    .uploadToSignedUrl(datiPrep.path, datiPrep.uploadToken, file, { contentType })
-  if (error) return `${file.name}: caricamento non riuscito`
+  try {
+    const { error } = await createClient()
+      .storage.from('commesse-docs')
+      .uploadToSignedUrl(datiPrep.path, datiPrep.uploadToken, dati, { contentType })
+    if (error) return { esito: 'fallito', motivo: `storage: ${error.message}` }
+  } catch (e) {
+    return { esito: 'fallito', motivo: `storage: ${e instanceof Error ? e.message : String(e)}` }
+  }
 
   const reg = await fetch(`/o/${token}/registra`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tipo, path: datiPrep.path, nome: file.name }),
+    body: JSON.stringify({ tipo, path: datiPrep.path, nome }),
   })
   if (!reg.ok) {
     const d = (await reg.json().catch(() => ({}))) as { error?: string }
-    return `${file.name}: ${d.error ?? 'registrazione non riuscita'}`
+    return { esito: 'rifiutato', errore: d.error ?? 'registrazione non riuscita' }
   }
-  return null
+  return { esito: 'ok' }
+}
+
+/** Ripiego: il file passa dal nostro server (solo file piccoli). */
+async function caricaDalServer(
+  token: string, tipo: Props['tipo'], nome: string, dati: Blob, motivo: string
+): Promise<string | null> {
+  const form = new FormData()
+  form.append('tipo', tipo)
+  form.append('nome', nome)
+  form.append('motivo', motivo)
+  form.append('file', dati, nome)
+  const res = await fetch(`/o/${token}/carica-server`, { method: 'POST', body: form })
+  if (res.ok) return null
+  const d = (await res.json().catch(() => ({}))) as { error?: string }
+  return d.error ?? 'caricamento non riuscito'
+}
+
+async function caricaUno(token: string, tipo: Props['tipo'], file: FileLetto): Promise<string | null> {
+  if ('errore' in file) return `${file.nome}: ${file.errore}`
+  const { nome, contentType, dati } = file
+
+  const diretto = await caricaDiretto(token, tipo, nome, contentType, dati)
+  if (diretto.esito === 'ok') return null
+  if (diretto.esito === 'rifiutato') return `${nome}: ${diretto.errore}`
+
+  if (dati.size > MAX_RIPIEGO_SERVER) {
+    return `${nome}: caricamento non riuscito, controllate la connessione e riprovate`
+  }
+  const errore = await caricaDalServer(token, tipo, nome, dati, diretto.motivo)
+  return errore ? `${nome}: ${errore}` : null
 }
 
 export default function CaricaFile({ token, tipo, titolo, descrizione, caricati }: Props) {
@@ -69,15 +138,17 @@ export default function CaricaFile({ token, tipo, titolo, descrizione, caricati 
     setInCorso(true)
     setErrori([])
     setEsito(null)
+    // Prima si leggono tutti i file, poi si carica: vedi leggiFile.
+    const letti = await Promise.all(files.map(leggiFile))
     const nuoviErrori: string[] = []
     let riusciti = 0
-    for (const f of files) {
+    for (const f of letti) {
       try {
         const e = await caricaUno(token, tipo, f)
         if (e) nuoviErrori.push(e)
         else riusciti++
       } catch {
-        nuoviErrori.push(`${f.name}: caricamento non riuscito`)
+        nuoviErrori.push(`${f.nome}: caricamento non riuscito`)
       }
     }
     setErrori(nuoviErrori)

@@ -51,18 +51,16 @@ export type EsitoPreparazione =
   | { ok: true; path: string; uploadToken: string }
   | { ok: false; errore: string; status: number }
 
-/**
- * Primo passo del caricamento: controlla formato e dimensione e restituisce
- * un URL di upload firmato. Il file va su Storage direttamente dal browser:
- * passando dalla function, sopra i ~4,5 MB la richiesta morirebbe in silenzio.
- */
-export async function preparaCaricamento(
+type Errore = { ok: false; errore: string; status: number }
+
+/** Controlli comuni alle due strade di caricamento e path del nuovo file. */
+async function percorsoNuovoFile(
   token: string,
   tipo: TipoFileFornitore,
   nome: string,
   contentType: string,
   dimensione: number
-): Promise<EsitoPreparazione> {
+): Promise<{ ok: true; path: string } | Errore> {
   const ordine = await getOrdinePubblico(token)
   if (!ordine) return { ok: false, errore: 'Ordine non trovato', status: 404 }
 
@@ -79,12 +77,61 @@ export async function preparaCaricamento(
   }
 
   const prefisso = tipo === 'conferma' ? 'conferma' : 'documento'
-  const path = `${cartellaFileFornitore(ordine.organizationId, ordine.id)}${Date.now()}-${prefisso}-${nomeFileSicuro(nome)}`
-  const { data, error } = await service.storage.from(BUCKET).createSignedUploadUrl(path)
+  return {
+    ok: true,
+    path: `${cartellaFileFornitore(ordine.organizationId, ordine.id)}${Date.now()}-${prefisso}-${nomeFileSicuro(nome)}`,
+  }
+}
+
+/**
+ * Primo passo del caricamento: controlla formato e dimensione e restituisce
+ * un URL di upload firmato. Il file va su Storage direttamente dal browser:
+ * passando dalla function, sopra i ~4,5 MB la richiesta morirebbe in silenzio.
+ */
+export async function preparaCaricamento(
+  token: string,
+  tipo: TipoFileFornitore,
+  nome: string,
+  contentType: string,
+  dimensione: number
+): Promise<EsitoPreparazione> {
+  const esito = await percorsoNuovoFile(token, tipo, nome, contentType, dimensione)
+  if (!esito.ok) return esito
+
+  const { data, error } = await createServiceClient()
+    .storage.from(BUCKET)
+    .createSignedUploadUrl(esito.path)
   if (error || !data) {
     return { ok: false, errore: 'Caricamento non disponibile, riprovate tra poco', status: 500 }
   }
   return { ok: true, path: data.path, uploadToken: data.token }
+}
+
+/**
+ * Ripiego quando il browser non riesce a mandare il file direttamente a
+ * Storage (rete aziendale che blocca il dominio di Supabase, browser che
+ * interrompe l'invio): il file passa dal nostro server. Vale solo sotto i
+ * ~4,5 MB del corpo di una function Vercel, il client lo sa e non ci prova
+ * con file piu' grandi.
+ */
+export async function caricaDalServer(
+  token: string,
+  tipo: TipoFileFornitore,
+  nome: string,
+  contentType: string,
+  contenuto: ArrayBuffer
+): Promise<{ ok: true } | Errore> {
+  const esito = await percorsoNuovoFile(token, tipo, nome, contentType, contenuto.byteLength)
+  if (!esito.ok) return esito
+
+  const { error } = await createServiceClient()
+    .storage.from(BUCKET)
+    .upload(esito.path, contenuto, { contentType, upsert: false })
+  if (error) {
+    console.error('[file fornitore] upload dal server:', error.message)
+    return { ok: false, errore: 'Caricamento non riuscito, riprovate tra poco', status: 500 }
+  }
+  return registraCaricamento(token, tipo, esito.path, nome)
 }
 
 /**
