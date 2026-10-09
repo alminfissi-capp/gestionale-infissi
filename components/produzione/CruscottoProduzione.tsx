@@ -19,11 +19,13 @@ import SemaforoCommessa from '@/components/produzione/SemaforoCommessa'
 import { setArchiviataCommessa } from '@/actions/produzione'
 import { formattaNumeroOrdine } from '@/lib/produzione'
 import { formattaDataOra } from '@/lib/produzione-tracking'
-import type { OrdineConCommessa, CommessaProduzione, ConfermaDaFirmare } from '@/types/produzione'
+import CaricamentiFalliti from '@/components/produzione/CaricamentiFalliti'
+import type { OrdineConCommessa, CommessaProduzione, ConfermaDaFirmare, CaricamentoFallito } from '@/types/produzione'
 
 interface Props {
   daFare: OrdineConCommessa[]
   confermeDaFirmare: ConfermaDaFirmare[]
+  caricamentiFalliti: CaricamentoFallito[]
   commesse: CommessaProduzione[]
   statoFiltro: string
   archiviate: boolean
@@ -73,7 +75,7 @@ function comparatore(ord: Ordinamento) {
   }
 }
 
-export default function CruscottoProduzione({ daFare, confermeDaFirmare, commesse, statoFiltro, archiviate }: Props) {
+export default function CruscottoProduzione({ daFare, confermeDaFirmare, caricamentiFalliti, commesse, statoFiltro, archiviate }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [ricerca, setRicerca] = useState('')
@@ -143,6 +145,9 @@ export default function CruscottoProduzione({ daFare, confermeDaFirmare, commess
           </Link>
         </Button>
       </div>
+
+      {/* Fornitori che non sono riusciti a caricare un file dal link dell'ordine */}
+      <CaricamentiFalliti elenco={caricamentiFalliti} />
 
       {/* Conferme caricate dai fornitori: restano qui finche' non si firmano */}
       {confermeDaFirmare.length > 0 && (

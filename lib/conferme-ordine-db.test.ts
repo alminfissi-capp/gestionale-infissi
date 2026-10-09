@@ -12,6 +12,8 @@ const ORDINE = '99999999-8888-7777-6666-555555555555'
 
 const oggetti = new Map<string, { dati: Uint8Array; mimetype: string }>()
 const righe: Record<string, unknown>[] = []
+const tentativi: Record<string, unknown>[] = []
+const aggiornamenti: { tabella: string; valori: Record<string, unknown> }[] = []
 
 function query(tabella: string) {
   let operazione: 'select' | 'insert' | 'delete' | 'update' = 'select'
@@ -23,6 +25,7 @@ function query(tabella: string) {
         error: null,
       }
     }
+    if (tabella === 'caricamenti_falliti_fornitore' && head) return { count: tentativi.length, error: null }
     if (tabella === 'file_fornitore_ordine') {
       if (head) return { count: righe.length, error: null }
       if (operazione === 'select') return { data: null, error: null }
@@ -31,9 +34,14 @@ function query(tabella: string) {
   }
   const builder: Record<string, unknown> = {
     select: (_: string, opz?: { head?: boolean }) => { head = Boolean(opz?.head); return builder },
-    insert: (riga: Record<string, unknown>) => { operazione = 'insert'; righe.push(riga); return builder },
+    insert: (riga: Record<string, unknown>) => {
+      operazione = 'insert'
+      ;(tabella === 'caricamenti_falliti_fornitore' ? tentativi : righe).push(riga)
+      return builder
+    },
     delete: () => { operazione = 'delete'; return builder },
-    update: () => { operazione = 'update'; return builder },
+    update: (valori: Record<string, unknown>) => { operazione = 'update'; aggiornamenti.push({ tabella, valori }); return builder },
+    is: () => builder,
     eq: () => builder,
     in: () => builder,
     order: () => builder,
@@ -67,7 +75,7 @@ vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: () => ({ from: query, storage: { from: () => storage } }),
 }))
 
-const { caricaParteDalServer } = await import('./conferme-ordine-db')
+const { caricaParteDalServer, registraCaricamentoFallito } = await import('./conferme-ordine-db')
 
 const impronta = (d: Uint8Array) => createHash('sha256').update(d).digest('hex')
 
@@ -94,6 +102,8 @@ describe('caricaParteDalServer', () => {
   beforeEach(() => {
     oggetti.clear()
     righe.length = 0
+    tentativi.length = 0
+    aggiornamenti.length = 0
   })
 
   it('ricompone un file da 18 MB arrivato in 6 pezzi, identico byte per byte', async () => {
@@ -153,5 +163,40 @@ describe('caricaParteDalServer', () => {
     expect(await caricaParteDalServer(TOKEN, 'documento', 'f.exe', 'application/octet-stream', 'cccccccc-0000-0000-0000-000000000004', 0, 1, new Uint8Array(10).buffer))
       .toMatchObject({ ok: false, status: 400 })
     expect(oggetti.size).toBe(0)
+  })
+})
+
+describe('tentativi falliti del fornitore', () => {
+  beforeEach(() => {
+    oggetti.clear()
+    righe.length = 0
+    tentativi.length = 0
+    aggiornamenti.length = 0
+  })
+
+  it("registra il tentativo fallito sull'ordine giusto", async () => {
+    await registraCaricamentoFallito(TOKEN, {
+      tipo: 'conferma', nome: 'Conferma 4984.pdf', errore: 'connessione interrotta',
+      motivo: 'storage: Failed to fetch', userAgent: 'Android 10',
+    })
+    expect(tentativi).toEqual([expect.objectContaining({
+      organization_id: ORG, ordine_id: ORDINE, tipo: 'conferma', nome_file: 'Conferma 4984.pdf',
+      errore: 'connessione interrotta', motivo: 'storage: Failed to fetch',
+    })])
+  })
+
+  it('smette di registrare oltre 30 tentativi aperti (link pubblico)', async () => {
+    for (let i = 0; i < 35; i++) {
+      await registraCaricamentoFallito(TOKEN, { tipo: 'documento', nome: 'f', errore: 'x', motivo: '', userAgent: null })
+    }
+    expect(tentativi).toHaveLength(30)
+  })
+
+  it('quando il fornitore riesce a caricare, i tentativi falliti si chiudono da soli', async () => {
+    await caricaAPezzi(fileFinto(1000))
+    expect(aggiornamenti).toContainEqual({
+      tabella: 'caricamenti_falliti_fornitore',
+      valori: expect.objectContaining({ risolto_da: 'caricamento' }),
+    })
   })
 })

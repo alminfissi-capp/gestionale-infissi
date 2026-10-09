@@ -259,3 +259,18 @@ export type ConfermaDaFirmare = {
   cliente_nome: string | null
   created_at: string
 }
+
+/** Tentativi di caricamento non riusciti di un fornitore, raggruppati per ordine e tipo di file. */
+export type CaricamentoFallito = {
+  ordine_id: string
+  tipo: 'conferma' | 'documento'
+  commessa_id: string | null
+  numero_ordine: string
+  fornitore_nome: string | null
+  numero_commessa: string | null
+  cliente_nome: string | null
+  tentativi: number
+  ultimo_at: string
+  ultimo_nome_file: string
+  ultimo_errore: string
+}

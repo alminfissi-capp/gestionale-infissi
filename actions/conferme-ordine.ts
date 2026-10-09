@@ -6,7 +6,7 @@ import { getOrgId } from '@/lib/auth'
 import { cartellaFileFornitore, validaFileFornitore } from '@/lib/conferme-ordine'
 import { formattaNumeroOrdine } from '@/lib/produzione'
 import { eliminaConfermeNonFirmate } from '@/lib/conferme-ordine-db'
-import type { ConfermaDaFirmare, FileFornitoreOrdine } from '@/types/produzione'
+import type { CaricamentoFallito, ConfermaDaFirmare, FileFornitoreOrdine } from '@/types/produzione'
 
 const BUCKET = 'commesse-docs'
 
@@ -61,6 +61,87 @@ export async function getConfermeDaFirmare(): Promise<ConfermaDaFirmare[]> {
       created_at: c.created_at,
     }]
   })
+}
+
+/**
+ * Il riquadro "Caricamenti non riusciti" del cruscotto: un elemento per
+ * ordine e tipo di file, il piu' recente in alto.
+ */
+export async function getCaricamentiFalliti(): Promise<CaricamentoFallito[]> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data: tentativi } = await supabase
+    .from('caricamenti_falliti_fornitore')
+    .select('ordine_id, tipo, nome_file, errore, created_at')
+    .eq('organization_id', orgId)
+    .is('risolto_at', null)
+    .order('created_at', { ascending: false })
+  if (!tentativi || tentativi.length === 0) return []
+
+  const { data: ordini } = await supabase
+    .from('ordini_fornitore')
+    .select('id, numero_ordine, commessa_id, fornitore_id, stato')
+    .eq('organization_id', orgId)
+    .in('id', [...new Set(tentativi.map((t) => t.ordine_id))])
+  const ordiniValidi = (ordini ?? []).filter((o) => o.stato !== 'annullato')
+
+  const fornitoreIds = [...new Set(ordiniValidi.map((o) => o.fornitore_id).filter(Boolean))] as string[]
+  const commessaIds = [...new Set(ordiniValidi.map((o) => o.commessa_id).filter(Boolean))] as string[]
+  const [{ data: fornitori }, { data: commesse }] = await Promise.all([
+    fornitoreIds.length
+      ? supabase.from('fornitori').select('id, nome').in('id', fornitoreIds)
+      : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
+    commessaIds.length
+      ? supabase.from('commesse').select('id, numero_commessa, cliente_nome').in('id', commessaIds)
+      : Promise.resolve({ data: [] as { id: string; numero_commessa: string; cliente_nome: string }[] }),
+  ])
+  const perOrdine = new Map(ordiniValidi.map((o) => [o.id, o]))
+  const nomeFornitore = new Map((fornitori ?? []).map((f) => [f.id, f.nome as string]))
+  const datiCommessa = new Map((commesse ?? []).map((c) => [c.id, c]))
+
+  // tentativi e' gia' dal piu' recente: il primo di ogni gruppo e' l'ultimo.
+  const gruppi = new Map<string, CaricamentoFallito>()
+  for (const t of tentativi) {
+    const o = perOrdine.get(t.ordine_id)
+    if (!o) continue
+    const chiave = `${t.ordine_id}:${t.tipo}`
+    const gia = gruppi.get(chiave)
+    if (gia) { gia.tentativi++; continue }
+    const commessa = o.commessa_id ? datiCommessa.get(o.commessa_id) : undefined
+    gruppi.set(chiave, {
+      ordine_id: o.id,
+      tipo: t.tipo as CaricamentoFallito['tipo'],
+      commessa_id: o.commessa_id,
+      numero_ordine: o.numero_ordine,
+      fornitore_nome: o.fornitore_id ? nomeFornitore.get(o.fornitore_id) ?? null : null,
+      numero_commessa: commessa?.numero_commessa ?? null,
+      cliente_nome: commessa?.cliente_nome ?? null,
+      tentativi: 1,
+      ultimo_at: t.created_at,
+      ultimo_nome_file: t.nome_file,
+      ultimo_errore: t.errore,
+    })
+  }
+  return [...gruppi.values()]
+}
+
+/** "Risolto": il problema e' stato gestito (file ricevuto per email, fornitore richiamato). */
+export async function segnaCaricamentiRisolti(
+  ordineId: string,
+  tipo: CaricamentoFallito['tipo']
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { error } = await supabase
+    .from('caricamenti_falliti_fornitore')
+    .update({ risolto_at: new Date().toISOString(), risolto_da: 'utente' })
+    .eq('organization_id', orgId)
+    .eq('ordine_id', ordineId)
+    .eq('tipo', tipo)
+    .is('risolto_at', null)
+  if (error) return { error: 'Operazione non riuscita' }
+  revalidatePath('/produzione', 'layout')
+  return {}
 }
 
 /** File del fornitore per un gruppo di ordini; ogni id richiesto e' presente nella mappa. */
