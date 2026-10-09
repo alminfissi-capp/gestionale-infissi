@@ -12,6 +12,25 @@ export const DIMENSIONE_MAX_FILE_FORNITORE = 20 * 1024 * 1024
  */
 export const MAX_FILE_PER_ORDINE = 60
 
+const TIPO_DA_ESTENSIONE: Record<string, (typeof TIPI_FILE_FORNITORE)[number]> = {
+  pdf: 'application/pdf',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+}
+
+/**
+ * Formato del file scelto dal fornitore. Su Android il browser lascia spesso
+ * vuoto `file.type` (o mette application/octet-stream) per i file presi da
+ * Drive, Gmail o da alcuni gestori file: in quel caso decide l'estensione.
+ */
+export function tipoFileFornitore(nome: string, tipoDichiarato: string): string {
+  if ((TIPI_FILE_FORNITORE as readonly string[]).includes(tipoDichiarato)) return tipoDichiarato
+  const estensione = nome.split('.').pop()?.toLowerCase() ?? ''
+  return TIPO_DA_ESTENSIONE[estensione] ?? (tipoDichiarato || 'application/octet-stream')
+}
+
 /** Motivo per cui il file non si puo' caricare, oppure null se va bene. */
 export function validaFileFornitore(contentType: string, dimensione: number): string | null {
   if (!(TIPI_FILE_FORNITORE as readonly string[]).includes(contentType)) {

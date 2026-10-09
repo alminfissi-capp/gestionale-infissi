@@ -6,6 +6,7 @@ import {
   posizioneProposta,
   posizioneSuPdf,
   riepilogaConferma,
+  tipoFileFornitore,
   validaFileFornitore,
 } from './conferme-ordine'
 import type { FileFornitoreOrdine } from '@/types/produzione'
@@ -125,5 +126,19 @@ describe('limitaPosizione e posizioneProposta', () => {
 describe('noteInHtml', () => {
   it('neutralizza HTML e conserva gli a capo', () => {
     expect(noteInHtml('<b>ok</b>\nseconda')).toBe('&lt;b&gt;ok&lt;/b&gt;<br>seconda')
+  })
+})
+
+describe('tipoFileFornitore', () => {
+  it('tiene il tipo dichiarato quando e accettato', () => {
+    expect(tipoFileFornitore('conferma.pdf', 'application/pdf')).toBe('application/pdf')
+  })
+  it('deduce il tipo dall estensione quando Android lo lascia vuoto', () => {
+    expect(tipoFileFornitore('CONFERMA N. 4984.PDF', '')).toBe('application/pdf')
+    expect(tipoFileFornitore('foto.JPG', 'application/octet-stream')).toBe('image/jpeg')
+  })
+  it('lascia il tipo sconosciuto, cosi la validazione lo rifiuta', () => {
+    expect(tipoFileFornitore('documento.docx', '')).toBe('application/octet-stream')
+    expect(validaFileFornitore(tipoFileFornitore('documento.docx', ''), 10)).not.toBeNull()
   })
 })
