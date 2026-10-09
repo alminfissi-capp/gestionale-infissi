@@ -283,6 +283,16 @@ export async function registraCaricamento(
     if (inserita) await eliminaConfermeNonFirmate(ordine.id, inserita.id)
   }
 
+  // Il fornitore ce l'ha fatta: i suoi tentativi falliti dello stesso tipo
+  // spariscono dal cruscotto.
+  const { error: risoltiError } = await service
+    .from('caricamenti_falliti_fornitore')
+    .update({ risolto_at: new Date().toISOString(), risolto_da: 'caricamento' })
+    .eq('ordine_id', ordine.id)
+    .eq('tipo', tipo)
+    .is('risolto_at', null)
+  if (risoltiError) console.error('[file fornitore] tentativi risolti:', risoltiError.message)
+
   // Solo DDT e documenti entrano subito tra i documenti della commessa: la
   // conferma ci entra una volta firmata, ed e' l'unica copia che resta.
   if (tipo === 'documento' && ordine.commessaId) {
@@ -298,6 +308,39 @@ export async function registraCaricamento(
   }
 
   return { ok: true }
+}
+
+/** Oltre questo numero di tentativi aperti per ordine non si registra altro: il link e' pubblico. */
+const MAX_TENTATIVI_FALLITI_APERTI = 30
+
+/**
+ * Il fornitore non e' riuscito a caricare un file in nessun modo: resta
+ * traccia nel cruscotto Produzione, cosi' qualcuno lo richiama invece di
+ * accorgersene a ordine fermo.
+ */
+export async function registraCaricamentoFallito(
+  token: string,
+  dati: { tipo: TipoFileFornitore; nome: string; errore: string; motivo: string; userAgent: string | null }
+): Promise<void> {
+  const ordine = await getOrdinePubblico(token)
+  if (!ordine) return
+  const service = createServiceClient()
+  const { count } = await service
+    .from('caricamenti_falliti_fornitore')
+    .select('id', { count: 'exact', head: true })
+    .eq('ordine_id', ordine.id)
+    .is('risolto_at', null)
+  if ((count ?? 0) >= MAX_TENTATIVI_FALLITI_APERTI) return
+  const { error } = await service.from('caricamenti_falliti_fornitore').insert({
+    organization_id: ordine.organizationId,
+    ordine_id: ordine.id,
+    tipo: dati.tipo,
+    nome_file: dati.nome.trim().slice(0, 200) || 'file senza nome',
+    errore: dati.errore.slice(0, 500) || 'caricamento non riuscito',
+    motivo: dati.motivo.slice(0, 500) || null,
+    user_agent: dati.userAgent?.slice(0, 300) ?? null,
+  })
+  if (error) console.error('[file fornitore] tentativo fallito:', error.message)
 }
 
 /**

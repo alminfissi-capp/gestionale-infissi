@@ -143,21 +143,42 @@ async function caricaDalServer(
   return null
 }
 
+/**
+ * Il file non e' passato in nessun modo: lo si segnala al cruscotto
+ * Produzione. Non blocca niente e non mostra errori se a sua volta fallisce.
+ */
+function segnalaFallimento(token: string, tipo: Props['tipo'], nome: string, errore: string, motivo = '') {
+  void fetch(`/o/${token}/fallito`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tipo, nome, errore, motivo }),
+    keepalive: true,
+  }).catch(() => {})
+}
+
 async function caricaUno(
   token: string,
   tipo: Props['tipo'],
   file: FileLetto,
   avanzamento: (fatto: number, totale: number) => void
 ): Promise<string | null> {
-  if ('errore' in file) return `${file.nome}: ${file.errore}`
+  if ('errore' in file) {
+    segnalaFallimento(token, tipo, file.nome, file.errore)
+    return `${file.nome}: ${file.errore}`
+  }
   const { nome, contentType, dati } = file
 
   const diretto = await caricaDiretto(token, tipo, nome, contentType, dati)
   if (diretto.esito === 'ok') return null
-  if (diretto.esito === 'rifiutato') return `${nome}: ${diretto.errore}`
+  if (diretto.esito === 'rifiutato') {
+    segnalaFallimento(token, tipo, nome, diretto.errore)
+    return `${nome}: ${diretto.errore}`
+  }
 
   const errore = await caricaDalServer(token, tipo, nome, contentType, dati, diretto.motivo, avanzamento)
-  return errore ? `${nome}: ${errore}` : null
+  if (!errore) return null
+  segnalaFallimento(token, tipo, nome, errore, diretto.motivo)
+  return `${nome}: ${errore}`
 }
 
 export default function CaricaFile({ token, tipo, titolo, descrizione, caricati, contatti }: Props) {
@@ -188,7 +209,8 @@ export default function CaricaFile({ token, tipo, titolo, descrizione, caricati,
         })
         if (e) nuoviErrori.push(e)
         else riusciti++
-      } catch {
+      } catch (e) {
+        segnalaFallimento(token, tipo, f.nome, 'caricamento non riuscito', e instanceof Error ? e.message : String(e))
         nuoviErrori.push(`${f.nome}: caricamento non riuscito`)
       }
     }
