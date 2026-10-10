@@ -3,7 +3,7 @@
 // Si scrivono solo le righe nuove o cambiate (impronta), per non gonfiare il database.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Pool, RowDataPacket } from 'mysql2/promise'
-import { TABELLE_SYNC, aBlocchi, confrontaRighe, impronta, verificaSorgente } from '../../lib/fppro/sync-tabelle.ts'
+import { TABELLE_SYNC, aBlocchi, confrontaRighe, impronta, spiegaErroreMysql, verificaSorgente } from '../../lib/fppro/sync-tabelle.ts'
 import type { Riga, RigaEsistente, RigaFp, TabellaSync } from '../../lib/fppro/sync-tabelle.ts'
 import { log } from './log.ts'
 
@@ -30,11 +30,17 @@ export async function sincronizza(
 ): Promise<Record<string, number>> {
   const lette: { t: TabellaSync; righe: RigaFp[] }[] = []
   for (const t of TABELLE_SYNC) {
-    const [colonne] = await db.query<RowDataPacket[]>(
-      'select column_name as c from information_schema.columns where table_schema = database() and table_name = ?',
-      [t.mysql],
-    )
-    const [righe] = await db.query<RowDataPacket[]>(t.sql)
+    let colonne: RowDataPacket[]
+    let righe: RowDataPacket[]
+    try {
+      ;[colonne] = await db.query<RowDataPacket[]>(
+        'select column_name as c from information_schema.columns where table_schema = database() and table_name = ?',
+        [t.mysql],
+      )
+      ;[righe] = await db.query<RowDataPacket[]>(t.sql)
+    } catch (e) {
+      throw new Error(spiegaErroreMysql(e))
+    }
     const errore = verificaSorgente(t, righe as Riga[], colonne.map(r => String(r.c)))
     if (errore) throw new Error(errore)
     lette.push({ t, righe: (righe as Riga[]).map(t.mappa) })

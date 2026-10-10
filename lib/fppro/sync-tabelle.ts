@@ -317,3 +317,18 @@ export function confrontaRighe(
   const daSegnareAssenti = esistenti.filter(e => e.presente && !ora.has(e.fp_id)).map(e => e.fp_id)
   return { daScrivere, daSegnareAssenti }
 }
+
+/** Traduce gli errori di connessione al MySQL di FP PRO in un messaggio comprensibile. */
+export function spiegaErroreMysql(e: unknown): string {
+  const codice = typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: unknown }).code) : ''
+  const testoErrore = e instanceof Error ? e.message : String(e)
+  if (['ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND', 'EHOSTUNREACH', 'PROTOCOL_CONNECTION_LOST'].includes(codice)) {
+    return 'FP PRO: database MySQL non raggiungibile sul PC (il servizio MySQL56 e\' acceso?). ' +
+      `Nessun dato modificato. Dettaglio: ${testoErrore}`
+  }
+  if (codice === 'ER_ACCESS_DENIED_ERROR' || codice === 'ER_DBACCESS_DENIED_ERROR' || codice === 'ER_BAD_DB_ERROR') {
+    return 'FP PRO: il ponte non riesce ad accedere al database con le credenziali salvate ' +
+      `(cambiate in FP PRO?). Nessun dato modificato. Dettaglio: ${testoErrore}`
+  }
+  return `FP PRO: errore leggendo il database: ${testoErrore}`
+}

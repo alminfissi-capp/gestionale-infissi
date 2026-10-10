@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  TABELLE_SYNC, aBlocchi, compatta, confrontaRighe, flag, impronta, numero, testo, verificaSorgente,
+  TABELLE_SYNC, aBlocchi, compatta, confrontaRighe, flag, impronta, numero, spiegaErroreMysql, testo, verificaSorgente,
   type TabellaSync,
 } from './sync-tabelle'
 
@@ -169,5 +169,21 @@ describe('confrontaRighe', () => {
   it('una riga ricomparsa uguale a prima va riscritta per tornare presente', () => {
     const { daScrivere } = confrontaRighe([r(3, 30)], [esistente(3, 30, false)])
     expect(daScrivere.map(x => x.fp_id)).toEqual([3])
+  })
+})
+
+describe('spiegaErroreMysql', () => {
+  it('MySQL spento: messaggio comprensibile', () => {
+    const e = Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:3306'), { code: 'ECONNREFUSED' })
+    const msg = spiegaErroreMysql(e)
+    expect(msg).toMatch(/non raggiungibile/)
+    expect(msg).toMatch(/MySQL56/)
+  })
+  it('password cambiata: si parla di credenziali', () => {
+    const e = Object.assign(new Error('Access denied for user'), { code: 'ER_ACCESS_DENIED_ERROR' })
+    expect(spiegaErroreMysql(e)).toMatch(/credenziali/)
+  })
+  it('altri errori: prefisso FP PRO e messaggio originale', () => {
+    expect(spiegaErroreMysql(new Error('boh'))).toBe('FP PRO: errore leggendo il database: boh')
   })
 })

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
 import { getMyPermissions } from '@/lib/permessi'
+import { selectAll } from '@/lib/supabase/paginate'
 import { pulisciRicerca, rigaAccessorio, rigaColore, rigaProfilo, rigaVetro } from '@/lib/fppro/catalogo'
 import {
   TABELLE_CONTEGGIO,
@@ -73,7 +74,19 @@ export async function richiediSincronizzazione(): Promise<{ richiesta: Richiesta
   return { richiesta: aperta as RichiestaPonte }
 }
 
-export async function cercaCatalogo(tipo: TipoCatalogo, testo: string): Promise<RigaCatalogo[]> {
+/** Gli errori tornano come testo: un'eccezione arriverebbe al browser come messaggio generico. */
+export async function cercaCatalogo(
+  tipo: TipoCatalogo,
+  testo: string,
+): Promise<{ righe: RigaCatalogo[] } | { errore: string }> {
+  try {
+    return { righe: await cerca(tipo, testo) }
+  } catch (e) {
+    return { errore: e instanceof Error ? e.message : 'Ricerca non riuscita' }
+  }
+}
+
+async function cerca(tipo: TipoCatalogo, testo: string): Promise<RigaCatalogo[]> {
   const supabase = await createClient()
   const orgId = await getOrgId()
   const q = pulisciRicerca(testo)
@@ -88,19 +101,23 @@ export async function cercaCatalogo(tipo: TipoCatalogo, testo: string): Promise<
     if (error) throw new Error(error.message)
     if (!profili?.length) return []
 
-    const [{ data: costi, error: e2 }, { data: serie, error: e3 }] = await Promise.all([
-      supabase.from('fp_profili_costi').select('profilo_fp_id, costo_kg, costo_ml')
-        .eq('organization_id', orgId).eq('presente', true)
-        .in('profilo_fp_id', profili.map(p => p.fp_id)),
+    // 50 profili x fino a ~20 colori sfiorano il tetto di 1000 righe di PostgREST:
+    // senza paginare i prezzi tornerebbero troncati in silenzio.
+    const ids = profili.map(p => p.fp_id)
+    const [costi, { data: serie, error: e3 }] = await Promise.all([
+      selectAll<{ profilo_fp_id: number; costo_kg: number | null; costo_ml: number | null }>((da, a) =>
+        supabase.from('fp_profili_costi').select('id, profilo_fp_id, costo_kg, costo_ml')
+          .eq('organization_id', orgId).eq('presente', true)
+          .in('profilo_fp_id', ids).order('id').range(da, a),
+      ),
       supabase.from('fp_serie').select('fp_id, nome').eq('organization_id', orgId),
     ])
-    if (e2) throw new Error(e2.message)
     if (e3) throw new Error(e3.message)
     const nomeSerie = new Map((serie ?? []).map(s => [s.fp_id, s.nome]))
     return profili.map(p => rigaProfilo(
       p,
       p.serie_fp_id === null ? null : nomeSerie.get(p.serie_fp_id) ?? null,
-      (costi ?? []).filter(c => c.profilo_fp_id === p.fp_id),
+      costi.filter(c => c.profilo_fp_id === p.fp_id),
     ))
   }
 

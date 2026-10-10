@@ -40,6 +40,14 @@ Loop
 Set-Content "$Destinazione\avvia.vbs" $vbs -Encoding ascii
 Set-Content $avvioAutomatico "CreateObject(""WScript.Shell"").Run ""wscript.exe """"$Destinazione\avvia.vbs"""""", 0, False" -Encoding ascii
 
-# 6. Avvio subito
+# 6. Solo questo utente (e SYSTEM/amministratori) puo' leggere la chiave di servizio
+#    e modificare il codice che parte all'avvio: le cartelle sotto C:\ di default
+#    sono modificabili da tutti gli utenti autenticati.
+#    I permessi si mettono solo sulla cartella; i file li ereditano (/reset). Con /T i
+#    flag (OI)(CI) finivano sui singoli file e li lasciavano senza permessi per nessuno.
+icacls $Destinazione /inheritance:r /grant:r "$($env:USERNAME):(OI)(CI)F" "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" /Q | Out-Null
+icacls "$Destinazione\*" /reset /T /Q | Out-Null
+
+# 7. Avvio subito
 Start-Process wscript.exe -ArgumentList "`"$Destinazione\avvia.vbs`""
 Write-Output "Ponte installato in $Destinazione e avviato. Avvio automatico: $avvioAutomatico"

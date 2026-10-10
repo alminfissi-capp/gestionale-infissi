@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { devoAccodareSyncGiornaliera, giornoRoma, statoPonte } from './ponte-regole'
+import { conTempoMassimo, devoAccodareSyncGiornaliera, giornoRoma, richiestaBloccata, statoPonte } from './ponte-regole'
 
 describe('statoPonte', () => {
   const ora = new Date('2026-10-10T10:00:00Z')
@@ -25,4 +25,24 @@ describe('devoAccodareSyncGiornaliera', () => {
     expect(devoAccodareSyncGiornaliera('2026-10-10', ora, false)).toBe(false))
   it('c\'e\' gia\' una richiesta aperta: non se ne aggiunge un\'altra', () =>
     expect(devoAccodareSyncGiornaliera('2026-10-09', ora, true)).toBe(false))
+})
+
+describe('richiestaBloccata', () => {
+  const ora = new Date('2026-10-10T10:00:00Z')
+  it('in corso da 5 minuti: sta lavorando', () =>
+    expect(richiestaBloccata('2026-10-10T09:55:00Z', ora)).toBe(false))
+  it('in corso da 40 minuti: e\' bloccata (rete caduta mentre chiudeva)', () =>
+    expect(richiestaBloccata('2026-10-10T09:20:00Z', ora)).toBe(true))
+  it('senza data di inizio non si giudica', () =>
+    expect(richiestaBloccata(null, ora)).toBe(false))
+})
+
+describe('conTempoMassimo', () => {
+  it('lascia passare il risultato se arriva in tempo', async () => {
+    await expect(conTempoMassimo(Promise.resolve(7), 1000, 'troppo lenta')).resolves.toBe(7)
+  })
+  it('una sincronizzazione appesa fallisce con il messaggio dato', async () => {
+    await expect(conTempoMassimo(new Promise(() => {}), 10, 'Sincronizzazione bloccata'))
+      .rejects.toThrow('Sincronizzazione bloccata')
+  })
 })

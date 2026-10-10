@@ -53,7 +53,13 @@ export default function CatalogoFpClient({ statoIniziale, serie }: Props) {
   // quello del giro corrente: niente effetti collaterali dentro setStato.
   useEffect(() => {
     const id = setInterval(async () => {
-      const nuovo = await getCatalogoFpStato()
+      let nuovo: CatalogoFpStato
+      try {
+        nuovo = await getCatalogoFpStato()
+      } catch {
+        // Rete assente o sessione scaduta: si riprova al giro dopo, senza bloccare la pagina.
+        return
+      }
       setOra(new Date())
       setStato(nuovo)
       if (aperta && nuovo.ultimaRichiesta?.stato === 'completata') {
@@ -74,9 +80,14 @@ export default function CatalogoFpClient({ statoIniziale, serie }: Props) {
       setCercando(true)
       try {
         const risultato = await cercaCatalogo(tipo, testo)
-        if (!annullata) setRighe(risultato)
-      } catch (e) {
-        if (!annullata) toast.error(e instanceof Error ? e.message : 'Ricerca non riuscita')
+        if (annullata) return
+        if ('errore' in risultato) {
+          toast.error(risultato.errore)
+          return
+        }
+        setRighe(risultato.righe)
+      } catch {
+        if (!annullata) toast.error('Ricerca non riuscita: controlla la connessione')
       } finally {
         if (!annullata) setCercando(false)
       }
