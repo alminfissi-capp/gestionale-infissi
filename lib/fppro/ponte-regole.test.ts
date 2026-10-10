@@ -29,10 +29,10 @@ describe('devoAccodareSyncGiornaliera', () => {
 
 describe('richiestaBloccata', () => {
   const ora = new Date('2026-10-10T10:00:00Z')
-  it('in corso da 5 minuti: sta lavorando', () =>
-    expect(richiestaBloccata('2026-10-10T09:55:00Z', ora)).toBe(false))
-  it('in corso da 40 minuti: e\' bloccata (rete caduta mentre chiudeva)', () =>
-    expect(richiestaBloccata('2026-10-10T09:20:00Z', ora)).toBe(true))
+  it('in corso da 40 minuti: la prima sync delle strutture e\' lunga, sta lavorando', () =>
+    expect(richiestaBloccata('2026-10-10T09:20:00Z', ora)).toBe(false))
+  it('in corso da 100 minuti: e\' bloccata', () =>
+    expect(richiestaBloccata('2026-10-10T08:20:00Z', ora)).toBe(true))
   it('senza data di inizio non si giudica', () =>
     expect(richiestaBloccata(null, ora)).toBe(false))
 })

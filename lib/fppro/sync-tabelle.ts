@@ -332,3 +332,10 @@ export function spiegaErroreMysql(e: unknown): string {
   }
   return `FP PRO: errore leggendo il database: ${testoErrore}`
 }
+
+/** La cartella delle strutture deve contenere file: vuota = spostata o non raggiungibile. */
+export function verificaCartellaStrutture(cartella: string, file: number): string | null {
+  if (file > 0) return null
+  return `FP PRO: nessuna struttura .STR trovata in ${cartella} (cartella spostata o non raggiungibile?). ` +
+    'Sincronizzazione delle strutture annullata, nessun dato modificato.'
+}

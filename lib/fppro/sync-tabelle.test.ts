@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  TABELLE_SYNC, aBlocchi, compatta, confrontaRighe, flag, impronta, numero, spiegaErroreMysql, testo, verificaSorgente,
+  TABELLE_SYNC, aBlocchi, compatta, confrontaRighe, flag, impronta, numero, spiegaErroreMysql, testo, verificaCartellaStrutture, verificaSorgente,
   type TabellaSync,
 } from './sync-tabelle'
 
@@ -185,5 +185,14 @@ describe('spiegaErroreMysql', () => {
   })
   it('altri errori: prefisso FP PRO e messaggio originale', () => {
     expect(spiegaErroreMysql(new Error('boh'))).toBe('FP PRO: errore leggendo il database: boh')
+  })
+})
+
+describe('verificaCartellaStrutture', () => {
+  it('cartella con file: ok', () => expect(verificaCartellaStrutture('C:\\FP_PRO\\STR', 4661)).toBeNull())
+  it('cartella vuota o non trovata: si ferma senza toccare nulla', () => {
+    const msg = verificaCartellaStrutture('C:\\FP_PRO\\STR', 0)
+    expect(msg).toMatch(/C:\\FP_PRO\\STR/)
+    expect(msg).toMatch(/nessun dato modificato/i)
   })
 })
