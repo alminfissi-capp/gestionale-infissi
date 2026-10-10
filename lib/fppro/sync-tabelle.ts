@@ -263,3 +263,57 @@ export function aBlocchi<T>(righe: T[], dimensione: number): T[][] {
   for (let i = 0; i < righe.length; i += dimensione) blocchi.push(righe.slice(i, i + dimensione))
   return blocchi
 }
+
+/** JSON con le chiavi in ordine: stessa riga = stessa stringa. */
+function jsonStabile(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(jsonStabile).join(',')}]`
+  if (v !== null && typeof v === 'object') {
+    const o = v as Record<string, unknown>
+    return `{${Object.keys(o).sort().map(k => `${JSON.stringify(k)}:${jsonStabile(o[k])}`).join(',')}}`
+  }
+  return JSON.stringify(v) ?? 'null'
+}
+
+/**
+ * Impronta di una riga (hash cyrb53 del JSON ordinato). Serve a riscrivere solo le
+ * righe cambiate: riscriverle tutte lascerebbe ~100 MB di righe morte a ogni giro.
+ * Si confronta solo con la riga dello stesso fp_id, quindi 53 bit bastano.
+ */
+export function impronta(r: Record<string, unknown>): string {
+  const s = jsonStabile(r)
+  let h1 = 0xdeadbeef
+  let h2 = 0x41c6ce57
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i)
+    h1 = Math.imul(h1 ^ c, 2654435761)
+    h2 = Math.imul(h2 ^ c, 1597334677)
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909)
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909)
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16)
+}
+
+export interface RigaEsistente {
+  fp_id: number
+  impronta: string | null
+  presente: boolean
+}
+
+/**
+ * Confronta le righe lette da FP PRO con quelle gia' in Supabase:
+ * - daScrivere: nuove, cambiate, o ricomparse dopo essere state segnate assenti;
+ * - daSegnareAssenti: fp_id presenti in Supabase ma spariti da FP PRO.
+ */
+export function confrontaRighe(
+  nuove: RigaFp[],
+  esistenti: RigaEsistente[],
+): { daScrivere: RigaFp[]; daSegnareAssenti: number[] } {
+  const prima = new Map(esistenti.map(e => [e.fp_id, e]))
+  const daScrivere = nuove.filter(r => {
+    const e = prima.get(r.fp_id)
+    return !e || !e.presente || e.impronta !== impronta(r)
+  })
+  const ora = new Set(nuove.map(r => r.fp_id))
+  const daSegnareAssenti = esistenti.filter(e => e.presente && !ora.has(e.fp_id)).map(e => e.fp_id)
+  return { daScrivere, daSegnareAssenti }
+}

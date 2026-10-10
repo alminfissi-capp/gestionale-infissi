@@ -50,3 +50,8 @@ env.local
 # tooling locale (lock di sessione, scratch dei tool) — non versionare
 /.claude/scheduled_tasks.lock
 /.superpowers/
+
+# Ponte FP PRO: dipendenze, segreti e log locali
+ponte/node_modules/
+ponte/.env
+ponte/log/

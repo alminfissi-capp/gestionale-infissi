@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  TABELLE_SYNC, aBlocchi, compatta, flag, numero, testo, verificaSorgente,
+  TABELLE_SYNC, aBlocchi, compatta, confrontaRighe, flag, impronta, numero, testo, verificaSorgente,
   type TabellaSync,
 } from './sync-tabelle'
 
@@ -132,5 +132,42 @@ describe('aBlocchi', () => {
   it('spezza in blocchi della dimensione data', () => {
     expect(aBlocchi([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]])
     expect(aBlocchi([], 500)).toEqual([])
+  })
+})
+
+describe('impronta', () => {
+  it('non dipende dall\'ordine delle chiavi', () => {
+    expect(impronta({ fp_id: 1, b: 2, a: { y: 1, x: [2, 1] }, dati: {} }))
+      .toBe(impronta({ a: { x: [2, 1], y: 1 }, dati: {}, fp_id: 1, b: 2 }))
+  })
+  it('cambia se cambia un valore', () => {
+    expect(impronta({ fp_id: 1, prezzo: 1, dati: {} })).not.toBe(impronta({ fp_id: 1, prezzo: 2, dati: {} }))
+  })
+})
+
+describe('confrontaRighe', () => {
+  const r = (fp_id: number, prezzo: number) => ({ fp_id, prezzo, dati: {} })
+  const esistente = (fp_id: number, prezzo: number, presente = true) =>
+    ({ fp_id, impronta: impronta(r(fp_id, prezzo)), presente })
+
+  it('scrive solo righe nuove o cambiate, salta quelle uguali', () => {
+    const { daScrivere, daSegnareAssenti } = confrontaRighe(
+      [r(1, 10), r(2, 20), r(3, 30)],
+      [esistente(1, 10), esistente(2, 99)],
+    )
+    expect(daScrivere.map(x => x.fp_id)).toEqual([2, 3])
+    expect(daSegnareAssenti).toEqual([])
+  })
+  it('una riga sparita da FP PRO va segnata assente, una gia\' assente no', () => {
+    const { daScrivere, daSegnareAssenti } = confrontaRighe(
+      [r(1, 10)],
+      [esistente(1, 10), esistente(2, 20), esistente(3, 30, false)],
+    )
+    expect(daScrivere).toEqual([])
+    expect(daSegnareAssenti).toEqual([2])
+  })
+  it('una riga ricomparsa uguale a prima va riscritta per tornare presente', () => {
+    const { daScrivere } = confrontaRighe([r(3, 30)], [esistente(3, 30, false)])
+    expect(daScrivere.map(x => x.fp_id)).toEqual([3])
   })
 })
