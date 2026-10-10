@@ -1,3 +1,5 @@
+import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
+
 // Tipi del Catalogo FP PRO (copia del MySQL di FP PRO, archivio EDILSIDER)
 // e del ponte sul PC che la tiene aggiornata.
 
@@ -53,4 +55,33 @@ export interface RigaCatalogo {
   prezzo: string
   /** true quando il prezzo manca in FP PRO */
   senzaPrezzo: boolean
+}
+
+export type { NodoStruttura, PezzoStruttura, AccessorioStruttura, KitStruttura } from '@/lib/fppro/strutture-xml'
+
+/** Riga della griglia strutture. */
+export interface StrutturaFpRiga {
+  id: string
+  percorso: string
+  cartella: string
+  nome: string
+  codice: string | null
+  descrizione: string | null
+  serie: string[]
+  l_nominale: number | null
+  h_nominale: number | null
+  /** URL firmato dell'immagine (1 ora), null se manca */
+  immagineUrl: string | null
+  errore: string | null
+}
+
+export interface StrutturaFpDettaglio extends StrutturaFpRiga {
+  albero: NodoStruttura[]
+  /** Poligoni piatti [x1, y1, x2, y2, ...] alle misure nominali */
+  poligoni: number[][]
+}
+
+export interface FiltriStrutture {
+  serie: { serie: string; strutture: number }[]
+  cartelle: { cartella: string; strutture: number }[]
 }
