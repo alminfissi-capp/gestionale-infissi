@@ -114,6 +114,8 @@ export type ArticoloPreventivoRow = {
   config_scorrevole?: import('@/types/scorrevoli').ConfigScorrevoleArticolo | null
   /** Configurazione completa per articoli tipo 'su_misura' */
   config_su_misura?: ConfigSuMisuraArticolo | null
+  /** Riga nata da una struttura di FP PRO (rilievo + calcolo): resta 'libera', serve all'esportazione in FP PRO */
+  config_fppro?: Record<string, unknown> | null
 }
 
 // Articolo durante la compilazione del wizard (non ancora salvato)

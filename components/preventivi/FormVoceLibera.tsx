@@ -155,6 +155,8 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
         costo_prodotto_bypass: null,
         modalita_prezzo_bypass: null,
         percentuale_utile_bypass: null,
+        // Riga nata da FP PRO: modificando prezzo o descrizione resta il legame con la struttura.
+        config_fppro: isEditing ? initialValues?.config_fppro ?? null : null,
       }
 
       onAdd(articolo)

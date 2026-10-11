@@ -12,7 +12,10 @@ import { listinoDaRighe, type RigheListino } from '@/lib/fppro/calcolo/listino'
 import { calcolaVoce, codiceDaDxf, type CalcoloVoce } from '@/lib/fppro/calcolo/voce'
 import type { CorrezioniVoce, OreVoce, ProfiloCalcolo } from '@/lib/fppro/calcolo/tipi'
 import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
+import { createPreventivo } from '@/actions/preventivi'
+import type { PreventivoInput } from '@/types/preventivo'
 import type { VoceFpDati } from '@/types/rilievo-fp'
+import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
 
@@ -246,5 +249,142 @@ export async function salvaCorrezioniVoce(voceId: string, correzioni: Correzioni
     return { ok: true }
   } catch (e) {
     return { errore: messaggio(e, 'Correzioni non salvate') }
+  }
+}
+
+/**
+ * Crea un preventivo nuovo dal calcolo del rilievo: una riga 'libera' per voce, uguale a
+ * quelle importate dal PDF dei costi di FP PRO (immagine, descrizione con misure, note
+ * tecniche, prezzo, costo materiali, costo lavorazione e posa) + config_fppro per la fase 5.
+ */
+export async function trasferisciInPreventivi(rilievoId: string): Promise<{ preventivoId: string; giaTrasferito: boolean } | { errore: string }> {
+  await requireAccesso('rilievo')
+  await requireAccesso('preventivi', 'scrittura')
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+    const { data: rilievo, error } = await supabase.from('rilievi_veloci').select('id, cliente_snapshot, calcolo')
+      .eq('organization_id', orgId).eq('id', rilievoId).maybeSingle()
+    if (error) throw new Error(error.message)
+    if (!rilievo) return { errore: 'Rilievo non trovato' }
+    const calcolo = rilievo.calcolo as CalcoloRilievo | null
+    if (!calcolo || calcolo.voci.length === 0) return { errore: 'Calcola prima il rilievo' }
+
+    const { data: gia } = await supabase.from('articoli_preventivo').select('id')
+      .eq('organization_id', orgId).eq('config_fppro->>rilievoId', rilievoId).limit(1)
+    const giaTrasferito = (gia ?? []).length > 0
+
+    const { data: voci, error: eVoci } = await supabase.from('rilievo_veloce_voci').select('id, fp')
+      .eq('organization_id', orgId).eq('rilievo_id', rilievoId)
+    if (eVoci) throw new Error(eVoci.message)
+    const fpPerVoce = new Map((voci ?? []).map(v => [v.id as string, v.fp as VoceFpDati]))
+
+    // Immagine della struttura copiata tra gli allegati dei preventivi (come l'import dal PDF).
+    const immagini = new Map<string, string | null>()
+    const copiaImmagine = async (path: string | null): Promise<string | null> => {
+      if (!path) return null
+      if (immagini.has(path)) return immagini.get(path)!
+      let url: string | null = null
+      try {
+        const { data: file, error: eGiu } = await supabase.storage.from('fp-strutture').download(path)
+        if (eGiu || !file) throw new Error(eGiu?.message ?? 'immagine non trovata')
+        const destinazione = `${orgId}/fppro/${crypto.randomUUID()}.png`
+        const { error: eSu } = await supabase.storage.from('preventivi-allegati').upload(destinazione, file, { contentType: 'image/png' })
+        if (eSu) throw new Error(eSu.message)
+        url = supabase.storage.from('preventivi-allegati').getPublicUrl(destinazione).data.publicUrl
+      } catch (e) {
+        // L'immagine e' un di piu': la riga si crea comunque.
+        console.warn('[trasferisciInPreventivi] immagine non copiata:', messaggio(e, ''))
+      }
+      immagini.set(path, url)
+      return url
+    }
+
+    const articoli: PreventivoInput['articoli'] = []
+    for (const v of calcolo.voci) {
+      const fp = fpPerVoce.get(v.voceId)
+      const note = [
+        v.posizione ? `Posizione: ${v.posizione}` : null,
+        fp?.serie ? `Profili: ${fp.serie}` : null,
+        fp?.coloreEst ? `Est.: ${fp.coloreEst.descrizione}` : null,
+        fp?.coloreInt ? `Int.: ${fp.coloreInt.descrizione}` : null,
+        fp && Object.keys(fp.vetri ?? {}).length > 0 ? `Vetri: ${[...new Set(Object.values(fp.vetri).map(x => x.codice))].join(', ')}` : null,
+      ].filter(Boolean).join('\n')
+      const pu = Math.round(v.calcolo.prezzo.imponibile * 100) / 100
+      articoli.push({
+        tipo: 'libera', listino_id: null, listino_libero_id: null, prodotto_id: null, accessori_selezionati: null,
+        accessori_griglia: null, tipologia: `${v.struttura} ${v.larghezza}x${v.altezza}`, categoria_nome: null,
+        larghezza_mm: null, altezza_mm: null, larghezza_listino_mm: null, altezza_listino_mm: null, misura_arrotondata: false,
+        finitura_nome: null, finitura_aumento: 0, finitura_aumento_euro: 0, note: note || null,
+        immagine_url: await copiaImmagine(v.immagine), quantita: v.quantita, prezzo_base: null, prezzo_unitario: pu,
+        sconto_articolo: 0, prezzo_totale_riga: pu * v.quantita,
+        costo_acquisto_unitario: Math.round(v.calcolo.materiali * 100) / 100,
+        costo_posa: Math.round(v.calcolo.prezzo.costoLavoro * 100) / 100,
+        aliquota_iva: null, ordine: 0, bypass_calcolo: false, costo_prodotto_bypass: null, modalita_prezzo_bypass: null,
+        percentuale_utile_bypass: null, omaggio: false,
+        config_fppro: { rilievoId, voceId: v.voceId, configPrevFpId: calcolo.configPrevFpId, voce: fp ?? null, calcolo: v.calcolo },
+      })
+    }
+
+    const cliente = rilievo.cliente_snapshot as ClienteSnapshotRilievo
+    const { id } = await createPreventivo({
+      clienteId: null,
+      clienteSnapshot: { ...cliente, cf_piva: null },
+      numero: '',
+      articoli,
+      scontoGlobale: 0,
+      scontoImportoFisso: null,
+      mostraSconto: false,
+      note: '',
+    })
+    return { preventivoId: id, giaTrasferito }
+  } catch (e) {
+    return { errore: messaggio(e, 'Trasferimento non riuscito') }
+  }
+}
+
+export interface DatiPaginaCalcolo {
+  cliente: ClienteSnapshotRilievo
+  configPrevFpId: number | null
+  calcolo: CalcoloRilievo | null
+  profili: { fpId: number; nome: string }[]
+  correzioni: Record<string, CorrezioniVoce>
+  /** Preventivi gia' creati da questo rilievo */
+  preventivi: { id: string; numero: string | null }[]
+}
+
+export async function getDatiCalcoloRilievo(rilievoId: string): Promise<DatiPaginaCalcolo | { errore: string }> {
+  await requireAccesso('rilievo')
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+    const { data: rilievo, error } = await supabase.from('rilievi_veloci').select('id, cliente_snapshot, config_prev_fp_id, calcolo')
+      .eq('organization_id', orgId).eq('id', rilievoId).maybeSingle()
+    if (error) throw new Error(error.message)
+    if (!rilievo) return { errore: 'Rilievo non trovato' }
+    const profili = await getProfiliCalcoloFp()
+    if ('errore' in profili) return profili
+    const { data: voci } = await supabase.from('rilievo_veloce_voci').select('id, fp').eq('organization_id', orgId).eq('rilievo_id', rilievoId)
+    const correzioni: Record<string, CorrezioniVoce> = {}
+    for (const v of voci ?? []) {
+      const c = (v.fp as VoceFpDati | null)?.correzioni
+      if (c) correzioni[v.id as string] = c
+    }
+    const { data: righe } = await supabase.from('articoli_preventivo').select('preventivo_id')
+      .eq('organization_id', orgId).eq('config_fppro->>rilievoId', rilievoId)
+    const idPreventivi = [...new Set((righe ?? []).map(r => r.preventivo_id as string))]
+    const { data: prev } = idPreventivi.length > 0
+      ? await supabase.from('preventivi').select('id, numero').eq('organization_id', orgId).in('id', idPreventivi)
+      : { data: [] }
+    return {
+      cliente: rilievo.cliente_snapshot as ClienteSnapshotRilievo,
+      configPrevFpId: (rilievo.config_prev_fp_id as number | null) ?? null,
+      calcolo: (rilievo.calcolo as CalcoloRilievo | null) ?? null,
+      profili,
+      correzioni,
+      preventivi: (prev ?? []).map(p => ({ id: p.id as string, numero: (p.numero as string | null) ?? null })),
+    }
+  } catch (e) {
+    return { errore: messaggio(e, 'Rilievo non disponibile') }
   }
 }

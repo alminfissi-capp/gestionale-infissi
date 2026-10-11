@@ -562,8 +562,8 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
   if (articoliConCosto.length > 0) {
     const { error: artErr } = await supabase.from('articoli_preventivo').insert(
       articoliConCosto.map((a, i) => {
-        const { quota_trasporto: _qt, config_scorrevole, config_su_misura, ...articoloDb } = a
-        return { ...articoloDb, omaggio: a.omaggio ?? false, config_scorrevole: config_scorrevole ?? null, config_su_misura: config_su_misura ?? null, preventivo_id: prev.id, organization_id: orgId, ordine: i }
+        const { quota_trasporto: _qt, config_scorrevole, config_su_misura, config_fppro, ...articoloDb } = a
+        return { ...articoloDb, omaggio: a.omaggio ?? false, config_scorrevole: config_scorrevole ?? null, config_su_misura: config_su_misura ?? null, config_fppro: config_fppro ?? null, preventivo_id: prev.id, organization_id: orgId, ordine: i }
       })
     )
     if (artErr) {
@@ -639,8 +639,8 @@ export async function updatePreventivo(
   if (articoliConCosto.length > 0) {
     const { error: artErr } = await supabase.from('articoli_preventivo').insert(
       articoliConCosto.map((a, i) => {
-        const { quota_trasporto: _qt, config_scorrevole, config_su_misura, ...articoloDb } = a
-        return { ...articoloDb, omaggio: a.omaggio ?? false, config_scorrevole: config_scorrevole ?? null, config_su_misura: config_su_misura ?? null, preventivo_id: id, organization_id: orgId, ordine: i }
+        const { quota_trasporto: _qt, config_scorrevole, config_su_misura, config_fppro, ...articoloDb } = a
+        return { ...articoloDb, omaggio: a.omaggio ?? false, config_scorrevole: config_scorrevole ?? null, config_su_misura: config_su_misura ?? null, config_fppro: config_fppro ?? null, preventivo_id: id, organization_id: orgId, ordine: i }
       })
     )
     if (artErr) throw new Error(artErr.message)
