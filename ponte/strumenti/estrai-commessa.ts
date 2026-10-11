@@ -49,6 +49,22 @@ const tutti = [...new Set([...profili.map(p => String(p.codice)), ...componenti.
 const barre = await q('select p.codice, b.lung from barlen b join profili p on p.pkid = b.profiloid where p.codice in (?)', [tutti])
 const scarti = await q('select codice, frontwaste, endwaste from serie_profili_scarti where codice in (?) group by codice, frontwaste, endwaste', [tutti])
 
+// Regole degli accessori: serie delle righe dei kit usati, accessori collegati, peso dei vetri.
+const kits = [...new Set([...xml.matchAll(/<FP_KIT [^>]*Code="([^"]+)"/g)].map(m => m[1]))]
+const righeKit = kits.length === 0 ? [] : await q(
+  'select k.nomekit kit, d.codice, group_concat(x.serieprof) serie from dettagliokit d join kit k on k.pkid = d.kitid ' +
+  'left join serieprofilidettagliokit x on x.iddettagliokit = d.iditem where k.nomekit in (?) group by d.iditem order by d.iditem',
+  [kits],
+)
+const codiciAcc = [...new Set([...xml.matchAll(/<FP_FITTING [^>]*Code="([^"]+)"/g)].map(m => m[1]))]
+const collegati = codiciAcc.length === 0 ? [] : await q(
+  'select ap.codice principale, ac.codice collegato, c.num_base from accessoricollegati c ' +
+  'join accessori ap on ap.pkid = c.idaccprincipale join accessori ac on ac.pkid = c.idacccollegato where ap.codice in (?)',
+  [codiciAcc],
+)
+const codiciVetri = [...new Set([...xml.matchAll(/DXF="GLASSES\\([^"]+)\.DXF"/gi)].map(m => m[1]))]
+const vetriKg = codiciVetri.length === 0 ? [] : await q('select codice, kg_mq from vetri where codice in (?)', [codiciVetri])
+
 const fixture = {
   nome, voce: 1, versione: ver, l: n(c.l), h: n(c.h),
   config: {
@@ -65,6 +81,9 @@ const fixture = {
     componenti: componenti.map(x => ({ composto: String(x.composto), componente: String(x.componente), kgMl: n(x.kg_ml), principale: n(x.master) !== 0, offset: n(x.offset) })),
     barre: barre.map(b => ({ codice: String(b.codice), lunghezza: n(b.lung) })),
     scarti: scarti.map(s => ({ codice: String(s.codice), testa: n(s.frontwaste), coda: n(s.endwaste) })),
+    righeKit: righeKit.map(r => ({ kit: String(r.kit), codice: String(r.codice), serie: r.serie ? String(r.serie).split(',') : null })),
+    collegati: collegati.map(c => ({ principale: String(c.principale), collegato: String(c.collegato), quantita: n(c.num_base) })),
+    vetri: vetriKg.map(v => ({ codice: String(v.codice), kgMq: n(v.kg_mq) })),
   },
   totali: {
     costoProfili: n(c.costoprofili), costoAccessori: n(c.costoaccessori), costoGuarnizioni: n(c.costoguarnizioni),

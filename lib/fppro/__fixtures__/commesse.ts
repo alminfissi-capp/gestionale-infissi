@@ -20,6 +20,9 @@ export interface CommessaFp {
     componenti: { composto: string; componente: string; kgMl: number; principale: boolean; offset: number }[]
     barre: { codice: string; lunghezza: number }[]
     scarti: { codice: string; testa: number; coda: number }[]
+    righeKit: { kit: string; codice: string; serie: string[] | null }[]
+    collegati: { principale: string; collegato: string; quantita: number }[]
+    vetri: { codice: string; kgMq: number }[]
   }
   totali: {
     costoProfili: number; costoAccessori: number; costoGuarnizioni: number; costoVetri: number

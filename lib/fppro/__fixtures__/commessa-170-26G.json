@@ -524,6 +524,215 @@
         "testa": 30,
         "coda": 30
       }
+    ],
+    "righeKit": [
+      {
+        "kit": "AL-SLIDE-KIT-CAPPETTE-1",
+        "codice": "ACP 8028",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-KIT-CAPPETTE-1",
+        "codice": "ACP 8040",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-KIT-CAPPETTE-1",
+        "codice": "RB304",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-KIT-CAPPETTE-1",
+        "codice": "RB601",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-KIT-CAPPETTE-1",
+        "codice": "RB603",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA CREM-CREM",
+        "codice": "ACP 8005",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA CREM-CREM",
+        "codice": "ACP 8006",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA CREM-CREM",
+        "codice": "ACP 8012",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA CREM-CREM",
+        "codice": "ACP 8012",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA CREM-VASC",
+        "codice": "ACP 8005",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA CREM-VASC",
+        "codice": "ACP 8006",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA CREM-VASC",
+        "codice": "ACP 8012",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA CREM-VASC",
+        "codice": "ACP 8012",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA CREM-VASC",
+        "codice": "ACP 8009",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA CREM-VASC",
+        "codice": "ACP 8010",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA MART-MART",
+        "codice": "ACP 8012",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA MART-MART",
+        "codice": "ACP 8012",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA MART-MART",
+        "codice": "ACP 8002",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA MART-MART",
+        "codice": "ACP 50552",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA MART-MART",
+        "codice": "ACP 80201",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA MART-MART",
+        "codice": "ACP 8020M",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA MART-MART",
+        "codice": "ACP 8022",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA MART-VASC",
+        "codice": "ACP 8012",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA MART-VASC",
+        "codice": "ACP 8012",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA MART-VASC",
+        "codice": "ACP 8002",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA MART-VASC",
+        "codice": "ACP 8009",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA MART-VASC",
+        "codice": "ACP 8010",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA MART-VASC",
+        "codice": "ACP 50552",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA MART-VASC",
+        "codice": "ACP 80201",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA MART-VASC",
+        "codice": "ACP 8020M",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA MART-VASC",
+        "codice": "ACP 8022",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA VASC-VASC",
+        "codice": "ACP 8012",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA VASC-VASC",
+        "codice": "ACP 8012",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA VASC-VASC",
+        "codice": "ACP 8009",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE-SCELTA VASC-VASC",
+        "codice": "ACP 8010",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE40 2ANTE",
+        "codice": "ACP 1608",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE40 2ANTE",
+        "codice": "AGP 8005",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE40 2ANTE",
+        "codice": "AGP 8005",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE40 2ANTE",
+        "codice": "AGP 8015",
+        "serie": null
+      },
+      {
+        "kit": "AL-SLIDE40 2ANTE",
+        "codice": "ACP 8003",
+        "serie": null
+      }
+    ],
+    "collegati": [],
+    "vetri": [
+      {
+        "codice": "33.1_10_33.1S",
+        "kgMq": 32.5
+      }
     ]
   },
   "totali": {

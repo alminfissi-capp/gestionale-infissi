@@ -48,6 +48,9 @@ export interface AccessorioStruttura {
   max: number | null
   passo: number | null
   formula: string | null
+  /** Accessori a passo: misura su cui distribuire (5 = formula) e formula */
+  dimDistribuzione: number
+  formulaDistribuzione: string | null
   opzionale: boolean
   confermato: boolean
 }
@@ -157,8 +160,11 @@ function accessorio(f: Ogg): AccessorioStruttura {
     max: num(f.RMax),
     passo: num(f.Step),
     formula: testo(f.RFormula),
+    dimDistribuzione: num(f.RefDimDist) ?? 0,
+    formulaDistribuzione: testo(f.DistFormula),
     opzionale: vero(f.Optional),
-    confermato: f.Confirmed === undefined ? true : vero(f.Confirmed),
+    // Senza Confirmed: scelto se obbligatorio, non scelto se opzionale (come calcola FP PRO).
+    confermato: f.Confirmed === undefined ? !vero(f.Optional) : vero(f.Confirmed),
   }
 }
 
@@ -189,7 +195,7 @@ function nodo(n: Ogg): NodoStruttura {
       descrizione: testo(k.Description) ?? '',
       serie: testo(k.Serie) ?? '',
       opzionale: vero(k.Optional),
-      confermato: k.Confirmed === undefined ? true : vero(k.Confirmed),
+      confermato: k.Confirmed === undefined ? !vero(k.Optional) : vero(k.Confirmed),
       accessori: lista(k.FP_FITTING).map(accessorio),
     })),
     figli: lista(n.FP_NODE).map(nodo),

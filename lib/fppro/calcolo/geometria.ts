@@ -48,8 +48,10 @@ export function pezziECampi(
   albero: NodoStruttura[],
   misure: { L: number; H: number; L0: number; H0: number; quote: Record<string, number> },
   larghezze: Larghezze,
-): { pezzi: PezzoCalcolo[]; campi: CampoCalcolo[] } {
+): { pezzi: PezzoCalcolo[]; campi: CampoCalcolo[]; zone: Record<number, { L: number; H: number }> } {
   const pezzi: PezzoCalcolo[] = []
+  // Misure della zona di ogni nodo: le regole dei kit (L, H, perimetro) si misurano sul nodo.
+  const zone: Record<number, { L: number; H: number }> = {}
   const campi: CampoCalcolo[] = []
   const aggiungi = (dxf: string, tipo: number, lunghezza: number) => {
     if (lunghezza > 0) pezzi.push({ dxf, tipo, lunghezza: Math.round(lunghezza * 10) / 10 })
@@ -59,6 +61,7 @@ export function pezziECampi(
 
   const visita = (n: NodoStruttura, z: Zona, inFermavetro: boolean) => {
     if (larg(z) <= 0 || alt(z) <= 0) return
+    zone[n.codice] = { L: larg(z), H: alt(z) }
     const riempimento = n.pezzi.find(p => p.tipo === 8510 || p.tipo === 8500)
     if (riempimento) {
       const r = inFermavetro ? larghezze.fermavetro : 0
@@ -156,5 +159,5 @@ export function pezziECampi(
   }
 
   albero.forEach(n => visita(n, { x0: 0, y0: 0, x1: misure.L, y1: misure.H }, false))
-  return { pezzi, campi }
+  return { pezzi, campi, zone }
 }

@@ -321,6 +321,33 @@ export const TABELLE_SYNC: TabellaSync[] = [
       dati: compatta(r),
     }),
   },
+  {
+    // Serie dei profili a cui vale una riga di kit (nessuna riga = vale per tutte).
+    mysql: 'serieprofilidettagliokit',
+    supabase: 'fp_kit_righe_serie',
+    sql: 'select * from serieprofilidettagliokit order by pkid',
+    colonne: ['pkid', 'iddettagliokit', 'serieprof'],
+    mappa: r => ({ fp_id: id(r.pkid), riga_fp_id: numero(r.iddettagliokit), serie: testo(r.serieprof), dati: compatta(r) }),
+  },
+  {
+    // Accessori "contenitore" (es. kit cerniere) e quelli che contengono.
+    mysql: 'accessoricollegati',
+    supabase: 'fp_accessori_collegati',
+    sql: 'select c.*, ap.codice as codice_principale, ac.codice as codice_collegato, sa.serie as serie_collegato ' +
+      'from accessoricollegati c join accessori ap on ap.pkid = c.idaccprincipale ' +
+      'join accessori ac on ac.pkid = c.idacccollegato left join serie_accessori sa on sa.pkid = ac.serieid order by c.pkid',
+    colonne: ['pkid', 'idaccprincipale', 'idacccollegato', 'num_base', 'tipo', 'opzionale'],
+    mappa: r => ({
+      fp_id: id(r.pkid),
+      codice_principale: testo(r.codice_principale),
+      codice_collegato: testo(r.codice_collegato),
+      serie_collegato: testo(r.serie_collegato),
+      quantita: numero(r.num_base),
+      tipo: numero(r.tipo),
+      opzionale: flag(r.opzionale),
+      dati: compatta(r),
+    }),
+  },
 ]
 
 /**

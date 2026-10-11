@@ -118,3 +118,28 @@ describe('tempi della struttura', () => {
     expect(s.tempi).toEqual({ taglio: 0, lavorazione: 0, montaggio: 0, assemblaggio: 0, posa: 0 })
   })
 })
+
+describe('opzioni non confermate', () => {
+  it('accessorio e kit opzionali senza Confirmed: non scelti (come FP PRO)', () => {
+    const s = strutturaDaXml(new XMLParser(OPZIONI_XML).parse(
+      '<FP_TREE><FP_NODE ElementType="8600" Code="1">' +
+      '<FP_FITTING Code="A1" Optional="1" /><FP_FITTING Code="A2" Optional="1" Confirmed="1" /><FP_FITTING Code="A3" />' +
+      '<FP_KIT Code="K1" Optional="1" /><FP_KIT Code="K2" />' +
+      '</FP_NODE></FP_TREE>',
+    ))
+    const n = s.albero[0]
+    expect(n.accessori.map(a => [a.codice, a.confermato])).toEqual([['A1', false], ['A2', true], ['A3', true]])
+    expect(n.kit.map(k => [k.codice, k.confermato])).toEqual([['K1', false], ['K2', true]])
+  })
+})
+
+describe('distribuzione a passo', () => {
+  it('formula e misura di riferimento della distribuzione', () => {
+    const s = strutturaDaXml(new XMLParser(OPZIONI_XML).parse(
+      '<FP_TREE><FP_NODE ElementType="8600" Code="1">' +
+      '<FP_FITTING Code="ACP 8028" Multiply="2" Step="150.000000" RefDimDist="5" DistFormula="L/2" /><FP_FITTING Code="B" />' +
+      '</FP_NODE></FP_TREE>',
+    ))
+    expect(s.albero[0].accessori.map(a => [a.dimDistribuzione, a.formulaDistribuzione])).toEqual([[5, 'L/2'], [0, null]])
+  })
+})

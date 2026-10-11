@@ -38,11 +38,12 @@ describe('conversioni', () => {
 })
 
 describe('mappature', () => {
-  it('ci sono le 14 tabelle, nell\'ordine giusto', () => {
+  it('ci sono le 16 tabelle, nell\'ordine giusto', () => {
     expect(TABELLE_SYNC.map(t => t.supabase)).toEqual([
       'fp_serie', 'fp_profili', 'fp_profili_costi', 'fp_colori', 'fp_accessori',
       'fp_accessori_costi', 'fp_vetri', 'fp_kit', 'fp_kit_righe',
       'fp_config_prev', 'fp_barre', 'fp_pannelli', 'fp_profili_componenti', 'fp_scarti',
+      'fp_kit_righe_serie', 'fp_accessori_collegati',
     ])
   })
 
@@ -221,5 +222,18 @@ describe('tabelle della fase 4', () => {
     expect(tabella('fp_barre').mappa({ pkid: 3, profiloid: 917, lung: 6500 })).toMatchObject({ fp_id: 3, profilo_fp_id: 917, lunghezza: 6500 })
     expect(tabella('fp_pannelli').mappa({ pkid: 5, codice: 'SANDWICH_28', descr: 'Sandwich', costo_grezzo: '161.0000', min_fatt: 0 }))
       .toMatchObject({ fp_id: 5, codice: 'SANDWICH_28', prezzo_mq: 161, min_fatt: 0 })
+  })
+})
+
+describe('regole degli accessori', () => {
+  it('serie a cui vale una riga di kit', () => {
+    expect(tabella('fp_kit_righe_serie').mappa({ pkid: 9, iddettagliokit: 64179, serieprof: 'AL_72UP' }))
+      .toMatchObject({ fp_id: 9, riga_fp_id: 64179, serie: 'AL_72UP' })
+  })
+  it('accessorio collegato con i codici', () => {
+    expect(tabella('fp_accessori_collegati').mappa({
+      pkid: 4, idaccprincipale: 304, idacccollegato: 12, num_base: 6, tipo: 1, opzionale: 0,
+      codice_principale: 'CERN_2A_SRM9918N', codice_collegato: 'ACP 9918N', serie_collegato: 'ALSISTEM',
+    })).toMatchObject({ fp_id: 4, codice_principale: 'CERN_2A_SRM9918N', codice_collegato: 'ACP 9918N', serie_collegato: 'ALSISTEM', quantita: 6, opzionale: false })
   })
 })
