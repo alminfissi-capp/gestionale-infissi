@@ -15,6 +15,12 @@ export default function AppCantiere() {
   const catalogo = useCatalogoLocale()
   const invio = useInvioRilievi()
 
+  // Arrivando qui da un link del menu la pagina non passa dal service worker: gli si chiede
+  // di salvarla, cosi' si riapre anche partendo senza campo.
+  useEffect(() => {
+    if (navigator.onLine) navigator.serviceWorker?.controller?.postMessage({ type: 'SALVA_PAGINA_CANTIERE' })
+  }, [])
+
   useEffect(() => {
     window.history.replaceState({ vista: { tipo: 'elenco' } }, '')
     const indietro = (e: PopStateEvent) => setVista((e.state?.vista as Vista | undefined) ?? { tipo: 'elenco' })

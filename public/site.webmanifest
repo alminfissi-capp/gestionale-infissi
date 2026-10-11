@@ -43,5 +43,19 @@
         }
       ]
     }
-  }
+  },
+  "shortcuts": [
+    {
+      "name": "Rilievo in cantiere",
+      "short_name": "Rilievo",
+      "url": "/rilievo/cantiere",
+      "icons": [
+        {
+          "src": "/web-app-manifest-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
 }

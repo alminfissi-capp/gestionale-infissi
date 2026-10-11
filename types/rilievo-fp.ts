@@ -73,13 +73,13 @@ export interface StrutturaLocale {
   poligoni: number[][]
   immagine: string | null
   presente: boolean
-  sincronizzato_at: string
+  segno_server: string
 }
 
-export interface ColoreLocale { fp_id: number; descrizione: string; presente: boolean; sincronizzato_at: string }
-export interface VetroLocale { fp_id: number; codice: string; descrizione: string | null; presente: boolean; sincronizzato_at: string }
-export interface TelaioLocale { fp_id: number; serie_fp_id: number | null; codice: string; descrizione: string | null; presente: boolean; sincronizzato_at: string }
-export interface SerieLocale { fp_id: number; nome: string; descrizione: string | null; presente: boolean; sincronizzato_at: string }
+export interface ColoreLocale { fp_id: number; descrizione: string; presente: boolean; segno_server: string }
+export interface VetroLocale { fp_id: number; codice: string; descrizione: string | null; presente: boolean; segno_server: string }
+export interface TelaioLocale { fp_id: number; serie_fp_id: number | null; codice: string; descrizione: string | null; presente: boolean; segno_server: string }
+export interface SerieLocale { fp_id: number; nome: string; descrizione: string | null; presente: boolean; segno_server: string }
 
 export interface PreferenzaFp {
   /** `${tipo}:${rif}` */
@@ -91,5 +91,12 @@ export interface PreferenzaFp {
 
 export interface ImmagineLocale { path: string; blob: Blob }
 
-/** Cursore di scaricamento per tabella: riparte da `da` se interrotto. */
-export interface MetaFp { chiave: string; dopo: string | null; da: number; massimo: string | null }
+/** Posizione nel catalogo del server: segno del server e chiave dell'ultima riga letta. */
+export interface PosizioneFp { segno: string; chiave: string | null }
+
+/**
+ * Segnalibri del telefono, per tabella:
+ * - `ricevuto`: da dove ripartire allo scaricamento successivo (vedi posizioneSicura);
+ * - `inCorso`: dove ripartire se lo scaricamento si e' interrotto a meta'.
+ */
+export interface MetaFp { chiave: string; ricevuto: PosizioneFp | null; inCorso: PosizioneFp | null }

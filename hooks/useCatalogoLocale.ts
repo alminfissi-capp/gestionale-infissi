@@ -1,11 +1,13 @@
 'use client'
 
-// Copia del catalogo FP PRO nel telefono: a pagine, solo differenze, riprende se interrotta.
+// Copia del catalogo FP PRO nel telefono: a pagine, solo differenze (segno del server),
+// riprende da dove era rimasta se interrotta.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { db } from '@/lib/db'
-import { firmeImmagini, scaricaCatalogo } from '@/actions/rilievo-fp'
+import { firmeImmagini, getPreferenzeFp, scaricaCatalogo } from '@/actions/rilievo-fp'
+import { posizioneSicura } from '@/lib/fppro/sync-rilievi'
 import type {
-  ColoreLocale, SerieLocale, StrutturaLocale, TabellaCatalogoLocale, TelaioLocale, VetroLocale,
+  ColoreLocale, PosizioneFp, SerieLocale, StrutturaLocale, TabellaCatalogoLocale, TelaioLocale, VetroLocale,
 } from '@/types/rilievo-fp'
 
 export interface StatoCatalogo {
@@ -21,7 +23,15 @@ const BLOCCO_IMMAGINI = 50
 /** Salva una pagina scaricata nella tabella locale giusta. */
 async function salvaPagina(t: TabellaCatalogoLocale, righe: unknown[]): Promise<void> {
   switch (t) {
-    case 'fp_strutture': await db.fpStrutture.bulkPut(righe as StrutturaLocale[]); break
+    case 'fp_strutture': {
+      const nuove = righe as StrutturaLocale[]
+      // Struttura davvero cambiata (segno diverso): la sua immagine va riscaricata.
+      const prima = await db.fpStrutture.bulkGet(nuove.map(s => s.id))
+      const cambiate = nuove.filter((s, i) => s.immagine && prima[i] && prima[i]!.segno_server !== s.segno_server)
+      await db.fpImmagini.bulkDelete(cambiate.map(s => s.immagine!))
+      await db.fpStrutture.bulkPut(nuove)
+      break
+    }
     case 'fp_colori': await db.fpColori.bulkPut(righe as ColoreLocale[]); break
     case 'fp_vetri': await db.fpVetri.bulkPut(righe as VetroLocale[]); break
     case 'fp_telai': await db.fpTelai.bulkPut(righe as TelaioLocale[]); break
@@ -34,36 +44,45 @@ export function useCatalogoLocale() {
   const inCorso = useRef(false)
 
   const aggiorna = useCallback(async () => {
-    if (inCorso.current || !navigator.onLine) return
+    if (inCorso.current) return
+    const ultimo = (await db.fpMeta.get('catalogo:ultimo'))?.ricevuto?.segno ?? null
+    if (!navigator.onLine) {
+      setStato(s => ({ ...s, ultimo }))
+      return
+    }
     inCorso.current = true
     let fatte = 0
     try {
       await navigator.storage?.persist?.()
-      setStato(s => ({ ...s, fase: 'dati', fatte: 0, messaggio: null }))
+      setStato({ fase: 'dati', fatte: 0, messaggio: null, ultimo })
       for (const tabella of TABELLE) {
         const chiave = `cursore:${tabella}`
         const meta = await db.fpMeta.get(chiave)
-        const dopo = meta?.dopo ?? null
-        let da = meta?.da ?? 0
-        let massimo = meta?.massimo ?? dopo
+        let posizione: PosizioneFp | null = meta?.inCorso ?? meta?.ricevuto ?? null
+        let ricevuto = meta?.ricevuto ?? null
         for (;;) {
-          const r = await scaricaCatalogo(tabella, dopo, da)
+          const r = await scaricaCatalogo(tabella, posizione)
           if ('errore' in r) throw new Error(r.errore)
-          const righe = r.righe as { sincronizzato_at: string }[]
-          await salvaPagina(tabella, righe)
-          if (tabella === 'fp_strutture') {
-            // Struttura cambiata: la sua immagine va riscaricata.
-            const percorsi = (righe as unknown as StrutturaLocale[]).map(s => s.immagine).filter((p): p is string => !!p)
-            await db.fpImmagini.bulkDelete(percorsi)
-          }
-          for (const x of righe) if (!massimo || x.sincronizzato_at > massimo) massimo = x.sincronizzato_at
-          da += righe.length
-          fatte += righe.length
+          await salvaPagina(tabella, r.righe)
+          fatte += r.righe.length
           setStato(s => ({ ...s, fatte }))
+          if (r.ultima) {
+            posizione = r.ultima
+            ricevuto = posizioneSicura(r.ultima, r.adesso)
+          }
           if (r.fine) break
-          await db.fpMeta.put({ chiave, dopo, da, massimo })
+          await db.fpMeta.put({ chiave, ricevuto: meta?.ricevuto ?? null, inCorso: posizione })
         }
-        await db.fpMeta.put({ chiave, dopo: massimo, da: 0, massimo })
+        await db.fpMeta.put({ chiave, ricevuto, inCorso: null })
+      }
+
+      // Preferite e liste brevi: si sostituiscono per intero (piccole).
+      const preferenze = await getPreferenzeFp()
+      if (!('errore' in preferenze)) {
+        await db.transaction('rw', db.fpPreferenze, async () => {
+          await db.fpPreferenze.clear()
+          await db.fpPreferenze.bulkPut(preferenze)
+        })
       }
 
       setStato(s => ({ ...s, fase: 'immagini' }))
@@ -84,9 +103,9 @@ export function useCatalogoLocale() {
         fatte += blocco.length
         setStato(s => ({ ...s, fatte }))
       }
-      const ultimo = new Date().toISOString()
-      await db.fpMeta.put({ chiave: 'catalogo:ultimo', dopo: ultimo, da: 0, massimo: null })
-      setStato({ fase: 'fermo', fatte, messaggio: null, ultimo })
+      const fine = new Date().toISOString()
+      await db.fpMeta.put({ chiave: 'catalogo:ultimo', ricevuto: { segno: fine, chiave: null }, inCorso: null })
+      setStato({ fase: 'fermo', fatte, messaggio: null, ultimo: fine })
     } catch (e) {
       setStato(s => ({ ...s, fase: 'errore', messaggio: e instanceof Error ? e.message : 'Scaricamento non riuscito' }))
     } finally {
@@ -95,16 +114,9 @@ export function useCatalogoLocale() {
   }, [])
 
   useEffect(() => {
-    let attivo = true
-    db.fpMeta.get('catalogo:ultimo').then(m => {
-      if (attivo && m?.dopo) setStato(s => ({ ...s, ultimo: m.dopo }))
-    })
     void aggiorna()
     window.addEventListener('online', aggiorna)
-    return () => {
-      attivo = false
-      window.removeEventListener('online', aggiorna)
-    }
+    return () => window.removeEventListener('online', aggiorna)
   }, [aggiorna])
 
   return { stato, aggiorna }

@@ -33,6 +33,13 @@ export default function OfflinePage() {
           </p>
         </div>
       </div>
+      {/* Navigazione piena (non Link): la pagina del cantiere la serve il service worker dalla cache. */}
+      <a
+        href="/rilievo/cantiere"
+        className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
+      >
+        Apri il rilievo in cantiere (funziona senza rete)
+      </a>
       <button
         onClick={() => window.location.reload()}
         className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"

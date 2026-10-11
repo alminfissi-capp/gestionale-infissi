@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -34,11 +34,24 @@ const numero = (s: string): number | null => {
 export default function WizardVoce({ rilievoId, voceId, onFine }: Props) {
   const esistente = useLiveQuery(() => (voceId ? db.vociFp.get(voceId) : undefined), [voceId])
   const [bozza, setBozza] = useState<VoceFp | null>(null)
+  // true = ci sono modifiche non ancora salvate nel telefono
+  const [sporca, setSporca] = useState(false)
   const voce = bozza ?? esistente ?? null
   const [passo, setPasso] = useState(voceId ? 2 : 0)
   const [serie, setSerie] = useState<string | null>(null)
+  const [quantitaTesto, setQuantitaTesto] = useState<string | null>(null)
 
-  const struttura = useLiveQuery(() => (voce ? db.fpStrutture.get(voce.fp.strutturaId) : undefined), [voce?.fp.strutturaId])
+  // undefined = sto cercando, null = struttura non presente nel telefono
+  const struttura = useLiveQuery(
+    async () => (voce ? (await db.fpStrutture.get(voce.fp.strutturaId)) ?? null : undefined),
+    [voce?.fp.strutturaId],
+  )
+  const catalogoVuoto = useLiveQuery(async () => (await db.fpStrutture.count()) === 0, [], false)
+
+  // Uscendo con il tasto indietro del telefono le modifiche del passo non vanno perse.
+  const daSalvare = useRef<VoceFp | null>(null)
+  useEffect(() => { daSalvare.current = sporca ? bozza : null }, [bozza, sporca])
+  useEffect(() => () => { if (daSalvare.current) void salvaVoceLocale(daSalvare.current) }, [])
   const elencoSerie = useLiveQuery(() => db.fpSerie.orderBy('nome').filter(s => s.presente).toArray(), [], [])
   const serieRecenti = useLiveQuery(async () => {
     const v = await db.vociFp.orderBy('aggiornatoAt').reverse().limit(100).toArray()
@@ -62,11 +75,20 @@ export default function WizardVoce({ rilievoId, voceId, onFine }: Props) {
   const aggiorna = (patch: Partial<VoceFpDati>, altro: Partial<VoceFp> = {}) => {
     if (!voce) return
     setBozza({ ...voce, ...altro, fp: { ...voce.fp, ...patch } })
+    setSporca(true)
   }
 
-  const salva = async (prossimo: number | 'fine') => {
-    if (voce) await salvaVoceLocale(voce)
-    if (prossimo === 'fine') { toast.success('Voce salvata'); onFine() } else setPasso(prossimo)
+  // Si salva solo se qualcosa e' cambiato: sfogliare i passi non deve rendere la voce
+  // "piu' recente" di una modifica vera fatta su un altro telefono.
+  const salva = async (prossimo: number | 'fine' | 'chiudi') => {
+    if (voce && sporca) {
+      await salvaVoceLocale(voce)
+      setSporca(false)
+      daSalvare.current = null
+    }
+    if (prossimo === 'fine') { toast.success('Voce salvata'); onFine() }
+    else if (prossimo === 'chiudi') onFine()
+    else setPasso(prossimo)
   }
 
   const sceltaStruttura = async (s: StrutturaLocale) => {
@@ -82,13 +104,14 @@ export default function WizardVoce({ rilievoId, voceId, onFine }: Props) {
       aggiornatoAt: new Date().toISOString(),
     }
     setBozza(nuova)
+    setSporca(false)
     await salvaVoceLocale(nuova)
     setPasso(2)
   }
 
   const testa = (
     <div className="flex items-center justify-between">
-      <Button variant="ghost" size="sm" onClick={onFine}>Chiudi</Button>
+      <Button variant="ghost" size="sm" onClick={() => salva('chiudi')}>Chiudi</Button>
       <span className="text-sm text-muted-foreground">{passo + 1}/{PASSI.length} · {PASSI[passo]}</span>
     </div>
   )
@@ -122,7 +145,23 @@ export default function WizardVoce({ rilievoId, voceId, onFine }: Props) {
     return <div className="space-y-3">{testa}<SceltaTipologia serie={serie ?? voce?.fp.serie ?? ''} onScegli={sceltaStruttura} />{piede}</div>
   }
 
-  if (!voce || !struttura) return <div className="space-y-3">{testa}<p className="text-sm text-muted-foreground">Caricamento…</p></div>
+  if (!voce || struttura === undefined) return <div className="space-y-3">{testa}<p className="text-sm text-muted-foreground">Caricamento…</p></div>
+  if (struttura === null) {
+    return (
+      <div className="space-y-3">
+        {testa}
+        <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          {catalogoVuoto
+            ? 'Il catalogo FP PRO non è ancora nel telefono: aggiornalo quando c\'è rete per vedere disegno e opzioni.'
+            : `La struttura "${voce.fp.nome}" non è più nel catalogo FP PRO. Le misure restano salvate; si possono cambiare solo posizione, quantità e note.`}
+        </p>
+        <p className="text-sm">{voce.fp.serie} · {voce.fp.nome} · {voce.fp.larghezza ?? '?'} × {voce.fp.altezza ?? '?'} mm</p>
+        <div><Label htmlFor="pos-m">Posizione / locale</Label><Input id="pos-m" value={voce.posizione} onChange={e => aggiorna({}, { posizione: e.target.value })} /></div>
+        <div><Label htmlFor="note-m">Note</Label><Textarea id="note-m" rows={3} value={voce.note} onChange={e => aggiorna({}, { note: e.target.value })} /></div>
+        <Button className="h-12 w-full" onClick={() => salva('fine')}>Salva</Button>
+      </div>
+    )
+  }
   const v = voce.fp
   const problemi = problemiVoce(v, divisioni)
 
@@ -132,6 +171,7 @@ export default function WizardVoce({ rilievoId, voceId, onFine }: Props) {
       <div className="rounded-md border bg-white p-2">
         <DisegnoVoceSvg struttura={struttura} voce={v} className="mx-auto h-48 w-full" />
         <p className="mt-1 text-center text-xs text-muted-foreground">{v.serie} · {v.nome}</p>
+        {!struttura.presente && <p className="mt-1 text-center text-xs text-amber-700">Struttura non più presente in FP PRO</p>}
       </div>
 
       {passo === 2 && (
@@ -139,7 +179,13 @@ export default function WizardVoce({ rilievoId, voceId, onFine }: Props) {
           <div className="col-span-2"><Label htmlFor="pos">Posizione / locale</Label><Input id="pos" value={voce.posizione} onChange={e => aggiorna({}, { posizione: e.target.value })} /></div>
           <div><Label htmlFor="l">Larghezza (mm)</Label><Input id="l" inputMode="numeric" value={v.larghezza ?? ''} onChange={e => aggiorna({ larghezza: numero(e.target.value) })} /></div>
           <div><Label htmlFor="h">Altezza (mm)</Label><Input id="h" inputMode="numeric" value={v.altezza ?? ''} onChange={e => aggiorna({ altezza: numero(e.target.value) })} /></div>
-          <div><Label htmlFor="q">Quantità</Label><Input id="q" inputMode="numeric" value={voce.quantita} onChange={e => aggiorna({}, { quantita: Math.max(1, numero(e.target.value) ?? 1) })} /></div>
+          <div><Label htmlFor="q">Quantità</Label><Input id="q" inputMode="numeric" value={quantitaTesto ?? String(voce.quantita)} onBlur={() => setQuantitaTesto(null)}
+            onChange={e => {
+              // Si puo' svuotare il campo mentre si scrive; vale solo un intero da 1 in su.
+              setQuantitaTesto(e.target.value)
+              const n = numero(e.target.value)
+              if (n !== null && n >= 1) aggiorna({}, { quantita: Math.round(n) })
+            }} /></div>
           {divisioni.map(d => {
             const totale = d.tipo === 'traverso' ? (v.altezza ?? struttura.h_nominale) : (v.larghezza ?? struttura.l_nominale)
             const nominaleTot = d.tipo === 'traverso' ? struttura.h_nominale : struttura.l_nominale

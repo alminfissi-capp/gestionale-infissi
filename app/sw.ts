@@ -11,6 +11,28 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope
 
+const PAGINA_CANTIERE = '/rilievo/cantiere'
+const PAGINA_CANTIERE_CACHE = 'pagina-cantiere'
+
+/**
+ * Salva la pagina del cantiere aggiornata alla versione di questo worker: dopo un
+ * aggiornamento la copia vecchia punterebbe a file JavaScript che non esistono piu'.
+ */
+async function salvaPaginaCantiere(): Promise<void> {
+  try {
+    const risposta = await fetch(PAGINA_CANTIERE, { credentials: 'include' })
+    if (risposta.status === 200 && !risposta.redirected) {
+      await (await caches.open(PAGINA_CANTIERE_CACHE)).put(PAGINA_CANTIERE, risposta)
+    }
+  } catch {
+    // senza rete o sessione scaduta: resta la copia precedente
+  }
+}
+
+self.addEventListener('activate', (event: ExtendableEvent) => {
+  event.waitUntil(salvaPaginaCantiere())
+})
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   // Il worker nuovo resta in attesa finché l'utente non preme "Aggiorna":
@@ -24,7 +46,12 @@ const serwist = new Serwist({
     // versione scaricata della pagina (il contenuto sta in IndexedDB).
     {
       matcher: ({ request, url }) => request.mode === 'navigate' && url.pathname === '/rilievo/cantiere',
-      handler: new NetworkFirst({ cacheName: 'pagina-cantiere', networkTimeoutSeconds: 4 }),
+      handler: new NetworkFirst({
+        cacheName: PAGINA_CANTIERE_CACHE,
+        networkTimeoutSeconds: 4,
+        // Mai salvare un rinvio o la pagina di login (sessione scaduta) al posto della pagina buona.
+        plugins: [{ cacheWillUpdate: async ({ response }) => (response.status === 200 && !response.redirected ? response : null) }],
+      }),
     },
     // Le pagine HTML (navigate) non vengono mai messe in cache — sempre dati freschi dal server
     {
@@ -54,6 +81,10 @@ const serwist = new Serwist({
 // smetterebbe di funzionare senza che nulla lo segnali. Chiamare skipWaiting()
 // due volte non ha effetti collaterali.
 self.addEventListener('message', (event: ExtendableMessageEvent) => {
+  if ((event.data as { type?: string } | null)?.type === 'SALVA_PAGINA_CANTIERE') {
+    event.waitUntil(salvaPaginaCantiere())
+    return
+  }
   if ((event.data as { type?: string } | null)?.type === 'SKIP_WAITING') {
     self.skipWaiting()
   }
