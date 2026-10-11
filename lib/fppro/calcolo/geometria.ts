@@ -18,9 +18,16 @@ export interface Larghezze {
   sormonto: number
   /** Ante scorrevoli piu' alte della luce: entrano nelle guide del telaio (170-26G: 2274 su 2257) */
   incassoScorrevole: number
+  /**
+   * Il vetro entra nella cava del profilo oltre la luce in vista, per lato
+   * (170-26G: 814 x 2142 su una luce di 790 x 2118; SLIDE 60: 844 x 1052 su 818 x 1027)
+   */
+  incastroVetro: number
 }
 
-export const LARGHEZZE_PREDEFINITE: Larghezze = { telaio: 50, anta: 55, divisione: 50, fermavetro: 20, zoccolo: 100, sormonto: 85, incassoScorrevole: 17 }
+export const LARGHEZZE_PREDEFINITE: Larghezze = {
+  telaio: 50, anta: 55, divisione: 50, fermavetro: 20, zoccolo: 100, sormonto: 85, incassoScorrevole: 17, incastroVetro: 12.5,
+}
 
 interface Zona { x0: number; y0: number; x1: number; y1: number }
 const larg = (z: Zona) => z.x1 - z.x0
@@ -79,7 +86,8 @@ export function pezziECampi(
     zone[n.codice] = { L: larg(z), H: alt(z) }
     const riempimento = n.pezzi.find(p => p.tipo === 8510 || p.tipo === 8500)
     if (riempimento) {
-      const r = inFermavetro ? larghezze.fermavetro : 0
+      // Bordo tolto per lato: il fermavetro copre, la cava allarga (172-26G: 733 su una zona di 747).
+      const r = (inFermavetro ? larghezze.fermavetro : 0) - larghezze.incastroVetro
       const l = larg(z) - 2 * r
       const h = alt(z) - 2 * r
       if (l > 0 && h > 0) {

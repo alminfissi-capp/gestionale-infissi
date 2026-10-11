@@ -4,7 +4,9 @@
 // - una riga di kit vale solo per le serie dei profili elencate (nessuna = tutte);
 // - le misure (L, H, perimetro) sono quelle della zona del nodo che porta l'accessorio;
 // - nelle formule w e' il PESO del serramento (kg), h l'altezza;
-// - accessori "contenitore" (kit cerniere) sostituiti dai loro accessori, se non gia' presenti.
+// - accessori "contenitore" (kit cerniere) sostituiti dai loro accessori, se non gia' presenti;
+// - un kit scelto senza righe nello STR (FP PRO scrive solo quelle del kit confermato) prende le
+//   righe dal catalogo dei kit; tra le alternative di uno stesso gruppo vale la prima.
 import type { AccessorioStruttura, NodoStruttura } from '../strutture-xml'
 
 /** Maggiorazione degli accessori a metro (guarnizioni, spazzolini) */
@@ -25,6 +27,66 @@ export interface RegoleAccessori {
   /** Serie a cui vale la riga del kit; null = tutte */
   serieRigaKit: (kit: string, codice: string) => string[] | null
   collegati: (codice: string) => { codice: string; serie: string; quantita: number }[]
+  /** Righe del kit dal catalogo di FP PRO, per i kit che nello STR non hanno righe */
+  righeCatalogo: (kit: string) => AccessorioStruttura[]
+}
+
+/** Riga di fp_kit_righe come la legge il calcolo */
+export interface RigaKitCatalogo {
+  fp_id: number
+  codice: string
+  tipo: number | null
+  quantita: number | string | null
+  opzionale: boolean
+  dim_rif: number | null
+  lim_inf: number | string | null
+  lim_sup: number | string | null
+  passo: number | string | null
+  formula_r: string | null
+  formula_dist: string | null
+  dati: Record<string, unknown> | null
+}
+
+const numero = (v: unknown) => {
+  const n = Number(v ?? 0)
+  return Number.isFinite(n) ? n : 0
+}
+
+/**
+ * Righe del catalogo nel formato della struttura. Le righe opzionali dello stesso gruppo
+ * (gruppoid) sono alternative: FP PRO conferma la prima, le altre restano da scegliere.
+ */
+export function accessoriDaCatalogo(righe: RigaKitCatalogo[]): AccessorioStruttura[] {
+  const gruppiPresi = new Set<number>()
+  return [...righe].sort((a, b) => a.fp_id - b.fp_id).map(r => {
+    const d = r.dati ?? {}
+    const gruppo = numero(d.gruppoid)
+    let confermato = !r.opzionale
+    if (r.opzionale && gruppo > 0 && !gruppiPresi.has(gruppo)) {
+      gruppiPresi.add(gruppo)
+      confermato = true
+    }
+    const min = numero(r.lim_inf)
+    const max = numero(r.lim_sup)
+    const passo = numero(r.passo)
+    return {
+      codice: r.codice,
+      descrizione: String(d.descr ?? ''),
+      serie: '',
+      tipo: numero(r.tipo),
+      quantita: numero(r.quantita),
+      dimRif: numero(r.dim_rif),
+      dimCalcolo: numero(d.dim_calc),
+      min: max > 0 ? min : null,
+      max: max > 0 ? max : null,
+      passo: passo > 0 ? passo : null,
+      formula: r.formula_r || null,
+      dimDistribuzione: numero(d.dimrifdist),
+      formulaDistribuzione: r.formula_dist || null,
+      opzionale: r.opzionale,
+      confermato,
+    }
+  })
 }
 
 type Misure = { L: number; H: number; w: number; h: number }
@@ -34,7 +96,9 @@ export function regoleDaElenchi(
   serieStruttura: string[],
   righeKit: { kit: string; codice: string; serie: string[] | null }[],
   collegati: { principale: string; collegato: string; quantita: number; serie: string }[],
+  catalogoKit: Record<string, RigaKitCatalogo[]> = {},
 ): RegoleAccessori {
+  const catalogo = new Map(Object.entries(catalogoKit).map(([kit, righe]) => [kit, accessoriDaCatalogo(righe)]))
   const perRiga = new Map<string, string[] | null>()
   for (const r of righeKit) {
     const chiave = `${r.kit}\u0000${r.codice}`
@@ -56,6 +120,7 @@ export function regoleDaElenchi(
       return s === undefined ? null : s
     },
     collegati: codice => perPrincipale.get(codice) ?? [],
+    righeCatalogo: kit => catalogo.get(kit) ?? [],
   }
 }
 
@@ -176,7 +241,8 @@ export function accessoriVoce(
       n.kit.forEach((k, i) => {
         const kitScelto = !k.opzionale || (kitScelti[`${n.codice}:${i}`] ?? k.confermato)
         if (!kitScelto) return
-        for (const a of k.accessori) {
+        const righe = k.accessori.length > 0 ? k.accessori : regole.righeCatalogo(k.codice)
+        for (const a of righe) {
           espliciti.add(a.codice)
           if (scelto(a) && valePerSerie(k.codice, a.codice)) usa(a, d)
         }

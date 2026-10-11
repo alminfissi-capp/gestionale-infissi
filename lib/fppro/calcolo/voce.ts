@@ -39,6 +39,17 @@ export interface RigaMateriale {
   costo: number
 }
 
+/** Pezzi di un profilo in una voce, per ottimizzare le barre su tutta la commessa */
+export interface TagliProfilo {
+  codice: string
+  lunghezze: number[]
+  /** Costo al metro nel colore della voce */
+  euroM: number
+  barra: number
+  testa: number
+  coda: number
+}
+
 export interface CalcoloVoce {
   materiali: number
   righe: RigaMateriale[]
@@ -46,6 +57,8 @@ export interface CalcoloVoce {
   prezzo: PrezzoVoce
   peso: number
   avvisi: string[]
+  /** Pezzi dei profili: servono a fattoreBarreCommessa, non si salvano */
+  tagli?: TagliProfilo[]
 }
 
 export interface InputVoce {
@@ -68,6 +81,11 @@ export interface InputVoce {
   larghezze?: Larghezze
   /** Profilo di telaio scelto in cantiere per lato (codice); assente = come la struttura */
   telai?: Partial<Record<'sinistra' | 'alto' | 'destra' | 'basso', string>>
+  /**
+   * Costo barre / costo pezzi di tutta la commessa (fattoreBarreCommessa): i profili si pagano
+   * come pezzi x fattore. Assente = barre ottimizzate sulla sola voce.
+   */
+  fattoreBarre?: number
 }
 
 const LATI = ['sinistra', 'alto', 'destra', 'basso'] as const
@@ -139,15 +157,23 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
     }
   }
   let peso = 0
+  const tagli: TagliProfilo[] = []
   for (const [codice, { p, lunghezze }] of perCodice) {
+    const metriPezzi = lunghezze.reduce((s, l) => s + l, 0) / 1000
+    peso += metriPezzi * p.kgMl
+    let euroM = 0
+    if (p.kgMl > 0 && p.euroKg !== null) euroM = p.kgMl * p.fattorePeso * p.euroKg
+    else if (p.euroMl !== null) euroM = p.euroMl
+    else avvisi.push(`Profilo ${codice} senza prezzo per questo colore`)
+    tagli.push({ codice, lunghezze, euroM, barra: p.barra, testa: p.testa, coda: p.coda })
+    if (input.fattoreBarre !== undefined) {
+      const costo = metriPezzi * euroM * input.fattoreBarre
+      righe.push({ gruppo: 'profili', codice, descrizione: `${lunghezze.length} pezzi, barre ottimizzate sulla commessa`, quantita: tondo(metriPezzi), unita: 'm', costo })
+      continue
+    }
     const { barre } = ottimizzaBarre(lunghezze, p.barra, p.testa, p.coda)
     const metri = barre.reduce((s, b) => s + b, 0) / 1000
-    peso += lunghezze.reduce((s, l) => s + l, 0) / 1000 * p.kgMl
-    let costo = 0
-    if (p.kgMl > 0 && p.euroKg !== null) costo = metri * p.kgMl * p.fattorePeso * p.euroKg
-    else if (p.euroMl !== null) costo = metri * p.euroMl
-    else avvisi.push(`Profilo ${codice} senza prezzo per questo colore`)
-    righe.push({ gruppo: 'profili', codice, descrizione: `${barre.length} barre`, quantita: tondo(metri), unita: 'm', costo })
+    righe.push({ gruppo: 'profili', codice, descrizione: `${barre.length} barre`, quantita: tondo(metri), unita: 'm', costo: metri * euroM })
   }
 
   // Vetri e pannelli.
@@ -180,5 +206,5 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
 
   const materiali = righe.reduce((s, r) => s + r.costo, 0)
   const { profilo, ore, extraFissi } = applicaCorrezioni(input.profilo, input.tempi, input.correzioni)
-  return { materiali, righe, ore, prezzo: prezzoComeFp(materiali, ore, profilo, extraFissi), peso, avvisi: [...new Set(avvisi)] }
+  return { materiali, righe, ore, prezzo: prezzoComeFp(materiali, ore, profilo, extraFissi), peso, avvisi: [...new Set(avvisi)], tagli }
 }

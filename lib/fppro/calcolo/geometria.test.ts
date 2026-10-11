@@ -129,4 +129,15 @@ describe('misure vere dei profili dai DXF (sezioni)', () => {
     expect(Math.abs(vetro.h - 1084) / 1084).toBeLessThan(0.1)
     expect(Math.abs(pannello.h - 726) / 726).toBeLessThan(0.1)
   })
+  it('170-26G: il vetro entra nella cava dell\'anta (814 x 2142 come FP PRO, non la luce 790 x 2118)', () => {
+    const { campi } = conSezioni('170-26G')
+    for (const c of campi) {
+      expect(Math.abs(c.l - 814)).toBeLessThan(3)
+      expect(Math.abs(c.h - 2142)).toBeLessThan(3)
+    }
+  })
+  it('172-26G: vetro dell\'anta principale largo come FP PRO (733)', () => {
+    const vetro = conSezioni('172-26G').campi.find(c => c.tipo === 'vetro' && c.l > 400)!
+    expect(Math.abs(vetro.l - 733)).toBeLessThan(3)
+  })
 })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { commessaFp } from '../__fixtures__/commesse'
-import { accessoriVoce, regoleDaElenchi, valutaFormula } from './accessori'
+import { accessoriVoce, regoleDaElenchi, valutaFormula, type RigaKitCatalogo } from './accessori'
 import { LARGHEZZE_PREDEFINITE, pezziECampi } from './geometria'
 
 function accessoriDi(nome: string, telaio: number, peso: number) {
@@ -85,5 +85,47 @@ describe('valutaFormula', () => {
     expect(valutaFormula('alert(1)', d)).toBeNull()
     expect(valutaFormula('L/', d)).toBeNull()
     expect(valutaFormula('L/0', d)).toBeNull()
+  })
+})
+
+describe('kit scelto senza righe nella struttura (caso Palazzotto, SLIDE 60)', () => {
+  // FP PRO scrive nello STR solo le righe del kit confermato: scegliendone un altro le righe
+  // arrivano dal catalogo dei kit (fp_kit_righe), come fa FP PRO nella commessa.
+  const riga = (fp_id: number, codice: string, extra: Partial<RigaKitCatalogo> = {}): RigaKitCatalogo => ({
+    fp_id, codice, tipo: 1, quantita: 1, opzionale: false, dim_rif: 0, lim_inf: 0, lim_sup: 0, passo: 0,
+    formula_r: null, formula_dist: null, dati: {}, ...extra,
+  })
+  const catalogo = {
+    'AL-SLIDE-REG': [riga(1, 'RB304', { quantita: 2, passo: 700, formula_dist: '2*H', dati: { dimrifdist: 5 } })],
+    'AL-SLIDE60 2ANTE-MAN': [
+      riga(2, 'ACP 6012'),
+      riga(3, 'AGP 6906', { tipo: 4, quantita: 4, dati: { dim_calc: 2 } }),
+      riga(4, 'ACP-6609-187', { quantita: 2, opzionale: true, dati: { gruppoid: 18 } }),
+      riga(5, 'ACP 6013', { opzionale: true, dati: { gruppoid: 18 } }),
+      riga(6, 'F-LOCK', { quantita: 2, dim_rif: 1, lim_inf: 1070.1, lim_sup: 1870 }),
+    ],
+  }
+  const kit = (codice: string, opzionale: boolean, confermato: boolean) =>
+    ({ codice, descrizione: '', serie: 'AL_SISTEM', opzionale, confermato, accessori: [] })
+  const albero = [{
+    tipo: 8600, codice: 2, elementi: 1, x: null, y: null, prm: [], macro: null, ante: [], ird: [], pezzi: [], figli: [], accessori: [],
+    kit: [kit('AL-SLIDE-REG', false, false), kit('AL-SLIDE60 2ANTE-MAN', true, false)],
+  }]
+  const regole = regoleDaElenchi(['AL_SL60'], [], [], catalogo)
+  const acc = accessoriVoce(albero, { '2:1': true }, { 2: { L: 1920, H: 1240 } }, 40, regole)
+  const q = (codice: string) => acc.filter(a => a.codice === codice).reduce((t, a) => t + a.quantita, 0)
+
+  it('kit obbligatorio senza righe nello STR: righe dal catalogo (rapid block a passo su 2H)', () => expect(q('RB304')).toBe(4))
+  it('kit scelto in cantiere: carrelli, spazzolino a metro e fasce come da catalogo', () => {
+    expect(q('ACP 6012')).toBe(1)
+    entro(q('AGP 6906'), 4 * 1.92 * 1.06, 0.001)
+    expect(q('F-LOCK')).toBe(2)
+  })
+  it('alternative dello stesso gruppo: vale la prima, come FP PRO', () => {
+    expect(q('ACP-6609-187')).toBe(2)
+    expect(q('ACP 6013')).toBe(0)
+  })
+  it('kit non scelto: nessuna riga', () => {
+    expect(accessoriVoce(albero, { '2:1': false }, { 2: { L: 1920, H: 1240 } }, 40, regole).map(a => a.codice)).toEqual(['RB304'])
   })
 })

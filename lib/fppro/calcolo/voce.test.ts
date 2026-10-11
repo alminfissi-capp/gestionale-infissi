@@ -3,6 +3,7 @@ import { commessaFp, type CommessaFp } from '../__fixtures__/commesse'
 import { regoleDaElenchi } from './accessori'
 import type { ProfiloCalcolo } from './tipi'
 import { calcolaVoce, codiceDaDxf, type InputVoce, type ListinoCalcolo } from './voce'
+import { fattoreBarreCommessa } from './commessa'
 
 /** Listino con i prezzi che FP PRO ha usato in quella commessa. */
 function listinoDa(d: CommessaFp, fattorePeso: number): ListinoCalcolo {
@@ -165,5 +166,22 @@ describe('senza le misure dei DXF (sezioni mancanti): larghezze predefinite', ()
     const atteso = fp.costoProfili + fp.costoAccessori + fp.costoGuarnizioni + fp.costoVetri + fp.costoPannelli
     if (process.env.DEBUG_FP) console.log(nome, r.materiali.toFixed(2), atteso.toFixed(2))
     expect(scarto(r.materiali, atteso)).toBeLessThan(0.1)
+  })
+})
+
+describe('barre sulla commessa', () => {
+  const { dati, input, regole } = inputDa('170-26G', alm2026, 0.03)
+  const listino = listinoDa(dati, 1.03)
+  const sola = calcolaVoce(input, listino, regole)
+
+  it('una voce da sola: stesso costo dei profili delle barre sulla voce', () => {
+    const { fattore } = fattoreBarreCommessa([{ quantita: 1, tagli: sola.tagli ?? [] }])
+    const r = calcolaVoce({ ...input, fattoreBarre: fattore }, listino, regole)
+    expect(gruppo(r, 'profili')).toBeCloseTo(gruppo(sola, 'profili'), 6)
+  })
+  it('stessa voce in quantita\' 2: profili per pezzo mai piu\' cari che da sola', () => {
+    const { fattore } = fattoreBarreCommessa([{ quantita: 2, tagli: sola.tagli ?? [] }])
+    const r = calcolaVoce({ ...input, fattoreBarre: fattore }, listino, regole)
+    expect(gruppo(r, 'profili')).toBeLessThanOrEqual(gruppo(sola, 'profili') + 1e-9)
   })
 })

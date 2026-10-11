@@ -7,10 +7,11 @@ import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
 import { requireAccesso } from '@/lib/permessi'
 import { selectAll } from '@/lib/supabase/paginate'
-import { regoleDaElenchi } from '@/lib/fppro/calcolo/accessori'
+import { regoleDaElenchi, type RegoleAccessori, type RigaKitCatalogo } from '@/lib/fppro/calcolo/accessori'
 import { listinoDaRighe, type RigheListino } from '@/lib/fppro/calcolo/listino'
 import { clienteEsistente, motivoCalcoloSuperato, motivoVoceNonCalcolabile } from '@/lib/fppro/calcolo/trasferimento'
-import { calcolaVoce, codiceDaDxf, type CalcoloVoce } from '@/lib/fppro/calcolo/voce'
+import { calcolaVoce, codiceDaDxf, type CalcoloVoce, type InputVoce, type ListinoCalcolo } from '@/lib/fppro/calcolo/voce'
+import { fattoreBarreCommessa } from '@/lib/fppro/calcolo/commessa'
 import type { CorrezioniVoce, OreVoce, ProfiloCalcolo } from '@/lib/fppro/calcolo/tipi'
 import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
 import { createPreventivo } from '@/actions/preventivi'
@@ -155,17 +156,25 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
     const idProfili = profili.map(p => p.fp_id)
     const codiciTutti = profili.map(p => p.codice)
 
-    const collegati = await inLista<{ codice_principale: string; codice_collegato: string; serie_collegato: string | null; quantita: number }>(
-      supabase, orgId, 'fp_accessori_collegati', 'fp_id, codice_principale, codice_collegato, serie_collegato, quantita', 'codice_principale', [...codiciAccessori])
-    collegati.forEach(c => codiciAccessori.add(c.codice_collegato))
-
     const kitRighe = await inLista<{ fp_id: number; nome: string }>(supabase, orgId, 'fp_kit', 'fp_id, nome', 'nome', [...kit])
-    const righeKit = await inLista<{ fp_id: number; kit_fp_id: number; codice: string }>(supabase, orgId, 'fp_kit_righe', 'fp_id, kit_fp_id, codice', 'kit_fp_id', kitRighe.map(k => k.fp_id))
+    const righeKit = await inLista<RigaKitCatalogo & { kit_fp_id: number }>(supabase, orgId, 'fp_kit_righe',
+      'fp_id, kit_fp_id, codice, tipo, quantita, opzionale, dim_rif, lim_inf, lim_sup, passo, formula_r, formula_dist, dati', 'kit_fp_id', kitRighe.map(k => k.fp_id))
     const serieRighe = await inLista<{ riga_fp_id: number; serie: string }>(supabase, orgId, 'fp_kit_righe_serie', 'fp_id, riga_fp_id, serie', 'riga_fp_id', righeKit.map(r => r.fp_id))
     const nomeKit = new Map(kitRighe.map(k => [k.fp_id, k.nome]))
     const seriePerRiga = new Map<number, string[]>()
     serieRighe.forEach(s => seriePerRiga.set(s.riga_fp_id, [...(seriePerRiga.get(s.riga_fp_id) ?? []), s.serie]))
     const elencoRigheKit = righeKit.map(r => ({ kit: nomeKit.get(r.kit_fp_id) ?? '', codice: r.codice, serie: seriePerRiga.get(r.fp_id) ?? null }))
+    // Righe dei kit scelti in cantiere che lo STR non contiene: i loro accessori vanno nel listino.
+    const catalogoKit: Record<string, RigaKitCatalogo[]> = {}
+    for (const r of righeKit) {
+      const nome = nomeKit.get(r.kit_fp_id)
+      if (nome) (catalogoKit[nome] ??= []).push(r)
+    }
+    righeKit.forEach(r => codiciAccessori.add(r.codice))
+
+    const collegati = await inLista<{ codice_principale: string; codice_collegato: string; serie_collegato: string | null; quantita: number }>(
+      supabase, orgId, 'fp_accessori_collegati', 'fp_id, codice_principale, codice_collegato, serie_collegato, quantita', 'codice_principale', [...codiciAccessori])
+    collegati.forEach(c => codiciAccessori.add(c.codice_collegato))
 
     const righeListino: RigheListino = {
       profili,
@@ -191,7 +200,8 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       return listini.get(colore)!
     }
 
-    const calcolate: VoceCalcolata[] = []
+    // Prima passata: ogni voce da sola, per avere i pezzi dei profili.
+    const daCalcolare: { v: (typeof righeVoci)[number]; s: NonNullable<ReturnType<typeof perStruttura.get>>; input: InputVoce; listino: ListinoCalcolo; regole: RegoleAccessori }[] = []
     const saltate: CalcoloRilievo['saltate'] = []
     for (const v of righeVoci) {
       const posizione = v.voce ?? ''
@@ -199,20 +209,33 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       const motivo = motivoVoceNonCalcolabile(s, v.fp)
       if (motivo || !s || !v.fp.larghezza || !v.fp.altezza) { saltate.push({ voceId: v.id, posizione, motivo: motivo ?? 'Mancano le misure' }); continue }
       const regole = regoleDaElenchi(s.serie, elencoRigheKit,
-        collegati.map(c => ({ principale: c.codice_principale, collegato: c.codice_collegato, quantita: num(c.quantita), serie: c.serie_collegato ?? '' })))
+        collegati.map(c => ({ principale: c.codice_principale, collegato: c.codice_collegato, quantita: num(c.quantita), serie: c.serie_collegato ?? '' })),
+        catalogoKit)
       const colore = (v.fp.coloreEst ?? v.fp.coloreInt)?.fpId ?? null
-      const calcolo = calcolaVoce({
+      const input: InputVoce = {
         albero: s.albero, serie: s.serie, poligoni: s.poligoni,
         L: v.fp.larghezza, H: v.fp.altezza, L0: s.l_nominale ?? v.fp.larghezza, H0: s.h_nominale ?? v.fp.altezza,
         quote: v.fp.quote ?? {}, kitScelti: v.fp.kit ?? {},
         vetriScelti: Object.fromEntries(Object.entries(v.fp.vetri ?? {}).map(([k, x]) => [k, x.codice])),
         telai: v.fp.telai, tempi: s.tempi ?? { taglio: 0, lavorazione: 0, montaggio: 0, assemblaggio: 0, posa: 0 },
         profilo, maggiorazioni, correzioni: v.correzioni_fp ?? undefined,
-      }, listinoPer(colore), regole)
+      }
+      daCalcolare.push({ v, s, input, listino: listinoPer(colore), regole })
+    }
+    // Come FP PRO: le barre si ottimizzano su tutta la commessa e si ripartiscono sui pezzi.
+    const { fattore } = fattoreBarreCommessa(daCalcolare.map(d => ({
+      quantita: d.v.quantita || 1, tagli: calcolaVoce(d.input, d.listino, d.regole).tagli ?? [],
+    })))
+
+    const calcolate: VoceCalcolata[] = []
+    for (const { v, s, input, listino, regole } of daCalcolare) {
+      // I pezzi servivano solo al fattore: non si salvano.
+      const calcolo = calcolaVoce({ ...input, fattoreBarre: fattore }, listino, regole)
+      delete calcolo.tagli
       if (!s.tempi) calcolo.avvisi.push('Ore della struttura non lette: sincronizza FP PRO')
       calcolate.push({
-        voceId: v.id, posizione, quantita: v.quantita || 1, descrizione: `${v.fp.nome} ${v.fp.larghezza}x${v.fp.altezza}`,
-        struttura: v.fp.nome, strutturaId: s.id, larghezza: v.fp.larghezza, altezza: v.fp.altezza, immagine: s.immagine, calcolo,
+        voceId: v.id, posizione: v.voce ?? '', quantita: v.quantita || 1, descrizione: `${v.fp.nome} ${v.fp.larghezza}x${v.fp.altezza}`,
+        struttura: v.fp.nome, strutturaId: s.id, larghezza: input.L, altezza: input.H, immagine: s.immagine, calcolo,
       })
     }
 
