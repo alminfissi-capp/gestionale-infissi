@@ -46,10 +46,14 @@ function Correzioni({ iniziali, onSalva, inCorso }: { iniziali: CorrezioniVoce; 
     Object.fromEntries(Object.entries(iniziali.ore ?? {}).map(([k, v]) => [k, String(v)])))
   const [perc, setPerc] = useState<Record<string, string>>(
     Object.fromEntries(Object.entries(iniziali.percentuali ?? {}).map(([k, v]) => [k, String(Math.round((v ?? 0) * 10000) / 100)])))
-  const [extra, setExtra] = useState(iniziali.extra ?? [])
+  // Importi come testo: si possono scrivere i decimali ("12,50") e lasciare il campo vuoto.
+  const [extra, setExtra] = useState((iniziali.extra ?? []).map(e => ({ descrizione: e.descrizione, importo: String(e.importo) })))
 
   const salva = () => {
-    const c: CorrezioniVoce = { ore: {}, percentuali: {}, extra: extra.filter(e => e.descrizione.trim() || e.importo) }
+    const c: CorrezioniVoce = {
+      ore: {}, percentuali: {},
+      extra: extra.map(e => ({ descrizione: e.descrizione.trim(), importo: numero(e.importo) ?? 0 })).filter(e => e.descrizione || e.importo),
+    }
     for (const { chiave } of ORE) {
       const v = numero(ore[chiave] ?? '')
       if ((ore[chiave] ?? '').trim() !== '' && v !== null) c.ore![chiave] = v
@@ -89,11 +93,11 @@ function Correzioni({ iniziali, onSalva, inCorso }: { iniziali: CorrezioniVoce; 
         {extra.map((e, i) => (
           <div key={i} className="mb-1 flex gap-2">
             <Input placeholder="Descrizione" value={e.descrizione} onChange={ev => setExtra(extra.map((x, j) => (j === i ? { ...x, descrizione: ev.target.value } : x)))} />
-            <Input className="w-28" inputMode="decimal" value={String(e.importo)} onChange={ev => setExtra(extra.map((x, j) => (j === i ? { ...x, importo: numero(ev.target.value) ?? 0 } : x)))} />
+            <Input className="w-28" inputMode="decimal" value={e.importo} onChange={ev => setExtra(extra.map((x, j) => (j === i ? { ...x, importo: ev.target.value } : x)))} />
             <Button variant="ghost" size="icon" aria-label="Togli extra" onClick={() => setExtra(extra.filter((_, j) => j !== i))}><Trash2 className="size-4" /></Button>
           </div>
         ))}
-        <Button variant="outline" size="sm" onClick={() => setExtra([...extra, { descrizione: '', importo: 0 }])}><Plus className="mr-1 size-4" />Extra</Button>
+        <Button variant="outline" size="sm" onClick={() => setExtra([...extra, { descrizione: '', importo: '' }])}><Plus className="mr-1 size-4" />Extra</Button>
       </div>
       <Button onClick={salva} disabled={inCorso}>{inCorso && <Loader2 className="mr-2 size-4 animate-spin" />}Salva e ricalcola</Button>
     </div>
@@ -133,6 +137,7 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
   const [aperta, setAperta] = useState<string | null>(null)
   const [dettaglio, setDettaglio] = useState<string | null>(null)
   const [inCorso, setInCorso] = useState<'calcolo' | 'trasferimento' | null>(null)
+  const [superato, setSuperato] = useState<string | null>(dati.superato)
 
   const calcola = async () => {
     if (configId === null) return
@@ -140,7 +145,10 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
     try {
       const r = await calcolaRilievoFp(rilievoId, configId)
       if ('errore' in r) toast.error(r.errore)
-      else setCalcolo(r.calcolo)
+      else {
+        setCalcolo(r.calcolo)
+        setSuperato(null)
+      }
     } finally {
       setInCorso(null)
     }
@@ -152,6 +160,7 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
     setInCorso(null)
     if ('errore' in r) { toast.error(r.errore); return }
     setCorrezioni({ ...correzioni, [voceId]: c })
+    setSuperato('Ricalcola: dopo il calcolo sono state modificate delle voci')
     setAperta(null)
     await calcola()
   }
@@ -195,6 +204,7 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
       {calcolo && (
         <>
           {profiloCambiato && <p className="text-sm text-amber-700">Il calcolo mostrato usa un altro profilo: premi Ricalcola.</p>}
+          {superato && <p className="text-sm text-amber-700">{superato} (le misure o le correzioni sono cambiate dopo il calcolo).</p>}
           <p className="text-xs text-muted-foreground">
             Profilo {calcolo.nomeProfilo} · calcolato il {new Date(calcolo.calcolatoAt).toLocaleString('it-IT')}.
             Stima: i materiali esatti per la produzione li calcola FP PRO.
@@ -255,7 +265,7 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            <Button className="h-11" onClick={trasferisci} disabled={inCorso !== null || calcolo.voci.length === 0 || profiloCambiato}>
+            <Button className="h-11" onClick={trasferisci} disabled={inCorso !== null || calcolo.voci.length === 0 || profiloCambiato || superato !== null}>
               {inCorso === 'trasferimento' && <Loader2 className="mr-2 size-4 animate-spin" />}Trasferisci in Preventivi
             </Button>
             {dati.preventivi.map(p => (

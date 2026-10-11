@@ -1,5 +1,4 @@
 // Tipi del rilievo in cantiere con le strutture di FP PRO (fase 3).
-import type { CorrezioniVoce } from '@/lib/fppro/calcolo/tipi'
 import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
 import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
 
@@ -29,8 +28,6 @@ export interface VoceFpDati {
   mano: 'sx' | 'dx' | null
   /** lato -> codice profilo di telaio (assente = come la struttura) */
   telai: Partial<Record<Lato, string>>
-  /** Correzioni fatte in ufficio al calcolo (ore, percentuali, extra) */
-  correzioni?: CorrezioniVoce
 }
 
 export interface RilievoFp {

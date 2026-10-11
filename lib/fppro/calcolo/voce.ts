@@ -156,13 +156,13 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
     const mq = (c.l * c.h) / 1e6
     if (c.tipo === 'vetro') {
       const v = listino.vetro(codice)
-      if (!v) avvisi.push(`Vetro ${codice} senza prezzo`)
+      if (!v || v.euroMq <= 0) avvisi.push(`Vetro ${codice} senza prezzo`)
       peso += mq * (v?.kgMq ?? 0)
       const costo = v ? Math.max(mq, v.minFatt) * v.euroMq * (1 + input.maggiorazioni.vetri) : 0
       righe.push({ gruppo: 'vetri', codice, descrizione: `${Math.round(c.l)} x ${Math.round(c.h)}`, quantita: tondo(mq), unita: 'm²', costo })
     } else {
       const p = listino.pannello(codice)
-      if (!p) avvisi.push(`Pannello ${codice} senza prezzo`)
+      if (!p || p.euroMq <= 0) avvisi.push(`Pannello ${codice} senza prezzo`)
       const costo = p ? Math.max(mq, p.minFatt) * p.euroMq * (1 + input.maggiorazioni.pannelli) : 0
       righe.push({ gruppo: 'pannelli', codice, descrizione: `${Math.round(c.l)} x ${Math.round(c.h)}`, quantita: tondo(mq), unita: 'm²', costo })
     }
@@ -172,6 +172,7 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
   for (const a of accessoriVoce(albero, input.kitScelti, zone, peso, regole)) {
     const prezzo = listino.accessorio(a.codice, a.serie)
     if (!prezzo) avvisi.push(`Accessorio ${a.codice} non trovato nel listino di FP PRO`)
+    else if (prezzo.prezzo <= 0) avvisi.push(`Accessorio ${a.codice} senza prezzo`)
     if (a.regolaIgnota) avvisi.push(`Regola dell'accessorio ${a.codice} non interpretata: contato come da kit`)
     const costo = prezzo && prezzo.unitaVendita > 0 ? (prezzo.prezzo / prezzo.unitaVendita) * a.quantita : 0
     righe.push({ gruppo: 'accessori', codice: a.codice, descrizione: a.descrizione, quantita: tondo(a.quantita), unita: a.metri ? 'm' : 'pz', costo })

@@ -9,6 +9,7 @@ import { requireAccesso } from '@/lib/permessi'
 import { selectAll } from '@/lib/supabase/paginate'
 import { regoleDaElenchi } from '@/lib/fppro/calcolo/accessori'
 import { listinoDaRighe, type RigheListino } from '@/lib/fppro/calcolo/listino'
+import { clienteEsistente, motivoCalcoloSuperato, motivoVoceNonCalcolabile } from '@/lib/fppro/calcolo/trasferimento'
 import { calcolaVoce, codiceDaDxf, type CalcoloVoce } from '@/lib/fppro/calcolo/voce'
 import type { CorrezioniVoce, OreVoce, ProfiloCalcolo } from '@/lib/fppro/calcolo/tipi'
 import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
@@ -79,6 +80,7 @@ export async function getProfiliCalcoloFp(): Promise<{ fpId: number; nome: strin
 
 interface RigaStruttura {
   id: string
+  errore: string | null
   nome: string
   serie: string[]
   albero: NodoStruttura[]
@@ -110,13 +112,13 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
     const maggiorazioni = { vetri: num(dati.maggrottvetri), pannelli: num(dati.maggrottpannelli) }
 
     const { data: voci, error: eVoci } = await supabase.from('rilievo_veloce_voci')
-      .select('id, ordine, voce, quantita, fp').eq('organization_id', orgId).eq('rilievo_id', rilievoId)
+      .select('id, ordine, voce, quantita, fp, correzioni_fp').eq('organization_id', orgId).eq('rilievo_id', rilievoId)
       .not('fp', 'is', null).order('ordine')
     if (eVoci) throw new Error(eVoci.message)
-    const righeVoci = (voci ?? []) as { id: string; ordine: number; voce: string | null; quantita: number; fp: VoceFpDati }[]
+    const righeVoci = (voci ?? []) as { id: string; ordine: number; voce: string | null; quantita: number; fp: VoceFpDati; correzioni_fp: CorrezioniVoce | null }[]
 
     const strutture = await inLista<RigaStruttura>(supabase, orgId, 'fp_strutture',
-      'id, nome, serie, albero, poligoni, tempi, l_nominale, h_nominale, immagine', 'id', righeVoci.map(v => v.fp.strutturaId), 'id')
+      'id, nome, serie, albero, poligoni, tempi, l_nominale, h_nominale, immagine, errore', 'id', righeVoci.map(v => v.fp.strutturaId), 'id')
     const perStruttura = new Map(strutture.map(s => [s.id, s]))
 
     // Codici che servono: profili (anche i telai scelti), accessori, vetri, pannelli, kit.
@@ -194,8 +196,8 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
     for (const v of righeVoci) {
       const posizione = v.voce ?? ''
       const s = perStruttura.get(v.fp.strutturaId)
-      if (!s) { saltate.push({ voceId: v.id, posizione, motivo: 'Struttura non trovata in FP PRO' }); continue }
-      if (!v.fp.larghezza || !v.fp.altezza) { saltate.push({ voceId: v.id, posizione, motivo: 'Mancano le misure' }); continue }
+      const motivo = motivoVoceNonCalcolabile(s, v.fp)
+      if (motivo || !s || !v.fp.larghezza || !v.fp.altezza) { saltate.push({ voceId: v.id, posizione, motivo: motivo ?? 'Mancano le misure' }); continue }
       const regole = regoleDaElenchi(s.serie, elencoRigheKit,
         collegati.map(c => ({ principale: c.codice_principale, collegato: c.codice_collegato, quantita: num(c.quantita), serie: c.serie_collegato ?? '' })))
       const colore = (v.fp.coloreEst ?? v.fp.coloreInt)?.fpId ?? null
@@ -205,7 +207,7 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
         quote: v.fp.quote ?? {}, kitScelti: v.fp.kit ?? {},
         vetriScelti: Object.fromEntries(Object.entries(v.fp.vetri ?? {}).map(([k, x]) => [k, x.codice])),
         telai: v.fp.telai, tempi: s.tempi ?? { taglio: 0, lavorazione: 0, montaggio: 0, assemblaggio: 0, posa: 0 },
-        profilo, maggiorazioni, correzioni: v.fp.correzioni,
+        profilo, maggiorazioni, correzioni: v.correzioni_fp ?? undefined,
       }, listinoPer(colore), regole)
       if (!s.tempi) calcolo.avvisi.push('Ore della struttura non lette: sincronizza FP PRO')
       calcolate.push({
@@ -228,24 +230,27 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
   }
 }
 
-/** Correzioni fatte a mano su una voce (ore, percentuali, extra): restano nella voce. */
+/**
+ * Correzioni fatte a mano su una voce (ore, percentuali, extra): in una colonna propria,
+ * cosi' l'invio dal telefono (che riscrive tutta la voce) non le cancella e loro non
+ * cancellano le modifiche fatte in cantiere.
+ */
 export async function salvaCorrezioniVoce(voceId: string, correzioni: CorrezioniVoce): Promise<{ ok: true } | { errore: string }> {
   await requireAccesso('rilievo', 'scrittura')
   try {
     const supabase = await createClient()
     const orgId = await getOrgId()
-    const { data, error } = await supabase.from('rilievo_veloce_voci').select('fp').eq('organization_id', orgId).eq('id', voceId).maybeSingle()
-    if (error) throw new Error(error.message)
-    if (!data?.fp) return { errore: 'Voce non trovata' }
     const pulite: CorrezioniVoce = {
       ...(correzioni.ore && Object.keys(correzioni.ore).length > 0 ? { ore: correzioni.ore } : {}),
       ...(correzioni.percentuali && Object.keys(correzioni.percentuali).length > 0 ? { percentuali: correzioni.percentuali } : {}),
       ...(correzioni.extra && correzioni.extra.length > 0 ? { extra: correzioni.extra.filter(x => x.descrizione.trim() || x.importo) } : {}),
     }
-    const { error: e2 } = await supabase.from('rilievo_veloce_voci')
-      .update({ fp: { ...(data.fp as object), correzioni: pulite }, updated_at: new Date().toISOString() })
-      .eq('organization_id', orgId).eq('id', voceId)
-    if (e2) throw new Error(e2.message)
+    const vuote = Object.keys(pulite).length === 0
+    const { data, error } = await supabase.from('rilievo_veloce_voci')
+      .update({ correzioni_fp: vuote ? null : pulite, correzioni_fp_at: new Date().toISOString() })
+      .eq('organization_id', orgId).eq('id', voceId).select('id')
+    if (error) throw new Error(error.message)
+    if (!data || data.length === 0) return { errore: 'Voce non trovata' }
     return { ok: true }
   } catch (e) {
     return { errore: messaggio(e, 'Correzioni non salvate') }
@@ -270,13 +275,15 @@ export async function trasferisciInPreventivi(rilievoId: string): Promise<{ prev
     const calcolo = rilievo.calcolo as CalcoloRilievo | null
     if (!calcolo || calcolo.voci.length === 0) return { errore: 'Calcola prima il rilievo' }
 
-    const { data: gia } = await supabase.from('articoli_preventivo').select('id')
+    const { data: gia } = await supabase.from('articoli_preventivo').select('preventivo_id')
       .eq('organization_id', orgId).eq('config_fppro->>rilievoId', rilievoId).limit(1)
     const giaTrasferito = (gia ?? []).length > 0
 
-    const { data: voci, error: eVoci } = await supabase.from('rilievo_veloce_voci').select('id, fp')
-      .eq('organization_id', orgId).eq('rilievo_id', rilievoId)
+    const { data: voci, error: eVoci } = await supabase.from('rilievo_veloce_voci').select('id, fp, updated_at, correzioni_fp_at')
+      .eq('organization_id', orgId).eq('rilievo_id', rilievoId).not('fp', 'is', null)
     if (eVoci) throw new Error(eVoci.message)
+    const superato = motivoCalcoloSuperato(calcolo, (voci ?? []) as { id: string; updated_at: string; correzioni_fp_at: string | null }[])
+    if (superato) return { errore: superato }
     const fpPerVoce = new Map((voci ?? []).map(v => [v.id as string, v.fp as VoceFpDati]))
 
     // Immagine della struttura copiata tra gli allegati dei preventivi (come l'import dal PDF).
@@ -326,9 +333,22 @@ export async function trasferisciInPreventivi(rilievoId: string): Promise<{ prev
       })
     }
 
+    // Cliente: quello del preventivo gia' fatto da questo rilievo, poi l'anagrafica; altrimenti
+    // createPreventivo lo registra (come il wizard quando non si sceglie un cliente).
     const cliente = rilievo.cliente_snapshot as ClienteSnapshotRilievo
+    let clienteId: string | null = null
+    if (giaTrasferito) {
+      const { data: p } = await supabase.from('preventivi').select('cliente_id').eq('organization_id', orgId)
+        .eq('id', (gia ?? [])[0].preventivo_id as string).maybeSingle()
+      clienteId = (p?.cliente_id as string | null) ?? null
+    }
+    if (!clienteId) {
+      const clienti = await selectAll<{ id: string; tipo: 'privato' | 'azienda' | null; ragione_sociale: string | null; nome: string | null; cognome: string | null; telefono: string | null }>((a, b) =>
+        supabase.from('clienti').select('id, tipo, ragione_sociale, nome, cognome, telefono').eq('organization_id', orgId).order('id').range(a, b))
+      clienteId = clienteEsistente(cliente, clienti)
+    }
     const { id } = await createPreventivo({
-      clienteId: null,
+      clienteId,
       clienteSnapshot: { ...cliente, cf_piva: null },
       numero: '',
       articoli,
@@ -349,6 +369,8 @@ export interface DatiPaginaCalcolo {
   calcolo: CalcoloRilievo | null
   profili: { fpId: number; nome: string }[]
   correzioni: Record<string, CorrezioniVoce>
+  /** Perche' il calcolo salvato non e' piu' valido (voci cambiate dopo); null = valido */
+  superato: string | null
   /** Preventivi gia' creati da questo rilievo */
   preventivi: { id: string; numero: string | null }[]
 }
@@ -364,12 +386,12 @@ export async function getDatiCalcoloRilievo(rilievoId: string): Promise<DatiPagi
     if (!rilievo) return { errore: 'Rilievo non trovato' }
     const profili = await getProfiliCalcoloFp()
     if ('errore' in profili) return profili
-    const { data: voci } = await supabase.from('rilievo_veloce_voci').select('id, fp').eq('organization_id', orgId).eq('rilievo_id', rilievoId)
+    const { data: voci } = await supabase.from('rilievo_veloce_voci').select('id, updated_at, correzioni_fp, correzioni_fp_at')
+      .eq('organization_id', orgId).eq('rilievo_id', rilievoId).not('fp', 'is', null)
     const correzioni: Record<string, CorrezioniVoce> = {}
-    for (const v of voci ?? []) {
-      const c = (v.fp as VoceFpDati | null)?.correzioni
-      if (c) correzioni[v.id as string] = c
-    }
+    for (const v of voci ?? []) if (v.correzioni_fp) correzioni[v.id as string] = v.correzioni_fp as CorrezioniVoce
+    const calcolo = (rilievo.calcolo as CalcoloRilievo | null) ?? null
+    const superato = calcolo ? motivoCalcoloSuperato(calcolo, (voci ?? []) as { id: string; updated_at: string; correzioni_fp_at: string | null }[]) : null
     const { data: righe } = await supabase.from('articoli_preventivo').select('preventivo_id')
       .eq('organization_id', orgId).eq('config_fppro->>rilievoId', rilievoId)
     const idPreventivi = [...new Set((righe ?? []).map(r => r.preventivo_id as string))]
@@ -379,7 +401,8 @@ export async function getDatiCalcoloRilievo(rilievoId: string): Promise<DatiPagi
     return {
       cliente: rilievo.cliente_snapshot as ClienteSnapshotRilievo,
       configPrevFpId: (rilievo.config_prev_fp_id as number | null) ?? null,
-      calcolo: (rilievo.calcolo as CalcoloRilievo | null) ?? null,
+      calcolo,
+      superato,
       profili,
       correzioni,
       preventivi: (prev ?? []).map(p => ({ id: p.id as string, numero: (p.numero as string | null) ?? null })),

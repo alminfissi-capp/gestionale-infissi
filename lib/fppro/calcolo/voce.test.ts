@@ -115,6 +115,15 @@ describe('casi difficili', () => {
     expect(r.avvisi.some(a => a.includes('Vetro'))).toBe(true)
     expect(r.prezzo.imponibile).toBeGreaterThan(0)
   })
+  it('vetro, accessorio o pannello con prezzo zero: avviso (non un costo zero silenzioso)', () => {
+    const r = calcolaVoce(input, {
+      ...listino,
+      vetro: c => ({ ...listino.vetro(c)!, euroMq: 0 }),
+      accessorio: () => ({ prezzo: 0, unitaVendita: 1 }),
+    }, regole)
+    expect(r.avvisi.some(a => a.includes('Vetro') && a.includes('senza prezzo'))).toBe(true)
+    expect(r.avvisi.some(a => a.includes('Accessorio') && a.includes('senza prezzo'))).toBe(true)
+  })
   it('correzione di riga: cambia solo questa voce', () => {
     const base = calcolaVoce(input, listino, regole)
     const corretta = calcolaVoce({ ...input, correzioni: { percentuali: { utile: 0.25 }, extra: [{ descrizione: 'x', importo: 80 }] } }, listino, regole)
