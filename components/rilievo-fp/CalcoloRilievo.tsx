@@ -14,6 +14,7 @@ import {
   type CalcoloRilievo as Calcolo, type DatiPaginaCalcolo, type VoceCalcolata,
 } from '@/actions/calcolo-fp'
 import type { CorrezioniVoce, OreVoce } from '@/lib/fppro/calcolo/tipi'
+import { campiOre, oreDaSalvare } from '@/lib/fppro/calcolo/correzioni'
 import { nomeCliente } from './ElencoRilievi'
 
 const ORE: { chiave: keyof OreVoce; etichetta: string }[] = [
@@ -40,10 +41,14 @@ const numero = (s: string) => {
   return Number.isFinite(n) ? n : null
 }
 
-/** Pannello delle correzioni di una voce: vuoto = valore del profilo di calcolo. */
-function Correzioni({ iniziali, onSalva, inCorso }: { iniziali: CorrezioniVoce; onSalva: (c: CorrezioniVoce) => void; inCorso: boolean }) {
-  const [ore, setOre] = useState<Record<string, string>>(
-    Object.fromEntries(Object.entries(iniziali.ore ?? {}).map(([k, v]) => [k, String(v)])))
+/**
+ * Pannello delle correzioni di una voce. Le ore partono da quelle usate nel calcolo (struttura
+ * + correzioni): si vede e si cambia il valore vero. Percentuali vuote = profilo di calcolo.
+ */
+function Correzioni({ iniziali, oreAttuali, onSalva, inCorso }: {
+  iniziali: CorrezioniVoce; oreAttuali: OreVoce; onSalva: (c: CorrezioniVoce) => void; inCorso: boolean
+}) {
+  const [ore, setOre] = useState<Record<string, string>>(() => campiOre(oreAttuali))
   const [perc, setPerc] = useState<Record<string, string>>(
     Object.fromEntries(Object.entries(iniziali.percentuali ?? {}).map(([k, v]) => [k, String(Math.round((v ?? 0) * 10000) / 100)])))
   // Importi come testo: si possono scrivere i decimali ("12,50") e lasciare il campo vuoto.
@@ -54,10 +59,7 @@ function Correzioni({ iniziali, onSalva, inCorso }: { iniziali: CorrezioniVoce; 
       ore: {}, percentuali: {},
       extra: extra.map(e => ({ descrizione: e.descrizione.trim(), importo: numero(e.importo) ?? 0 })).filter(e => e.descrizione || e.importo),
     }
-    for (const { chiave } of ORE) {
-      const v = numero(ore[chiave] ?? '')
-      if ((ore[chiave] ?? '').trim() !== '' && v !== null) c.ore![chiave] = v
-    }
+    c.ore = oreDaSalvare(ore, oreAttuali, iniziali.ore ?? {})
     for (const { chiave } of PERCENTUALI) {
       const v = numero(perc[chiave] ?? '')
       if ((perc[chiave] ?? '').trim() !== '' && v !== null) c.percentuali![chiave] = v / 100
@@ -67,9 +69,10 @@ function Correzioni({ iniziali, onSalva, inCorso }: { iniziali: CorrezioniVoce; 
 
   return (
     <div className="space-y-3 rounded-md bg-muted/40 p-3 text-sm">
-      <p className="text-xs text-muted-foreground">Vuoto = valore del profilo di calcolo. Le correzioni valgono solo per questa voce.</p>
+      <p className="text-xs text-muted-foreground">Le correzioni valgono solo per questa voce.</p>
       <div>
-        <p className="mb-1 font-medium">Ore</p>
+        <p className="mb-1 font-medium">Ore per pezzo</p>
+        <p className="mb-1 text-xs text-muted-foreground">Sono le ore usate ora nel calcolo (quelle della struttura di FP PRO, se non le hai cambiate). Scrivi il valore giusto: sostituisce, non si somma.</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           {ORE.map(o => (
             <label key={o.chiave} className="text-xs">{o.etichetta}
@@ -80,6 +83,7 @@ function Correzioni({ iniziali, onSalva, inCorso }: { iniziali: CorrezioniVoce; 
       </div>
       <div>
         <p className="mb-1 font-medium">Percentuali (%)</p>
+        <p className="mb-1 text-xs text-muted-foreground">Vuoto = valore del profilo di calcolo.</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {PERCENTUALI.map(p => (
             <label key={p.chiave} className="text-xs">{p.etichetta}
@@ -244,7 +248,7 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
                     {dettaglio === v.voceId && <tr><td colSpan={7} className="px-8 pb-3"><DettaglioMateriali voce={v} /></td></tr>}
                     {aperta === v.voceId && (
                       <tr><td colSpan={7} className="p-2">
-                        <Correzioni iniziali={correzioni[v.voceId] ?? {}} inCorso={inCorso !== null} onSalva={c => void salvaCorrezioni(v.voceId, c)} />
+                        <Correzioni iniziali={correzioni[v.voceId] ?? {}} oreAttuali={v.calcolo.ore} inCorso={inCorso !== null} onSalva={c => void salvaCorrezioni(v.voceId, c)} />
                       </td></tr>
                     )}
                   </Fragment>
