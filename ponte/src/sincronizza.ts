@@ -6,6 +6,7 @@ import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { TABELLE_SYNC, aBlocchi, confrontaRighe, impronta, spiegaErroreMysql, verificaSorgente } from '../../lib/fppro/sync-tabelle.ts'
 import type { Riga, RigaEsistente, RigaFp, TabellaSync } from '../../lib/fppro/sync-tabelle.ts'
 import { log } from './log.ts'
+import { sezioniProfili } from './sezioni-profili.ts'
 import { sincronizzaStrutture } from './sincronizza-strutture.ts'
 
 const BLOCCO = 500
@@ -51,6 +52,13 @@ export async function sincronizza(
     for (const r of (righe as Riga[]).map(t.mappa)) if (!unica.has(r.fp_id)) unica.set(r.fp_id, r)
     lette.push({ t, righe: [...unica.values()] })
     log(`Letta ${t.mysql}: ${righe.length} righe`)
+  }
+
+  // Misure in vista dai DXF dei profili: si scrivono come una tabella in piu'.
+  const profili = lette.find(l => l.t.supabase === 'fp_profili')?.righe ?? []
+  const sezioni = await sezioniProfili(profili, cartellaStrutture)
+  if (sezioni.length > 0) {
+    lette.push({ t: { mysql: '(DXF)', supabase: 'fp_profili_sezioni', sql: '', colonne: [], mappa: r => r as RigaFp }, righe: sezioni })
   }
 
   const esito: Record<string, number> = {}

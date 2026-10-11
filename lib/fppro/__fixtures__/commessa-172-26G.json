@@ -513,16 +513,30 @@
         "kit": "PLANET 2ANTE PORTA INT. AG-GA",
         "codice": "AGP 4085",
         "serie": [
-          "AL_3G",
-          "AL_72UP",
-          "AL_50PLU",
           "AL_ECO72",
           "AL_3GUP",
           "AL_ECO50",
           "AL_62UP",
           "AL_ECO72UP",
           "AL_45",
-          "AL_ECO62UP"
+          "AL_ECO62UP",
+          "AL_3G",
+          "AL_72UP",
+          "AL_50PLU"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 4000",
+        "serie": [
+          "AL_50PLU",
+          "AL_3GUP",
+          "AL_ECO50",
+          "AL_62UP",
+          "AL_45",
+          "AL_ECO72",
+          "AL_3G",
+          "AL_72UP"
         ]
       },
       {
@@ -537,20 +551,6 @@
           "AL_62UP",
           "AL_45",
           "AL_ECO72"
-        ]
-      },
-      {
-        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
-        "codice": "AGP 4000",
-        "serie": [
-          "AL_62UP",
-          "AL_45",
-          "AL_ECO72",
-          "AL_3G",
-          "AL_72UP",
-          "AL_50PLU",
-          "AL_3GUP",
-          "AL_ECO50"
         ]
       },
       {
@@ -579,21 +579,13 @@
         "kit": "PLANET 2ANTE PORTA INT. AG-GA",
         "codice": "AGP 50185",
         "serie": [
-          "AL_50PLU",
-          "AL_ECO50"
+          "AL_ECO50",
+          "AL_50PLU"
         ]
       },
       {
         "kit": "PLANET 2ANTE PORTA INT. AG-GA",
         "codice": "AGP 62172M",
-        "serie": [
-          "AL_62UP",
-          "AL_ECO62UP"
-        ]
-      },
-      {
-        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
-        "codice": "AGP 62185",
         "serie": [
           "AL_ECO62UP",
           "AL_62UP"
@@ -601,10 +593,18 @@
       },
       {
         "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 62185",
+        "serie": [
+          "AL_62UP",
+          "AL_ECO62UP"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
         "codice": "AGP 62685",
         "serie": [
-          "AL_3GUP",
-          "AL_3G"
+          "AL_3G",
+          "AL_3GUP"
         ]
       },
       {
@@ -620,9 +620,9 @@
         "kit": "PLANET 2ANTE PORTA INT. AG-GA",
         "codice": "AGP 72185",
         "serie": [
-          "AL_ECO72",
           "AL_ECO72UP",
-          "AL_72UP"
+          "AL_72UP",
+          "AL_ECO72"
         ]
       },
       {
@@ -644,8 +644,8 @@
         "kit": "PLANET 2ANTE PORTA INT. AG-GA",
         "codice": "AGP 62172M",
         "serie": [
-          "AL_62UP",
-          "AL_ECO62UP"
+          "AL_ECO62UP",
+          "AL_62UP"
         ]
       },
       {
@@ -675,40 +675,40 @@
         "kit": "PLANET 2ANTE PORTA INT. AG-GA",
         "codice": "ACP 62180M",
         "serie": [
-          "AL_62UP",
-          "AL_ECO62UP"
+          "AL_ECO62UP",
+          "AL_62UP"
         ]
       },
       {
         "kit": "PLANET 2ANTE PORTA INT. AG-GA",
         "codice": "ACP 50422",
         "serie": [
-          "AL_50PLU",
-          "AL_ECO72",
-          "AL_3GUP",
-          "AL_ECO50",
           "AL_62UP",
           "AL_ECO72UP",
           "AL_45",
           "AL_ECO62UP",
           "AL_3G",
-          "AL_72UP"
+          "AL_72UP",
+          "AL_50PLU",
+          "AL_ECO72",
+          "AL_3GUP",
+          "AL_ECO50"
         ]
       },
       {
         "kit": "PLANET 2ANTE PORTA INT. AG-GA",
         "codice": "ACP 50582",
         "serie": [
-          "AL_50PLU",
-          "AL_ECO72",
-          "AL_3GUP",
           "AL_ECO50",
           "AL_62UP",
           "AL_ECO72UP",
           "AL_45",
           "AL_ECO62UP",
           "AL_3G",
-          "AL_72UP"
+          "AL_72UP",
+          "AL_50PLU",
+          "AL_ECO72",
+          "AL_3GUP"
         ]
       },
       {
@@ -724,24 +724,24 @@
         "kit": "PLANET 2ANTE PORTA INT. AG-GA",
         "codice": "ACP 62679M",
         "serie": [
-          "AL_3G",
-          "AL_3GUP"
+          "AL_3GUP",
+          "AL_3G"
         ]
       },
       {
         "kit": "PLANET 2ANTE PORTA INT. AG-GA",
         "codice": "AGP 4006",
         "serie": [
-          "AL_72UP",
-          "AL_50PLU",
-          "AL_ECO72",
           "AL_3GUP",
           "AL_ECO50",
           "AL_62UP",
           "AL_ECO72UP",
           "AL_45",
           "AL_ECO62UP",
-          "AL_3G"
+          "AL_3G",
+          "AL_72UP",
+          "AL_50PLU",
+          "AL_ECO72"
         ]
       },
       {
@@ -768,6 +768,20 @@
         "kit": "PLANET SERRATURA A FASCIA OK",
         "codice": "06465720",
         "serie": [
+          "AL_62UP",
+          "AL_ECO72UP",
+          "AL_45",
+          "AL_ECO62UP",
+          "AL_72UP",
+          "AL_50PLU",
+          "AL_ECO72",
+          "AL_ECO50"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A FASCIA OK",
+        "codice": "56357900",
+        "serie": [
           "AL_50PLU",
           "AL_ECO72",
           "AL_ECO50",
@@ -776,20 +790,6 @@
           "AL_45",
           "AL_ECO62UP",
           "AL_72UP"
-        ]
-      },
-      {
-        "kit": "PLANET SERRATURA A FASCIA OK",
-        "codice": "56357900",
-        "serie": [
-          "AL_72UP",
-          "AL_50PLU",
-          "AL_ECO72",
-          "AL_ECO50",
-          "AL_62UP",
-          "AL_ECO72UP",
-          "AL_45",
-          "AL_ECO62UP"
         ]
       },
       {
@@ -812,66 +812,22 @@
         "kit": "PLANET SERRATURA A FASCIA OK",
         "codice": "0Q31124012",
         "serie": [
-          "AL_ECO72",
           "AL_ECO72UP",
-          "AL_72UP"
+          "AL_72UP",
+          "AL_ECO72"
         ]
       },
       {
         "kit": "PLANET SERRATURA A FASCIA OK",
         "codice": "0Q31127012",
         "serie": [
-          "AL_50PLU",
-          "AL_ECO50"
+          "AL_ECO50",
+          "AL_50PLU"
         ]
       },
       {
         "kit": "PLANET SERRATURA A FASCIA OK",
         "codice": "ACP 50439",
-        "serie": [
-          "AL_62UP",
-          "AL_ECO72UP",
-          "AL_45",
-          "AL_ECO62UP",
-          "AL_72UP",
-          "AL_50PLU",
-          "AL_ECO72",
-          "AL_3G",
-          "AL_ECO50"
-        ]
-      },
-      {
-        "kit": "PLANET SERRATURA A MONTANTE",
-        "codice": "06463820",
-        "serie": [
-          "AL_72UP",
-          "AL_50PLU",
-          "AL_ECO72UP",
-          "AL_3G",
-          "AL_ECO62UP",
-          "AL_62UP",
-          "AL_45",
-          "AL_ECO72"
-        ]
-      },
-      {
-        "kit": "PLANET SERRATURA A MONTANTE",
-        "codice": "06465720",
-        "serie": [
-          "AL_45",
-          "AL_ECO62UP",
-          "AL_72UP",
-          "AL_50PLU",
-          "AL_ECO72",
-          "AL_3G",
-          "AL_ECO50",
-          "AL_62UP",
-          "AL_ECO72UP"
-        ]
-      },
-      {
-        "kit": "PLANET SERRATURA A MONTANTE",
-        "codice": "4952635000RC",
         "serie": [
           "AL_72UP",
           "AL_50PLU",
@@ -886,11 +842,55 @@
       },
       {
         "kit": "PLANET SERRATURA A MONTANTE",
-        "codice": "0Q31124012",
+        "codice": "06463820",
+        "serie": [
+          "AL_ECO72UP",
+          "AL_3G",
+          "AL_ECO62UP",
+          "AL_62UP",
+          "AL_45",
+          "AL_ECO72",
+          "AL_72UP",
+          "AL_50PLU"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A MONTANTE",
+        "codice": "06465720",
         "serie": [
           "AL_72UP",
+          "AL_50PLU",
           "AL_ECO72",
-          "AL_ECO72UP"
+          "AL_3G",
+          "AL_ECO50",
+          "AL_62UP",
+          "AL_ECO72UP",
+          "AL_45",
+          "AL_ECO62UP"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A MONTANTE",
+        "codice": "4952635000RC",
+        "serie": [
+          "AL_3G",
+          "AL_ECO50",
+          "AL_62UP",
+          "AL_ECO72UP",
+          "AL_45",
+          "AL_ECO62UP",
+          "AL_72UP",
+          "AL_50PLU",
+          "AL_ECO72"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A MONTANTE",
+        "codice": "0Q31124012",
+        "serie": [
+          "AL_ECO72",
+          "AL_ECO72UP",
+          "AL_72UP"
         ]
       },
       {
@@ -904,32 +904,32 @@
         "kit": "PLANET SERRATURA A MONTANTE",
         "codice": "0Q31120012",
         "serie": [
-          "AL_62UP",
           "AL_ECO62UP",
-          "AL_3G"
+          "AL_3G",
+          "AL_62UP"
         ]
       },
       {
         "kit": "PLANET SERRATURA A MONTANTE",
         "codice": "0Q31127012",
         "serie": [
-          "AL_ECO50",
-          "AL_50PLU"
+          "AL_50PLU",
+          "AL_ECO50"
         ]
       },
       {
         "kit": "PLANET SERRATURA A MONTANTE",
         "codice": "ACP 50439",
         "serie": [
-          "AL_45",
-          "AL_ECO62UP",
           "AL_72UP",
           "AL_50PLU",
           "AL_ECO72",
           "AL_3G",
           "AL_ECO50",
           "AL_62UP",
-          "AL_ECO72UP"
+          "AL_ECO72UP",
+          "AL_45",
+          "AL_ECO62UP"
         ]
       },
       {
@@ -1019,6 +1019,43 @@
       {
         "codice": "33.1AS12_4_12_33.1S",
         "kgMq": 42.5
+      }
+    ],
+    "sezioni": [
+      {
+        "codice": "UP71802",
+        "vista": 27.99,
+        "aletta": 22.01
+      },
+      {
+        "codice": "PL2058",
+        "vista": 3,
+        "aletta": 0
+      },
+      {
+        "codice": "UP71878",
+        "vista": 51.5,
+        "aletta": 17.5
+      },
+      {
+        "codice": "UP71813",
+        "vista": 28.49,
+        "aletta": 10.5
+      },
+      {
+        "codice": "UP71841",
+        "vista": 143.01,
+        "aletta": 0
+      },
+      {
+        "codice": "UP71840",
+        "vista": 121,
+        "aletta": 22
+      },
+      {
+        "codice": "PL1421",
+        "vista": 22,
+        "aletta": 4.7
       }
     ]
   },

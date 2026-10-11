@@ -4,6 +4,7 @@
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import mysql from 'mysql2/promise'
+import { sezioneDaDxf } from '../../lib/fppro/dxf-sezione.ts'
 
 const nome = process.argv[2]
 const cartellaJob = process.argv[3] ?? 'C:\\FP_PRO\\ARCHIVI_EDILSIDER_NEW\\JOB'
@@ -65,6 +66,19 @@ const collegati = codiciAcc.length === 0 ? [] : await q(
 const codiciVetri = [...new Set([...xml.matchAll(/DXF="GLASSES\\([^"]+)\.DXF"/gi)].map(m => m[1]))]
 const vetriKg = codiciVetri.length === 0 ? [] : await q('select codice, kg_mq from vetri where codice in (?)', [codiciVetri])
 
+// Misure in vista dai DXF dei profili della commessa.
+const cartellaDxf = join(cartellaJob, '..', 'DXF')
+const sezioni = [...new Set([...xml.matchAll(/DXF="([^"]+\.DXF)"/gi)].map(m => m[1]))]
+  .filter(f => !/^(GLASSES|PANELS)\\/i.test(f))
+  .flatMap(f => {
+    try {
+      const s = sezioneDaDxf(new TextDecoder('windows-1252').decode(readFileSync(join(cartellaDxf, f))))
+      return s ? [{ codice: f.slice(f.lastIndexOf('\\') + 1).replace(/\.dxf$/i, ''), ...s }] : []
+    } catch {
+      return []
+    }
+  })
+
 const fixture = {
   nome, voce: 1, versione: ver, l: n(c.l), h: n(c.h),
   config: {
@@ -84,6 +98,7 @@ const fixture = {
     righeKit: righeKit.map(r => ({ kit: String(r.kit), codice: String(r.codice), serie: r.serie ? String(r.serie).split(',') : null })),
     collegati: collegati.map(c => ({ principale: String(c.principale), collegato: String(c.collegato), quantita: n(c.num_base) })),
     vetri: vetriKg.map(v => ({ codice: String(v.codice), kgMq: n(v.kg_mq) })),
+    sezioni,
   },
   totali: {
     costoProfili: n(c.costoprofili), costoAccessori: n(c.costoaccessori), costoGuarnizioni: n(c.costoguarnizioni),

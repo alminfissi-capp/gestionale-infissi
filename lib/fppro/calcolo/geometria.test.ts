@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { commessaFp } from '../__fixtures__/commesse'
 import { LARGHEZZE_PREDEFINITE, larghezzeAnte, larghezzeDaPoligoni, pezziECampi } from './geometria'
 import type { NodoStruttura } from '../strutture-xml'
+import { codiceDaDxf } from './voce'
 
 const somma = (pezzi: { dxf: string; lunghezza: number }[], parte: string) =>
   pezzi.filter(p => p.dxf.includes(parte)).reduce((s, p) => s + p.lunghezza, 0)
@@ -16,6 +17,16 @@ describe('170-26G scorrevole 2 ante 1900 x 2350', () => {
   it('ante: 8 pezzi, somma entro il 5% di FP PRO (12,88 m)', () => {
     expect(pezzi.filter(p => p.tipo === 8100)).toHaveLength(8)
     expect(Math.abs(somma(pezzi, 'TT8011') - 12880) / 12880).toBeLessThan(0.05)
+  })
+  it('ante scorrevoli sovrapposte al centro: traversi delle ante di circa 946 come in FP PRO', () => {
+    const traversi = pezzi.filter(p => p.tipo === 8100 && p.lunghezza < 1500)
+    expect(traversi).toHaveLength(4)
+    for (const p of traversi) expect(Math.abs(p.lunghezza - 946)).toBeLessThan(10)
+  })
+  it('ante scorrevoli dentro le guide: montanti delle ante di circa 2274 come in FP PRO', () => {
+    const montanti = pezzi.filter(p => p.tipo === 8100 && p.lunghezza > 1500)
+    expect(montanti).toHaveLength(4)
+    for (const p of montanti) expect(Math.abs(p.lunghezza - 2274)).toBeLessThan(5)
   })
   it('2 vetri vicini a 814 x 2142 (entro 5 cm)', () => {
     expect(campi).toHaveLength(2)
@@ -91,5 +102,31 @@ describe('larghezzeAnte', () => {
   it('senza misure: parti uguali', () => expect(larghezzeAnte(1800, 2, [])).toEqual([900, 900]))
   it('fisse piu\' larghe della zona: parti uguali', () => {
     expect(larghezzeAnte(800, 2, [{ SashDim: '850' }, { SashDim: '0' }])).toEqual([400, 400])
+  })
+})
+
+describe('misure vere dei profili dai DXF (sezioni)', () => {
+  const conSezioni = (nome: string) => {
+    const { dati, struttura } = commessaFp(nome)
+    const sez = new Map(dati.anagrafica.sezioni.map(s => [s.codice, s]))
+    const sezione = (dxf: string) => sez.get(codiceDaDxf(dxf)) ?? null
+    return pezziECampi(struttura.albero, { L: dati.l, H: dati.h, L0: dati.l, H0: dati.h, quote: {} }, LARGHEZZE_PREDEFINITE, sezione)
+  }
+  it('170-26G: telaio allungato dell\'aletta (2394 e 1944 come la lista di taglio di FP PRO)', () => {
+    const { pezzi } = conSezioni('170-26G')
+    expect(pezzi.filter(p => p.tipo === 8050).map(p => p.lunghezza).sort((a, b) => a - b)).toEqual([1944, 1944, 2394, 2394])
+  })
+  it('170-26G: ante e vetri dalla vista vera del telaio (46,7)', () => {
+    const { pezzi, campi } = conSezioni('170-26G')
+    for (const p of pezzi.filter(p => p.tipo === 8100 && p.lunghezza > 1500)) expect(Math.abs(p.lunghezza - 2274)).toBeLessThan(5)
+    for (const c of campi) expect(Math.abs(c.h - 2142) / 2142).toBeLessThan(0.05)
+  })
+  it('172-26G: vetro e pannello dell\'anta principale entro il 10% di FP PRO', () => {
+    const { campi } = conSezioni('172-26G')
+    const vetro = campi.find(c => c.tipo === 'vetro' && c.l > 400)!
+    const pannello = campi.find(c => c.tipo === 'pannello' && c.l > 400)!
+    expect(Math.abs(vetro.l - 733) / 733).toBeLessThan(0.1)
+    expect(Math.abs(vetro.h - 1084) / 1084).toBeLessThan(0.1)
+    expect(Math.abs(pannello.h - 726) / 726).toBeLessThan(0.1)
   })
 })

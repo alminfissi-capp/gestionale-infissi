@@ -733,6 +733,28 @@
         "codice": "33.1_10_33.1S",
         "kgMq": 32.5
       }
+    ],
+    "sezioni": [
+      {
+        "codice": "TT8002B",
+        "vista": 46.7,
+        "aletta": 22
+      },
+      {
+        "codice": "TT8002D",
+        "vista": 46.7,
+        "aletta": 22
+      },
+      {
+        "codice": "TT8011",
+        "vista": 78,
+        "aletta": 0
+      },
+      {
+        "codice": "SL20813A",
+        "vista": 12,
+        "aletta": 0
+      }
     ]
   },
   "totali": {

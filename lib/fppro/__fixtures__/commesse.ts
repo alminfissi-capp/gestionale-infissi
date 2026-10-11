@@ -23,6 +23,7 @@ export interface CommessaFp {
     righeKit: { kit: string; codice: string; serie: string[] | null }[]
     collegati: { principale: string; collegato: string; quantita: number }[]
     vetri: { codice: string; kgMq: number }[]
+    sezioni: { codice: string; vista: number; aletta: number }[]
   }
   totali: {
     costoProfili: number; costoAccessori: number; costoGuarnizioni: number; costoVetri: number

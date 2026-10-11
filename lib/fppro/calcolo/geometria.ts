@@ -2,14 +2,25 @@
 // del rilievo. Stima per il preventivo: le misure esatte di produzione sono di FP PRO.
 // Lunghezze sui bordi esterni della zona occupata (taglio a 45°): FP PRO aggiunge a volte
 // qualche centimetro per le alette dei profili, che raramente cambia il numero di barre.
-import type { NodoStruttura } from '../strutture-xml'
+import type { SezioneProfilo } from '../dxf-sezione'
+import type { NodoStruttura, PezzoStruttura } from '../strutture-xml'
 
 export interface PezzoCalcolo { dxf: string; tipo: number; lunghezza: number }
 export interface CampoCalcolo { codiceNodo: string; tipo: 'vetro' | 'pannello'; dxf: string; l: number; h: number }
 /** Larghezze in vista (mm) usate per ridurre le zone interne */
-export interface Larghezze { telaio: number; anta: number; divisione: number; fermavetro: number; zoccolo: number }
+export interface Larghezze {
+  telaio: number
+  anta: number
+  divisione: number
+  fermavetro: number
+  zoccolo: number
+  /** Sovrapposizione tra due ante scorrevoli vicine (170-26G: 2 x 946 su una luce di 1807) */
+  sormonto: number
+  /** Ante scorrevoli piu' alte della luce: entrano nelle guide del telaio (170-26G: 2274 su 2257) */
+  incassoScorrevole: number
+}
 
-export const LARGHEZZE_PREDEFINITE: Larghezze = { telaio: 50, anta: 55, divisione: 50, fermavetro: 20, zoccolo: 100 }
+export const LARGHEZZE_PREDEFINITE: Larghezze = { telaio: 50, anta: 55, divisione: 50, fermavetro: 20, zoccolo: 100, sormonto: 85, incassoScorrevole: 17 }
 
 interface Zona { x0: number; y0: number; x1: number; y1: number }
 const larg = (z: Zona) => z.x1 - z.x0
@@ -48,6 +59,8 @@ export function pezziECampi(
   albero: NodoStruttura[],
   misure: { L: number; H: number; L0: number; H0: number; quote: Record<string, number> },
   larghezze: Larghezze,
+  /** Misure vere del profilo di un pezzo (dal suo DXF); senza, valgono le larghezze predefinite */
+  sezione: (dxf: string) => SezioneProfilo | null = () => null,
 ): { pezzi: PezzoCalcolo[]; campi: CampoCalcolo[]; zone: Record<number, { L: number; H: number }> } {
   const pezzi: PezzoCalcolo[] = []
   // Misure della zona di ogni nodo: le regole dei kit (L, H, perimetro) si misurano sul nodo.
@@ -56,6 +69,8 @@ export function pezziECampi(
   const aggiungi = (dxf: string, tipo: number, lunghezza: number) => {
     if (lunghezza > 0) pezzi.push({ dxf, tipo, lunghezza: Math.round(lunghezza * 10) / 10 })
   }
+  const vista = (p: PezzoStruttura | undefined, predefinita: number) => (p ? sezione(p.dxf)?.vista : undefined) ?? predefinita
+  const aletta = (p: PezzoStruttura) => sezione(p.dxf)?.aletta ?? 0
   const scalaX = misure.L0 > 0 ? misure.L / misure.L0 : 1
   const scalaY = misure.H0 > 0 ? misure.H / misure.H0 : 1
 
@@ -77,11 +92,14 @@ export function pezziECampi(
       // Pezzi del telaio nell'ordine sinistra, alto, destra, basso (un telaio a 3 lati non ha il basso).
       const telai = profili.filter(p => p.tipo === 8050)
       const lati = ['sinistra', 'alto', 'destra', 'basso'] as const
-      telai.slice(0, 4).forEach((p, i) => aggiungi(p.dxf, p.tipo, lati[i] === 'sinistra' || lati[i] === 'destra' ? alt(z) : larg(z)))
-      const ha = (lato: (typeof lati)[number]) => telai.length > lati.indexOf(lato)
+      // L'aletta dei telai a Z sporge oltre la misura esterna: il taglio e' piu' lungo (TT8002: 2350 + 2 x 22).
+      telai.slice(0, 4).forEach((p, i) =>
+        aggiungi(p.dxf, p.tipo, (lati[i] === 'sinistra' || lati[i] === 'destra' ? alt(z) : larg(z)) + 2 * aletta(p)))
+      const lato = (nome: (typeof lati)[number]) => telai[lati.indexOf(nome)]
+      const spessore = (nome: (typeof lati)[number]) => (lato(nome) ? vista(lato(nome), larghezze.telaio) : 0)
       const dentro: Zona = {
-        x0: z.x0 + (ha('sinistra') ? larghezze.telaio : 0), x1: z.x1 - (ha('destra') ? larghezze.telaio : 0),
-        y0: z.y0 + (ha('basso') ? larghezze.telaio : 0), y1: z.y1 - (ha('alto') ? larghezze.telaio : 0),
+        x0: z.x0 + spessore('sinistra'), x1: z.x1 - spessore('destra'),
+        y0: z.y0 + spessore('basso'), y1: z.y1 - spessore('alto'),
       }
       profili.filter(p => p.tipo !== 8050).forEach(p => aggiungi(p.dxf, p.tipo, larg(dentro)))
       n.figli.forEach(f => visita(f, dentro, false))
@@ -94,7 +112,7 @@ export function pezziECampi(
       const nominale = traverso ? n.y! : n.x!
       const asse = misure.quote[String(n.codice)] ?? nominale * (traverso ? scalaY : scalaX)
       profili.forEach(p => aggiungi(p.dxf, p.tipo, traverso ? larg(z) : alt(z)))
-      const mezza = larghezze.divisione / 2
+      const mezza = vista(profili[0], larghezze.divisione) / 2
       for (const f of n.figli) {
         const pos = traverso ? f.y : f.x
         const primaParte = pos !== null && pos < nominale
@@ -109,20 +127,25 @@ export function pezziECampi(
     if (n.tipo === 8610 || n.tipo === 8620) {
       // Battente o scorrevole con n ante uguali affiancate.
       const k = Math.max(1, n.elementi)
+      // Le ante scorrevoli si sovrappongono: insieme sono piu' larghe della luce.
+      const sormonto = n.tipo === 8620 ? larghezze.sormonto : 0
+      const incasso = n.tipo === 8620 ? larghezze.incassoScorrevole / 2 : 0
       const ante: Zona[] = []
       let x = z.x0
-      for (const w of larghezzeAnte(larg(z), k, n.ante)) {
-        ante.push({ ...z, x0: x, x1: x + w })
-        x += w
+      for (const w of larghezzeAnte(larg(z) + (k - 1) * sormonto, k, n.ante)) {
+        ante.push({ x0: x, x1: x + w, y0: z.y0 - incasso, y1: z.y1 + incasso })
+        x += w - sormonto
       }
       for (let i = 0; i < k; i++) {
         profili.filter(p => !RIPORTI.has(p.tipo) && p.indice === i)
           .forEach((p, j) => aggiungi(p.dxf, p.tipo, j % 2 === 0 ? alt(ante[i]) : larg(ante[i])))
       }
-      profili.filter(p => RIPORTI.has(p.tipo)).forEach(p => aggiungi(p.dxf, p.tipo, alt(z)))
+      profili.filter(p => RIPORTI.has(p.tipo)).forEach(p => aggiungi(p.dxf, p.tipo, alt(z) + 2 * incasso))
       n.figli.forEach((f, i) => {
-        const a = ante[Math.min(i, k - 1)]
-        visita(f, { x0: a.x0 + larghezze.anta, x1: a.x1 - larghezze.anta, y0: a.y0 + larghezze.anta, y1: a.y1 - larghezze.anta }, false)
+        const indice = Math.min(i, k - 1)
+        const a = ante[indice]
+        const w = vista(profili.find(p => !RIPORTI.has(p.tipo) && p.indice === indice), larghezze.anta)
+        visita(f, { x0: a.x0 + w, x1: a.x1 - w, y0: a.y0 + w, y1: a.y1 - w }, false)
       })
       return
     }
@@ -138,7 +161,7 @@ export function pezziECampi(
       // Fascia con riempimenti sopra e sotto: divide la zona come un traverso.
       const asse = misure.quote[String(n.codice)] ?? n.y * scalaY
       profili.forEach(p => aggiungi(p.dxf, p.tipo, larg(z)))
-      const mezza = larghezze.divisione / 2
+      const mezza = vista(profili[0], larghezze.divisione) / 2
       for (const f of n.figli) {
         const sotto = f.y !== null && f.y < n.y
         visita(f, sotto ? { ...z, y1: Math.min(z.y1, asse - mezza) } : { ...z, y0: Math.max(z.y0, asse + mezza) }, false)
@@ -149,7 +172,7 @@ export function pezziECampi(
     if (n.tipo === 8120) {
       // Zoccolo: in basso, sotto ai riempimenti.
       profili.forEach(p => aggiungi(p.dxf, p.tipo, larg(z)))
-      n.figli.forEach(f => visita(f, { ...z, y0: Math.min(z.y1, z.y0 + larghezze.zoccolo) }, inFermavetro))
+      n.figli.forEach(f => visita(f, { ...z, y0: Math.min(z.y1, z.y0 + vista(profili[0], larghezze.zoccolo)) }, inFermavetro))
       return
     }
 
