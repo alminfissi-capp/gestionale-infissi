@@ -33,6 +33,16 @@ self.addEventListener('activate', (event: ExtendableEvent) => {
   event.waitUntil(salvaPaginaCantiere())
 })
 
+/**
+ * Cosa mostrare a una navigazione senza rete: il rilievo in cantiere se il telefono
+ * l'ha salvato, altrimenti la pagina "Nessuna connessione" (nella precache).
+ */
+async function paginaSenzaRete(): Promise<Response> {
+  const cantiere = await (await caches.open(PAGINA_CANTIERE_CACHE)).match(PAGINA_CANTIERE)
+  if (cantiere) return cantiere
+  return (await serwist.matchPrecache('/offline')) ?? Response.error()
+}
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   // Il worker nuovo resta in attesa finché l'utente non preme "Aggiorna":
@@ -50,13 +60,17 @@ const serwist = new Serwist({
         cacheName: PAGINA_CANTIERE_CACHE,
         networkTimeoutSeconds: 4,
         // Mai salvare un rinvio o la pagina di login (sessione scaduta) al posto della pagina buona.
-        plugins: [{ cacheWillUpdate: async ({ response }) => (response.status === 200 && !response.redirected ? response : null) }],
+        plugins: [
+          { cacheWillUpdate: async ({ response }) => (response.status === 200 && !response.redirected ? response : null) },
+          { handlerDidError: async () => paginaSenzaRete() },
+        ],
       }),
     },
-    // Le pagine HTML (navigate) non vengono mai messe in cache — sempre dati freschi dal server
+    // Le pagine HTML (navigate) non vengono mai messe in cache — sempre dati freschi dal server.
+    // Senza rete pero' si apre il rilievo in cantiere (l'unica parte che lavora offline).
     {
       matcher: ({ request }) => request.mode === 'navigate',
-      handler: new NetworkOnly(),
+      handler: new NetworkOnly({ plugins: [{ handlerDidError: async () => paginaSenzaRete() }] }),
     },
     ...defaultCache,
   ],
