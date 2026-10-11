@@ -196,7 +196,7 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
               <th className="py-2 text-center w-9">Qtà</th>
               <th className="py-2 text-right w-24">Ricavo unit.</th>
               <th className="py-2 text-right w-24">C. Acq. unit.</th>
-              <th className="py-2 text-right w-20">Posa unit.</th>
+              <th className="py-2 text-right w-20">M.O. unit.</th>
               {totaleSpeseVarie > 0 && <th className="py-2 text-right w-20">Sp. varie</th>}
               <th className="py-2 text-right w-20">Trasp.</th>
               <th className="py-2 text-right w-24">Costo totale</th>
@@ -275,7 +275,7 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
             </div>
             {totalePosa > 0 && (
               <div className="flex justify-between text-gray-700">
-                <span>— Costi posa</span>
+                <span>— Costi mano d&apos;opera</span>
                 <span className="tabular-nums">€ {formatEuro(totalePosa)}</span>
               </div>
             )}

@@ -360,10 +360,10 @@ export default function FormScorrevole({ listino, aliquote, initialValues, isEdi
         </div>
       </div>
 
-      {/* Posa + Ricarico */}
+      {/* Mano d'opera + Ricarico */}
       <div className="grid grid-cols-2 gap-3 border-t pt-3">
         <div>
-          <label className={lbl}>Posa / Mano d&apos;opera (€)</label>
+          <label className={lbl}>Mano d&apos;opera (€)</label>
           <Input
             type="number"
             min={0}
@@ -435,7 +435,7 @@ export default function FormScorrevole({ listino, aliquote, initialValues, isEdi
           )}
           {posaN > 0 && (
             <div className="flex justify-between text-gray-600">
-              <span>Posa</span>
+              <span>Mano d&apos;opera</span>
               <span>+€ {formatEuro(posaN)}</span>
             </div>
           )}

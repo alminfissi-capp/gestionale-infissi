@@ -818,7 +818,7 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
                     <th className="text-left pb-1.5 font-semibold">Articolo</th>
                     <th className="text-center pb-1.5 font-semibold w-12">Qtà</th>
                     <th className="text-right pb-1.5 font-semibold whitespace-nowrap">C. Acq. Unit.</th>
-                    <th className="text-right pb-1.5 font-semibold whitespace-nowrap">Posa Unit.</th>
+                    <th className="text-right pb-1.5 font-semibold whitespace-nowrap">M.O. unit.</th>
                     {totaleSpeseVarie > 0 && (
                       <th className="text-right pb-1.5 font-semibold whitespace-nowrap">Sp. Varie Unit.</th>
                     )}
@@ -874,7 +874,7 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
               )}
               {totalePosa > 0 && (
                 <div className="flex justify-between text-gray-600">
-                  <span className="flex items-center gap-1 pl-1">↳ Costi posa</span>
+                  <span className="flex items-center gap-1 pl-1">↳ Costi mano d&apos;opera</span>
                   <span className="tabular-nums">€ {formatEuro(totalePosa)}</span>
                 </div>
               )}

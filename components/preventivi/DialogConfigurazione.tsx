@@ -522,9 +522,9 @@ function FormGriglia({
         </div>
       </div>
 
-      {/* Costo posa */}
+      {/* Costo mano d'opera */}
       <div className="space-y-1.5">
-        <Label className="text-amber-700">Costo posa (€) — uso interno</Label>
+        <Label className="text-amber-700">Costo mano d&apos;opera (€) — uso interno</Label>
         <Input
           type="number"
           min={0}
@@ -586,7 +586,7 @@ function FormGriglia({
                 <TrendingUp className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                 <span className="text-amber-800 font-medium">Interno:</span>
                 {calcoloBypass.costoProd > 0 && <span className="text-gray-600">Prodotto: <strong>€ {formatEuro(calcoloBypass.costoProd)}</strong>/pz</span>}
-                {calcoloBypass.posa > 0 && <span className="text-gray-600">Posa: <strong>€ {formatEuro(calcoloBypass.posa)}</strong>/pz</span>}
+                {calcoloBypass.posa > 0 && <span className="text-gray-600">M.O.: <strong>€ {formatEuro(calcoloBypass.posa)}</strong>/pz</span>}
                 <span className="text-gray-600">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
                 <span className={`font-semibold ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
                   Utile: € {formatEuro(utile)}{percUtile !== null && <span className="ml-1 font-normal opacity-80">({percUtile.toFixed(1).replace('.', ',')}%)</span>}
@@ -659,7 +659,7 @@ function FormGriglia({
               <span className="text-amber-800 font-medium">Interno:</span>
               <span className="text-gray-600">Acq: <strong>€ {formatEuro(costoAcqUnit)}</strong>/pz</span>
               {costoAccessoriUnit > 0 && <span className="text-gray-600">Acc: <strong>€ {formatEuro(costoAccessoriUnit)}</strong>/pz</span>}
-              {posaUnit > 0 && <span className="text-gray-600">Posa: <strong>€ {formatEuro(posaUnit)}</strong>/pz</span>}
+              {posaUnit > 0 && <span className="text-gray-600">M.O.: <strong>€ {formatEuro(posaUnit)}</strong>/pz</span>}
               <span className="text-gray-600">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
               <span className={`font-semibold ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
                 Utile: € {formatEuro(utile)}
@@ -1050,7 +1050,7 @@ function FormLibero({
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-amber-700">Costo posa (€) — uso interno</Label>
+          <Label className="text-amber-700">Costo mano d&apos;opera (€) — uso interno</Label>
           <Input
             type="number"
             min={0}
@@ -1113,7 +1113,7 @@ function FormLibero({
                 <TrendingUp className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                 <span className="text-amber-800 font-medium">Interno:</span>
                 {calcoloBypass.costoProd > 0 && <span className="text-gray-600">Prodotto: <strong>€ {formatEuro(calcoloBypass.costoProd)}</strong>/pz</span>}
-                {calcoloBypass.posa > 0 && <span className="text-gray-600">Posa: <strong>€ {formatEuro(calcoloBypass.posa)}</strong>/pz</span>}
+                {calcoloBypass.posa > 0 && <span className="text-gray-600">M.O.: <strong>€ {formatEuro(calcoloBypass.posa)}</strong>/pz</span>}
                 <span className="text-gray-600">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
                 <span className={`font-semibold ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
                   Utile: € {formatEuro(utile)}{percUtile !== null && <span className="ml-1 font-normal opacity-80">({percUtile.toFixed(1).replace('.', ',')}%)</span>}
@@ -1181,7 +1181,7 @@ function FormLibero({
             <TrendingUp className="h-3.5 w-3.5 text-amber-600 shrink-0" />
             <span className="text-amber-800 font-medium">Interno:</span>
             <span className="text-gray-600">Acq: <strong>€ {formatEuro(costoAcqUnit)}</strong>/pz</span>
-            {posaUnit > 0 && <span className="text-gray-600">Posa: <strong>€ {formatEuro(posaUnit)}</strong>/pz</span>}
+            {posaUnit > 0 && <span className="text-gray-600">M.O.: <strong>€ {formatEuro(posaUnit)}</strong>/pz</span>}
             <span className="text-gray-600">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
             <span className={`font-semibold ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
               Utile: € {formatEuro(utile)}

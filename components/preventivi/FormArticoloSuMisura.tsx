@@ -459,7 +459,7 @@ export default function FormArticoloSuMisura({ categoria, aliquote, initialValue
 
           {/* Mano d'opera */}
           <div className="space-y-1.5 border-t pt-3">
-            <Label>Mano d&apos;opera / Posa (€)</Label>
+            <Label>Mano d&apos;opera (€)</Label>
             <Input
               type="number"
               min={0}

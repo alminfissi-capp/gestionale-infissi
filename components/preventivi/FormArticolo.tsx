@@ -578,7 +578,7 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-amber-700">Costo posa (€) — interno</Label>
+            <Label className="text-amber-700">Costo mano d&apos;opera (€) — interno</Label>
             <Input
               type="number"
               min={0}
@@ -696,7 +696,7 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
                       <TrendingUp className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                       <span className="text-amber-800 font-medium">Interno:</span>
                       {calcoloBypass.costoProd > 0 && <span className="text-gray-600">Prodotto: <strong>€ {formatEuro(calcoloBypass.costoProd)}</strong>/pz</span>}
-                      {calcoloBypass.posa > 0 && <span className="text-gray-600">Posa: <strong>€ {formatEuro(calcoloBypass.posa)}</strong>/pz</span>}
+                      {calcoloBypass.posa > 0 && <span className="text-gray-600">M.O.: <strong>€ {formatEuro(calcoloBypass.posa)}</strong>/pz</span>}
                       <span className="text-gray-600">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
                       <span className={`font-semibold ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
                         Utile: € {formatEuro(utile)}
@@ -765,7 +765,7 @@ export default function FormArticolo({ listini, aliquote, onAdd }: Props) {
               <span className="text-amber-800 text-xs font-medium">Interno:</span>
               <span className="text-gray-600 text-xs">Acq: <strong>€ {formatEuro(costoAcqUnit)}</strong>/pz</span>
               {costoAccessoriUnit > 0 && <span className="text-gray-600 text-xs">Acc: <strong>€ {formatEuro(costoAccessoriUnit)}</strong>/pz</span>}
-              {posaUnit > 0 && <span className="text-gray-600 text-xs">Posa: <strong>€ {formatEuro(posaUnit)}</strong>/pz</span>}
+              {posaUnit > 0 && <span className="text-gray-600 text-xs">M.O.: <strong>€ {formatEuro(posaUnit)}</strong>/pz</span>}
               <span className="text-gray-600 text-xs">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
               <span className={`font-semibold text-xs ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
                 Utile: € {formatEuro(utile)}

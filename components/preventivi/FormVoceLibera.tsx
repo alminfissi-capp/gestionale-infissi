@@ -431,7 +431,7 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
               <TrendingUp className="h-3.5 w-3.5 text-amber-600 shrink-0" />
               <span className="text-amber-800 font-medium">Interno:</span>
               <span className="text-gray-600">Acq: <strong>€ {formatEuro(costoAcqUnit)}</strong>/pz</span>
-              {posaUnit > 0 && <span className="text-gray-600">Posa: <strong>€ {formatEuro(posaUnit)}</strong>/pz</span>}
+              {posaUnit > 0 && <span className="text-gray-600">M.O.: <strong>€ {formatEuro(posaUnit)}</strong>/pz</span>}
               <span className="text-gray-600">Costo tot: <strong>€ {formatEuro(costoTot)}</strong></span>
               <span className={`font-semibold ml-auto ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
                 Utile: € {formatEuro(utile)}
