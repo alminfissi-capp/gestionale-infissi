@@ -1,0 +1,539 @@
+{
+  "nome": "170-26G",
+  "voce": 1,
+  "versione": 1,
+  "l": 1900,
+  "h": 2350,
+  "config": {
+    "nome": "ALM2026",
+    "spese_generali": 0.02,
+    "utile": 0.3,
+    "provvigione": 0.05
+  },
+  "lavoro": [
+    {
+      "descrizione": "LAVORAZIONE",
+      "ore": 4,
+      "euroOra": 30,
+      "prezzo": 0
+    },
+    {
+      "descrizione": "ASSEMBLAGGIO",
+      "ore": 0,
+      "euroOra": 30,
+      "prezzo": 0
+    },
+    {
+      "descrizione": "MONTAGGIO",
+      "ore": 0,
+      "euroOra": 30,
+      "prezzo": 0
+    },
+    {
+      "descrizione": "POSA IN OPERA",
+      "ore": 1,
+      "euroOra": 50,
+      "prezzo": 0
+    },
+    {
+      "descrizione": "TAGLIO",
+      "ore": 0,
+      "euroOra": 30,
+      "prezzo": 0
+    }
+  ],
+  "speseVarie": [
+    {
+      "descrizione": "ALTRO",
+      "perc": 0.01,
+      "fisso": 0,
+      "prezzo": 0
+    },
+    {
+      "descrizione": "IMBALLO",
+      "perc": 0.01,
+      "fisso": 0,
+      "prezzo": 0
+    },
+    {
+      "descrizione": "MATERIALI VARI",
+      "perc": 0.01,
+      "fisso": 0,
+      "prezzo": 0
+    },
+    {
+      "descrizione": "VIAGGIO",
+      "perc": 0.01,
+      "fisso": 0,
+      "prezzo": 0
+    }
+  ],
+  "profili": [
+    {
+      "codice": "TT8002",
+      "lunghezza": 8676,
+      "quantita": 1,
+      "kgMl": 2.148,
+      "peso": 19.195,
+      "costo": 185.04
+    },
+    {
+      "codice": "TAC807",
+      "lunghezza": 12642,
+      "quantita": 1,
+      "kgMl": 0,
+      "peso": 0,
+      "costo": 36.69
+    },
+    {
+      "codice": "TAC809",
+      "lunghezza": 3720,
+      "quantita": 1,
+      "kgMl": 0.235,
+      "peso": 0.874,
+      "costo": 17.29
+    },
+    {
+      "codice": "SX9901",
+      "lunghezza": 3640,
+      "quantita": 1,
+      "kgMl": 0,
+      "peso": 0,
+      "costo": 21.04
+    },
+    {
+      "codice": "TT8011",
+      "lunghezza": 12880,
+      "quantita": 1,
+      "kgMl": 1.614,
+      "peso": 21.412,
+      "costo": 185
+    },
+    {
+      "codice": "SL20813",
+      "lunghezza": 4548,
+      "quantita": 1,
+      "kgMl": 0.297,
+      "peso": 1.392,
+      "costo": 9.18
+    },
+    {
+      "codice": "TAC803",
+      "lunghezza": 4548,
+      "quantita": 1,
+      "kgMl": 0,
+      "peso": 0,
+      "costo": 23.29
+    },
+    {
+      "codice": "TT8002",
+      "lunghezza": 6500,
+      "quantita": 2,
+      "kgMl": 2.148,
+      "peso": 28.762,
+      "costo": 277.26
+    },
+    {
+      "codice": "TAC807",
+      "lunghezza": 3000,
+      "quantita": 6,
+      "kgMl": 0,
+      "peso": 0,
+      "costo": 52.24
+    },
+    {
+      "codice": "TAC809",
+      "lunghezza": 3000,
+      "quantita": 2,
+      "kgMl": 0.235,
+      "peso": 1.41,
+      "costo": 27.89
+    },
+    {
+      "codice": "SX9901",
+      "lunghezza": 4500,
+      "quantita": 1,
+      "kgMl": 0,
+      "peso": 0,
+      "costo": 26.01
+    },
+    {
+      "codice": "TT8011",
+      "lunghezza": 6500,
+      "quantita": 3,
+      "kgMl": 1.614,
+      "peso": 32.417,
+      "costo": 280.08
+    },
+    {
+      "codice": "SL20813",
+      "lunghezza": 6500,
+      "quantita": 1,
+      "kgMl": 0.297,
+      "peso": 1.988,
+      "costo": 13.12
+    },
+    {
+      "codice": "TAC803",
+      "lunghezza": 3000,
+      "quantita": 2,
+      "kgMl": 0,
+      "peso": 0,
+      "costo": 30.73
+    }
+  ],
+  "accessori": [
+    {
+      "codice": "ACP 5008",
+      "descrizione": "SQUADRETTA ALLIN.INOX PLANET",
+      "quantita": 4,
+      "prezzo": 132.32,
+      "unitaVendita": 400,
+      "costo": 1.3232
+    },
+    {
+      "codice": "ACP 5801M",
+      "descrizione": "SQUADR.MULTIFUNZ.PLANET AVVITARE-SPINARE-CIANFRIN.",
+      "quantita": 4,
+      "prezzo": 135.18,
+      "unitaVendita": 200,
+      "costo": 2.7036
+    },
+    {
+      "codice": "ACP 8001",
+      "descrizione": "SQUADRETTA ANTA SLIDE 80/106 ALSISTEM",
+      "quantita": 8,
+      "prezzo": 153.76,
+      "unitaVendita": 100,
+      "costo": 12.3008
+    },
+    {
+      "codice": "ACP 8028",
+      "descrizione": "TAPPO SCARICO ACQUA",
+      "quantita": 6,
+      "prezzo": 22.23,
+      "unitaVendita": 100,
+      "costo": 1.3338
+    },
+    {
+      "codice": "ACP 8040",
+      "descrizione": "BOCCOLA DI DRENAGGIO",
+      "quantita": 2,
+      "prezzo": 199,
+      "unitaVendita": 1000,
+      "costo": 0.398
+    },
+    {
+      "codice": "RB304",
+      "descrizione": "RAPID BLOCK UNIVERSALE (400.02) X BATTENTI",
+      "quantita": 13,
+      "prezzo": 35.46,
+      "unitaVendita": 200,
+      "costo": 2.3049
+    },
+    {
+      "codice": "ACP 8012",
+      "descrizione": "KIT CHIUSURA UNIVERSALE",
+      "quantita": 4,
+      "prezzo": 374.425,
+      "unitaVendita": 50,
+      "costo": 29.954
+    },
+    {
+      "codice": "ACP 8002",
+      "descrizione": "MECCANISMO X MARTELLINA CON 1 PUNTO DI CHIUSURA",
+      "quantita": 2,
+      "prezzo": 26.0918,
+      "unitaVendita": 1,
+      "costo": 52.1836
+    },
+    {
+      "codice": "ACP 50552",
+      "descrizione": "MARTELLINA AURORA QUADRO 7 MM",
+      "quantita": 2,
+      "prezzo": 60.2685,
+      "unitaVendita": 5,
+      "costo": 24.1074
+    },
+    {
+      "codice": "ACP 8020M",
+      "descrizione": "SERR.+BORCH.E COPR.X MECC.MART.",
+      "quantita": 1,
+      "prezzo": 210.037,
+      "unitaVendita": 5,
+      "costo": 42.0074
+    },
+    {
+      "codice": "ACP 8022",
+      "descrizione": "BORCHIA EST.E COPRICIL.SUPPLEM.",
+      "quantita": 1,
+      "prezzo": 194.063,
+      "unitaVendita": 10,
+      "costo": 19.4063
+    },
+    {
+      "codice": "AGP 8005",
+      "descrizione": "SPAZZOLINO 6,9X65 ALSISTEM SLIDE PINNA TESSUTO",
+      "quantita": 1,
+      "prezzo": 54.31,
+      "unitaVendita": 100,
+      "costo": 12.5092
+    },
+    {
+      "codice": "AGP 8015",
+      "descrizione": "GUARN.DI BATTUTA IN ESPANSO RIVESTITO 6,9X 65 NERO",
+      "quantita": 1,
+      "prezzo": 177.64,
+      "unitaVendita": 200,
+      "costo": 4.4436
+    },
+    {
+      "codice": "ACP 8003",
+      "descrizione": "KIT COMPLETO X SCORR.2 ANTE 40MM.P.KG.200 X ANTA",
+      "quantita": 1,
+      "prezzo": 46.1486,
+      "unitaVendita": 1,
+      "costo": 46.1486
+    },
+    {
+      "codice": "AGP 4014",
+      "descrizione": "GUARNIZIONE VETRO EXT 4 MM X PLANET",
+      "quantita": 1,
+      "prezzo": 132.54,
+      "unitaVendita": 200,
+      "costo": 8.4779
+    },
+    {
+      "codice": "AGP 6231N",
+      "descrizione": "GUARN. 3 G SOTTOVETRO POLIETIL.ESPANSO",
+      "quantita": 1,
+      "prezzo": 89.94,
+      "unitaVendita": 120,
+      "costo": 9.5883
+    },
+    {
+      "codice": "AGP 4203",
+      "descrizione": "GUARN.VETRO INTERNA 3MM. FILO FERMAVETRO IN EPDM",
+      "quantita": 1,
+      "prezzo": 173.5,
+      "unitaVendita": 200,
+      "costo": 11.0979
+    }
+  ],
+  "vetri": [
+    {
+      "codice": "33.1_10_33.1S",
+      "quantita": 2,
+      "l": 814,
+      "h": 2142,
+      "prezzoMq": 68,
+      "costo": 237.1279
+    }
+  ],
+  "pannelli": [],
+  "anagrafica": {
+    "profili": [
+      {
+        "codice": "SL20813A",
+        "composto": true,
+        "kgMl": 0
+      },
+      {
+        "codice": "TT8002B",
+        "composto": true,
+        "kgMl": 0
+      },
+      {
+        "codice": "TT8002D",
+        "composto": true,
+        "kgMl": 0
+      },
+      {
+        "codice": "TT8011",
+        "composto": false,
+        "kgMl": 1.614
+      }
+    ],
+    "componenti": [
+      {
+        "composto": "SL20813A",
+        "componente": "SL20813",
+        "kgMl": 0.297,
+        "principale": false,
+        "offset": 0
+      },
+      {
+        "composto": "SL20813A",
+        "componente": "TAC803",
+        "kgMl": 0,
+        "principale": false,
+        "offset": 0
+      },
+      {
+        "composto": "TT8002B",
+        "componente": "TT8002",
+        "kgMl": 2.148,
+        "principale": true,
+        "offset": 0
+      },
+      {
+        "composto": "TT8002B",
+        "componente": "TAC807",
+        "kgMl": 0,
+        "principale": false,
+        "offset": 42
+      },
+      {
+        "composto": "TT8002B",
+        "componente": "TAC807",
+        "kgMl": 0,
+        "principale": false,
+        "offset": 42
+      },
+      {
+        "composto": "TT8002D",
+        "componente": "TT8002",
+        "kgMl": 2.148,
+        "principale": false,
+        "offset": 0
+      },
+      {
+        "composto": "TT8002D",
+        "componente": "TAC809",
+        "kgMl": 0.235,
+        "principale": false,
+        "offset": 42
+      },
+      {
+        "composto": "TT8002D",
+        "componente": "TAC809",
+        "kgMl": 0.235,
+        "principale": false,
+        "offset": 42
+      },
+      {
+        "composto": "TT8002D",
+        "componente": "SX9901",
+        "kgMl": 0,
+        "principale": false,
+        "offset": 62
+      },
+      {
+        "composto": "TT8002D",
+        "componente": "SX9901",
+        "kgMl": 0,
+        "principale": false,
+        "offset": 62
+      }
+    ],
+    "barre": [
+      {
+        "codice": "SL20813",
+        "lunghezza": 6500
+      },
+      {
+        "codice": "SL20813A",
+        "lunghezza": 6500
+      },
+      {
+        "codice": "SX9901",
+        "lunghezza": 4500
+      },
+      {
+        "codice": "SX9901",
+        "lunghezza": 6500
+      },
+      {
+        "codice": "SX9901",
+        "lunghezza": 3000
+      },
+      {
+        "codice": "TAC803",
+        "lunghezza": 3000
+      },
+      {
+        "codice": "TAC803",
+        "lunghezza": 6500
+      },
+      {
+        "codice": "TAC807",
+        "lunghezza": 3000
+      },
+      {
+        "codice": "TAC807",
+        "lunghezza": 6500
+      },
+      {
+        "codice": "TAC809",
+        "lunghezza": 3000
+      },
+      {
+        "codice": "TAC809",
+        "lunghezza": 6500
+      },
+      {
+        "codice": "TT8002",
+        "lunghezza": 6500
+      },
+      {
+        "codice": "TT8002B",
+        "lunghezza": 6500
+      },
+      {
+        "codice": "TT8002D",
+        "lunghezza": 6500
+      },
+      {
+        "codice": "TT8011",
+        "lunghezza": 6500
+      }
+    ],
+    "scarti": [
+      {
+        "codice": "SL20813",
+        "testa": 30,
+        "coda": 30
+      },
+      {
+        "codice": "SX9901",
+        "testa": 30,
+        "coda": 30
+      },
+      {
+        "codice": "TAC803",
+        "testa": 30,
+        "coda": 30
+      },
+      {
+        "codice": "TAC807",
+        "testa": 30,
+        "coda": 30
+      },
+      {
+        "codice": "TAC809",
+        "testa": 30,
+        "coda": 30
+      },
+      {
+        "codice": "TT8002",
+        "testa": 30,
+        "coda": 30
+      },
+      {
+        "codice": "TT8011",
+        "testa": 30,
+        "coda": 30
+      }
+    ]
+  },
+  "totali": {
+    "costoProfili": 707.33,
+    "costoAccessori": 234.1716,
+    "costoGuarnizioni": 46.117,
+    "costoVetri": 244.2418,
+    "costoPannelli": 0,
+    "costoPuro": 1401.8604,
+    "costoIndustriale": 1429.9,
+    "imponibile": 2034.97
+  }
+}
