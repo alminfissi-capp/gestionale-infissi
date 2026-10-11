@@ -15,6 +15,8 @@ import { log } from './log.ts'
 const PAGINA = 1000
 const BLOCCO_RIGHE = 25
 const BUCKET = 'fp-strutture'
+/** Si alza quando la lettura dei file cambia (es. 2 = ore della struttura): il ponte rilegge tutto una volta. */
+export const VERSIONE_LETTURA = 2
 
 interface Esistente {
   id: string
@@ -23,13 +25,15 @@ interface Esistente {
   file_size: number
   presente: boolean
   errore: string | null
+  versione_lettura: number
+  immagine: string | null
 }
 
 async function leggiEsistenti(supabase: SupabaseClient, orgId: string): Promise<Map<string, Esistente>> {
   const mappa = new Map<string, Esistente>()
   for (let da = 0; ; da += PAGINA) {
     const { data, error } = await supabase
-      .from('fp_strutture').select('id, percorso, file_mtime, file_size, presente, errore')
+      .from('fp_strutture').select('id, percorso, file_mtime, file_size, presente, errore, versione_lettura, immagine')
       .eq('organization_id', orgId).order('percorso').range(da, da + PAGINA - 1)
     if (error) throw new Error(`fp_strutture: ${error.message}`)
     for (const r of data as Esistente[]) mappa.set(r.percorso, r)
@@ -82,7 +86,8 @@ export async function sincronizzaStrutture(
     const mtime = info.mtime.toISOString()
     const prima = esistenti.get(percorso)
     // I file che avevano dato errore si rileggono sempre: sono pochi e il ponte puo' essere migliorato nel frattempo.
-    if (prima && prima.presente && prima.errore === null && new Date(prima.file_mtime).toISOString() === mtime && Number(prima.file_size) === info.size) continue
+    const stessoFile = !!prima && new Date(prima.file_mtime).toISOString() === mtime && Number(prima.file_size) === info.size
+    if (prima && prima.presente && prima.errore === null && stessoFile && prima.versione_lettura >= VERSIONE_LETTURA) continue
 
     const nomeFile = percorso.slice(percorso.lastIndexOf('/') + 1).replace(/\.str$/i, '')
     const base = {
@@ -94,6 +99,7 @@ export async function sincronizzaStrutture(
       file_size: info.size,
       presente: true,
       sincronizzato_at: ora,
+      versione_lettura: VERSIONE_LETTURA,
     }
     try {
       const testo = decoder.decode(await readFile(pieno))
@@ -102,8 +108,9 @@ export async function sincronizzaStrutture(
       }
       const s = strutturaDaXml(parser.parse(testo))
       // L'immagine e' un di piu': se non si converte, la struttura si salva lo stesso.
-      let immagine: string | null = null
-      if (s.immagineBase64) {
+      // File non cambiato (si rilegge solo per la versione nuova): l'immagine gia' caricata va bene.
+      let immagine: string | null = stessoFile && prima?.immagine ? prima.immagine : null
+      if (s.immagineBase64 && !immagine) {
         const destinazione = `${orgId}/${createHash('sha1').update(percorso).digest('hex')}.png`
         try {
           const { error } = await supabase.storage.from(BUCKET)
@@ -117,13 +124,13 @@ export async function sincronizzaStrutture(
       daScrivere.push({
         ...base, codice: s.codice, descrizione: s.descrizione, serie: s.serie,
         l_nominale: s.lNominale, h_nominale: s.hNominale, albero: s.albero, poligoni: s.poligoni,
-        immagine, errore: null,
+        tempi: s.tempi, immagine, errore: null,
       })
     } catch (e) {
       errori++
       const msg = e instanceof Error ? e.message : String(e)
       log(`Struttura non leggibile ${percorso}: ${msg}`)
-      daScrivere.push({ ...base, codice: null, descrizione: null, serie: [], l_nominale: null, h_nominale: null, albero: [], poligoni: [], immagine: null, errore: msg })
+      daScrivere.push({ ...base, codice: null, descrizione: null, serie: [], l_nominale: null, h_nominale: null, albero: [], poligoni: [], tempi: null, immagine: null, errore: msg })
     }
 
     scritte++
@@ -163,7 +170,7 @@ async function scrivi(supabase: SupabaseClient, righe: Record<string, unknown>[]
     log(`Struttura rifiutata dal database ${String(riga.percorso)}: ${e1.message}`)
     const { error: e2 } = await upsert([{
       ...riga, codice: null, descrizione: null, serie: [], l_nominale: null, h_nominale: null,
-      albero: [], poligoni: [], immagine: null, errore: `rifiutata dal database: ${e1.message}`,
+      albero: [], poligoni: [], tempi: null, immagine: null, errore: `rifiutata dal database: ${e1.message}`,
     }])
     if (e2) throw new Error(`fp_strutture: ${e2.message}`)
   }

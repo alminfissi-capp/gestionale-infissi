@@ -45,7 +45,11 @@ export async function sincronizza(
     }
     const errore = verificaSorgente(t, righe as Riga[], colonne.map(r => String(r.c)))
     if (errore) throw new Error(errore)
-    lette.push({ t, righe: (righe as Riga[]).map(t.mappa) })
+    // Una riga per fp_id: le tabelle senza chiave (scarti) possono dare piu' righe per codice,
+    // la prima e' quella da tenere.
+    const unica = new Map<number, ReturnType<typeof t.mappa>>()
+    for (const r of (righe as Riga[]).map(t.mappa)) if (!unica.has(r.fp_id)) unica.set(r.fp_id, r)
+    lette.push({ t, righe: [...unica.values()] })
     log(`Letta ${t.mysql}: ${righe.length} righe`)
   }
 

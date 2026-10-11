@@ -79,6 +79,15 @@ export interface NodoStruttura {
   figli: NodoStruttura[]
 }
 
+/** Ore di lavoro della struttura (FP_TIMES), come le usa il preventivo di FP PRO */
+export interface TempiStruttura {
+  taglio: number
+  lavorazione: number
+  montaggio: number
+  assemblaggio: number
+  posa: number
+}
+
 export interface StrutturaLetta {
   codice: string | null
   descrizione: string | null
@@ -88,6 +97,7 @@ export interface StrutturaLetta {
   albero: NodoStruttura[]
   /** Un poligono per pezzo, piatto: [x1, y1, x2, y2, ...] */
   poligoni: number[][]
+  tempi: TempiStruttura
   immagineBase64: string | null
 }
 
@@ -229,6 +239,15 @@ export function strutturaDaXml(doc: unknown): StrutturaLetta {
     ? { l: modello.variabili.L, h: modello.variabili.H }
     : ingombro(percorso.length > 0 ? [percorso.flat()] : poligoni)
 
+  const t0 = ogg(anteprima.FP_TIMES)
+  const tempi: TempiStruttura = {
+    taglio: num(t0.CuttingTime) ?? 0,
+    lavorazione: num(t0.MachiningTime) ?? 0,
+    montaggio: num(t0.MountingTime) ?? 0,
+    assemblaggio: num(t0.CompositionTime) ?? 0,
+    posa: num(t0.PlacingTime) ?? 0,
+  }
+
   const descrizione = ogg(t.FP_DESCRIPTION)
   const cdata = testo(descrizione.__cdata)
 
@@ -240,6 +259,7 @@ export function strutturaDaXml(doc: unknown): StrutturaLetta {
     serie: serieStruttura(albero),
     albero,
     poligoni,
+    tempi,
     immagineBase64: testo(ogg(t.picture).__cdata),
   }
 }

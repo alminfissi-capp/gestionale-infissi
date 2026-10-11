@@ -107,3 +107,14 @@ describe('caratteri nulli', () => {
     expect(s.descrizione).toBe('Porta 2 ante')
   })
 })
+
+describe('tempi della struttura', () => {
+  it('le ore di FP_TIMES', () => {
+    const s = strutturaDaXml(leggi('al50plus-monoblocco.str.xml'))
+    expect(s.tempi).toEqual({ taglio: 0, lavorazione: 9, montaggio: 0, assemblaggio: 0, posa: 2 })
+  })
+  it('senza FP_TIMES: tutto zero', () => {
+    const s = strutturaDaXml(new XMLParser(OPZIONI_XML).parse('<FP_TREE />'))
+    expect(s.tempi).toEqual({ taglio: 0, lavorazione: 0, montaggio: 0, assemblaggio: 0, posa: 0 })
+  })
+})
