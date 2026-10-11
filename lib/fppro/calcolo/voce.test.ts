@@ -128,6 +128,16 @@ describe('casi difficili', () => {
   })
 })
 
+describe('telaio scelto per lato in cantiere', () => {
+  const { dati, input, regole } = inputDa('170-26G', alm2026, 0.03)
+  it('il profilo del lato cambia: via il telaio inferiore TT8002D (e i suoi TAC809/SX9901)', () => {
+    const listino = listinoDa(dati, 1.03)
+    expect(calcolaVoce(input, listino, regole).righe.some(r => r.codice === 'TAC809')).toBe(true)
+    const r = calcolaVoce({ ...input, telai: { basso: 'TT8011' } }, listino, regole)
+    expect(r.righe.some(x => x.codice === 'TAC809' || x.codice === 'SX9901')).toBe(false)
+  })
+})
+
 describe('codiceDaDxf', () => {
   it('nome del file senza cartella ed estensione', () => {
     expect(codiceDaDxf('AL_SLIDE\\TT8002B.DXF')).toBe('TT8002B')

@@ -1,0 +1,250 @@
+'use server'
+
+// Calcolo dei rilievi con le strutture di FP PRO come lo fa FP PRO (fase 4a).
+// Legge dal database solo le righe del listino che servono alle voci del rilievo,
+// calcola con il motore puro di lib/fppro/calcolo e salva il risultato nel rilievo.
+import { createClient } from '@/lib/supabase/server'
+import { getOrgId } from '@/lib/auth'
+import { requireAccesso } from '@/lib/permessi'
+import { selectAll } from '@/lib/supabase/paginate'
+import { regoleDaElenchi } from '@/lib/fppro/calcolo/accessori'
+import { listinoDaRighe, type RigheListino } from '@/lib/fppro/calcolo/listino'
+import { calcolaVoce, codiceDaDxf, type CalcoloVoce } from '@/lib/fppro/calcolo/voce'
+import type { CorrezioniVoce, OreVoce, ProfiloCalcolo } from '@/lib/fppro/calcolo/tipi'
+import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
+import type { VoceFpDati } from '@/types/rilievo-fp'
+
+type Supabase = Awaited<ReturnType<typeof createClient>>
+
+export interface VoceCalcolata {
+  voceId: string
+  posizione: string
+  quantita: number
+  descrizione: string
+  struttura: string
+  strutturaId: string
+  larghezza: number
+  altezza: number
+  immagine: string | null
+  calcolo: CalcoloVoce
+}
+
+export interface CalcoloRilievo {
+  configPrevFpId: number
+  nomeProfilo: string
+  voci: VoceCalcolata[]
+  /** Voci non calcolabili (misure mancanti, struttura non trovata) */
+  saltate: { voceId: string; posizione: string; motivo: string }[]
+  totaleImponibile: number
+  calcolatoAt: string
+}
+
+const messaggio = (e: unknown, riserva: string) => (e instanceof Error ? e.message : riserva)
+const num = (v: unknown) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? 0 : Number(v))
+const BLOCCO = 150
+
+/** Righe di una tabella con la colonna in una lista di valori, a blocchi e a pagine. */
+async function inLista<T>(
+  supabase: Supabase, orgId: string, tabella: string, colonne: string, colonna: string, valori: (string | number)[], ordine = 'fp_id',
+): Promise<T[]> {
+  const unici = [...new Set(valori)]
+  const out: T[] = []
+  for (let i = 0; i < unici.length; i += BLOCCO) {
+    const blocco = unici.slice(i, i + BLOCCO)
+    out.push(...await selectAll<T>((a, b) =>
+      supabase.from(tabella).select(colonne).eq('organization_id', orgId).eq('presente', true).in(colonna, blocco)
+        .order(ordine).range(a, b) as unknown as PromiseLike<{ data: T[] | null; error: { message: string } | null }>))
+  }
+  return out
+}
+
+const tuttiNodi = (nodi: NodoStruttura[]): NodoStruttura[] => nodi.flatMap(n => [n, ...tuttiNodi(n.figli)])
+
+export async function getProfiliCalcoloFp(): Promise<{ fpId: number; nome: string }[] | { errore: string }> {
+  await requireAccesso('rilievo')
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+    const { data, error } = await supabase.from('fp_config_prev').select('fp_id, nome')
+      .eq('organization_id', orgId).eq('presente', true).order('fp_id')
+    if (error) throw new Error(error.message)
+    return (data ?? []).map(r => ({ fpId: r.fp_id as number, nome: r.nome as string }))
+  } catch (e) {
+    return { errore: messaggio(e, 'Profili di calcolo non disponibili') }
+  }
+}
+
+interface RigaStruttura {
+  id: string
+  nome: string
+  serie: string[]
+  albero: NodoStruttura[]
+  poligoni: number[][]
+  tempi: OreVoce | null
+  l_nominale: number | null
+  h_nominale: number | null
+  immagine: string | null
+}
+
+export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number): Promise<{ calcolo: CalcoloRilievo } | { errore: string }> {
+  await requireAccesso('rilievo', 'scrittura')
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+
+    const { data: config, error: eConfig } = await supabase.from('fp_config_prev').select('*')
+      .eq('organization_id', orgId).eq('fp_id', configPrevFpId).maybeSingle()
+    if (eConfig) throw new Error(eConfig.message)
+    if (!config) return { errore: 'Profilo di calcolo non trovato: sincronizza FP PRO' }
+    const dati = (config.dati ?? {}) as Record<string, unknown>
+    const profilo: ProfiloCalcolo = {
+      spese_generali: num(config.spese_generali), utile: num(config.utile), provvigione: num(config.provvigione),
+      costo_taglio: num(config.costo_taglio), costo_lavorazione: num(config.costo_lavorazione),
+      costo_montaggio: num(config.costo_montaggio), costo_assemblaggio: num(config.costo_assemblaggio),
+      costo_posa: num(config.costo_posa), imballo: num(config.imballo), viaggio: num(config.viaggio),
+      materiali_vari: num(config.materiali_vari), altro: num(config.altro),
+    }
+    const maggiorazioni = { vetri: num(dati.maggrottvetri), pannelli: num(dati.maggrottpannelli) }
+
+    const { data: voci, error: eVoci } = await supabase.from('rilievo_veloce_voci')
+      .select('id, ordine, voce, quantita, fp').eq('organization_id', orgId).eq('rilievo_id', rilievoId)
+      .not('fp', 'is', null).order('ordine')
+    if (eVoci) throw new Error(eVoci.message)
+    const righeVoci = (voci ?? []) as { id: string; ordine: number; voce: string | null; quantita: number; fp: VoceFpDati }[]
+
+    const strutture = await inLista<RigaStruttura>(supabase, orgId, 'fp_strutture',
+      'id, nome, serie, albero, poligoni, tempi, l_nominale, h_nominale, immagine', 'id', righeVoci.map(v => v.fp.strutturaId), 'id')
+    const perStruttura = new Map(strutture.map(s => [s.id, s]))
+
+    // Codici che servono: profili (anche i telai scelti), accessori, vetri, pannelli, kit.
+    const codiciProfili = new Set<string>()
+    const codiciAccessori = new Set<string>()
+    const codiciVetri = new Set<string>()
+    const codiciPannelli = new Set<string>()
+    const kit = new Set<string>()
+    for (const s of strutture) {
+      for (const n of tuttiNodi(s.albero)) {
+        for (const p of n.pezzi) {
+          const c = codiceDaDxf(p.dxf)
+          if (p.tipo === 8510) codiciVetri.add(c)
+          else if (p.tipo === 8500) codiciPannelli.add(c)
+          else {
+            codiciProfili.add(c)
+            codiciProfili.add(c.replace(/[A-Z]+$/i, ''))
+          }
+        }
+        n.accessori.forEach(a => codiciAccessori.add(a.codice))
+        n.kit.forEach(k => { kit.add(k.codice); k.accessori.forEach(a => codiciAccessori.add(a.codice)) })
+      }
+    }
+    for (const v of righeVoci) {
+      Object.values(v.fp.telai ?? {}).forEach(c => c && codiciProfili.add(c))
+      Object.values(v.fp.vetri ?? {}).forEach(x => codiciVetri.add(x.codice))
+    }
+
+    const profili = await inLista<RigheListino['profili'][number]>(supabase, orgId, 'fp_profili', 'fp_id, codice, kg_ml, costo_kg, costo_ml', 'codice', [...codiciProfili])
+    const componenti = await inLista<RigheListino['componenti'][number]>(supabase, orgId, 'fp_profili_componenti',
+      'fp_id, composto_fp_id, componente_fp_id, principale, offset_mm', 'composto_fp_id', profili.map(p => p.fp_id))
+    const mancanti = componenti.map(c => c.componente_fp_id).filter(id => !profili.some(p => p.fp_id === id))
+    profili.push(...await inLista<RigheListino['profili'][number]>(supabase, orgId, 'fp_profili', 'fp_id, codice, kg_ml, costo_kg, costo_ml', 'fp_id', mancanti))
+    const idProfili = profili.map(p => p.fp_id)
+    const codiciTutti = profili.map(p => p.codice)
+
+    const collegati = await inLista<{ codice_principale: string; codice_collegato: string; serie_collegato: string | null; quantita: number }>(
+      supabase, orgId, 'fp_accessori_collegati', 'fp_id, codice_principale, codice_collegato, serie_collegato, quantita', 'codice_principale', [...codiciAccessori])
+    collegati.forEach(c => codiciAccessori.add(c.codice_collegato))
+
+    const kitRighe = await inLista<{ fp_id: number; nome: string }>(supabase, orgId, 'fp_kit', 'fp_id, nome', 'nome', [...kit])
+    const righeKit = await inLista<{ fp_id: number; kit_fp_id: number; codice: string }>(supabase, orgId, 'fp_kit_righe', 'fp_id, kit_fp_id, codice', 'kit_fp_id', kitRighe.map(k => k.fp_id))
+    const serieRighe = await inLista<{ riga_fp_id: number; serie: string }>(supabase, orgId, 'fp_kit_righe_serie', 'fp_id, riga_fp_id, serie', 'riga_fp_id', righeKit.map(r => r.fp_id))
+    const nomeKit = new Map(kitRighe.map(k => [k.fp_id, k.nome]))
+    const seriePerRiga = new Map<number, string[]>()
+    serieRighe.forEach(s => seriePerRiga.set(s.riga_fp_id, [...(seriePerRiga.get(s.riga_fp_id) ?? []), s.serie]))
+    const elencoRigheKit = righeKit.map(r => ({ kit: nomeKit.get(r.kit_fp_id) ?? '', codice: r.codice, serie: seriePerRiga.get(r.fp_id) ?? null }))
+
+    const righeListino: RigheListino = {
+      profili,
+      componenti,
+      costi: await inLista(supabase, orgId, 'fp_profili_costi', 'fp_id, profilo_fp_id, colore_fp_id, costo_kg, costo_ml', 'profilo_fp_id', idProfili),
+      barre: await inLista(supabase, orgId, 'fp_barre', 'fp_id, profilo_fp_id, lunghezza', 'profilo_fp_id', idProfili),
+      scarti: await inLista(supabase, orgId, 'fp_scarti', 'fp_id, codice, testa, coda', 'codice', codiciTutti),
+      sezioni: await inLista(supabase, orgId, 'fp_profili_sezioni', 'fp_id, codice, vista, aletta', 'codice', codiciTutti),
+      accessori: await inLista(supabase, orgId, 'fp_accessori', 'fp_id, codice, serie, prezzo, unita_vendita', 'codice', [...codiciAccessori]),
+      vetri: await inLista(supabase, orgId, 'fp_vetri', 'fp_id, codice, prezzo_mq, min_fatt, kg_mq', 'codice', [...codiciVetri]),
+      pannelli: await inLista(supabase, orgId, 'fp_pannelli', 'fp_id, codice, prezzo_mq, min_fatt', 'codice', [...codiciPannelli]),
+    }
+
+    // Colori delle voci: prezzo al kg e tolleranza di peso del trattamento.
+    const idColori = righeVoci.map(v => (v.fp.coloreEst ?? v.fp.coloreInt)?.fpId).filter((x): x is number => typeof x === 'number')
+    const colori = await inLista<{ fp_id: number; dati: Record<string, unknown> | null }>(supabase, orgId, 'fp_colori', 'fp_id, dati', 'fp_id', idColori)
+    const tolleranza = new Map(colori.map(c => [c.fp_id, num(c.dati?.tolleranza_peso)]))
+    const listini = new Map<number | null, ReturnType<typeof listinoDaRighe>>()
+    const listinoPer = (colore: number | null) => {
+      if (!listini.has(colore)) {
+        listini.set(colore, listinoDaRighe(righeListino, colore === null ? null : { fpId: colore, tolleranzaPeso: tolleranza.get(colore) ?? 0 }))
+      }
+      return listini.get(colore)!
+    }
+
+    const calcolate: VoceCalcolata[] = []
+    const saltate: CalcoloRilievo['saltate'] = []
+    for (const v of righeVoci) {
+      const posizione = v.voce ?? ''
+      const s = perStruttura.get(v.fp.strutturaId)
+      if (!s) { saltate.push({ voceId: v.id, posizione, motivo: 'Struttura non trovata in FP PRO' }); continue }
+      if (!v.fp.larghezza || !v.fp.altezza) { saltate.push({ voceId: v.id, posizione, motivo: 'Mancano le misure' }); continue }
+      const regole = regoleDaElenchi(s.serie, elencoRigheKit,
+        collegati.map(c => ({ principale: c.codice_principale, collegato: c.codice_collegato, quantita: num(c.quantita), serie: c.serie_collegato ?? '' })))
+      const colore = (v.fp.coloreEst ?? v.fp.coloreInt)?.fpId ?? null
+      const calcolo = calcolaVoce({
+        albero: s.albero, serie: s.serie, poligoni: s.poligoni,
+        L: v.fp.larghezza, H: v.fp.altezza, L0: s.l_nominale ?? v.fp.larghezza, H0: s.h_nominale ?? v.fp.altezza,
+        quote: v.fp.quote ?? {}, kitScelti: v.fp.kit ?? {},
+        vetriScelti: Object.fromEntries(Object.entries(v.fp.vetri ?? {}).map(([k, x]) => [k, x.codice])),
+        telai: v.fp.telai, tempi: s.tempi ?? { taglio: 0, lavorazione: 0, montaggio: 0, assemblaggio: 0, posa: 0 },
+        profilo, maggiorazioni, correzioni: v.fp.correzioni,
+      }, listinoPer(colore), regole)
+      if (!s.tempi) calcolo.avvisi.push('Ore della struttura non lette: sincronizza FP PRO')
+      calcolate.push({
+        voceId: v.id, posizione, quantita: v.quantita || 1, descrizione: `${v.fp.nome} ${v.fp.larghezza}x${v.fp.altezza}`,
+        struttura: v.fp.nome, strutturaId: s.id, larghezza: v.fp.larghezza, altezza: v.fp.altezza, immagine: s.immagine, calcolo,
+      })
+    }
+
+    const risultato: CalcoloRilievo = {
+      configPrevFpId, nomeProfilo: String(config.nome ?? ''), voci: calcolate, saltate,
+      totaleImponibile: calcolate.reduce((t, v) => t + v.calcolo.prezzo.imponibile * v.quantita, 0),
+      calcolatoAt: new Date().toISOString(),
+    }
+    const { error: eSalva } = await supabase.from('rilievi_veloci')
+      .update({ config_prev_fp_id: configPrevFpId, calcolo: risultato }).eq('organization_id', orgId).eq('id', rilievoId)
+    if (eSalva) throw new Error(eSalva.message)
+    return { calcolo: risultato }
+  } catch (e) {
+    return { errore: messaggio(e, 'Calcolo non riuscito') }
+  }
+}
+
+/** Correzioni fatte a mano su una voce (ore, percentuali, extra): restano nella voce. */
+export async function salvaCorrezioniVoce(voceId: string, correzioni: CorrezioniVoce): Promise<{ ok: true } | { errore: string }> {
+  await requireAccesso('rilievo', 'scrittura')
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+    const { data, error } = await supabase.from('rilievo_veloce_voci').select('fp').eq('organization_id', orgId).eq('id', voceId).maybeSingle()
+    if (error) throw new Error(error.message)
+    if (!data?.fp) return { errore: 'Voce non trovata' }
+    const pulite: CorrezioniVoce = {
+      ...(correzioni.ore && Object.keys(correzioni.ore).length > 0 ? { ore: correzioni.ore } : {}),
+      ...(correzioni.percentuali && Object.keys(correzioni.percentuali).length > 0 ? { percentuali: correzioni.percentuali } : {}),
+      ...(correzioni.extra && correzioni.extra.length > 0 ? { extra: correzioni.extra.filter(x => x.descrizione.trim() || x.importo) } : {}),
+    }
+    const { error: e2 } = await supabase.from('rilievo_veloce_voci')
+      .update({ fp: { ...(data.fp as object), correzioni: pulite }, updated_at: new Date().toISOString() })
+      .eq('organization_id', orgId).eq('id', voceId)
+    if (e2) throw new Error(e2.message)
+    return { ok: true }
+  } catch (e) {
+    return { errore: messaggio(e, 'Correzioni non salvate') }
+  }
+}

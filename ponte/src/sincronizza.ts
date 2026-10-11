@@ -56,7 +56,8 @@ export async function sincronizza(
 
   // Misure in vista dai DXF dei profili: si scrivono come una tabella in piu'.
   const profili = lette.find(l => l.t.supabase === 'fp_profili')?.righe ?? []
-  const sezioni = await sezioniProfili(profili, cartellaStrutture)
+  const serie = lette.find(l => l.t.supabase === 'fp_serie')?.righe ?? []
+  const sezioni = await sezioniProfili(profili, serie, cartellaStrutture)
   if (sezioni.length > 0) {
     lette.push({ t: { mysql: '(DXF)', supabase: 'fp_profili_sezioni', sql: '', colonne: [], mappa: r => r as RigaFp }, righe: sezioni })
   }

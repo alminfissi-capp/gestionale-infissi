@@ -66,6 +66,27 @@ export interface InputVoce {
   maggiorazioni: { vetri: number; pannelli: number }
   correzioni?: CorrezioniVoce
   larghezze?: Larghezze
+  /** Profilo di telaio scelto in cantiere per lato (codice); assente = come la struttura */
+  telai?: Partial<Record<'sinistra' | 'alto' | 'destra' | 'basso', string>>
+}
+
+const LATI = ['sinistra', 'alto', 'destra', 'basso'] as const
+
+/** Albero con i pezzi di telaio sostituiti dai profili scelti per lato (stessa cartella del DXF). */
+function conTelaiScelti(albero: NodoStruttura[], telai: InputVoce['telai']): NodoStruttura[] {
+  if (!telai || Object.keys(telai).length === 0) return albero
+  return albero.map(n => {
+    if (n.tipo !== 8600) return { ...n, figli: conTelaiScelti(n.figli, telai) }
+    let lato = 0
+    const pezzi = n.pezzi.map(p => {
+      if (p.tipo !== 8050) return p
+      const codice = telai[LATI[lato++]]
+      if (!codice) return p
+      const cartella = p.dxf.slice(0, Math.max(p.dxf.lastIndexOf('\\'), p.dxf.lastIndexOf('/')) + 1)
+      return { ...p, dxf: `${cartella}${codice}.DXF` }
+    })
+    return { ...n, pezzi }
+  })
 }
 
 export function codiceDaDxf(dxf: string): string {
@@ -79,7 +100,8 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
   const righe: RigaMateriale[] = []
   // I poligoni dell'anteprima di FP PRO sono schematici: servono solo se mancano le sezioni dei DXF.
   const larghezze = input.larghezze ?? larghezzeDaPoligoni(input.poligoni)
-  const { pezzi, campi, zone } = pezziECampi(input.albero, input, larghezze, dxf => listino.sezione(codiceDaDxf(dxf)))
+  const albero = conTelaiScelti(input.albero, input.telai)
+  const { pezzi, campi, zone } = pezziECampi(albero, input, larghezze, dxf => listino.sezione(codiceDaDxf(dxf)))
 
   // Profili: si risale al codice, i composti si dividono nei componenti, poi barre per codice.
   const cercaProfilo = (codice: string): { codice: string; p: ProfiloListino } | null => {
@@ -147,7 +169,7 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
   }
 
   // Accessori (le formule dei kit usano il peso del serramento).
-  for (const a of accessoriVoce(input.albero, input.kitScelti, zone, peso, regole)) {
+  for (const a of accessoriVoce(albero, input.kitScelti, zone, peso, regole)) {
     const prezzo = listino.accessorio(a.codice, a.serie)
     if (!prezzo) avvisi.push(`Accessorio ${a.codice} non trovato nel listino di FP PRO`)
     if (a.regolaIgnota) avvisi.push(`Regola dell'accessorio ${a.codice} non interpretata: contato come da kit`)
