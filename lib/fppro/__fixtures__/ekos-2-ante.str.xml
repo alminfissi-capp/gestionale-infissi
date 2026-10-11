@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="Windows-1252" standalone="no"?>
+<FP_TREE VarNumber="3" LastNodeCode="6" Description="SEE CDATA BELOW..." Fp_Pro_Ver="11.0.28.0" NameStr="PL62UCVIF2AR" VertexNumber="4" InsLayer="0" Version="3" PiecesNumber="13">
+  <FP_TEXT />
+  <FP_DESCRIPTION DescrB64="DESCRIPTION IS B64 CODED"><![CDATA[MDMtIEZpbmVzdHJhIDIgQW50ZQ==
+]]></FP_DESCRIPTION>
+  <FP_PREVIEW>
+    <FP_TIMES CuttingTime="0.000000" MachiningTime="0.000000" MountingTime="0.000000" PlacingTime="0.000000" CompositionTime="0.000000" />
+    <FP_TIMES_CUSTOM />
+    <FP_MINMAX HMax="0.000000" HMin="0.000000" LMax="0.000000" LMin="0.000000" />
+    <FP_VAR VarName="HND@@0002" VarValue="0.000000" Description="" Used="1" />
+    <FP_VAR VarName="LCK@@0002" VarValue="0.000000" Description="" Used="1" />
+    <FP_VAR VarName="HNG@@0002" VarValue="0.000000" Description="" Used="1" />
+    <FP_PATH_VERTEX x="0.0000" y="0.0000" />
+    <FP_PATH_VERTEX x="0.0000" y="1500.0000" />
+    <FP_PATH_VERTEX x="1300.0000" y="1500.0000" />
+    <FP_PATH_VERTEX x="1300.0000" y="0.0000" />
+    <FP_PREV_PIECE>
+      <FP_VERTEX x="0.0000" y="0.0000" />
+      <FP_VERTEX x="0.0000" y="1500.0000" />
+      <FP_VERTEX x="50.0000" y="1450.0000" />
+      <FP_VERTEX x="50.0000" y="50.0000" />
+    </FP_PREV_PIECE>
+    <FP_PREV_PIECE>
+      <FP_VERTEX x="0.0000" y="1500.0000" />
+      <FP_VERTEX x="1300.0000" y="1500.0000" />
+      <FP_VERTEX x="1250.0000" y="1450.0000" />
+      <FP_VERTEX x="50.0000" y="1450.0000" />
+    </FP_PREV_PIECE>
+    <FP_PREV_PIECE>
+      <FP_VERTEX x="1300.0000" y="1500.0000" />
+      <FP_VERTEX x="1300.0000" y="0.0000" />
+      <FP_VERTEX x="1250.0000" y="50.0000" />
+      <FP_VERTEX x="1250.0000" y="1450.0000" />
+    </FP_PREV_PIECE>
+    <FP_PREV_PIECE>
+      <FP_VERTEX x="1300.0000" y="0.0000" />
+      <FP_VERTEX x="0.0000" y="0.0000" />
+      <FP_VERTEX x="50.0000" y="50.0000" />
+      <FP_VERTEX x="1250.0000" y="50.0000" />
+    </FP_PREV_PIECE>
+    <FP_PREV_PIECE>
+      <FP_VERTEX x="50.0000" y="50.0000" />
+      <FP_VERTEX x="50.0000" y="1450.0000" />
+      <FP_VERTEX x="90.0000" y="1410.0000" />
+      <FP_VERTEX x="90.0000" y="90.0000" />
+    </FP_PREV_PIECE>
+    <FP_PREV_PIECE>
+      <FP_VERTEX x="50.0000" y="1450.0000" />
+      <FP_VERTEX x="635.0000" y="1450.0000" />
+      <FP_VERTEX x="595.0000" y="1410.0000" />
+      <FP_VERTEX x="90.0000" y="1410.0000" />
+    </FP_PREV_PIECE>
+    <FP_PREV_PIECE>
+      <FP_VERTEX x="635.0000" y="1450.0000" />
+      <FP_VERTEX x="635.0000" y="50.0000" />
+      <FP_VERTEX x="595.0000" y="90.0000" />
+      <FP_VERTEX x="595.0000" y="1410.0000" />
+    </FP_PREV_PIECE>
+    <FP_PREV_PIECE>
+      <FP_VERTEX x="635.0000" y="50.0000" />
+      <FP_VERTEX x="50.0000" y="50.0000" />
+      <FP_VERTEX x="90.0000" y="90.0000" />
+      <FP_VERTEX x="595.0000" y="90.0000" />
+    </FP_PREV_PIECE>
+    <FP_PREV_PIECE>
+      <FP_VERTEX x="665.0000" y="50.0000" />
+      <FP_VERTEX x="665.0000" y="1450.0000" />
+      <FP_VERTEX x="705.0000" y="1410.0000" />
+      <FP_VERTEX x="705.0000" y="90.0000" />
+    </FP_PREV_PIECE>
+    <FP_PREV_PIECE>
+      <FP_VERTEX x="665.0000" y="1450.0000" />
+      <FP_VERTEX x="1250.0000" y="1450.0000" />
+      <FP_VERTEX x="1210.0000" y="1410.0000" />
+      <FP_VERTEX x="705.0000" y="1410.0000" />
+    </FP_PREV_PIECE>
+    <FP_PREV_PIECE>
+      <FP_VERTEX x="1250.0000" y="1450.0000" />
+      <FP_VERTEX x="1250.0000" y="50.0000" />
+      <FP_VERTEX x="1210.0000" y="90.0000" />
+      <FP_VERTEX x="1210.0000" y="1410.0000" />
+    </FP_PREV_PIECE>
+    <FP_PREV_PIECE>
+      <FP_VERTEX x="1250.0000" y="50.0000" />
+      <FP_VERTEX x="665.0000" y="50.0000" />
+      <FP_VERTEX x="705.0000" y="90.0000" />
+      <FP_VERTEX x="1210.0000" y="90.0000" />
+    </FP_PREV_PIECE>
+    <FP_PREV_PIECE>
+      <FP_VERTEX x="665.0000" y="1450.0000" />
+      <FP_VERTEX x="665.0000" y="50.0000" />
+      <FP_VERTEX x="635.0000" y="50.0000" />
+      <FP_VERTEX x="635.0000" y="1450.0000" />
+    </FP_PREV_PIECE>
+  </FP_PREVIEW>
+  <FP_NODE ElementType="8600" Code="1" xinsert="863.808901" yinsert="1193.167539" PRMNumber="1" RulesNumber="4" ElementNumber="1" formula_insert="">
+    <FP_PRM Name="MODEL-00" VarNumber="2">
+      <FP_PRM_VAR VarName="L" VarValue="1300.000000" />
+      <FP_PRM_VAR VarName="H" VarValue="1500.000000" />
+    </FP_PRM>
+    <FP_IRD Thickness="5" CType="0" FileName="TELAI-00" />
+    <FP_IRD Thickness="5" CType="0" FileName="TELAI-00" />
+    <FP_IRD Thickness="5" CType="0" FileName="TELAI-00" />
+    <FP_IRD Thickness="5" CType="0" FileName="TELAI-00" />
+    <FP_MACRO WingPosition="2" OpeningType="1" DoorWin="2" TypeTel="0" NumBinari="1" TypeScorr="0" />
+    <FP_PIECE Type="8050" Shape="0" StrAngleSx="0.000000" StrAngleDx="0.000000" LayerRef="" DXF="EKOS_66TH\ES24500170.DXF">
+      <FP_PIECE_FLTSX />
+      <FP_PIECETYPE_FLTSX />
+      <FP_PIECE_FLTDX />
+      <FP_PIECETYPE_FLTDX />
+    </FP_PIECE>
+    <FP_PIECE Type="8050" Shape="0" StrAngleSx="0.000000" StrAngleDx="0.000000" LayerRef="" DXF="EKOS_66TH\ES24500170.DXF">
+      <FP_PIECE_FLTSX />
+      <FP_PIECETYPE_FLTSX />
+      <FP_PIECE_FLTDX />
+      <FP_PIECETYPE_FLTDX />
+    </FP_PIECE>
+    <FP_PIECE Type="8050" Shape="0" StrAngleSx="0.000000" StrAngleDx="0.000000" LayerRef="" DXF="EKOS_66TH\ES24500170.DXF">
+      <FP_PIECE_FLTSX />
+      <FP_PIECETYPE_FLTSX />
+      <FP_PIECE_FLTDX />
+      <FP_PIECETYPE_FLTDX />
+    </FP_PIECE>
+    <FP_PIECE Type="8050" Shape="0" StrAngleSx="0.000000" StrAngleDx="0.000000" LayerRef="" DXF="EKOS_66TH\ES24500170.DXF">
+      <FP_PIECE_FLTSX />
+      <FP_PIECETYPE_FLTSX />
+      <FP_PIECE_FLTDX />
+      <FP_PIECETYPE_FLTDX />
+    </FP_PIECE>
+    <FP_FITTING Brand="TRI.ALL" Serie="EKOS 66TH" Code="1125F" Description="SQUADRETTA ALLINEAMENTO ad Avvitare" Type="1" Multiply="1" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC A PEZZO" CondParametric="0" FitPosition="-1" />
+    <FP_FITTING Brand="TRI.ALL" Serie="EKOS 66TH" Code="1580-NEW AKTIVA" Description="SQUADRETTA IN ALLUMINIO A BOTTONE" Type="1" Multiply="4" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC A PEZZO" CondParametric="0" FitPosition="-1" />
+    <FP_FITTING Brand="TRI.ALL" Serie="EKOS 66TH" Code="1892" Description="GUARNIZIONE BATTUTA CENTRALE A PINNA 66TH - 68TH EKOS" Type="2" Multiply="1" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC. METRO LINEARE" CondParametric="0" FitPosition="-1" />
+    <FP_FITTING Brand="TRI.ALL" Serie="EKOS 66TH" Code="1892" Description="GUARNIZIONE BATTUTA CENTRALE A PINNA 66TH - 68TH EKOS" Type="2" Multiply="1" RefDim="0" CalcDim="1" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC. METRO LINEARE" CondParametric="0" FitPosition="-1" />
+    <FP_FITTING Brand="TRI.ALL" Serie="EKOS 66TH" Code="DU1892" Description="ANGOLO VULCANIZZATO 66TH EKOS" Type="1" Multiply="4" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC A PEZZO" CondParametric="0" FitPosition="-1" />
+    <FP_NODE ElementType="8610" Code="2" xinsert="511.348168" yinsert="661.884817" PRMNumber="1" RulesNumber="8" ElementNumber="2" formula_insert="">
+      <FP_PRM Name="BX-01" VarNumber="2">
+        <FP_PRM_VAR VarName="_HTYPE" VarValue="3.000000" />
+        <FP_PRM_VAR VarName="NC" VarValue="2.000000" />
+      </FP_PRM>
+      <FP_IRD Thickness="4" CType="0" FileName="APRIB-00" />
+      <FP_IRD Thickness="4" CType="0" FileName="APRIB-00" />
+      <FP_IRD Thickness="4" CType="0" FileName="APRIB-00" />
+      <FP_IRD Thickness="4" CType="0" FileName="APRIB-00" />
+      <FP_IRD Thickness="4" CType="0" FileName="APRIB-00" />
+      <FP_IRD Thickness="4" CType="0" FileName="APRIB-00" />
+      <FP_IRD Thickness="4" CType="0" FileName="APRIB-00" />
+      <FP_IRD Thickness="4" CType="0" FileName="APRIB-00" />
+      <FP_MACRO MainSashIndex="1" OpeningType="1" ProfilesType="1" CentralProfile="1" UnderKickPlate="0" CustomHND="" CustomHNG="" DoorWin="2" Coplanar="0">
+        <FP_MACRO_SASH SashDim="0.000000" />
+        <FP_MACRO_SASH SashDim="0.000000" />
+      </FP_MACRO>
+      <FP_PIECE Type="8090" Shape="0" StrAngleSx="0.000000" StrAngleDx="0.000000" LayerRef="" DXF="EKOS_66TH\ES24500319.DXF">
+        <FP_PIECE_FLTSX />
+        <FP_PIECETYPE_FLTSX />
+        <FP_PIECE_FLTDX />
+        <FP_PIECETYPE_FLTDX />
+      </FP_PIECE>
+      <FP_PIECE Type="8090" Shape="0" StrAngleSx="0.000000" StrAngleDx="0.000000" LayerRef="" DXF="EKOS_66TH\ES24500319.DXF">
+        <FP_PIECE_FLTSX />
+        <FP_PIECETYPE_FLTSX />
+        <FP_PIECE_FLTDX />
+        <FP_PIECETYPE_FLTDX />
+      </FP_PIECE>
+      <FP_PIECE Type="8090" Shape="0" StrAngleSx="0.000000" StrAngleDx="0.000000" LayerRef="" DXF="EKOS_66TH\ES24500319.DXF">
+        <FP_PIECE_FLTSX />
+        <FP_PIECETYPE_FLTSX />
+        <FP_PIECE_FLTDX />
+        <FP_PIECETYPE_FLTDX />
+      </FP_PIECE>
+      <FP_PIECE Type="8090" Shape="0" StrAngleSx="0.000000" StrAngleDx="0.000000" LayerRef="" DXF="EKOS_66TH\ES24500319.DXF">
+        <FP_PIECE_FLTSX />
+        <FP_PIECETYPE_FLTSX />
+        <FP_PIECE_FLTDX />
+        <FP_PIECETYPE_FLTDX />
+      </FP_PIECE>
+      <FP_PIECE Type="8090" Shape="0" StrAngleSx="0.000000" StrAngleDx="0.000000" LayerRef="" DXF="EKOS_66TH\ES24500319.DXF" ElementIndex="1">
+        <FP_PIECE_FLTSX />
+        <FP_PIECETYPE_FLTSX />
+        <FP_PIECE_FLTDX />
+        <FP_PIECETYPE_FLTDX />
+      </FP_PIECE>
+      <FP_PIECE Type="8090" Shape="0" StrAngleSx="0.000000" StrAngleDx="0.000000" LayerRef="" DXF="EKOS_66TH\ES24500319.DXF" ElementIndex="1">
+        <FP_PIECE_FLTSX />
+        <FP_PIECETYPE_FLTSX />
+        <FP_PIECE_FLTDX />
+        <FP_PIECETYPE_FLTDX />
+      </FP_PIECE>
+      <FP_PIECE Type="8090" Shape="0" StrAngleSx="0.000000" StrAngleDx="0.000000" LayerRef="" DXF="EKOS_66TH\ES24500319.DXF" ElementIndex="1">
+        <FP_PIECE_FLTSX />
+        <FP_PIECETYPE_FLTSX />
+        <FP_PIECE_FLTDX />
+        <FP_PIECETYPE_FLTDX />
+      </FP_PIECE>
+      <FP_PIECE Type="8090" Shape="0" StrAngleSx="0.000000" StrAngleDx="0.000000" LayerRef="" DXF="EKOS_66TH\ES24500319.DXF" ElementIndex="1">
+        <FP_PIECE_FLTSX />
+        <FP_PIECETYPE_FLTSX />
+        <FP_PIECE_FLTDX />
+        <FP_PIECETYPE_FLTDX />
+      </FP_PIECE>
+      <FP_PIECE Type="8150" Shape="0" StrAngleSx="0.000000" StrAngleDx="0.000000" LayerRef="" DXF="EKOS_66TH\ES24500506.DXF">
+        <FP_PIECE_FLTSX />
+        <FP_PIECETYPE_FLTSX />
+        <FP_PIECE_FLTDX />
+        <FP_PIECETYPE_FLTDX />
+      </FP_PIECE>
+      <FP_FITTING Brand="TRI.ALL" Serie="EKOS 66TH" Code="1580-NEW AKTIVA" Description="SQUADRETTA IN ALLUMINIO A BOTTONE" Type="1" Multiply="8" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC A PEZZO" CondParametric="0" FitPosition="-1" />
+      <FP_FITTING Brand="TRI.ALL" Serie="EKOS 66TH" Code="SQ016" Description="SQUADRETTA ALLINEAMENTO IN ZAMA da 1.5 (Spine incluse)" Type="1" Multiply="8" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC A PEZZO" CondParametric="0" FitPosition="-1" />
+      <FP_FITTING Brand="TRI.ALL" Serie="EKOS 66TH" Code="SQ017" Description="SQUADRETTA ALLINEAMENTO IN ZAMA da 2 (Spine incluse)" Type="1" Multiply="8" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC A PEZZO" CondParametric="0" FitPosition="-1" />
+      <FP_FITTING Brand="SIRTAL" Serie="NNC40" Code="1CER78" Description="Cern. Flash x NNC40 GIESSE -Ral" Type="1" Multiply="6" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC A PEZZO" CondParametric="0" FitPosition="-1" />
+      <FP_FITTING Brand="MEDISYSTEM" Serie="MINUTERIA FINESTRE" Code="MARTELLINA" Description="MARTELLINA ECONOMICA" Type="1" Multiply="1" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC A PEZZO" CondParametric="0" FitPosition="-1" />
+      <FP_FITTING Brand="MEDISYSTEM" Serie="MINUTERIA FINESTRE" Code="INC.AST.MET" Description="INCONTRO ASTA IN METALLO X TT" Type="1" Multiply="2" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC A PEZZO" CondParametric="0" FitPosition="-1" />
+      <FP_FITTING Brand="MEDISYSTEM" Serie="MINUTERIA FINESTRE" Code="PUNT.PLS" Description="PUNTALI IN PLASTICA" Type="1" Multiply="6" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC A PEZZO" CondParametric="0" FitPosition="-1" />
+      <FP_FITTING Brand="CIBIESSE" Serie="VARIE" Code="MED988" Description="Cappetta di Drenaggio" Type="1" Multiply="2" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC A PEZZO" CondParametric="0" FitPosition="-1" />
+      <FP_FITTING Brand="CIBIESSE" Serie="VARIE" Code="SILA35R" Description="Spessore vetro da 5mm" Type="1" Multiply="8" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC A PEZZO" CondParametric="0" FitPosition="-1" />
+      <FP_FITTING Brand="TRI.ALL" Serie="EKOS 66TH" Code="TPRPT" Description="TAPPO DI RIPORTO 66TH" Type="1" Multiply="1" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC A PEZZO" CondParametric="0" FitPosition="-1" />
+      <FP_NODE ElementType="8510" Code="3" xinsert="506.164921" yinsert="1006.570681" ElementNumber="1" formula_insert="">
+        <FP_PIECE Type="8510" Shape="0" StrAngleSx="0.000000" StrAngleDx="0.000000" LayerRef="" DXF="GLASSES\4_15_33.1_S+G.DXF">
+          <FP_PIECE_FLTSX />
+          <FP_PIECETYPE_FLTSX />
+          <FP_PIECE_FLTDX />
+          <FP_PIECETYPE_FLTDX />
+        </FP_PIECE>
+        <FP_FITTING Brand="CIBIESSE" Serie="GUARNIZIONI" Code="CMX03851" Description="Guarnizione di battuta x TT (400M)" Type="2" Multiply="2" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC. METRO LINEARE" CondParametric="0" FitPosition="-1" />
+        <FP_FITTING Brand="CIBIESSE" Serie="GUARNIZIONI" Code="UP5" Description="Guarnizione x Vetro da 5mm (150m) COMPLASTEX" Type="2" Multiply="1" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC. METRO LINEARE" CondParametric="0" FitPosition="-1" />
+        <FP_NODE ElementType="-1" Code="6" formula_insert="" />
+      </FP_NODE>
+      <FP_NODE ElementType="8510" Code="4" xinsert="951.924084" yinsert="1029.895288" ElementNumber="1" formula_insert="">
+        <FP_PIECE Type="8510" Shape="0" StrAngleSx="0.000000" StrAngleDx="0.000000" LayerRef="" DXF="GLASSES\4_15_33.1_S+G.DXF">
+          <FP_PIECE_FLTSX />
+          <FP_PIECETYPE_FLTSX />
+          <FP_PIECE_FLTDX />
+          <FP_PIECETYPE_FLTDX />
+        </FP_PIECE>
+        <FP_FITTING Brand="CIBIESSE" Serie="GUARNIZIONI" Code="CMX03851" Description="Guarnizione di battuta x TT (400M)" Type="2" Multiply="2" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC. METRO LINEARE" CondParametric="0" FitPosition="-1" />
+        <FP_FITTING Brand="CIBIESSE" Serie="GUARNIZIONI" Code="UP5" Description="Guarnizione x Vetro da 5mm (150m) COMPLASTEX" Type="2" Multiply="1" RefDim="0" CalcDim="3" SXx100="9000" DXx100="9000" Direction="0" ApplyFrom="0" SaleUnit="1" Category="ACC. METRO LINEARE" CondParametric="0" FitPosition="-1" />
+        <FP_NODE ElementType="-1" Code="5" formula_insert="" />
+      </FP_NODE>
+    </FP_NODE>
+  </FP_NODE>
+  <picture><![CDATA[Qk0=]]></picture>
+  
+</FP_TREE>

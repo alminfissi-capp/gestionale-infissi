@@ -6,6 +6,7 @@ import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { TABELLE_SYNC, aBlocchi, confrontaRighe, impronta, spiegaErroreMysql, verificaSorgente } from '../../lib/fppro/sync-tabelle.ts'
 import type { Riga, RigaEsistente, RigaFp, TabellaSync } from '../../lib/fppro/sync-tabelle.ts'
 import { log } from './log.ts'
+import { sincronizzaStrutture } from './sincronizza-strutture.ts'
 
 const BLOCCO = 500
 // Non oltre il "Max rows" di PostgREST (1000), altrimenti le pagine tornano troncate.
@@ -27,6 +28,7 @@ export async function sincronizza(
   db: Pool,
   supabase: SupabaseClient,
   orgId: string,
+  cartellaStrutture: string,
 ): Promise<Record<string, number>> {
   const lette: { t: TabellaSync; righe: RigaFp[] }[] = []
   for (const t of TABELLE_SYNC) {
@@ -68,5 +70,8 @@ export async function sincronizza(
     esito[t.supabase] = righe.length
     log(`${t.supabase}: ${righe.length} righe in FP PRO, ${daScrivere.length} scritte, ${daSegnareAssenti.length} non piu' presenti`)
   }
+  const strutture = await sincronizzaStrutture(supabase, orgId, cartellaStrutture)
+  esito.fp_strutture = strutture.lette
+  esito.fp_strutture_errori = strutture.errori
   return esito
 }

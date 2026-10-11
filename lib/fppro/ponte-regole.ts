@@ -33,12 +33,12 @@ export function devoAccodareSyncGiornaliera(
 }
 
 /** Oltre questo tempo una richiesta "in corso" e' bloccata (la sync dura meno di un minuto). */
-export const TEMPO_MASSIMO_RICHIESTA_MS = 30 * 60 * 1000
+export const TEMPO_MASSIMO_RICHIESTA_MS = 90 * 60 * 1000
 
 /**
  * Una richiesta rimasta "in corso" senza che il ponte ci stia lavorando (rete caduta
  * mentre la chiudeva) bloccherebbe ogni sincronizzazione: l'indice univoco ne
- * permette una sola aperta. Dopo 30 minuti si considera bloccata.
+ * permette una sola aperta. Dopo 90 minuti si considera bloccata (la prima sync delle strutture e' lunga).
  */
 export function richiestaBloccata(iniziataAt: string | null, ora: Date): boolean {
   if (!iniziataAt) return false

@@ -12,6 +12,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cercaCatalogo, getCatalogoFpStato, richiediSincronizzazione } from '@/actions/catalogo-fp'
 import { statoPonte } from '@/lib/fppro/ponte-regole'
 import type { CatalogoFpStato, RigaCatalogo, SerieFp, TipoCatalogo } from '@/types/fppro'
+import StruttureFp from './StruttureFp'
+
+type Scheda = TipoCatalogo | 'strutture'
 
 const dataOra = new Intl.DateTimeFormat('it-IT', { dateStyle: 'short', timeStyle: 'short' })
 const quando = (iso: string | null) => (iso ? dataOra.format(new Date(iso)) : 'mai')
@@ -22,7 +25,8 @@ const ETICHETTE_STATO = {
   mai_collegato: { testo: 'Ponte mai collegato', colore: 'bg-gray-400' },
 } as const
 
-const SCHEDE: { valore: TipoCatalogo; etichetta: string }[] = [
+const SCHEDE: { valore: Scheda; etichetta: string }[] = [
+  { valore: 'strutture', etichetta: 'Strutture' },
   { valore: 'profili', etichetta: 'Profili' },
   { valore: 'accessori', etichetta: 'Accessori' },
   { valore: 'vetri', etichetta: 'Vetri' },
@@ -39,7 +43,7 @@ export default function CatalogoFpClient({ statoIniziale, serie }: Props) {
   const [stato, setStato] = useState(statoIniziale)
   const [ora, setOra] = useState(() => new Date())
   const [inviando, startInvio] = useTransition()
-  const [tipo, setTipo] = useState<TipoCatalogo>('profili')
+  const [tipo, setTipo] = useState<Scheda>('strutture')
   const [testo, setTesto] = useState('')
   const [righe, setRighe] = useState<RigaCatalogo[]>([])
   const [cercando, setCercando] = useState(false)
@@ -75,6 +79,7 @@ export default function CatalogoFpClient({ statoIniziale, serie }: Props) {
 
   // Ricerca con attesa di 300 ms dopo l'ultima lettera.
   useEffect(() => {
+    if (tipo === 'strutture') return
     let annullata = false
     const id = setTimeout(async () => {
       setCercando(true)
@@ -154,18 +159,20 @@ export default function CatalogoFpClient({ statoIniziale, serie }: Props) {
       </Card>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Tabs value={tipo} onValueChange={v => setTipo(v as TipoCatalogo)}>
+        <Tabs value={tipo} onValueChange={v => setTipo(v as Scheda)}>
           <TabsList>
             {SCHEDE.map(s => <TabsTrigger key={s.valore} value={s.valore}>{s.etichetta}</TabsTrigger>)}
           </TabsList>
         </Tabs>
-        <Input
+        {tipo !== 'strutture' && <Input
           className="sm:max-w-xs"
           placeholder="Cerca codice o descrizione"
           value={testo}
           onChange={e => setTesto(e.target.value)}
-        />
+        />}
       </div>
+
+      {tipo === 'strutture' ? <StruttureFp /> : <>
 
       <div className="rounded-md border overflow-x-auto">
         <Table>
@@ -203,6 +210,7 @@ export default function CatalogoFpClient({ statoIniziale, serie }: Props) {
       <p className="text-xs text-muted-foreground">
         Al massimo 50 risultati: scrivi qualcosa per restringere la ricerca. Serie disponibili: {serie.map(s => s.nome).join(', ') || 'nessuna'}.
       </p>
+      </>}
     </div>
   )
 }

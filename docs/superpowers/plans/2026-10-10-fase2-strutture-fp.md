@@ -1032,7 +1032,7 @@ In `ponte/crea-env.ps1`, nell'elenco `$righe` dopo `FP_MYSQL_DATABASE`:
 
 ```powershell
   # Senza barra finale: dentro le virgolette del .env \" chiuderebbe male il valore.
-  "FP_STR_PATH=`"$((Valore $righeIni 'STR_PATH').TrimEnd(''))`"",
+  "FP_STR_PATH=`"$((Valore $righeIni 'STR_PATH').TrimEnd('\'))`"",
 ```
 
 In `ponte/installa.ps1`, nella copia dei file di `lib`:

@@ -7,7 +7,8 @@ import { selectAll } from '@/lib/supabase/paginate'
 import { pulisciRicerca, rigaAccessorio, rigaColore, rigaProfilo, rigaVetro } from '@/lib/fppro/catalogo'
 import {
   TABELLE_CONTEGGIO,
-  type CatalogoFpStato, type RichiestaPonte, type RigaCatalogo, type SerieFp, type TabellaConteggio, type TipoCatalogo,
+  type CatalogoFpStato, type FiltriStrutture, type RichiestaPonte, type RigaCatalogo, type SerieFp,
+  type StrutturaFpDettaglio, type StrutturaFpRiga, type TabellaConteggio, type TipoCatalogo,
 } from '@/types/fppro'
 
 const CAMPI_RICHIESTA = 'id, tipo, stato, automatica, created_at, iniziata_at, finita_at, errore, esito'
@@ -148,4 +149,69 @@ async function cerca(tipo: TipoCatalogo, testo: string): Promise<RigaCatalogo[]>
   const { data, error } = await query
   if (error) throw new Error(error.message)
   return (data ?? []).map(rigaColore)
+}
+
+const CAMPI_STRUTTURA = 'id, percorso, cartella, nome, codice, descrizione, serie, l_nominale, h_nominale, immagine, errore'
+const LIMITE_STRUTTURE = 60
+
+type RigaStrutturaDb = Omit<StrutturaFpRiga, 'immagineUrl'> & { immagine: string | null }
+
+async function conImmagini(righe: RigaStrutturaDb[]): Promise<StrutturaFpRiga[]> {
+  const supabase = await createClient()
+  const percorsi = righe.map(r => r.immagine).filter((p): p is string => p !== null)
+  const url = new Map<string, string>()
+  if (percorsi.length > 0) {
+    const { data, error } = await supabase.storage.from('fp-strutture').createSignedUrls(percorsi, 3600)
+    if (error) throw new Error(error.message)
+    for (const d of data ?? []) if (d.path && d.signedUrl) url.set(d.path, d.signedUrl)
+  }
+  return righe.map(({ immagine, ...r }) => ({ ...r, immagineUrl: immagine ? url.get(immagine) ?? null : null }))
+}
+
+export async function getFiltriStrutture(): Promise<FiltriStrutture> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const [serie, cartelle] = await Promise.all([
+    supabase.from('fp_strutture_serie').select('serie, strutture').eq('organization_id', orgId).order('serie'),
+    supabase.from('fp_strutture_cartelle').select('cartella, strutture').eq('organization_id', orgId).order('cartella'),
+  ])
+  if (serie.error) throw new Error(serie.error.message)
+  if (cartelle.error) throw new Error(cartelle.error.message)
+  return { serie: serie.data ?? [], cartelle: cartelle.data ?? [] }
+}
+
+export async function cercaStrutture(
+  f: { serie: string | null; cartella: string | null; testo: string },
+): Promise<{ strutture: StrutturaFpRiga[] } | { errore: string }> {
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+    let query = supabase.from('fp_strutture').select(CAMPI_STRUTTURA)
+      .eq('organization_id', orgId).eq('presente', true).order('nome').limit(LIMITE_STRUTTURE)
+    if (f.serie) query = query.contains('serie', [f.serie])
+    if (f.cartella) query = query.eq('cartella', f.cartella)
+    const q = pulisciRicerca(f.testo)
+    if (q) query = query.or(['nome', 'codice', 'descrizione', 'percorso'].map(c => `${c}.ilike.%${q}%`).join(','))
+    const { data, error } = await query
+    if (error) return { errore: error.message }
+    return { strutture: await conImmagini((data ?? []) as RigaStrutturaDb[]) }
+  } catch (e) {
+    return { errore: e instanceof Error ? e.message : 'Ricerca non riuscita' }
+  }
+}
+
+export async function getStrutturaFp(id: string): Promise<{ struttura: StrutturaFpDettaglio } | { errore: string }> {
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+    const { data, error } = await supabase.from('fp_strutture')
+      .select(`${CAMPI_STRUTTURA}, albero, poligoni`)
+      .eq('organization_id', orgId).eq('id', id).single()
+    if (error) return { errore: error.message }
+    const { albero, poligoni, ...riga } = data as RigaStrutturaDb & Pick<StrutturaFpDettaglio, 'albero' | 'poligoni'>
+    const [conUrl] = await conImmagini([riga])
+    return { struttura: { ...conUrl, albero, poligoni } }
+  } catch (e) {
+    return { errore: e instanceof Error ? e.message : 'Struttura non trovata' }
+  }
 }

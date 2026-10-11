@@ -6,6 +6,7 @@ export interface ConfigPonte {
   orgId: string
   mysql: { host: string; port: number; user: string; password: string; database: string }
   logDir: string
+  strPath: string
 }
 
 export function leggiConfig(): ConfigPonte {
@@ -27,6 +28,7 @@ export function leggiConfig(): ConfigPonte {
       database: v('FP_MYSQL_DATABASE'),
     },
     logDir: v('PONTE_LOG_DIR'),
+    strPath: v('FP_STR_PATH'),
   }
   if (mancanti.length > 0) throw new Error(`Mancano nel file .env del ponte: ${mancanti.join(', ')}`)
   return cfg
