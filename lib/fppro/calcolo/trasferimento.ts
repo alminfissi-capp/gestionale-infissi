@@ -36,6 +36,18 @@ export function clienteEsistente<T extends Snapshot & { id: string }>(snap: Snap
 }
 
 /**
+ * Cliente del preventivo nato da un rilievo: quello scelto dall'anagrafica in cantiere
+ * (clienteId), se esiste ancora; altrimenti la ricerca per nome di clienteEsistente.
+ */
+export function clienteDelRilievo<T extends Snapshot & { id: string }>(
+  snap: Snapshot & { clienteId?: string | null },
+  clienti: T[],
+): string | null {
+  if (snap.clienteId && clienti.some(c => c.id === snap.clienteId)) return snap.clienteId
+  return clienteEsistente(snap, clienti)
+}
+
+/**
  * Perche' il calcolo salvato non va piu' bene per il preventivo (null = va bene):
  * voci cambiate dal telefono o corrette in ufficio dopo il calcolo, voci aggiunte o eliminate.
  */

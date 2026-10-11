@@ -10,4 +10,6 @@ export interface ClienteSnapshotRilievo {
   email: string | null
   indirizzo: string | null
   cantiere: string | null
+  /** Scheda dell'anagrafica scelta in cantiere: il trasferimento in Preventivi usa questa */
+  clienteId?: string | null
 }

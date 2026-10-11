@@ -9,7 +9,7 @@ import { requireAccesso } from '@/lib/permessi'
 import { selectAll } from '@/lib/supabase/paginate'
 import { regoleDaElenchi, type RegoleAccessori, type RigaKitCatalogo } from '@/lib/fppro/calcolo/accessori'
 import { listinoDaRighe, type RigheListino } from '@/lib/fppro/calcolo/listino'
-import { clienteEsistente, motivoCalcoloSuperato, motivoVoceNonCalcolabile } from '@/lib/fppro/calcolo/trasferimento'
+import { clienteDelRilievo, motivoCalcoloSuperato, motivoVoceNonCalcolabile } from '@/lib/fppro/calcolo/trasferimento'
 import { calcolaVoce, codiceDaDxf, type CalcoloVoce, type InputVoce, type ListinoCalcolo } from '@/lib/fppro/calcolo/voce'
 import { fattoreBarreCommessa } from '@/lib/fppro/calcolo/commessa'
 import type { CorrezioniVoce, OreVoce, ProfiloCalcolo } from '@/lib/fppro/calcolo/tipi'
@@ -368,11 +368,14 @@ export async function trasferisciInPreventivi(rilievoId: string): Promise<{ prev
     if (!clienteId) {
       const clienti = await selectAll<{ id: string; tipo: 'privato' | 'azienda' | null; ragione_sociale: string | null; nome: string | null; cognome: string | null; telefono: string | null }>((a, b) =>
         supabase.from('clienti').select('id, tipo, ragione_sociale, nome, cognome, telefono').eq('organization_id', orgId).order('id').range(a, b))
-      clienteId = clienteEsistente(cliente, clienti)
+      clienteId = clienteDelRilievo(cliente, clienti)
     }
+    // Il legame con l'anagrafica va in cliente_id, non nella fotografia del cliente.
+    const clienteSnapshot = { ...cliente, cf_piva: null }
+    delete clienteSnapshot.clienteId
     const { id } = await createPreventivo({
       clienteId,
-      clienteSnapshot: { ...cliente, cf_piva: null },
+      clienteSnapshot,
       numero: '',
       articoli,
       scontoGlobale: 0,

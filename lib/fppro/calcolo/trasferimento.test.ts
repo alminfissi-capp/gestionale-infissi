@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clienteEsistente, motivoCalcoloSuperato, motivoVoceNonCalcolabile } from './trasferimento'
+import { clienteDelRilievo, clienteEsistente, motivoCalcoloSuperato, motivoVoceNonCalcolabile } from './trasferimento'
 
 describe('clienteEsistente', () => {
   const clienti = [
@@ -74,5 +74,22 @@ describe('motivoVoceNonCalcolabile', () => {
   })
   it('misure mancanti', () => {
     expect(motivoVoceNonCalcolabile(struttura, { larghezza: null, altezza: 1200 })).toMatch(/misure/)
+  })
+})
+
+describe('clienteDelRilievo', () => {
+  const clienti = [
+    { id: 'a', tipo: 'privato' as const, nome: 'Giuseppe', cognome: 'Palazzotto', telefono: '+39 335205800', ragione_sociale: null },
+    { id: 'b', tipo: 'privato' as const, nome: 'Giuseppe', cognome: 'Palazzotto', telefono: null, ragione_sociale: null },
+  ]
+  const base = { tipo: 'privato' as const, ragione_sociale: null, nome: null, cognome: null, telefono: null }
+  it('cliente scelto dall\'anagrafica in cantiere: proprio quello, anche tra omonimi', () => {
+    expect(clienteDelRilievo({ ...base, nome: 'Giuseppe', cognome: 'Palazzotto', clienteId: 'b' }, clienti)).toBe('b')
+  })
+  it('cliente scelto ma poi eliminato dall\'anagrafica: si cerca per nome', () => {
+    expect(clienteDelRilievo({ ...base, nome: 'Giuseppe', cognome: 'Palazzotto', telefono: '335205800', clienteId: 'x' }, clienti)).toBe('a')
+  })
+  it('senza cliente scelto: come clienteEsistente', () => {
+    expect(clienteDelRilievo({ ...base, cognome: 'Giuseppe Palazzotto' }, clienti)).toBeNull()
   })
 })
