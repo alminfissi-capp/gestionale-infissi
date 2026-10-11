@@ -1,5 +1,5 @@
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist'
-import { Serwist, NetworkOnly } from 'serwist'
+import { Serwist, NetworkFirst, NetworkOnly } from 'serwist'
 import { defaultCache } from '@serwist/next/worker'
 import { db } from '@/lib/db'
 
@@ -20,6 +20,12 @@ const serwist = new Serwist({
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: [
+    // Il rilievo in cantiere deve riaprirsi anche senza campo: si usa l'ultima
+    // versione scaricata della pagina (il contenuto sta in IndexedDB).
+    {
+      matcher: ({ request, url }) => request.mode === 'navigate' && url.pathname === '/rilievo/cantiere',
+      handler: new NetworkFirst({ cacheName: 'pagina-cantiere', networkTimeoutSeconds: 4 }),
+    },
     // Le pagine HTML (navigate) non vengono mai messe in cache — sempre dati freschi dal server
     {
       matcher: ({ request }) => request.mode === 'navigate',

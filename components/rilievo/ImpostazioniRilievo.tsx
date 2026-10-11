@@ -7,16 +7,14 @@ import { ChevronLeft, Plus, Pencil, Trash2, Eye, EyeOff, Shapes } from 'lucide-r
 import { Button } from '@/components/ui/button'
 import DialogForma from '@/components/rilievo/DialogForma'
 import DialogFormeStandard from '@/components/rilievo/DialogFormeStandard'
-import ImpostazioniOpzioniVeloce from '@/components/rilievo/ImpostazioniOpzioniVeloce'
+import ListeBreviFp from '@/components/rilievo-fp/ListeBreviFp'
 import type { FormaSerramentoDb } from '@/types/rilievo'
 import { shapeToPath } from '@/types/rilievo'
 import { deleteForma, toggleFormaAttiva } from '@/actions/rilievo'
 import { toast } from 'sonner'
-import type { RilievoOpzione } from '@/types/rilievo-veloce'
 
 interface Props {
   forme: FormaSerramentoDb[]
-  opzioniVeloce: RilievoOpzione[]
 }
 
 function ShapePreview({ forma }: { forma: FormaSerramentoDb }) {
@@ -35,14 +33,14 @@ function ShapePreview({ forma }: { forma: FormaSerramentoDb }) {
   )
 }
 
-export default function ImpostazioniRilievo({ forme: formeInit, opzioniVeloce }: Props) {
+export default function ImpostazioniRilievo({ forme: formeInit }: Props) {
   const router = useRouter()
   const [forme, setForme] = useState(formeInit)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<FormaSerramentoDb | undefined>()
   const [isPending, startTransition] = useTransition()
   const [standardOpen, setStandardOpen] = useState(false)
-  const [tab, setTab] = useState<'forme' | 'veloce'>('forme')
+  const [tab, setTab] = useState<'forme' | 'liste'>('forme')
 
   const openNew = () => { setEditing(undefined); setDialogOpen(true) }
   const openEdit = (f: FormaSerramentoDb) => { setEditing(f); setDialogOpen(true) }
@@ -83,7 +81,7 @@ export default function ImpostazioniRilievo({ forme: formeInit, opzioniVeloce }:
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-gray-900">Impostazioni rilievo</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Forme serramento e opzioni rilievo veloce</p>
+            <p className="text-sm text-gray-500 mt-0.5">Forme serramento e liste brevi di colori e vetri</p>
           </div>
           {tab === 'forme' && (
             <div className="flex gap-2">
@@ -105,17 +103,17 @@ export default function ImpostazioniRilievo({ forme: formeInit, opzioniVeloce }:
             Forme serramento
           </button>
           <button
-            onClick={() => setTab('veloce')}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${tab === 'veloce' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+            onClick={() => setTab('liste')}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${tab === 'liste' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
           >
-            Rilievo veloce
+            Colori e vetri
           </button>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        {tab === 'veloce' ? (
-          <ImpostazioniOpzioniVeloce opzioni={opzioniVeloce} />
+        {tab === 'liste' ? (
+          <ListeBreviFp />
         ) : null}
         {tab === 'forme' && (forme.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 select-none px-8">

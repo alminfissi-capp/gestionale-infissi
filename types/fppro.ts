@@ -79,6 +79,8 @@ export interface StrutturaFpDettaglio extends StrutturaFpRiga {
   albero: NodoStruttura[]
   /** Poligoni piatti [x1, y1, x2, y2, ...] alle misure nominali */
   poligoni: number[][]
+  /** Segnata con la stella (preferita nel rilievo in cantiere) */
+  preferita: boolean
 }
 
 export interface FiltriStrutture {

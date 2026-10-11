@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Star } from 'lucide-react'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
+import { impostaPreferenzaFp } from '@/actions/rilievo-fp'
 import { getStrutturaFp } from '@/actions/catalogo-fp'
 import { accessoriStruttura, regolaQuantita, riassuntoPezzi, vistaPoligoni } from '@/lib/fppro/strutture'
 import type { StrutturaFpDettaglio } from '@/types/fppro'
@@ -31,6 +34,7 @@ export default function DettaglioStrutturaFp({ id, onChiudi }: Props) {
     return () => { annullato = true }
   }, [id])
 
+  const [preferiteCambiate, setPreferiteCambiate] = useState<Record<string, boolean>>({})
   const corrente = risultato && risultato.id === id ? risultato : null
   const s = corrente?.struttura ?? null
   const errore = corrente?.errore ?? null
@@ -42,7 +46,26 @@ export default function DettaglioStrutturaFp({ id, onChiudi }: Props) {
     <Dialog open={id !== null} onOpenChange={aperto => { if (!aperto) onChiudi() }}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{s?.nome ?? 'Struttura'}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {s?.nome ?? 'Struttura'}
+            {s && (() => {
+              const preferita = preferiteCambiate[s.id] ?? s.preferita
+              return (
+                <button
+                  type="button"
+                  className="p-1"
+                  aria-label={preferita ? 'Togli dalle preferite' : 'Aggiungi alle preferite'}
+                  onClick={async () => {
+                    const r = await impostaPreferenzaFp('struttura', s.id, !preferita)
+                    if ('errore' in r) toast.error(r.errore)
+                    else setPreferiteCambiate(p => ({ ...p, [s.id]: !preferita }))
+                  }}
+                >
+                  <Star className={`size-5 ${preferita ? 'fill-amber-400 text-amber-500' : 'text-muted-foreground'}`} />
+                </button>
+              )
+            })()}
+          </DialogTitle>
         </DialogHeader>
         {errore && <p className="text-sm text-destructive">{errore}</p>}
         {!s && !errore && <p className="text-sm text-muted-foreground">Caricamento…</p>}

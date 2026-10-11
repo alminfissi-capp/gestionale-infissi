@@ -5,10 +5,10 @@ import { PlusCircle, Database, Zap } from 'lucide-react'
 
 const VOCI = [
   {
-    href: '/rilievo/veloce',
+    href: '/rilievo/cantiere',
     icon: Zap,
-    titolo: 'Rilievo veloce',
-    descrizione: 'Rileva rapidamente misure e specifiche dei serramenti',
+    titolo: 'Rilievo in cantiere',
+    descrizione: 'Serie e strutture di FP PRO, funziona anche senza rete',
     color: 'text-orange-600',
     bg: 'bg-orange-50 hover:bg-orange-100 border-orange-200',
   },
@@ -24,7 +24,7 @@ const VOCI = [
     href: '/rilievo/impostazioni',
     icon: Database,
     titolo: 'Database e impostazioni',
-    descrizione: 'Configura tipologie di infissi, materiali e valori predefiniti',
+    descrizione: 'Forme serramento e liste brevi di colori e vetri',
     color: 'text-gray-600',
     bg: 'bg-gray-50 hover:bg-gray-100 border-gray-200',
   },
