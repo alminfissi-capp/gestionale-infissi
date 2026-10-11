@@ -118,3 +118,16 @@ export function problemiVoce(v: VoceFpDati, divisioni: Divisione[]): string[] {
   }
   return problemi
 }
+
+/**
+ * Albero senza accessori (ne' sciolti ne' dentro i kit): e' quasi tutto il peso delle
+ * strutture e al rilievo non serve. I costi (fase 4) leggono l'albero completo dal database.
+ */
+export function alberoLeggero(albero: NodoStruttura[]): NodoStruttura[] {
+  return albero.map(n => ({
+    ...n,
+    accessori: [],
+    kit: n.kit.map(k => ({ ...k, accessori: [] })),
+    figli: alberoLeggero(n.figli),
+  }))
+}

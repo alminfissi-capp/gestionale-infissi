@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { XMLParser } from 'fast-xml-parser'
 import { OPZIONI_XML, strutturaDaXml } from './strutture-xml'
 import {
-  campiRiempimento, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
+  alberoLeggero, campiRiempimento, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
 } from './rilievo-fp'
 
 const leggi = (nome: string) => strutturaDaXml(new XMLParser(OPZIONI_XML).parse(
@@ -79,5 +79,17 @@ describe('nuovaVoceFp e problemiVoce', () => {
     const div = divisioniStruttura(al50.albero)
     expect(problemiVoce({ ...voce, larghezza: 2400, altezza: 2800, quote: { 3: 3000, 4: 1200 } }, div))
       .toEqual(['Traverso 1: quota fuori dal telaio'])
+  })
+})
+
+describe('alberoLeggero', () => {
+  it('toglie accessori e accessori dei kit, tiene tutto il resto', () => {
+    const leggero = alberoLeggero(al50.albero)
+    const tutti = (n: typeof leggero): typeof leggero => n.flatMap(x => [x, ...tutti(x.figli)])
+    expect(tutti(leggero).every(n => n.accessori.length === 0 && n.kit.every(k => k.accessori.length === 0))).toBe(true)
+    expect(divisioniStruttura(leggero)).toEqual(divisioniStruttura(al50.albero))
+    expect(kitOpzionali(leggero)).toEqual(kitOpzionali(al50.albero))
+    expect(campiRiempimento(leggero)).toEqual(campiRiempimento(al50.albero))
+    expect(JSON.stringify(leggero).length).toBeLessThan(JSON.stringify(al50.albero).length)
   })
 })
