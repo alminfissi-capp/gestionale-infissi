@@ -1,5 +1,5 @@
 /**
- * BMP non compresso (24 o 32 bit) -> pixel RGBA dall'alto in basso.
+ * BMP non compresso (16 bit RGB555, 24 o 32 bit) -> pixel RGBA dall'alto in basso.
  * Usato dal ponte (Node, senza build) per convertire l'immagine che FP PRO salva
  * dentro ogni .STR (300x300, 32 bit, alfa a 0): nessun import.
  */
@@ -11,7 +11,7 @@ export function bmpInRgba(b: Uint8Array): { larghezza: number; altezza: number; 
   const altezzaGrezza = v.getInt32(22, true)
   const bpp = v.getUint16(28, true)
   const compressione = v.getUint32(30, true)
-  if (compressione !== 0 || (bpp !== 24 && bpp !== 32)) {
+  if (compressione !== 0 || (bpp !== 16 && bpp !== 24 && bpp !== 32)) {
     throw new Error(`BMP non supportato: ${bpp} bit, compressione ${compressione}`)
   }
   const altezza = Math.abs(altezzaGrezza)
@@ -26,9 +26,17 @@ export function bmpInRgba(b: Uint8Array): { larghezza: number; altezza: number; 
     for (let x = 0; x < larghezza; x++) {
       const s = inizio + riga * passo + x * byte
       const d = (y * larghezza + x) * 4
-      rgba[d] = b[s + 2]
-      rgba[d + 1] = b[s + 1]
-      rgba[d + 2] = b[s]
+      if (bpp === 16) {
+        // RGB555 (strutture salvate con versioni vecchie di FP PRO): 5 bit per canale
+        const p = b[s] | (b[s + 1] << 8)
+        rgba[d] = Math.round((((p >> 10) & 31) * 255) / 31)
+        rgba[d + 1] = Math.round((((p >> 5) & 31) * 255) / 31)
+        rgba[d + 2] = Math.round(((p & 31) * 255) / 31)
+      } else {
+        rgba[d] = b[s + 2]
+        rgba[d + 1] = b[s + 1]
+        rgba[d + 2] = b[s]
+      }
       rgba[d + 3] = 255
     }
   }

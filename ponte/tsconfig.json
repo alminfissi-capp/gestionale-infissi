@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "../lib/fppro/sync-tabelle.ts", "../lib/fppro/ponte-regole.ts"]
+  "include": ["src/**/*.ts", "../lib/fppro/sync-tabelle.ts", "../lib/fppro/ponte-regole.ts", "../lib/fppro/strutture-xml.ts", "../lib/fppro/bmp.ts"]
 }

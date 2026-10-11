@@ -56,3 +56,23 @@ describe('bmpInRgba', () => {
     expect(() => bmpInRgba(b)).toThrow(/non supportato/)
   })
 })
+
+describe('bmpInRgba 16 bit', () => {
+  it('RGB555 (strutture vecchie di FP PRO): 7fff = bianco, 7c00 = rosso, 001f = blu', () => {
+    // 3 pixel x 1 riga = 6 byte, allineati a 8
+    const b = new Uint8Array(54 + 8)
+    const v = new DataView(b.buffer)
+    b[0] = 0x42; b[1] = 0x4d
+    v.setUint32(10, 54, true)
+    v.setUint32(14, 40, true)
+    v.setInt32(18, 3, true)
+    v.setInt32(22, 1, true)
+    v.setUint16(26, 1, true)
+    v.setUint16(28, 16, true)
+    v.setUint16(54, 0x7fff, true)
+    v.setUint16(56, 0x7c00, true)
+    v.setUint16(58, 0x001f, true)
+    const r = bmpInRgba(b)
+    expect(Array.from(r.rgba)).toEqual([255, 255, 255, 255, 255, 0, 0, 255, 0, 0, 255, 255])
+  })
+})

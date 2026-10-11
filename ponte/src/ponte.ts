@@ -8,10 +8,10 @@ import { leggiConfig } from './config.ts'
 import { impostaLog, log } from './log.ts'
 import { sincronizza } from './sincronizza.ts'
 
-const VERSIONE = '1.1.0'
+const VERSIONE = '1.2.0'
 const GIRO_MS = 30_000
-// Una sync dura meno di un minuto: oltre 20 minuti e' appesa (query o rete senza risposta).
-const SYNC_MAX_MS = 20 * 60 * 1000
+// La prima sync delle strutture (4.661 file) e' lunga: oltre 60 minuti e' appesa.
+const SYNC_MAX_MS = 60 * 60 * 1000
 
 const cfg = leggiConfig()
 impostaLog(cfg.logDir)
@@ -82,8 +82,8 @@ async function eseguiProssima(): Promise<void> {
   try {
     if (prossima.tipo !== 'sincronizza') throw new Error(`Tipo di richiesta sconosciuto: ${prossima.tipo}`)
     const esito = await conTempoMassimo(
-      sincronizza(db, supabase, cfg.orgId), SYNC_MAX_MS,
-      'Sincronizzazione bloccata da oltre 20 minuti: interrotta. Riprova.',
+      sincronizza(db, supabase, cfg.orgId, cfg.strPath), SYNC_MAX_MS,
+      'Sincronizzazione bloccata da oltre 60 minuti: interrotta. Riprova.',
     )
     const fine = new Date().toISOString()
     chiusuraInSospeso = { id: prossima.id, valori: { stato: 'completata', finita_at: fine, esito }, ultimaSync: { ultima_sync_at: fine, ultima_sync_esito: esito } }
@@ -132,7 +132,7 @@ async function sbloccaRichieste(ora: Date): Promise<void> {
 
 async function main(): Promise<void> {
   if (process.argv.includes('--una-volta')) {
-    const esito = await sincronizza(db, supabase, cfg.orgId)
+    const esito = await sincronizza(db, supabase, cfg.orgId, cfg.strPath)
     console.log(JSON.stringify(esito, null, 2))
     await db.end()
     return

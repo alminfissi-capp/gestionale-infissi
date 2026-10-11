@@ -29,6 +29,8 @@ $righe = @(
   "FP_MYSQL_USER=`"$(Valore $righeIni 'USER')`"",
   "FP_MYSQL_PASSWORD=`"$(Valore $righeIni 'PASSWORD')`"",
   "FP_MYSQL_DATABASE=`"$(Valore $righeIni 'DATABASE')`"",
+  # Senza barra finale: dentro le virgolette del .env \" chiuderebbe male il valore.
+  "FP_STR_PATH=`"$((Valore $righeIni 'STR_PATH').TrimEnd('\'))`"",
   "PONTE_LOG_DIR=`"$LogDir`""
 )
 Set-Content -Path $Uscita -Value $righe -Encoding ascii
