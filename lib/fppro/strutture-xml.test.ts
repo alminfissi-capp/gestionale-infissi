@@ -97,3 +97,13 @@ describe('file minimi o rovinati', () => {
     expect(s.serie).toEqual(['ED_ES40'])
   })
 })
+
+describe('caratteri nulli', () => {
+  it('il carattere nullo (Postgres lo rifiuta) viene tolto', () => {
+    const b64 = btoa('Porta 2 ante\u0000')
+    const s = strutturaDaXml(new XMLParser(OPZIONI_XML).parse(
+      `<FP_TREE NameStr="P2A"><FP_DESCRIPTION DescrB64="DESCRIPTION IS B64 CODED"><![CDATA[${b64}]]></FP_DESCRIPTION></FP_TREE>`,
+    ))
+    expect(s.descrizione).toBe('Porta 2 ante')
+  })
+})

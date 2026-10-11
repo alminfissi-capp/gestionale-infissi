@@ -17,6 +17,7 @@ const BLOCCO_RIGHE = 25
 const BUCKET = 'fp-strutture'
 
 interface Esistente {
+  id: string
   percorso: string
   file_mtime: string
   file_size: number
@@ -28,7 +29,7 @@ async function leggiEsistenti(supabase: SupabaseClient, orgId: string): Promise<
   const mappa = new Map<string, Esistente>()
   for (let da = 0; ; da += PAGINA) {
     const { data, error } = await supabase
-      .from('fp_strutture').select('percorso, file_mtime, file_size, presente, errore')
+      .from('fp_strutture').select('id, percorso, file_mtime, file_size, presente, errore')
       .eq('organization_id', orgId).order('percorso').range(da, da + PAGINA - 1)
     if (error) throw new Error(`fp_strutture: ${error.message}`)
     for (const r of data as Esistente[]) mappa.set(r.percorso, r)
@@ -70,7 +71,14 @@ export async function sincronizzaStrutture(
     const percorso = voce.split(sep).join('/')
     visti.add(percorso)
     const pieno = join(cartella, voce)
-    const info = await stat(pieno)
+    let info: Awaited<ReturnType<typeof stat>>
+    try {
+      info = await stat(pieno)
+    } catch (e) {
+      // Cancellato o rinominato mentre leggevamo la cartella: lo vedra' la prossima sync.
+      log(`File non raggiungibile ${percorso}: ${e instanceof Error ? e.message : String(e)}`)
+      continue
+    }
     const mtime = info.mtime.toISOString()
     const prima = esistenti.get(percorso)
     // I file che avevano dato errore si rileggono sempre: sono pochi e il ponte puo' essere migliorato nel frattempo.
@@ -119,15 +127,16 @@ export async function sincronizzaStrutture(
     }
 
     scritte++
-    if (daScrivere.length >= BLOCCO_RIGHE) await scrivi(supabase, daScrivere.splice(0))
+    if (daScrivere.length >= BLOCCO_RIGHE) errori += await scrivi(supabase, daScrivere.splice(0))
   }
-  await scrivi(supabase, daScrivere.splice(0))
+  errori += await scrivi(supabase, daScrivere.splice(0))
 
   // Non si cancella: rilievi e preventivi della fase 3 punteranno a queste righe.
-  const assenti = [...esistenti.values()].filter(e => e.presente && !visti.has(e.percorso)).map(e => e.percorso)
+  // Per id e non per percorso: 200 percorsi con spazi e accenti superano la lunghezza massima dell'URL.
+  const assenti = [...esistenti.values()].filter(e => e.presente && !visti.has(e.percorso)).map(e => e.id)
   for (const blocco of aBlocchi(assenti, 200)) {
     const { error } = await supabase.from('fp_strutture').update({ presente: false, sincronizzato_at: ora })
-      .eq('organization_id', orgId).in('percorso', blocco)
+      .eq('organization_id', orgId).in('id', blocco)
     if (error) throw new Error(`fp_strutture: ${error.message}`)
   }
 
@@ -135,8 +144,28 @@ export async function sincronizzaStrutture(
   return { lette: voci.length, scritte, errori, assenti: assenti.length }
 }
 
-async function scrivi(supabase: SupabaseClient, righe: Record<string, unknown>[]): Promise<void> {
-  if (righe.length === 0) return
-  const { error } = await supabase.from('fp_strutture').upsert(righe, { onConflict: 'organization_id,percorso' })
-  if (error) throw new Error(`fp_strutture: ${error.message}`)
+/**
+ * Scrive un blocco di righe. Se il database ne rifiuta una, il blocco intero fallisce:
+ * si riprova riga per riga e quella rifiutata si salva come errore, cosi' un solo file
+ * strano non blocca tutte le sincronizzazioni future. Restituisce le righe declassate.
+ */
+async function scrivi(supabase: SupabaseClient, righe: Record<string, unknown>[]): Promise<number> {
+  if (righe.length === 0) return 0
+  const upsert = (r: Record<string, unknown>[]) =>
+    supabase.from('fp_strutture').upsert(r, { onConflict: 'organization_id,percorso' })
+  const { error } = await upsert(righe)
+  if (!error) return 0
+  let declassate = 0
+  for (const riga of righe) {
+    const { error: e1 } = await upsert([riga])
+    if (!e1) continue
+    declassate++
+    log(`Struttura rifiutata dal database ${String(riga.percorso)}: ${e1.message}`)
+    const { error: e2 } = await upsert([{
+      ...riga, codice: null, descrizione: null, serie: [], l_nominale: null, h_nominale: null,
+      albero: [], poligoni: [], immagine: null, errore: `rifiutata dal database: ${e1.message}`,
+    }])
+    if (e2) throw new Error(`fp_strutture: ${e2.message}`)
+  }
+  return declassate
 }

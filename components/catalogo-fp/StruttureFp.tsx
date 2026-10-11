@@ -46,20 +46,20 @@ export default function StruttureFp() {
     <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row">
         <Select value={serie} onValueChange={v => cambia(() => setSerie(v))}>
-          <SelectTrigger className="sm:w-56"><SelectValue placeholder="Serie" /></SelectTrigger>
+          <SelectTrigger className="sm:w-56" aria-label="Serie"><SelectValue placeholder="Serie" /></SelectTrigger>
           <SelectContent>
             <SelectItem value={TUTTE}>Tutte le serie</SelectItem>
             {filtri.serie.map(s => <SelectItem key={s.serie} value={s.serie}>{s.serie} ({s.strutture})</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={cartella} onValueChange={v => cambia(() => setCartella(v))}>
-          <SelectTrigger className="sm:w-56"><SelectValue placeholder="Cartella" /></SelectTrigger>
+          <SelectTrigger className="sm:w-56" aria-label="Cartella"><SelectValue placeholder="Cartella" /></SelectTrigger>
           <SelectContent>
             <SelectItem value={TUTTE}>Tutte le cartelle</SelectItem>
             {filtri.cartelle.map(c => <SelectItem key={c.cartella} value={c.cartella}>{c.cartella} ({c.strutture})</SelectItem>)}
           </SelectContent>
         </Select>
-        <Input className="sm:max-w-xs" placeholder="Cerca nome o codice" value={testo} onChange={e => cambia(() => setTesto(e.target.value))} />
+        <Input className="sm:max-w-xs" aria-label="Cerca struttura" placeholder="Cerca nome o codice" value={testo} onChange={e => cambia(() => setTesto(e.target.value))} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">

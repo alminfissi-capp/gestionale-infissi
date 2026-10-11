@@ -97,7 +97,8 @@ const ogg = (v: unknown): Ogg => (v !== null && typeof v === 'object' && !Array.
 const lista = (v: unknown): Ogg[] => (Array.isArray(v) ? v.map(ogg) : v === undefined || v === '' ? [] : [ogg(v)])
 const testo = (v: unknown): string | null => {
   if (v === undefined || v === null) return null
-  const s = String(v).trim()
+  // Postgres rifiuta il carattere nullo (U+0000) in text e jsonb: uno solo bloccherebbe la sync.
+  const s = String(v).replace(/\u0000/g, '').trim()
   return s === '' ? null : s
 }
 const num = (v: unknown): number | null => {

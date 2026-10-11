@@ -62,7 +62,15 @@ async function accodaGiornaliera(ora: Date): Promise<void> {
   log('Accodata la sincronizzazione giornaliera')
 }
 
+/**
+ * Sync ancora in esecuzione. Il tempo massimo chiude la richiesta ma non ferma il
+ * lavoro gia' partito: finche' questo non e' finito non se ne avvia un'altra, per non
+ * avere due sincronizzazioni che scrivono insieme.
+ */
+let syncInCorso: Promise<unknown> | null = null
+
 async function eseguiProssima(): Promise<void> {
+  if (syncInCorso) return
   const { data: prossima, error } = await supabase
     .from('fp_ponte_richieste').select('id, tipo')
     .eq('organization_id', cfg.orgId).eq('stato', 'in_attesa')
@@ -81,8 +89,11 @@ async function eseguiProssima(): Promise<void> {
   log(`Richiesta ${prossima.id} (${prossima.tipo}) iniziata`)
   try {
     if (prossima.tipo !== 'sincronizza') throw new Error(`Tipo di richiesta sconosciuto: ${prossima.tipo}`)
+    const lavoro = sincronizza(db, supabase, cfg.orgId, cfg.strPath)
+    syncInCorso = lavoro
+    lavoro.catch(() => {}).finally(() => { syncInCorso = null })
     const esito = await conTempoMassimo(
-      sincronizza(db, supabase, cfg.orgId, cfg.strPath), SYNC_MAX_MS,
+      lavoro, SYNC_MAX_MS,
       'Sincronizzazione bloccata da oltre 60 minuti: interrotta. Riprova.',
     )
     const fine = new Date().toISOString()
@@ -114,7 +125,7 @@ async function chiudiInSospeso(): Promise<void> {
   chiusuraInSospeso = null
 }
 
-/** Richieste "in corso" da piu' di 30 minuti: il ponte non ci sta lavorando, si chiudono. */
+/** Richieste "in corso" da piu' di 90 minuti: il ponte non ci sta lavorando, si chiudono. */
 async function sbloccaRichieste(ora: Date): Promise<void> {
   const { data, error } = await supabase
     .from('fp_ponte_richieste').select('id, iniziata_at')

@@ -13,26 +13,27 @@ interface Props {
 }
 
 export default function DettaglioStrutturaFp({ id, onChiudi }: Props) {
-  const [struttura, setStruttura] = useState<StrutturaFpDettaglio | null>(null)
-  const [errore, setErrore] = useState<string | null>(null)
+  // Il risultato ricorda per quale struttura e' arrivato: aprendone un'altra non si
+  // vede mai il disegno o l'errore della precedente.
+  const [risultato, setRisultato] = useState<{ id: string; struttura: StrutturaFpDettaglio | null; errore: string | null } | null>(null)
 
   useEffect(() => {
     if (!id) return
     let annullato = false
-    getStrutturaFp(id).then(r => {
-      if (annullato) return
-      if ('errore' in r) {
-        setErrore(r.errore)
-        setStruttura(null)
-      } else {
-        setErrore(null)
-        setStruttura(r.struttura)
-      }
-    })
+    getStrutturaFp(id)
+      .then(r => {
+        if (annullato) return
+        setRisultato('errore' in r ? { id, struttura: null, errore: r.errore } : { id, struttura: r.struttura, errore: null })
+      })
+      .catch(() => {
+        if (!annullato) setRisultato({ id, struttura: null, errore: 'Struttura non caricata: controlla la connessione e riprova.' })
+      })
     return () => { annullato = true }
   }, [id])
 
-  const s = struttura && struttura.id === id ? struttura : null
+  const corrente = risultato && risultato.id === id ? risultato : null
+  const s = corrente?.struttura ?? null
+  const errore = corrente?.errore ?? null
   const vista = s ? vistaPoligoni(s.poligoni) : null
   const pezzi = s ? riassuntoPezzi(s.albero) : []
   const { accessori, kit } = s ? accessoriStruttura(s.albero) : { accessori: [], kit: [] }
@@ -50,7 +51,7 @@ export default function DettaglioStrutturaFp({ id, onChiudi }: Props) {
             <div className="flex flex-wrap gap-2 text-muted-foreground">
               {s.codice && <span className="font-mono">{s.codice}</span>}
               <span>{s.percorso}</span>
-              {s.l_nominale && s.h_nominale && <span>{s.l_nominale} × {s.h_nominale} mm (misure di FP PRO)</span>}
+              {s.l_nominale !== null && s.h_nominale !== null && <span>{s.l_nominale} × {s.h_nominale} mm (misure di FP PRO)</span>}
               {s.serie.map(x => <Badge key={x} variant="secondary">{x}</Badge>)}
             </div>
             {s.errore && <p className="text-destructive">File non leggibile: {s.errore}</p>}
@@ -76,16 +77,16 @@ export default function DettaglioStrutturaFp({ id, onChiudi }: Props) {
 
             <section>
               <h3 className="font-medium mb-2">Pezzi</h3>
-              <table className="w-full text-left">
+              <div className="overflow-x-auto"><table className="w-full text-left">
                 <thead className="text-muted-foreground"><tr><th className="py-1">Ruolo</th><th>Profilo / codice</th><th>Serie</th><th className="text-right">Pz</th></tr></thead>
                 <tbody>
-                  {pezzi.map(p => (
-                    <tr key={`${p.ruolo}|${p.profilo}`} className="border-t">
+                  {pezzi.map((p, i) => (
+                    <tr key={`${p.ruolo}|${p.serie}|${p.profilo}|${i}`} className="border-t">
                       <td className="py-1">{p.ruolo}</td><td className="font-mono text-xs">{p.profilo}</td><td>{p.serie}</td><td className="text-right">{p.quantita}</td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </section>
 
             {kit.length > 0 && (
@@ -107,7 +108,7 @@ export default function DettaglioStrutturaFp({ id, onChiudi }: Props) {
             {accessori.length > 0 && (
               <section>
                 <h3 className="font-medium mb-2">Accessori</h3>
-                <table className="w-full text-left">
+                <div className="overflow-x-auto"><table className="w-full text-left">
                   <thead className="text-muted-foreground"><tr><th className="py-1">Codice</th><th>Descrizione</th><th>Quantità</th></tr></thead>
                   <tbody>
                     {accessori.map((a, i) => (
@@ -116,7 +117,7 @@ export default function DettaglioStrutturaFp({ id, onChiudi }: Props) {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               </section>
             )}
           </div>
