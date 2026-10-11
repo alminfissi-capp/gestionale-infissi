@@ -1,9 +1,6 @@
-import { getRilievi } from '@/actions/rilievo-veloce'
-import RilievoVeloceList from '@/components/rilievo/RilievoVeloceList'
+import { redirect } from 'next/navigation'
 
-export const metadata = { title: 'Rilievo Veloce' }
-
-export default async function RilievoVelocePage() {
-  const rilievi = await getRilievi()
-  return <RilievoVeloceList rilievi={rilievi} />
+// Il rilievo veloce e' diventato il rilievo in cantiere con le strutture di FP PRO.
+export default function RilievoVelocePage() {
+  redirect('/rilievo/cantiere')
 }

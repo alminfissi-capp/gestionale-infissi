@@ -13,11 +13,10 @@ export type ArticoloCosti = Pick<
   | 'costo_posa'
   | 'config_su_misura'
   | 'config_scorrevole'
-  | 'config_winconfig'
 >
 
 // Costo materiali (acq), posa e spese varie per UNITÀ di un articolo.
-// Per su_misura/scorrevole/winconfig usa la config come fonte attendibile (funziona anche
+// Per su_misura/scorrevole usa la config come fonte attendibile (funziona anche
 // su articoli già salvati); altrimenti i campi costo della riga.
 // Le spese varie (solo su_misura) sono un COSTO aggiuntivo incluso nel prezzo di vendita:
 // il form compone prezzo = prodotto + accessori + mano d'opera + spese varie + utile.
@@ -35,8 +34,6 @@ export function costiArticolo(a: ArticoloCosti): { acq: number; posa: number; sp
       posa: a.config_scorrevole.posa ?? a.costo_posa,
       spese: 0,
     }
-  if (a.tipo === 'winconfig' && a.config_winconfig)
-    return { acq: a.config_winconfig.costo_totale, posa: a.costo_posa, spese: 0 }
   return { acq: a.costo_acquisto_unitario, posa: a.costo_posa, spese: 0 }
 }
 

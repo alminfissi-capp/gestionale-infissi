@@ -231,7 +231,7 @@ async function calcolaCostiAcquistoInput(
       )
       costoUnitario = costoProdotto + costoAccessori
     } else {
-      // libera, scorrevole, su_misura, winconfig: costo già calcolato nel form
+      // libera, scorrevole, su_misura: costo già calcolato nel form
       costoUnitario = a.costo_acquisto_unitario ?? 0
     }
     totaleCostiAcquisto += costoUnitario * a.quantita
@@ -562,8 +562,8 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
   if (articoliConCosto.length > 0) {
     const { error: artErr } = await supabase.from('articoli_preventivo').insert(
       articoliConCosto.map((a, i) => {
-        const { quota_trasporto: _qt, config_scorrevole, config_su_misura, config_winconfig, ...articoloDb } = a
-        return { ...articoloDb, omaggio: a.omaggio ?? false, config_scorrevole: config_scorrevole ?? null, config_su_misura: config_su_misura ?? null, config_winconfig: config_winconfig ?? null, preventivo_id: prev.id, organization_id: orgId, ordine: i }
+        const { quota_trasporto: _qt, config_scorrevole, config_su_misura, ...articoloDb } = a
+        return { ...articoloDb, omaggio: a.omaggio ?? false, config_scorrevole: config_scorrevole ?? null, config_su_misura: config_su_misura ?? null, preventivo_id: prev.id, organization_id: orgId, ordine: i }
       })
     )
     if (artErr) {
@@ -639,8 +639,8 @@ export async function updatePreventivo(
   if (articoliConCosto.length > 0) {
     const { error: artErr } = await supabase.from('articoli_preventivo').insert(
       articoliConCosto.map((a, i) => {
-        const { quota_trasporto: _qt, config_scorrevole, config_su_misura, config_winconfig, ...articoloDb } = a
-        return { ...articoloDb, omaggio: a.omaggio ?? false, config_scorrevole: config_scorrevole ?? null, config_su_misura: config_su_misura ?? null, config_winconfig: config_winconfig ?? null, preventivo_id: id, organization_id: orgId, ordine: i }
+        const { quota_trasporto: _qt, config_scorrevole, config_su_misura, ...articoloDb } = a
+        return { ...articoloDb, omaggio: a.omaggio ?? false, config_scorrevole: config_scorrevole ?? null, config_su_misura: config_su_misura ?? null, preventivo_id: id, organization_id: orgId, ordine: i }
       })
     )
     if (artErr) throw new Error(artErr.message)
