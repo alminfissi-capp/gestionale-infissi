@@ -39,6 +39,8 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
   const [larghezza, setLarghezza] = useState(initialValues?.larghezza_mm?.toString() ?? '')
   const [altezza, setAltezza] = useState(initialValues?.altezza_mm?.toString() ?? '')
   const [finitura, setFinitura] = useState(initialValues?.finitura_nome ?? '')
+  // Le note (es. profili, colori e vetri importati da FP PRO) restano finche' non le cancella l'utente.
+  const [note, setNote] = useState(initialValues?.note ?? '')
   const [quantita, setQuantita] = useState(initialValues?.quantita?.toString() ?? '1')
   const [sconto, setSconto] = useState(initialValues?.sconto_articolo ?? 0)
   const [aliquotaIva, setAliquotaIva] = useState<number | null>(initialValues?.aliquota_iva ?? null)
@@ -141,7 +143,7 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
         finitura_aumento: 0,
         finitura_aumento_euro: 0,
         immagine_url: immagineUrl,
-        note: null,
+        note: note.trim() ? note : null,
         quantita: qty,
         prezzo_base: null,
         prezzo_unitario: prezzo,
@@ -166,6 +168,7 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
       setLarghezza('')
       setAltezza('')
       setFinitura('')
+      setNote('')
       setPrezzoUnitario('')
       setCostoAcquisto('')
       setCostoManodopera('')
@@ -226,6 +229,17 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
             placeholder="facoltativa — es. Bianco RAL 9010, Noce"
             value={finitura}
             onChange={(e) => setFinitura(e.target.value)}
+          />
+        </div>
+
+        <div className="sm:col-span-2 space-y-1.5">
+          <Label>Note</Label>
+          <textarea
+            placeholder="facoltative"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={3}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y min-h-[72px]"
           />
         </div>
 
