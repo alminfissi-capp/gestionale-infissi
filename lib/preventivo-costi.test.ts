@@ -38,7 +38,6 @@ function articoloSuMisura(over: Partial<ArticoloCosti> = {}): ArticoloCosti {
     costo_posa: 300,
     config_su_misura: configSuMisura(),
     config_scorrevole: null,
-    config_winconfig: null,
     ...over,
   }
 }
@@ -63,7 +62,6 @@ describe('costiArticolo', () => {
       costo_posa: 100,
       config_su_misura: null,
       config_scorrevole: null,
-      config_winconfig: null,
     }
     expect(costiArticolo(a)).toEqual({ acq: 500, posa: 100, spese: 0 })
   })

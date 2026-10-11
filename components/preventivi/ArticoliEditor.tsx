@@ -185,10 +185,6 @@ export default function ArticoliEditor({
       }
       return
     }
-    if (article.tipo === 'winconfig') {
-      // WinConfig articles can only be reconfigured from the rilievo page; skip edit here
-      return
-    }
     const item = findItemSel(article)
     if (!item) return
     setEditingTempId(article.tempId)
@@ -210,10 +206,6 @@ export default function ArticoliEditor({
       return
     }
     if (article.tipo === 'su_misura') {
-      onArticoliChange([...articoli, copy])
-      return
-    }
-    if (article.tipo === 'winconfig') {
       onArticoliChange([...articoli, copy])
       return
     }

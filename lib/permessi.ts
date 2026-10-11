@@ -47,7 +47,6 @@ const MODULO_HOME: Record<ModuloApp, string> = {
   listini:      '/listini',
   cataloghi:    '/cataloghi',
   rilievo:      '/rilievo',
-  winconfig:    '/winconfig',
   magazzino:    '/magazzino',
   commesse:     '/commesse',
   dipendenti:   '/dipendenti',

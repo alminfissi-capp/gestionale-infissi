@@ -578,11 +578,6 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
                               voce libera
                             </Badge>
                           )}
-                          {a.tipo === 'winconfig' && (
-                            <Badge variant="outline" className="text-[10px] text-blue-700 border-blue-300">
-                              WinConfig
-                            </Badge>
-                          )}
                         </div>
                         {a.categoria_nome && (
                           <p className="text-xs text-gray-400">{a.categoria_nome}</p>

@@ -204,14 +204,34 @@ export async function getStrutturaFp(id: string): Promise<{ struttura: Struttura
   try {
     const supabase = await createClient()
     const orgId = await getOrgId()
-    const { data, error } = await supabase.from('fp_strutture')
-      .select(`${CAMPI_STRUTTURA}, albero, poligoni`)
-      .eq('organization_id', orgId).eq('id', id).single()
+    const [{ data, error }, preferenza] = await Promise.all([
+      supabase.from('fp_strutture').select(`${CAMPI_STRUTTURA}, albero, poligoni`)
+        .eq('organization_id', orgId).eq('id', id).single(),
+      supabase.from('fp_preferenze').select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId).eq('tipo', 'struttura').eq('rif', id),
+    ])
     if (error) return { errore: error.message }
     const { albero, poligoni, ...riga } = data as RigaStrutturaDb & Pick<StrutturaFpDettaglio, 'albero' | 'poligoni'>
     const [conUrl] = await conImmagini([riga])
-    return { struttura: { ...conUrl, albero, poligoni } }
+    return { struttura: { ...conUrl, albero, poligoni, preferita: (preferenza.count ?? 0) > 0 } }
   } catch (e) {
     return { errore: e instanceof Error ? e.message : 'Struttura non trovata' }
+  }
+}
+
+export async function getElenchiBreviFp(): Promise<{ colori: { id: number; testo: string; sotto: string | null }[]; vetri: { id: number; testo: string; sotto: string | null }[] } | { errore: string }> {
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+    const [colori, vetri] = await Promise.all([
+      selectAll<{ fp_id: number; descrizione: string }>((da, a) => supabase.from('fp_colori').select('fp_id, descrizione').eq('organization_id', orgId).eq('presente', true).eq('per_profili', true).order('fp_id').range(da, a)),
+      selectAll<{ fp_id: number; codice: string; descrizione: string | null }>((da, a) => supabase.from('fp_vetri').select('fp_id, codice, descrizione').eq('organization_id', orgId).eq('presente', true).order('fp_id').range(da, a)),
+    ])
+    return {
+      colori: colori.map(c => ({ id: c.fp_id, testo: c.descrizione, sotto: null })).sort((a, b) => a.testo.localeCompare(b.testo)),
+      vetri: vetri.map(v => ({ id: v.fp_id, testo: v.codice, sotto: v.descrizione })).sort((a, b) => a.testo.localeCompare(b.testo)),
+    }
+  } catch (e) {
+    return { errore: e instanceof Error ? e.message : 'Elenchi non disponibili' }
   }
 }

@@ -132,7 +132,7 @@ export async function getPaginaContabile(commessaId: string): Promise<PaginaCont
       supabase.from('preventivi').select('id, numero, totale_articoli, spese_trasporto').in('id', prevIds),
       selectAll<ArticoloCosti & { preventivo_id: string }>((da, a) =>
         supabase.from('articoli_preventivo')
-          .select('preventivo_id, tipo, quantita, costo_acquisto_unitario, costo_posa, config_su_misura, config_scorrevole, config_winconfig')
+          .select('preventivo_id, tipo, quantita, costo_acquisto_unitario, costo_posa, config_su_misura, config_scorrevole')
           .in('preventivo_id', prevIds).order('id').range(da, a)),
     ])
     let materiali = 0, posa = 0, spese = 0, trasporto = 0
