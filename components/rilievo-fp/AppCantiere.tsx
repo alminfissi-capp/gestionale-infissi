@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useCatalogoLocale } from '@/hooks/useCatalogoLocale'
 import { useInvioRilievi } from '@/hooks/useInvioRilievi'
 import ElencoRilievi from './ElencoRilievi'
+import ProntoOffline from './ProntoOffline'
 import SchedaRilievo from './SchedaRilievo'
 import StatoSync from './StatoSync'
 import WizardVoce from './WizardVoce'
@@ -14,12 +15,6 @@ export default function AppCantiere() {
   const [vista, setVista] = useState<Vista>({ tipo: 'elenco' })
   const catalogo = useCatalogoLocale()
   const invio = useInvioRilievi()
-
-  // Arrivando qui da un link del menu la pagina non passa dal service worker: gli si chiede
-  // di salvarla, cosi' si riapre anche partendo senza campo.
-  useEffect(() => {
-    if (navigator.onLine) navigator.serviceWorker?.controller?.postMessage({ type: 'SALVA_PAGINA_CANTIERE' })
-  }, [])
 
   useEffect(() => {
     window.history.replaceState({ vista: { tipo: 'elenco' } }, '')
@@ -35,6 +30,7 @@ export default function AppCantiere() {
 
   return (
     <div className="mx-auto max-w-xl space-y-3 p-3">
+      <ProntoOffline catalogoPronto={catalogo.stato.ultimo !== null} onScaricaCatalogo={catalogo.aggiorna} />
       <StatoSync catalogo={catalogo} invio={invio} />
       {vista.tipo === 'elenco' && <ElencoRilievi onApri={id => vai({ tipo: 'rilievo', id })} />}
       {vista.tipo === 'rilievo' && (

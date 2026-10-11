@@ -81,6 +81,12 @@ const serwist = new Serwist({
 // smetterebbe di funzionare senza che nulla lo segnali. Chiamare skipWaiting()
 // due volte non ha effetti collaterali.
 self.addEventListener('message', (event: ExtendableMessageEvent) => {
+  // Il rilievo in cantiere chiede se questo worker sa gia' servirlo senza rete
+  // (un worker vecchio non risponde).
+  if ((event.data as { type?: string } | null)?.type === 'SUPPORTA_CANTIERE') {
+    event.ports[0]?.postMessage({ ok: true })
+    return
+  }
   if ((event.data as { type?: string } | null)?.type === 'SALVA_PAGINA_CANTIERE') {
     event.waitUntil(salvaPaginaCantiere())
     return
