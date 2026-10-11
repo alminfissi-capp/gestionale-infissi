@@ -8,7 +8,7 @@ const nodo = (p: Partial<NodoStruttura>): NodoStruttura => ({
 })
 const acc = (p: Partial<AccessorioStruttura>): AccessorioStruttura => ({
   codice: 'A', descrizione: '', serie: '', tipo: 1, quantita: 1, dimRif: 0, dimCalcolo: 0,
-  min: null, max: null, passo: null, formula: null, opzionale: false, confermato: true, ...p,
+  min: null, max: null, passo: null, formula: null, dimDistribuzione: 0, formulaDistribuzione: null, opzionale: false, confermato: true, ...p,
 })
 
 describe('etichettaTipo', () => {

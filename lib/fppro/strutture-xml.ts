@@ -48,6 +48,9 @@ export interface AccessorioStruttura {
   max: number | null
   passo: number | null
   formula: string | null
+  /** Accessori a passo: misura su cui distribuire (5 = formula) e formula */
+  dimDistribuzione: number
+  formulaDistribuzione: string | null
   opzionale: boolean
   confermato: boolean
 }
@@ -79,6 +82,15 @@ export interface NodoStruttura {
   figli: NodoStruttura[]
 }
 
+/** Ore di lavoro della struttura (FP_TIMES), come le usa il preventivo di FP PRO */
+export interface TempiStruttura {
+  taglio: number
+  lavorazione: number
+  montaggio: number
+  assemblaggio: number
+  posa: number
+}
+
 export interface StrutturaLetta {
   codice: string | null
   descrizione: string | null
@@ -88,6 +100,7 @@ export interface StrutturaLetta {
   albero: NodoStruttura[]
   /** Un poligono per pezzo, piatto: [x1, y1, x2, y2, ...] */
   poligoni: number[][]
+  tempi: TempiStruttura
   immagineBase64: string | null
 }
 
@@ -147,8 +160,11 @@ function accessorio(f: Ogg): AccessorioStruttura {
     max: num(f.RMax),
     passo: num(f.Step),
     formula: testo(f.RFormula),
+    dimDistribuzione: num(f.RefDimDist) ?? 0,
+    formulaDistribuzione: testo(f.DistFormula),
     opzionale: vero(f.Optional),
-    confermato: f.Confirmed === undefined ? true : vero(f.Confirmed),
+    // Senza Confirmed: scelto se obbligatorio, non scelto se opzionale (come calcola FP PRO).
+    confermato: f.Confirmed === undefined ? !vero(f.Optional) : vero(f.Confirmed),
   }
 }
 
@@ -179,7 +195,7 @@ function nodo(n: Ogg): NodoStruttura {
       descrizione: testo(k.Description) ?? '',
       serie: testo(k.Serie) ?? '',
       opzionale: vero(k.Optional),
-      confermato: k.Confirmed === undefined ? true : vero(k.Confirmed),
+      confermato: k.Confirmed === undefined ? !vero(k.Optional) : vero(k.Confirmed),
       accessori: lista(k.FP_FITTING).map(accessorio),
     })),
     figli: lista(n.FP_NODE).map(nodo),
@@ -229,6 +245,15 @@ export function strutturaDaXml(doc: unknown): StrutturaLetta {
     ? { l: modello.variabili.L, h: modello.variabili.H }
     : ingombro(percorso.length > 0 ? [percorso.flat()] : poligoni)
 
+  const t0 = ogg(anteprima.FP_TIMES)
+  const tempi: TempiStruttura = {
+    taglio: num(t0.CuttingTime) ?? 0,
+    lavorazione: num(t0.MachiningTime) ?? 0,
+    montaggio: num(t0.MountingTime) ?? 0,
+    assemblaggio: num(t0.CompositionTime) ?? 0,
+    posa: num(t0.PlacingTime) ?? 0,
+  }
+
   const descrizione = ogg(t.FP_DESCRIPTION)
   const cdata = testo(descrizione.__cdata)
 
@@ -240,6 +265,7 @@ export function strutturaDaXml(doc: unknown): StrutturaLetta {
     serie: serieStruttura(albero),
     albero,
     poligoni,
+    tempi,
     immagineBase64: testo(ogg(t.picture).__cdata),
   }
 }

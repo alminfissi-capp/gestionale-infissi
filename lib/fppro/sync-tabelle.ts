@@ -64,6 +64,13 @@ function id(v: unknown): number {
   return n
 }
 
+/** Intero positivo stabile da un codice (per tabelle MySQL senza chiave). */
+function hashCodice(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0
+  return Math.abs(h) || 1
+}
+
 export const TABELLE_SYNC: TabellaSync[] = [
   {
     mysql: 'serie_profili',
@@ -235,6 +242,109 @@ export const TABELLE_SYNC: TabellaSync[] = [
       formula_h: testo(r.formulah),
       formula_r: testo(r.formular),
       formula_dist: testo(r.formuladist),
+      dati: compatta(r),
+    }),
+  },
+  {
+    mysql: 'configprev',
+    supabase: 'fp_config_prev',
+    sql: 'select * from configprev order by pkid',
+    colonne: ['pkid', 'nome', 'spesegen', 'utile', 'provvigione', 'costotaglio', 'costolav', 'costomont',
+      'costoassemblaggio', 'costoposa', 'imballo', 'viaggio', 'matvari', 'altro'],
+    mappa: r => ({
+      fp_id: id(r.pkid),
+      nome: testo(r.nome) ?? `#${String(r.pkid)}`,
+      spese_generali: numero(r.spesegen),
+      utile: numero(r.utile),
+      provvigione: numero(r.provvigione),
+      costo_taglio: numero(r.costotaglio),
+      costo_lavorazione: numero(r.costolav),
+      costo_montaggio: numero(r.costomont),
+      costo_assemblaggio: numero(r.costoassemblaggio),
+      costo_posa: numero(r.costoposa),
+      imballo: numero(r.imballo),
+      viaggio: numero(r.viaggio),
+      materiali_vari: numero(r.matvari),
+      altro: numero(r.altro),
+      dati: compatta(r),
+    }),
+  },
+  {
+    mysql: 'barlen',
+    supabase: 'fp_barre',
+    sql: 'select * from barlen order by pkid',
+    colonne: ['pkid', 'profiloid', 'lung'],
+    mappa: r => ({ fp_id: id(r.pkid), profilo_fp_id: numero(r.profiloid), lunghezza: numero(r.lung), dati: compatta(r) }),
+  },
+  {
+    mysql: 'pannelli',
+    supabase: 'fp_pannelli',
+    sql: 'select * from pannelli order by pkid',
+    colonne: ['pkid', 'codice', 'descr', 'costo_grezzo', 'min_fatt'],
+    mappa: r => ({
+      fp_id: id(r.pkid),
+      codice: testo(r.codice) ?? `#${String(r.pkid)}`,
+      descrizione: testo(r.descr),
+      prezzo_mq: numero(r.costo_grezzo),
+      min_fatt: numero(r.min_fatt),
+      dati: compatta(r),
+    }),
+  },
+  {
+    mysql: 'profilicomponenti',
+    supabase: 'fp_profili_componenti',
+    sql: 'select * from profilicomponenti order by pkid',
+    colonne: ['pkid', 'profcompostoid', 'profcomponenteid', 'master', 'type', 'offset'],
+    mappa: r => ({
+      fp_id: id(r.pkid),
+      composto_fp_id: numero(r.profcompostoid),
+      componente_fp_id: numero(r.profcomponenteid),
+      principale: flag(r.master),
+      tipo: numero(r.type),
+      offset_mm: numero(r.offset),
+      dati: compatta(r),
+    }),
+  },
+  {
+    // Nessuna chiave in MySQL: una riga per codice (lo scarto piu' frequente viene per primo,
+    // il ponte tiene la prima riga per fp_id), fp_id = hash del codice.
+    mysql: 'serie_profili_scarti',
+    supabase: 'fp_scarti',
+    sql: 'select codice, frontwaste, endwaste from serie_profili_scarti where codice is not null ' +
+      'group by codice, frontwaste, endwaste order by codice, count(*) desc',
+    colonne: ['codice', 'frontwaste', 'endwaste'],
+    mappa: r => ({
+      fp_id: hashCodice(testo(r.codice) ?? ''),
+      codice: testo(r.codice) ?? '',
+      testa: numero(r.frontwaste),
+      coda: numero(r.endwaste),
+      dati: compatta(r),
+    }),
+  },
+  {
+    // Serie dei profili a cui vale una riga di kit (nessuna riga = vale per tutte).
+    mysql: 'serieprofilidettagliokit',
+    supabase: 'fp_kit_righe_serie',
+    sql: 'select * from serieprofilidettagliokit order by pkid',
+    colonne: ['pkid', 'iddettagliokit', 'serieprof'],
+    mappa: r => ({ fp_id: id(r.pkid), riga_fp_id: numero(r.iddettagliokit), serie: testo(r.serieprof), dati: compatta(r) }),
+  },
+  {
+    // Accessori "contenitore" (es. kit cerniere) e quelli che contengono.
+    mysql: 'accessoricollegati',
+    supabase: 'fp_accessori_collegati',
+    sql: 'select c.*, ap.codice as codice_principale, ac.codice as codice_collegato, sa.serie as serie_collegato ' +
+      'from accessoricollegati c join accessori ap on ap.pkid = c.idaccprincipale ' +
+      'join accessori ac on ac.pkid = c.idacccollegato left join serie_accessori sa on sa.pkid = ac.serieid order by c.pkid',
+    colonne: ['pkid', 'idaccprincipale', 'idacccollegato', 'num_base', 'tipo', 'opzionale'],
+    mappa: r => ({
+      fp_id: id(r.pkid),
+      codice_principale: testo(r.codice_principale),
+      codice_collegato: testo(r.codice_collegato),
+      serie_collegato: testo(r.serie_collegato),
+      quantita: numero(r.num_base),
+      tipo: numero(r.tipo),
+      opzionale: flag(r.opzionale),
       dati: compatta(r),
     }),
   },

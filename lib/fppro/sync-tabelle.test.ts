@@ -38,10 +38,12 @@ describe('conversioni', () => {
 })
 
 describe('mappature', () => {
-  it('ci sono le 9 tabelle, nell\'ordine giusto', () => {
+  it('ci sono le 16 tabelle, nell\'ordine giusto', () => {
     expect(TABELLE_SYNC.map(t => t.supabase)).toEqual([
       'fp_serie', 'fp_profili', 'fp_profili_costi', 'fp_colori', 'fp_accessori',
       'fp_accessori_costi', 'fp_vetri', 'fp_kit', 'fp_kit_righe',
+      'fp_config_prev', 'fp_barre', 'fp_pannelli', 'fp_profili_componenti', 'fp_scarti',
+      'fp_kit_righe_serie', 'fp_accessori_collegati',
     ])
   })
 
@@ -194,5 +196,44 @@ describe('verificaCartellaStrutture', () => {
     const msg = verificaCartellaStrutture('C:\\FP_PRO\\STR', 0)
     expect(msg).toMatch(/C:\\FP_PRO\\STR/)
     expect(msg).toMatch(/nessun dato modificato/i)
+  })
+})
+
+describe('tabelle della fase 4', () => {
+  it('profilo di calcolo ALM2026', () => {
+    expect(tabella('fp_config_prev').mappa({
+      pkid: 2, nome: 'ALM2026', spesegen: '0.0500', utile: '0.4000', provvigione: '0.0300', costotaglio: '30.0000',
+      costolav: '30.0000', costomont: '30.0000', costoassemblaggio: 30, costoposa: '50.0000', imballo: '0.0100',
+      viaggio: '0.0100', matvari: '0.0100', altro: '0.0100',
+    })).toMatchObject({ fp_id: 2, nome: 'ALM2026', spese_generali: 0.05, utile: 0.4, provvigione: 0.03, costo_posa: 50, altro: 0.01 })
+  })
+  it('scarto per codice con chiave numerica stabile', () => {
+    const a = tabella('fp_scarti').mappa({ codice: 'TT8002', frontwaste: 30, endwaste: 30 })
+    const b = tabella('fp_scarti').mappa({ codice: 'TT8002', frontwaste: 30, endwaste: 30 })
+    expect(a.fp_id).toBe(b.fp_id)
+    expect(a.fp_id).toBeGreaterThan(0)
+    expect(a).toMatchObject({ codice: 'TT8002', testa: 30, coda: 30 })
+  })
+  it('componente di un profilo composto', () => {
+    expect(tabella('fp_profili_componenti').mappa({ pkid: 7, profcompostoid: 1739, profcomponenteid: 1756, master: 0, type: 4, offset: 42 }))
+      .toMatchObject({ fp_id: 7, composto_fp_id: 1739, componente_fp_id: 1756, principale: false, tipo: 4, offset_mm: 42 })
+  })
+  it('barra e pannello', () => {
+    expect(tabella('fp_barre').mappa({ pkid: 3, profiloid: 917, lung: 6500 })).toMatchObject({ fp_id: 3, profilo_fp_id: 917, lunghezza: 6500 })
+    expect(tabella('fp_pannelli').mappa({ pkid: 5, codice: 'SANDWICH_28', descr: 'Sandwich', costo_grezzo: '161.0000', min_fatt: 0 }))
+      .toMatchObject({ fp_id: 5, codice: 'SANDWICH_28', prezzo_mq: 161, min_fatt: 0 })
+  })
+})
+
+describe('regole degli accessori', () => {
+  it('serie a cui vale una riga di kit', () => {
+    expect(tabella('fp_kit_righe_serie').mappa({ pkid: 9, iddettagliokit: 64179, serieprof: 'AL_72UP' }))
+      .toMatchObject({ fp_id: 9, riga_fp_id: 64179, serie: 'AL_72UP' })
+  })
+  it('accessorio collegato con i codici', () => {
+    expect(tabella('fp_accessori_collegati').mappa({
+      pkid: 4, idaccprincipale: 304, idacccollegato: 12, num_base: 6, tipo: 1, opzionale: 0,
+      codice_principale: 'CERN_2A_SRM9918N', codice_collegato: 'ACP 9918N', serie_collegato: 'ALSISTEM',
+    })).toMatchObject({ fp_id: 4, codice_principale: 'CERN_2A_SRM9918N', codice_collegato: 'ACP 9918N', serie_collegato: 'ALSISTEM', quantita: 6, opzionale: false })
   })
 })

@@ -1,0 +1,1072 @@
+{
+  "nome": "172-26G",
+  "voce": 1,
+  "versione": 2,
+  "l": 1200,
+  "h": 2200,
+  "config": {
+    "nome": "PRODOTTO FINITO 2026",
+    "spese_generali": 0.02,
+    "utile": 0.25,
+    "provvigione": 0.01
+  },
+  "lavoro": [
+    {
+      "descrizione": "LAVORAZIONE",
+      "ore": 4.166667,
+      "euroOra": 35,
+      "prezzo": 0
+    },
+    {
+      "descrizione": "ASSEMBLAGGIO",
+      "ore": 0,
+      "euroOra": 35,
+      "prezzo": 0
+    },
+    {
+      "descrizione": "MONTAGGIO",
+      "ore": 0,
+      "euroOra": 35,
+      "prezzo": 0
+    },
+    {
+      "descrizione": "POSA IN OPERA",
+      "ore": 0,
+      "euroOra": 0,
+      "prezzo": 0
+    },
+    {
+      "descrizione": "TAGLIO",
+      "ore": 0,
+      "euroOra": 35,
+      "prezzo": 0
+    }
+  ],
+  "speseVarie": [
+    {
+      "descrizione": "ALTRO",
+      "perc": 0.01,
+      "fisso": 0,
+      "prezzo": 0
+    },
+    {
+      "descrizione": "IMBALLO",
+      "perc": 0,
+      "fisso": 0,
+      "prezzo": 0
+    },
+    {
+      "descrizione": "MATERIALI VARI",
+      "perc": 0,
+      "fisso": 0,
+      "prezzo": 0
+    },
+    {
+      "descrizione": "VIAGGIO",
+      "perc": 0,
+      "fisso": 0,
+      "prezzo": 0
+    },
+    {
+      "descrizione": "MANIGLIONE E LAMIERA EXTRA",
+      "perc": 0,
+      "fisso": 230,
+      "prezzo": 0
+    }
+  ],
+  "profili": [
+    {
+      "codice": "UP71802",
+      "lunghezza": 5688,
+      "quantita": 1,
+      "kgMl": 1.255,
+      "peso": 7.138,
+      "costo": 75.59
+    },
+    {
+      "codice": "UP71878",
+      "lunghezza": 9839,
+      "quantita": 1,
+      "kgMl": 1.894,
+      "peso": 18.635,
+      "costo": 197.34
+    },
+    {
+      "codice": "UP71840",
+      "lunghezza": 895,
+      "quantita": 1,
+      "kgMl": 3.218,
+      "peso": 2.88,
+      "costo": 30.5
+    },
+    {
+      "codice": "UP71841",
+      "lunghezza": 875,
+      "quantita": 1,
+      "kgMl": 3.226,
+      "peso": 2.823,
+      "costo": 29.9
+    },
+    {
+      "codice": "PL2058",
+      "lunghezza": 1144,
+      "quantita": 1,
+      "kgMl": 0.405,
+      "peso": 0.463,
+      "costo": 3.09
+    },
+    {
+      "codice": "UP71813",
+      "lunghezza": 2120,
+      "quantita": 1,
+      "kgMl": 1.43,
+      "peso": 3.032,
+      "costo": 32.11
+    },
+    {
+      "codice": "PL1421",
+      "lunghezza": 10500,
+      "quantita": 1,
+      "kgMl": 0.285,
+      "peso": 2.992,
+      "costo": 25.76
+    },
+    {
+      "codice": "UP71802",
+      "lunghezza": 6500,
+      "quantita": 1,
+      "kgMl": 1.255,
+      "peso": 8.157,
+      "costo": 86.38
+    },
+    {
+      "codice": "UP71878",
+      "lunghezza": 6500,
+      "quantita": 2,
+      "kgMl": 1.894,
+      "peso": 24.622,
+      "costo": 260.75
+    },
+    {
+      "codice": "UP71840",
+      "lunghezza": 6500,
+      "quantita": 1,
+      "kgMl": 3.218,
+      "peso": 20.917,
+      "costo": 221.51
+    },
+    {
+      "codice": "UP71841",
+      "lunghezza": 6500,
+      "quantita": 1,
+      "kgMl": 3.226,
+      "peso": 20.969,
+      "costo": 222.06
+    },
+    {
+      "codice": "PL2058",
+      "lunghezza": 6500,
+      "quantita": 1,
+      "kgMl": 0.405,
+      "peso": 2.632,
+      "costo": 17.59
+    },
+    {
+      "codice": "UP71813",
+      "lunghezza": 6500,
+      "quantita": 1,
+      "kgMl": 1.43,
+      "peso": 9.295,
+      "costo": 98.43
+    },
+    {
+      "codice": "PL1421",
+      "lunghezza": 6500,
+      "quantita": 2,
+      "kgMl": 0.285,
+      "peso": 3.705,
+      "costo": 31.9
+    }
+  ],
+  "accessori": [
+    {
+      "codice": "ACP 50153",
+      "descrizione": "SQUADR.D''''ALLIN.PER TUBOLARITA''''EST.PROFILI NORMALI",
+      "quantita": 2,
+      "prezzo": 220.08,
+      "unitaVendita": 200,
+      "costo": 2.2008
+    },
+    {
+      "codice": "ACP 5008",
+      "descrizione": "SQUADRETTA ALLIN.INOX PLANET",
+      "quantita": 8,
+      "prezzo": 132.32,
+      "unitaVendita": 400,
+      "costo": 2.6464
+    },
+    {
+      "codice": "ACP 5801M",
+      "descrizione": "SQUADR.MULTIFUNZ.PLANET AVVITARE-SPINARE-CIANFRIN.",
+      "quantita": 2,
+      "prezzo": 135.18,
+      "unitaVendita": 200,
+      "costo": 1.3518
+    },
+    {
+      "codice": "ACP 50110",
+      "descrizione": "SQUADRETTA ALLINEAMENTO X PLANET",
+      "quantita": 6,
+      "prezzo": 82.05,
+      "unitaVendita": 250,
+      "costo": 1.9692
+    },
+    {
+      "codice": "ACP 5802",
+      "descrizione": "SQUADR.MULTIFUNZ.PLANET MAGGIOR.AVVIT-SPIN.-CIANFR",
+      "quantita": 6,
+      "prezzo": 151.91,
+      "unitaVendita": 100,
+      "costo": 9.1146
+    },
+    {
+      "codice": "ACP 50154",
+      "descrizione": "SQUADR.D''''ALLIN.PER TUBOLARITA''''EST.PROF.MAGGIORATI",
+      "quantita": 6,
+      "prezzo": 315.14,
+      "unitaVendita": 200,
+      "costo": 9.4542
+    },
+    {
+      "codice": "AGP 4000",
+      "descrizione": "GUARNIZIONE BATT. A PRESSIONE X PLANET",
+      "quantita": 1,
+      "prezzo": 114.32,
+      "unitaVendita": 400,
+      "costo": 4.4976
+    },
+    {
+      "codice": "AGP 6502",
+      "descrizione": "GUARNIZ.SUPPLEMEN.X SOGLIA RIBASSATA PLANET PLUS",
+      "quantita": 1,
+      "prezzo": 1.8409,
+      "unitaVendita": 1,
+      "costo": 2.4299
+    },
+    {
+      "codice": "RB304",
+      "descrizione": "RAPID BLOCK UNIVERSALE (400.02) X BATTENTI",
+      "quantita": 11,
+      "prezzo": 35.46,
+      "unitaVendita": 200,
+      "costo": 1.9503
+    },
+    {
+      "codice": "06465720",
+      "descrizione": "CONTR.X SERR.DA FASCIA E DEV.X CAMERA EUROPEA",
+      "quantita": 1,
+      "prezzo": 103.068,
+      "unitaVendita": 12,
+      "costo": 8.589
+    },
+    {
+      "codice": "56357900",
+      "descrizione": "SERR.INF.X FASCIA CIL.SAG.L.64 3 PUNTI E 90",
+      "quantita": 1,
+      "prezzo": 36.9589,
+      "unitaVendita": 1,
+      "costo": 36.9589
+    },
+    {
+      "codice": "0Q31124012",
+      "descrizione": "CIL.SAGOM.NICH.ASIXP8 L100=70/30",
+      "quantita": 1,
+      "prezzo": 199.3194,
+      "unitaVendita": 6,
+      "costo": 33.2199
+    },
+    {
+      "codice": "ACP 50439",
+      "descrizione": "MANIGLIA DOPPIA AURORA IN ALLUMINIO",
+      "quantita": 1,
+      "prezzo": 172.811,
+      "unitaVendita": 10,
+      "costo": 17.2811
+    },
+    {
+      "codice": "AGP 4085",
+      "descrizione": "ANGOLO VULCANIZ. X AGP 4000",
+      "quantita": 8,
+      "prezzo": 98.71,
+      "unitaVendita": 100,
+      "costo": 7.8968
+    },
+    {
+      "codice": "AGP 72172",
+      "descrizione": "GUARNIZ.PINNA BATTUTA CENTR.PER PLANET 72 PLUS",
+      "quantita": 1,
+      "prezzo": 183.4,
+      "unitaVendita": 50,
+      "costo": 35.1284
+    },
+    {
+      "codice": "AGP 72185",
+      "descrizione": "ANGOLO VULCANIZZATO PER GUARNIZIONE A PINNA PLANET 72 AGP 72172",
+      "quantita": 4,
+      "prezzo": 46.4416,
+      "unitaVendita": 32,
+      "costo": 5.8052
+    },
+    {
+      "codice": "ACP 50422",
+      "descrizione": "CATENACCIO 2'''' ANTA GRIGIO ALSISTEM",
+      "quantita": 1,
+      "prezzo": 55.47,
+      "unitaVendita": 50,
+      "costo": 1.1094
+    },
+    {
+      "codice": "ACP 50582",
+      "descrizione": "INCONTRO SINGOLO NYLON GRIGIO",
+      "quantita": 2,
+      "prezzo": 98.24,
+      "unitaVendita": 100,
+      "costo": 1.9648
+    },
+    {
+      "codice": "ACP 72179M",
+      "descrizione": "TAPPO NODO CENTRALE 72HT PLUS X PLANET",
+      "quantita": 1,
+      "prezzo": 93.368,
+      "unitaVendita": 20,
+      "costo": 4.6684
+    },
+    {
+      "codice": "AGP 4006",
+      "descrizione": "GUARN.LATO FISSO RIP.CENTRALE VERSIONE G.A.",
+      "quantita": 1,
+      "prezzo": 83.1,
+      "unitaVendita": 200,
+      "costo": 0.9843
+    },
+    {
+      "codice": "ACP 5152",
+      "descrizione": "INCONTRO DOPPIO IN ZAMA X FINESTRE BATTENTE 2 ANTE",
+      "quantita": 2,
+      "prezzo": 385.38,
+      "unitaVendita": 100,
+      "costo": 7.7076
+    },
+    {
+      "codice": "ACP 9918N",
+      "descrizione": "CERNIERA STRONG EVO 2 ALI PER TELAI PIANI",
+      "quantita": 6,
+      "prezzo": 30.4633,
+      "unitaVendita": 1,
+      "costo": 182.7798
+    }
+  ],
+  "vetri": [
+    {
+      "codice": "33.1AS12_4_12_33.1S",
+      "quantita": 1,
+      "l": 733,
+      "h": 1084,
+      "prezzoMq": 100,
+      "costo": 79.4572
+    },
+    {
+      "codice": "33.1AS12_4_12_33.1S",
+      "quantita": 1,
+      "l": 114,
+      "h": 1084,
+      "prezzoMq": 100,
+      "costo": 12.3576
+    }
+  ],
+  "pannelli": [
+    {
+      "codice": "SANDWICH_28",
+      "quantita": 1,
+      "l": 733,
+      "h": 726,
+      "prezzoMq": 161,
+      "costo": 85.6774
+    },
+    {
+      "codice": "SANDWICH_28",
+      "quantita": 1,
+      "l": 114,
+      "h": 726,
+      "prezzoMq": 161,
+      "costo": 13.325
+    }
+  ],
+  "anagrafica": {
+    "profili": [
+      {
+        "codice": "UP71802",
+        "composto": false,
+        "kgMl": 1.255
+      },
+      {
+        "codice": "UP71813",
+        "composto": false,
+        "kgMl": 1.43
+      },
+      {
+        "codice": "UP71840",
+        "composto": false,
+        "kgMl": 3.218
+      },
+      {
+        "codice": "UP71841",
+        "composto": false,
+        "kgMl": 3.226
+      },
+      {
+        "codice": "UP71878",
+        "composto": false,
+        "kgMl": 1.894
+      },
+      {
+        "codice": "PL1421",
+        "composto": false,
+        "kgMl": 0.285
+      },
+      {
+        "codice": "PL2058",
+        "composto": false,
+        "kgMl": 0.405
+      }
+    ],
+    "componenti": [],
+    "barre": [
+      {
+        "codice": "UP71802",
+        "lunghezza": 6500
+      },
+      {
+        "codice": "UP71813",
+        "lunghezza": 6500
+      },
+      {
+        "codice": "UP71840",
+        "lunghezza": 6500
+      },
+      {
+        "codice": "UP71841",
+        "lunghezza": 6500
+      },
+      {
+        "codice": "UP71878",
+        "lunghezza": 6500
+      },
+      {
+        "codice": "PL1421",
+        "lunghezza": 6500
+      },
+      {
+        "codice": "PL2058",
+        "lunghezza": 6500
+      }
+    ],
+    "scarti": [
+      {
+        "codice": "PL1421",
+        "testa": 30,
+        "coda": 30
+      },
+      {
+        "codice": "PL2058",
+        "testa": 30,
+        "coda": 30
+      },
+      {
+        "codice": "UP71802",
+        "testa": 30,
+        "coda": 30
+      },
+      {
+        "codice": "UP71813",
+        "testa": 30,
+        "coda": 30
+      },
+      {
+        "codice": "UP71840",
+        "testa": 30,
+        "coda": 30
+      },
+      {
+        "codice": "UP71841",
+        "testa": 30,
+        "coda": 30
+      },
+      {
+        "codice": "UP71878",
+        "testa": 30,
+        "coda": 30
+      }
+    ],
+    "righeKit": [
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 4085",
+        "serie": [
+          "AL_ECO72",
+          "AL_3GUP",
+          "AL_ECO50",
+          "AL_62UP",
+          "AL_ECO72UP",
+          "AL_45",
+          "AL_ECO62UP",
+          "AL_3G",
+          "AL_72UP",
+          "AL_50PLU"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 4000",
+        "serie": [
+          "AL_50PLU",
+          "AL_3GUP",
+          "AL_ECO50",
+          "AL_62UP",
+          "AL_45",
+          "AL_ECO72",
+          "AL_3G",
+          "AL_72UP"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 4000",
+        "serie": [
+          "AL_3G",
+          "AL_72UP",
+          "AL_50PLU",
+          "AL_3GUP",
+          "AL_ECO50",
+          "AL_62UP",
+          "AL_45",
+          "AL_ECO72"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 4501M",
+        "serie": [
+          "AL_45"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 4885R",
+        "serie": [
+          "AL_45"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 50172",
+        "serie": [
+          "AL_ECO50",
+          "AL_50PLU"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 50185",
+        "serie": [
+          "AL_ECO50",
+          "AL_50PLU"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 62172M",
+        "serie": [
+          "AL_ECO62UP",
+          "AL_62UP"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 62185",
+        "serie": [
+          "AL_62UP",
+          "AL_ECO62UP"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 62685",
+        "serie": [
+          "AL_3G",
+          "AL_3GUP"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 72172",
+        "serie": [
+          "AL_ECO72UP",
+          "AL_72UP",
+          "AL_ECO72"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 72185",
+        "serie": [
+          "AL_ECO72UP",
+          "AL_72UP",
+          "AL_ECO72"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 4501M",
+        "serie": [
+          "AL_45"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 50172",
+        "serie": [
+          "AL_50PLU",
+          "AL_ECO50"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 62172M",
+        "serie": [
+          "AL_ECO62UP",
+          "AL_62UP"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 72172",
+        "serie": [
+          "AL_ECO72",
+          "AL_ECO72UP",
+          "AL_72UP"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "ACP 5079",
+        "serie": [
+          "AL_45"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "ACP 55180",
+        "serie": [
+          "AL_50PLU"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "ACP 62180M",
+        "serie": [
+          "AL_ECO62UP",
+          "AL_62UP"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "ACP 50422",
+        "serie": [
+          "AL_62UP",
+          "AL_ECO72UP",
+          "AL_45",
+          "AL_ECO62UP",
+          "AL_3G",
+          "AL_72UP",
+          "AL_50PLU",
+          "AL_ECO72",
+          "AL_3GUP",
+          "AL_ECO50"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "ACP 50582",
+        "serie": [
+          "AL_ECO50",
+          "AL_62UP",
+          "AL_ECO72UP",
+          "AL_45",
+          "AL_ECO62UP",
+          "AL_3G",
+          "AL_72UP",
+          "AL_50PLU",
+          "AL_ECO72",
+          "AL_3GUP"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "ACP 72179M",
+        "serie": [
+          "AL_ECO72",
+          "AL_ECO72UP",
+          "AL_72UP"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "ACP 62679M",
+        "serie": [
+          "AL_3GUP",
+          "AL_3G"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "AGP 4006",
+        "serie": [
+          "AL_3GUP",
+          "AL_ECO50",
+          "AL_62UP",
+          "AL_ECO72UP",
+          "AL_45",
+          "AL_ECO62UP",
+          "AL_3G",
+          "AL_72UP",
+          "AL_50PLU",
+          "AL_ECO72"
+        ]
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "ACP 5152",
+        "serie": null
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "ACP 5157",
+        "serie": null
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "CERN_2A_CMP9938N",
+        "serie": null
+      },
+      {
+        "kit": "PLANET 2ANTE PORTA INT. AG-GA",
+        "codice": "CERN_2A_SRM9918N",
+        "serie": null
+      },
+      {
+        "kit": "PLANET SERRATURA A FASCIA OK",
+        "codice": "06465720",
+        "serie": [
+          "AL_62UP",
+          "AL_ECO72UP",
+          "AL_45",
+          "AL_ECO62UP",
+          "AL_72UP",
+          "AL_50PLU",
+          "AL_ECO72",
+          "AL_ECO50"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A FASCIA OK",
+        "codice": "56357900",
+        "serie": [
+          "AL_50PLU",
+          "AL_ECO72",
+          "AL_ECO50",
+          "AL_62UP",
+          "AL_ECO72UP",
+          "AL_45",
+          "AL_ECO62UP",
+          "AL_72UP"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A FASCIA OK",
+        "codice": "0Q31112012",
+        "serie": [
+          "AL_45"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A FASCIA OK",
+        "codice": "0Q31120012",
+        "serie": [
+          "AL_ECO62UP",
+          "AL_3G",
+          "AL_62UP"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A FASCIA OK",
+        "codice": "0Q31124012",
+        "serie": [
+          "AL_ECO72UP",
+          "AL_72UP",
+          "AL_ECO72"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A FASCIA OK",
+        "codice": "0Q31127012",
+        "serie": [
+          "AL_ECO50",
+          "AL_50PLU"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A FASCIA OK",
+        "codice": "ACP 50439",
+        "serie": [
+          "AL_72UP",
+          "AL_50PLU",
+          "AL_ECO72",
+          "AL_3G",
+          "AL_ECO50",
+          "AL_62UP",
+          "AL_ECO72UP",
+          "AL_45",
+          "AL_ECO62UP"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A MONTANTE",
+        "codice": "06463820",
+        "serie": [
+          "AL_ECO72UP",
+          "AL_3G",
+          "AL_ECO62UP",
+          "AL_62UP",
+          "AL_45",
+          "AL_ECO72",
+          "AL_72UP",
+          "AL_50PLU"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A MONTANTE",
+        "codice": "06465720",
+        "serie": [
+          "AL_72UP",
+          "AL_50PLU",
+          "AL_ECO72",
+          "AL_3G",
+          "AL_ECO50",
+          "AL_62UP",
+          "AL_ECO72UP",
+          "AL_45",
+          "AL_ECO62UP"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A MONTANTE",
+        "codice": "4952635000RC",
+        "serie": [
+          "AL_3G",
+          "AL_ECO50",
+          "AL_62UP",
+          "AL_ECO72UP",
+          "AL_45",
+          "AL_ECO62UP",
+          "AL_72UP",
+          "AL_50PLU",
+          "AL_ECO72"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A MONTANTE",
+        "codice": "0Q31124012",
+        "serie": [
+          "AL_ECO72",
+          "AL_ECO72UP",
+          "AL_72UP"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A MONTANTE",
+        "codice": "0Q31112012",
+        "serie": [
+          "AL_45"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A MONTANTE",
+        "codice": "0Q31120012",
+        "serie": [
+          "AL_ECO62UP",
+          "AL_3G",
+          "AL_62UP"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A MONTANTE",
+        "codice": "0Q31127012",
+        "serie": [
+          "AL_50PLU",
+          "AL_ECO50"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A MONTANTE",
+        "codice": "ACP 50439",
+        "serie": [
+          "AL_72UP",
+          "AL_50PLU",
+          "AL_ECO72",
+          "AL_3G",
+          "AL_ECO50",
+          "AL_62UP",
+          "AL_ECO72UP",
+          "AL_45",
+          "AL_ECO62UP"
+        ]
+      },
+      {
+        "kit": "PLANET SERRATURA A MONTANTE",
+        "codice": "SERR_ELE_KIT",
+        "serie": null
+      },
+      {
+        "kit": "PLANET TEL02 L SOGLIA 25MM",
+        "codice": "AGP 6502",
+        "serie": null
+      },
+      {
+        "kit": "PLANET TEL02 L SOGLIA 25MM",
+        "codice": "RB601",
+        "serie": null
+      },
+      {
+        "kit": "PLANET TEL02 L SOGLIA 25MM",
+        "codice": "RB304",
+        "serie": null
+      },
+      {
+        "kit": "PLANET TEL02 L SOGLIA 25MM",
+        "codice": "ACP 50539",
+        "serie": null
+      },
+      {
+        "kit": "PLANET TEL02 L SOGLIA 25MM",
+        "codice": "ACP 50536",
+        "serie": null
+      },
+      {
+        "kit": "PLANET TEL02 L SOGLIA 25MM",
+        "codice": "RB603",
+        "serie": null
+      },
+      {
+        "kit": "PLANET TEL02 Z/T SOGLIA 25MM",
+        "codice": "AGP 4000",
+        "serie": null
+      },
+      {
+        "kit": "PLANET TEL02 Z/T SOGLIA 25MM",
+        "codice": "AGP 6502",
+        "serie": null
+      },
+      {
+        "kit": "PLANET TEL02 Z/T SOGLIA 25MM",
+        "codice": "RB601",
+        "serie": null
+      },
+      {
+        "kit": "PLANET TEL02 Z/T SOGLIA 25MM",
+        "codice": "RB304",
+        "serie": null
+      },
+      {
+        "kit": "PLANET TEL02 Z/T SOGLIA 25MM",
+        "codice": "ACP 50539",
+        "serie": null
+      },
+      {
+        "kit": "PLANET TEL02 Z/T SOGLIA 25MM",
+        "codice": "ACP 50536",
+        "serie": null
+      },
+      {
+        "kit": "PLANET TEL02 Z/T SOGLIA 25MM",
+        "codice": "RB603",
+        "serie": null
+      }
+    ],
+    "collegati": [
+      {
+        "principale": "CERN_2A_CMP9938N",
+        "collegato": "ACP 9938N",
+        "quantita": 6
+      },
+      {
+        "principale": "CERN_2A_SRM9918N",
+        "collegato": "ACP 9918N",
+        "quantita": 6
+      }
+    ],
+    "vetri": [
+      {
+        "codice": "33.1AS12_4_12_33.1S",
+        "kgMq": 42.5
+      }
+    ],
+    "sezioni": [
+      {
+        "codice": "UP71802",
+        "vista": 27.99,
+        "aletta": 22.01
+      },
+      {
+        "codice": "PL2058",
+        "vista": 3,
+        "aletta": 0
+      },
+      {
+        "codice": "UP71878",
+        "vista": 51.5,
+        "aletta": 17.5
+      },
+      {
+        "codice": "UP71813",
+        "vista": 28.49,
+        "aletta": 10.5
+      },
+      {
+        "codice": "UP71841",
+        "vista": 143.01,
+        "aletta": 0
+      },
+      {
+        "codice": "UP71840",
+        "vista": 121,
+        "aletta": 22
+      },
+      {
+        "codice": "PL1421",
+        "vista": 22,
+        "aletta": 4.7
+      }
+    ]
+  },
+  "totali": {
+    "costoProfili": 938.62,
+    "costoAccessori": 336.6682,
+    "costoGuarnizioni": 43.0403,
+    "costoVetri": 93.651,
+    "costoPannelli": 99.0024,
+    "costoPuro": 1656.8154,
+    "costoIndustriale": 1689.95,
+    "imponibile": 2385.12
+  }
+}

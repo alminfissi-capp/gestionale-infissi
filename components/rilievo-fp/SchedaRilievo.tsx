@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronLeft, Plus, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Calculator, ChevronLeft, Plus, Trash2 } from 'lucide-react'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import AllegatiVoce from '@/components/rilievo/AllegatiVoce'
 import { db } from '@/lib/db'
@@ -81,6 +81,14 @@ export default function SchedaRilievo({ id, onIndietro, onVoce }: Props) {
         })}
       </ul>
       <Button className="h-12 w-full" onClick={() => onVoce(null)}><Plus className="mr-1 size-4" />Aggiungi voce</Button>
+      {isOnline && (voci ?? []).length > 0 && (
+        (voci ?? []).some(v => v.daInviare === 1) || rilievo.daInviare === 1
+          ? <p className="text-center text-xs text-amber-700">Calcolo e preventivo: prima vanno inviate le modifiche (attendi qualche secondo).</p>
+          // Navigazione piena: la pagina del calcolo non e' nell'app del cantiere.
+          : <a href={`/rilievo/calcolo/${id}`} className={buttonVariants({ variant: 'outline', className: 'h-12 w-full' })}>
+              <Calculator className="mr-1 size-4" />Calcolo e preventivo
+            </a>
+      )}
       <Button variant="ghost" className="w-full text-red-700" onClick={async () => { if (confirm('Eliminare tutto il rilievo?')) { await eliminaRilievoLocale(id); onIndietro() } }}>
         Elimina rilievo
       </Button>

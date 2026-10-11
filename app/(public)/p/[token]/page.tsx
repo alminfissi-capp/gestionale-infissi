@@ -71,7 +71,9 @@ async function getPreventivoByToken(token: string): Promise<PreventivoCompleto |
     url: supabase.storage.from('preventivi-allegati').getPublicUrl(a.storage_path).data.publicUrl,
   }))
 
-  return { ...prev, articoli: articoli ?? [], cataloghi_allegati_data, allegati_pdf_data, allegati_calcoli_data: [] }
+  // config_fppro contiene il calcolo interno (costi, utile, provvigione): non va nella pagina del cliente.
+  const articoliCliente = (articoli ?? []).map(({ config_fppro: _calcoloInterno, ...a }) => a)
+  return { ...prev, articoli: articoliCliente, cataloghi_allegati_data, allegati_pdf_data, allegati_calcoli_data: [] }
 }
 
 async function getSettingsPubblici(orgId: string): Promise<Settings | null> {

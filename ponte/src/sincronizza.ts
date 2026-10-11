@@ -6,6 +6,7 @@ import type { Pool, RowDataPacket } from 'mysql2/promise'
 import { TABELLE_SYNC, aBlocchi, confrontaRighe, impronta, spiegaErroreMysql, verificaSorgente } from '../../lib/fppro/sync-tabelle.ts'
 import type { Riga, RigaEsistente, RigaFp, TabellaSync } from '../../lib/fppro/sync-tabelle.ts'
 import { log } from './log.ts'
+import { sezioniProfili } from './sezioni-profili.ts'
 import { sincronizzaStrutture } from './sincronizza-strutture.ts'
 
 const BLOCCO = 500
@@ -45,8 +46,20 @@ export async function sincronizza(
     }
     const errore = verificaSorgente(t, righe as Riga[], colonne.map(r => String(r.c)))
     if (errore) throw new Error(errore)
-    lette.push({ t, righe: (righe as Riga[]).map(t.mappa) })
+    // Una riga per fp_id: le tabelle senza chiave (scarti) possono dare piu' righe per codice,
+    // la prima e' quella da tenere.
+    const unica = new Map<number, ReturnType<typeof t.mappa>>()
+    for (const r of (righe as Riga[]).map(t.mappa)) if (!unica.has(r.fp_id)) unica.set(r.fp_id, r)
+    lette.push({ t, righe: [...unica.values()] })
     log(`Letta ${t.mysql}: ${righe.length} righe`)
+  }
+
+  // Misure in vista dai DXF dei profili: si scrivono come una tabella in piu'.
+  const profili = lette.find(l => l.t.supabase === 'fp_profili')?.righe ?? []
+  const serie = lette.find(l => l.t.supabase === 'fp_serie')?.righe ?? []
+  const sezioni = await sezioniProfili(profili, serie, cartellaStrutture)
+  if (sezioni.length > 0) {
+    lette.push({ t: { mysql: '(DXF)', supabase: 'fp_profili_sezioni', sql: '', colonne: [], mappa: r => r as RigaFp }, righe: sezioni })
   }
 
   const esito: Record<string, number> = {}

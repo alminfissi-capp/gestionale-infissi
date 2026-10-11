@@ -16,7 +16,7 @@ foreach ($nome in 'wscript.exe', 'node.exe') {
 New-Item -ItemType Directory -Force "$Destinazione\ponte\src", "$Destinazione\lib\fppro", "$Destinazione\log" | Out-Null
 Copy-Item "$repo\ponte\package.json", "$repo\ponte\package-lock.json" "$Destinazione\ponte\" -Force
 Copy-Item "$repo\ponte\src\*.ts" "$Destinazione\ponte\src\" -Force
-Copy-Item "$repo\lib\fppro\sync-tabelle.ts", "$repo\lib\fppro\ponte-regole.ts", "$repo\lib\fppro\strutture-xml.ts", "$repo\lib\fppro\bmp.ts" "$Destinazione\lib\fppro\" -Force
+Copy-Item "$repo\lib\fppro\sync-tabelle.ts", "$repo\lib\fppro\ponte-regole.ts", "$repo\lib\fppro\strutture-xml.ts", "$repo\lib\fppro\bmp.ts", "$repo\lib\fppro\dxf-sezione.ts" "$Destinazione\lib\fppro\" -Force
 # Fuori dal repository non c'e' un package.json sopra lib/: lo dichiariamo ESM.
 Set-Content "$Destinazione\lib\package.json" '{ "type": "module" }' -Encoding ascii
 
