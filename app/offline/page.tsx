@@ -1,6 +1,30 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+
+const PAGINA_CANTIERE = '/rilievo/cantiere'
+
 export default function OfflinePage() {
+  const [vaiAlCantiere, setVaiAlCantiere] = useState(false)
+
+  // Senza rete si va dritti al rilievo in cantiere, se il telefono l'ha salvato
+  // (altrimenti si resterebbe qui: il service worker non avrebbe nulla da mostrare).
+  useEffect(() => {
+    if (typeof caches === 'undefined') return
+    caches.open('pagina-cantiere')
+      .then(c => c.match(PAGINA_CANTIERE))
+      .then(r => {
+        if (!r) return
+        setVaiAlCantiere(true)
+        window.location.replace(PAGINA_CANTIERE)
+      })
+      .catch(() => {})
+  }, [])
+
+  if (vaiAlCantiere) {
+    return <p className="p-8 text-center text-muted-foreground">Apro il rilievo in cantiere…</p>
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
       <div className="flex flex-col items-center gap-4">
