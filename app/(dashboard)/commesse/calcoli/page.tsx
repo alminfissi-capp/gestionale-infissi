@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ChevronRight, Star } from 'lucide-react'
 import { getCommesseCalcoli, getGruppiCommesse, getRigheCalcoli, getIncassiAttesa } from '@/actions/commesse'
 import { getScadenzeCalcoli } from '@/actions/scadenze'
+import PulsanteIndietro from '@/components/layout/PulsanteIndietro'
 import { getConti } from '@/actions/conti'
 import { getLineeCredito, getAnticipi, getCommessePerAnticipo } from '@/actions/banche'
 import TabellaCalcoli from '@/components/commesse/TabellaCalcoli'
@@ -28,7 +29,8 @@ export default async function CalcoliPage() {
   return (
     <div className="p-4 sm:p-6 space-y-4">
       <div>
-        <nav className="flex items-center gap-1 text-sm text-gray-500 mb-1">
+        <PulsanteIndietro fallback="/commesse" />
+        <nav className="flex items-center gap-1 text-sm text-gray-500 mb-1 mt-2">
           <Link href="/commesse" className="hover:text-gray-700">Commesse</Link>
           <ChevronRight className="h-3.5 w-3.5" />
           <span className="text-gray-900 font-medium">Calcoli</span>

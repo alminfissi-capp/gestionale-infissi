@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import PulsanteIndietro from '@/components/layout/PulsanteIndietro'
 import DialogArticoliFattura from '@/components/contabilita/DialogArticoliFattura'
 import { eliminaCosto, salvaContabilita, salvaCostoManuale, type CostoConAvviso, type PaginaContabile as Dati } from '@/actions/contabilita-commessa'
 import { costoManodopera, riepilogo, totaliPerCategoria, totaliStima } from '@/lib/contabilita-commessa'
@@ -132,7 +133,8 @@ export default function PaginaContabile({ dati }: { dati: Dati }) {
   return (
     <div className="space-y-6">
       {/* ── Testata ── */}
-      <div>
+      <div className="space-y-2">
+        <PulsanteIndietro fallback="/commesse" />
         <h1 className="text-2xl font-bold">Contabilità · {dati.commessa.numero_commessa || 'Commessa'}</h1>
         <p className="text-sm text-muted-foreground">
           {dati.commessa.cliente_nome}

@@ -21,6 +21,7 @@ import { getScadenzeInCalendario } from '@/actions/calendario'
 import ScadenzeDaProgrammareView from '@/components/commesse/ScadenzeDaProgrammareView'
 import type { PreventivoPerCommessa } from '@/types/commessa'
 import Link from 'next/link'
+import PulsanteIndietro from '@/components/layout/PulsanteIndietro'
 import { ChevronRight } from 'lucide-react'
 
 
@@ -48,7 +49,8 @@ export default async function CommesseGruppoPage({
   return (
     <div className="p-4 sm:p-6 space-y-4">
       <div>
-        <nav className="flex items-center gap-1 text-sm text-gray-500 mb-1">
+        <PulsanteIndietro fallback="/commesse" />
+        <nav className="flex items-center gap-1 text-sm text-gray-500 mb-1 mt-2">
           <Link href="/commesse" className="hover:text-gray-700">Commesse / Scadenze</Link>
           <ChevronRight className="h-3.5 w-3.5" />
           <span className="text-gray-900 font-medium">{gruppoCorrente.nome}</span>
