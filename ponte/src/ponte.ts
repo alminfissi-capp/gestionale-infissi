@@ -2,13 +2,13 @@
 //   node --env-file=<.env> ponte/src/ponte.ts             (servizio: segnale + coda)
 //   node --env-file=<.env> ponte/src/ponte.ts --una-volta (una sincronizzazione e basta)
 import { createClient } from '@supabase/supabase-js'
-import mysql from 'mysql2/promise'
 import { conTempoMassimo, devoAccodareSyncGiornaliera, giornoRoma, richiestaBloccata } from '../../lib/fppro/ponte-regole.ts'
 import { leggiConfig } from './config.ts'
+import { apriDbSolaLettura, type DbLettura } from './mysql-sola-lettura.ts'
 import { impostaLog, log } from './log.ts'
 import { sincronizza } from './sincronizza.ts'
 
-const VERSIONE = '1.3.0'
+const VERSIONE = '1.4.0'
 const GIRO_MS = 30_000
 // La prima sync delle strutture (4.661 file) e' lunga: oltre 60 minuti e' appesa.
 const SYNC_MAX_MS = 60 * 60 * 1000
@@ -18,7 +18,8 @@ impostaLog(cfg.logDir)
 const supabase = createClient(cfg.supabaseUrl, cfg.serviceKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 })
-const db = mysql.createPool({ ...cfg.mysql, connectionLimit: 2 })
+// FP PRO si legge soltanto: connessione in sola lettura, verificata all'avvio (main).
+let db: DbLettura
 
 const messaggio = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -142,14 +143,15 @@ async function sbloccaRichieste(ora: Date): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  db = await apriDbSolaLettura(cfg.mysql)
   if (process.argv.includes('--una-volta')) {
     const esito = await sincronizza(db, supabase, cfg.orgId, cfg.strPath)
     console.log(JSON.stringify(esito, null, 2))
-    await db.end()
+    await db.chiudi()
     return
   }
 
-  log(`Ponte avviato (versione ${VERSIONE})`)
+  log(`Ponte avviato (versione ${VERSIONE}), database di FP PRO in sola lettura`)
   await chiudiInterrotte()
   // Il segnale di vita gira per conto suo: una sync lunga non deve far
   // sembrare il PC spento.

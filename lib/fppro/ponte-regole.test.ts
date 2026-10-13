@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { conTempoMassimo, devoAccodareSyncGiornaliera, giornoRoma, richiestaBloccata, statoPonte } from './ponte-regole'
+import { conTempoMassimo, devoAccodareSyncGiornaliera, giornoRoma, richiestaBloccata, soloLettura, statoPonte } from './ponte-regole'
+import { TABELLE_SYNC } from './sync-tabelle'
 
 describe('statoPonte', () => {
   const ora = new Date('2026-10-10T10:00:00Z')
@@ -44,5 +45,32 @@ describe('conTempoMassimo', () => {
   it('una sincronizzazione appesa fallisce con il messaggio dato', async () => {
     await expect(conTempoMassimo(new Promise(() => {}), 10, 'Sincronizzazione bloccata'))
       .rejects.toThrow('Sincronizzazione bloccata')
+  })
+})
+
+describe('soloLettura: il ponte non deve MAI scrivere nel database di FP PRO', () => {
+  it('letture: si', () => {
+    expect(soloLettura('select * from profili order by pkid')).toBe(true)
+    expect(soloLettura('  SELECT column_name as c from information_schema.columns where table_name = ?')).toBe(true)
+    expect(soloLettura('show tables')).toBe(true)
+  })
+  it('scritture e modifiche: no', () => {
+    for (const sql of [
+      'insert into profili values (1)', 'update profili set codice = 1', 'delete from profili', 'replace into kit values (1)',
+      'drop table kit', 'alter table kit add x int', 'create table x (a int)', 'truncate kit', 'set global x = 1',
+      'call procedura()', 'lock tables kit write', 'grant all on *.* to x',
+    ]) expect(soloLettura(sql), sql).toBe(false)
+  })
+  it('letture che in realta\' scrivono o bloccano: no', () => {
+    expect(soloLettura('select * from kit into outfile "c:/x.txt"')).toBe(false)
+    expect(soloLettura('select * from kit into dumpfile "c:/x"')).toBe(false)
+    expect(soloLettura('select * from kit for update')).toBe(false)
+    expect(soloLettura('select * from kit lock in share mode')).toBe(false)
+  })
+  it('piu\' comandi insieme: no (select seguita da una scrittura)', () => {
+    expect(soloLettura('select 1; delete from kit')).toBe(false)
+  })
+  it('tutte le letture della sincronizzazione passano', () => {
+    for (const t of TABELLE_SYNC) expect(soloLettura(t.sql), t.mysql).toBe(true)
   })
 })

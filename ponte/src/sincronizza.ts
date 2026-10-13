@@ -2,7 +2,8 @@
 // se una tabella e' vuota o ha cambiato colonne non si tocca niente.
 // Si scrivono solo le righe nuove o cambiate (impronta), per non gonfiare il database.
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Pool, RowDataPacket } from 'mysql2/promise'
+import type { RowDataPacket } from 'mysql2/promise'
+import type { DbLettura } from './mysql-sola-lettura.ts'
 import { TABELLE_SYNC, aBlocchi, confrontaRighe, impronta, spiegaErroreMysql, verificaSorgente } from '../../lib/fppro/sync-tabelle.ts'
 import type { Riga, RigaEsistente, RigaFp, TabellaSync } from '../../lib/fppro/sync-tabelle.ts'
 import { log } from './log.ts'
@@ -26,7 +27,7 @@ async function leggiEsistenti(supabase: SupabaseClient, tabella: string, orgId: 
 }
 
 export async function sincronizza(
-  db: Pool,
+  db: DbLettura,
   supabase: SupabaseClient,
   orgId: string,
   cartellaStrutture: string,
@@ -36,11 +37,11 @@ export async function sincronizza(
     let colonne: RowDataPacket[]
     let righe: RowDataPacket[]
     try {
-      ;[colonne] = await db.query<RowDataPacket[]>(
+      colonne = await db.leggi(
         'select column_name as c from information_schema.columns where table_schema = database() and table_name = ?',
         [t.mysql],
       )
-      ;[righe] = await db.query<RowDataPacket[]>(t.sql)
+      righe = await db.leggi(t.sql)
     } catch (e) {
       throw new Error(spiegaErroreMysql(e))
     }

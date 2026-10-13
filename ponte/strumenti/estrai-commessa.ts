@@ -3,7 +3,7 @@
 // Uso (dalla cartella ponte): node --env-file=<.env del ponte> strumenti/estrai-commessa.ts 170-26G
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import mysql from 'mysql2/promise'
+import { apriDbSolaLettura } from '../src/mysql-sola-lettura.ts'
 import { sezioneDaDxf } from '../../lib/fppro/dxf-sezione.ts'
 
 const nome = process.argv[2]
@@ -11,11 +11,12 @@ const cartellaJob = process.argv[3] ?? 'C:\\FP_PRO\\ARCHIVI_EDILSIDER_NEW\\JOB'
 if (!nome) throw new Error('Manca il nome della commessa')
 const uscita = join(import.meta.dirname, '..', '..', 'lib', 'fppro', '__fixtures__')
 
-const db = await mysql.createConnection({
+// Sola lettura, come il ponte: FP PRO non si modifica mai.
+const db = await apriDbSolaLettura({
   host: process.env.FP_MYSQL_HOST, port: Number(process.env.FP_MYSQL_PORT), user: process.env.FP_MYSQL_USER,
   password: process.env.FP_MYSQL_PASSWORD, database: process.env.FP_MYSQL_DATABASE,
 })
-const q = async (sql: string, p: unknown[] = []) => (await db.query(sql, p))[0] as Record<string, unknown>[]
+const q = async (sql: string, p: unknown[] = []) => (await db.leggi(sql, p)) as Record<string, unknown>[]
 const n = (v: unknown) => Number(v ?? 0)
 
 const [c] = await q('select * from commesse where nome = ? and voce = 1 order by idversionecommessa desc limit 1', [nome])
@@ -109,4 +110,4 @@ const fixture = {
 writeFileSync(join(uscita, `commessa-${nome}.json`), JSON.stringify(fixture, null, 2) + '\n')
 writeFileSync(join(uscita, `commessa-${nome}.xml`), xml)
 console.log('fatto', nome, 'versione', ver, 'profili', fixture.profili.length, 'accessori', fixture.accessori.length)
-await db.end()
+await db.chiudi()

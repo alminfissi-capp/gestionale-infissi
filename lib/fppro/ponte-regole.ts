@@ -53,3 +53,15 @@ export function conTempoMassimo<T>(p: Promise<T>, ms: number, messaggio: string)
   })
   return Promise.race([p, scadenza]).finally(() => clearTimeout(timer))
 }
+
+/**
+ * Il ponte non deve MAI scrivere nel database di FP PRO: passa solo un comando singolo che
+ * legge (select / show), senza le forme di select che scrivono file o bloccano righe.
+ * Seconda difesa: la connessione e' comunque aperta in sola lettura (mysql-sola-lettura.ts).
+ */
+export function soloLettura(sql: string): boolean {
+  const s = sql.trim().replace(/;\s*$/, '')
+  if (s.includes(';')) return false
+  if (!/^(select|show)\b/i.test(s)) return false
+  return !/\binto\s+(out|dump)file\b|\bfor\s+update\b|\block\s+in\s+share\s+mode\b|\bfor\s+share\b/i.test(s)
+}
