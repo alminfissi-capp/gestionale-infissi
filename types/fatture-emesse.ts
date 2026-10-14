@@ -42,6 +42,8 @@ export type FatturaEmessa = {
 /** Stato della sincronizzazione delle emesse, dalle colonne emesse_* di fic_collegamenti. */
 export type SyncEmesse = {
   sincronizza_dal: string
+  /** Interruttore "Sincronizzazione automatica": il giro orario parte solo se acceso. */
+  sync_automatica: boolean
   sync_in_corso_da: string | null
   ultima_sync_at: string | null
   ultimo_esito: EsitoSync | null

@@ -7,7 +7,8 @@ import { toast } from 'sonner'
 import { RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { anticipaSincronizzaDal, sincronizzaFattureFornitori } from '@/actions/fatture-in-cloud'
+import { Switch } from '@/components/ui/switch'
+import { anticipaSincronizzaDal, impostaSyncAutomatica, sincronizzaFattureFornitori } from '@/actions/fatture-in-cloud'
 import { anticipaSincronizzaDalEmesse, sincronizzaFattureEmesse } from '@/actions/fatture-emesse'
 import { formatData, formatDataOra, descriviConteggi } from '@/lib/fic/formato'
 import type { CollegamentoFic } from '@/types/fatture-fornitori'
@@ -15,7 +16,7 @@ import type { CollegamentoFic } from '@/types/fatture-fornitori'
 /** Quanto serve alla barra: vale per la sincronizzazione dei fornitori e per quella delle emesse. */
 export type StatoSincronizzazione = Pick<
   CollegamentoFic,
-  'stato' | 'sincronizza_dal' | 'ultima_sync_at' | 'ultimo_esito' | 'ultimo_messaggio' | 'ultimi_conteggi'
+  'stato' | 'sincronizza_dal' | 'sync_automatica' | 'ultima_sync_at' | 'ultimo_esito' | 'ultimo_messaggio' | 'ultimi_conteggi'
 >
 
 export default function BarraSincronizzazione({
@@ -33,6 +34,23 @@ export default function BarraSincronizzazione({
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [nuovaData, setNuovaData] = useState<string | null>(null)
+  const [automatica, setAutomatica] = useState(collegamento?.sync_automatica ?? false)
+  const [salvaAuto, startAuto] = useTransition()
+
+  function cambiaAutomatica(attiva: boolean) {
+    setAutomatica(attiva)
+    startAuto(async () => {
+      try {
+        const r = await impostaSyncAutomatica(tipo === 'clienti' ? 'emesse' : 'fornitori', attiva)
+        if (!r.ok) { setAutomatica(!attiva); toast.error(r.errore); return }
+        toast.success(attiva ? 'Sincronizzazione automatica attivata: ogni ora' : 'Sincronizzazione automatica disattivata')
+        router.refresh()
+      } catch {
+        setAutomatica(!attiva)
+        toast.error('Connessione interrotta: riprova')
+      }
+    })
+  }
 
   function anticipa() {
     if (!nuovaData) return
@@ -90,6 +108,21 @@ export default function BarraSincronizzazione({
           {pending ? 'Sincronizzazione…' : 'Sincronizza'}
         </Button>
       )}
+      <label htmlFor={`sync-auto-${tipo}`} className="flex items-start gap-3 rounded-md border p-2.5">
+        <Switch
+          id={`sync-auto-${tipo}`}
+          checked={automatica}
+          onCheckedChange={cambiaAutomatica}
+          disabled={!puoSincronizzare || salvaAuto}
+          className="mt-0.5"
+        />
+        <span>
+          <span className="block text-sm font-medium">Sincronizzazione automatica</span>
+          <span className="block text-xs text-muted-foreground">
+            {automatica ? 'Attiva: le fatture si aggiornano da sole ogni ora' : 'Spenta: si aggiornano solo col tasto Sincronizza'}
+          </span>
+        </span>
+      </label>
       <div className="text-sm text-muted-foreground">
         Ultima sincronizzazione:{' '}
         {collegamento.ultima_sync_at ? (

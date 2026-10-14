@@ -18,6 +18,8 @@ export type CollegamentoFic = {
   token_finale: string
   sincronizza_dal: string
   stato: StatoCollegamentoFic
+  /** Interruttore "Sincronizzazione automatica": il giro orario parte solo se acceso. */
+  sync_automatica: boolean
   sync_in_corso_da: string | null
   ultima_sync_at: string | null
   ultimo_esito: EsitoSync | null

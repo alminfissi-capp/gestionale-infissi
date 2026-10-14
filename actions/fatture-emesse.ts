@@ -1,21 +1,16 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getOrgId } from '@/lib/auth'
 import { getMyPermissions } from '@/lib/permessi'
 import { selectAll } from '@/lib/supabase/paginate'
-import { creaClientFic, FicNonAutorizzato, FicTroppeRichieste } from '@/lib/fic/client'
-import { sincronizza, messaggioParziale, fonteEmesse, type ArchivioFatture } from '@/lib/fic/sincronizza'
-import type { VoceLocale } from '@/lib/fic/confronto'
-import type { EmessoMappato, RigaFatturaEmessa } from '@/lib/fic/mappa'
-import { salvaDocumenti } from '@/lib/fic/salvataggio'
-import { tabelleSupabase, TABELLE_EMESSE } from '@/lib/fic/tabelle-supabase'
+import { creaClientFic } from '@/lib/fic/client'
 import { erroreAnticipo } from '@/lib/fic/validazione'
 import { oggiRoma } from '@/lib/fic/stato-pagamento'
-import { blocchi, leggiToken, messaggioErrore } from '@/lib/fic/servizio'
+import { leggiToken, messaggioErrore } from '@/lib/fic/servizio'
+import { dalEmesse, eseguiGiro } from '@/lib/fic/giro-sincronizzazione'
 import { abbinaMetodiIncasso } from '@/lib/fic/incassi'
 import { CONTEGGI_VUOTI, type EsitoSincronizzazione, type MetodoFic } from '@/types/fatture-fornitori'
 import type { FatturaEmessa, MetodiIncassoFic, SyncEmesse } from '@/types/fatture-emesse'
@@ -26,28 +21,19 @@ import type { FatturaEmessa, MetodiIncassoFic, SyncEmesse } from '@/types/fattur
  * separata (colonne emesse_* di fic_collegamenti).
  */
 
-const BUDGET_CHIAMATE = 250
-const LIMITE_MS = 240_000
-const BLOCCO_MS = 5 * 60_000
-const LOTTO_DB = 200
-
 export type RisultatoEmesse = { ok: true } | { ok: false; errore: string }
-
-/** Fatture emesse da cui si parte: se non scelta, la stessa data dei fornitori. */
-function dalEmesse(coll: { emesse_sincronizza_dal: string | null; sincronizza_dal: string }): string {
-  return coll.emesse_sincronizza_dal ?? coll.sincronizza_dal
-}
 
 export async function getSyncEmesse(): Promise<SyncEmesse | null> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('fic_collegamenti')
-    .select('sincronizza_dal, emesse_sincronizza_dal, emesse_sync_in_corso_da, emesse_ultima_sync_at, emesse_ultimo_esito, emesse_ultimo_esito_at, emesse_ultimo_messaggio, emesse_ultimi_conteggi')
+    .select('sincronizza_dal, emesse_sincronizza_dal, emesse_sync_automatica, emesse_sync_in_corso_da, emesse_ultima_sync_at, emesse_ultimo_esito, emesse_ultimo_esito_at, emesse_ultimo_messaggio, emesse_ultimi_conteggi')
     .maybeSingle()
   if (error) throw new Error(error.message)
   if (!data) return null
   return {
     sincronizza_dal: dalEmesse(data),
+    sync_automatica: data.emesse_sync_automatica,
     sync_in_corso_da: data.emesse_sync_in_corso_da,
     ultima_sync_at: data.emesse_ultima_sync_at,
     ultimo_esito: data.emesse_ultimo_esito,
@@ -57,95 +43,12 @@ export async function getSyncEmesse(): Promise<SyncEmesse | null> {
   }
 }
 
-function archivioEmesse(svc: SupabaseClient, orgId: string): ArchivioFatture<EmessoMappato> {
-  return {
-    vociLocali: async () => {
-      const righe = await selectAll<{ fic_id: number | string; fic_updated_at: string }>((da, a) =>
-        svc.from('fatture_emesse').select('fic_id, fic_updated_at').eq('organization_id', orgId).order('fic_id').range(da, a),
-      )
-      return righe.map((r): VoceLocale => ({ fic_id: Number(r.fic_id), fic_updated_at: r.fic_updated_at }))
-    },
-    salva: (documenti) => salvaDocumenti(tabelleSupabase<RigaFatturaEmessa>(svc, TABELLE_EMESSE), orgId, documenti),
-    async elimina(ficIds) {
-      for (const blocco of blocchi(ficIds, LOTTO_DB)) {
-        const { error } = await svc.from('fatture_emesse').delete().eq('organization_id', orgId).in('fic_id', blocco)
-        if (error) throw new Error(error.message)
-      }
-    },
-  }
-}
-
 export async function sincronizzaFattureEmesse(): Promise<EsitoSincronizzazione> {
-  const errore = (messaggio: string): EsitoSincronizzazione => ({ esito: 'errore', messaggio, conteggi: CONTEGGI_VUOTI })
-
   const { permessi } = await getMyPermissions()
-  if (permessi.fatture_fornitori !== 'scrittura') return errore('Non autorizzato a sincronizzare')
-
-  const orgId = await getOrgId()
-  const svc = createServiceClient()
-  const { data: coll, error: errColl } = await svc
-    .from('fic_collegamenti')
-    .select('fic_company_id, sincronizza_dal, emesse_sincronizza_dal, stato')
-    .eq('organization_id', orgId)
-    .maybeSingle()
-  if (errColl) return errore(errColl.message)
-  if (!coll) return errore('Fatture in Cloud non è collegato: vai in Impostazioni → Fatture in Cloud')
-  if (coll.stato !== 'attivo') {
-    return errore('Il collegamento va rinnovato: sostituisci il token in Impostazioni → Fatture in Cloud')
+  if (permessi.fatture_fornitori !== 'scrittura') {
+    return { esito: 'errore', messaggio: 'Non autorizzato a sincronizzare', conteggi: CONTEGGI_VUOTI }
   }
-
-  // Blocco anti doppio clic, indipendente da quello dei fornitori.
-  const inizio = new Date()
-  const scaduto = new Date(inizio.getTime() - BLOCCO_MS).toISOString()
-  const { data: preso, error: errBlocco } = await svc
-    .from('fic_collegamenti')
-    .update({ emesse_sync_in_corso_da: inizio.toISOString() })
-    .eq('organization_id', orgId)
-    .or(`emesse_sync_in_corso_da.is.null,emesse_sync_in_corso_da.lt.${scaduto}`)
-    .select('organization_id')
-  if (errBlocco) return errore(errBlocco.message)
-  if (!preso?.length) return errore('Sincronizzazione già in corso')
-
-  let esito: EsitoSincronizzazione
-  let tokenRifiutato = false
-  try {
-    const token = await leggiToken(svc, orgId)
-    const client = creaClientFic(token)
-    const companyId = Number(coll.fic_company_id)
-    const r = await sincronizza<EmessoMappato>({
-      client,
-      archivio: archivioEmesse(svc, orgId),
-      companyId,
-      dal: dalEmesse(coll),
-      budgetChiamate: BUDGET_CHIAMATE,
-      limiteMs: LIMITE_MS,
-      fonte: fonteEmesse(client, companyId),
-    })
-    esito = r.completa
-      ? { esito: 'ok', messaggio: '', conteggi: r.conteggi }
-      : { esito: 'parziale', messaggio: messaggioParziale(r), conteggi: r.conteggi }
-  } catch (e) {
-    tokenRifiutato = e instanceof FicNonAutorizzato
-    esito = e instanceof FicTroppeRichieste
-      ? { esito: 'parziale', messaggio: messaggioErrore(e), conteggi: CONTEGGI_VUOTI }
-      : errore(messaggioErrore(e))
-  }
-
-  const { error: errEsito } = await svc
-    .from('fic_collegamenti')
-    .update({
-      emesse_sync_in_corso_da: null,
-      emesse_ultimo_esito: esito.esito,
-      emesse_ultimo_esito_at: new Date().toISOString(),
-      emesse_ultimo_messaggio: esito.messaggio || null,
-      emesse_ultimi_conteggi: esito.conteggi,
-      updated_at: new Date().toISOString(),
-      ...(esito.esito === 'ok' ? { emesse_ultima_sync_at: inizio.toISOString() } : {}),
-      ...(tokenRifiutato ? { stato: 'da_ricollegare' } : {}),
-    })
-    .eq('organization_id', orgId)
-  if (errEsito) return errore(errEsito.message)
-
+  const esito = await eseguiGiro(createServiceClient(), await getOrgId(), 'emesse')
   revalidatePath('/fatture-fornitori')
   return esito
 }
