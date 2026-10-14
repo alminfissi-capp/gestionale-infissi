@@ -301,8 +301,11 @@ function SortableRow({ c, preventiviById, onScheda, onDelete, onDuplica, onAccon
       {/* Saldo */}
       <TableCell className="text-right">
         <Badge
+          title={c.inesigibile ? 'Inesigibile: non è più un credito da incassare' : undefined}
           className={
-            saldoZero
+            c.inesigibile
+              ? 'bg-gray-100 text-gray-400 line-through border-gray-200 hover:bg-gray-100'
+              : saldoZero
               ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-100'
               : saldoPositivo
               ? 'bg-orange-100 text-orange-700 border-orange-200 hover:bg-orange-100'
@@ -385,8 +388,9 @@ function SortableRow({ c, preventiviById, onScheda, onDelete, onDuplica, onAccon
           variant="ghost"
           size="icon"
           className="h-8 w-8"
-          title={c.in_calcoli ? 'Rimuovi dai Calcoli' : 'Aggiungi ai Calcoli (incassi fine mese)'}
+          title={c.inesigibile ? 'Inesigibile: non è un incasso possibile' : c.in_calcoli ? 'Rimuovi dai Calcoli' : 'Aggiungi ai Calcoli (incassi fine mese)'}
           onClick={onToggleCalcoli}
+          disabled={!!c.inesigibile && !c.in_calcoli}
         >
           <Star
             className={`h-4 w-4 ${c.in_calcoli ? 'text-amber-400 fill-amber-400' : 'text-gray-300 hover:text-amber-400'}`}
@@ -586,12 +590,14 @@ export default function TabellaCommesse({
   // Spunta "inesigibile" — aggiornamento ottimistico con revert in caso di errore,
   // come la stellina dei Calcoli.
   const handleToggleInesigibile = async (id: string, value: boolean) => {
-    setItems((prev) => prev.map((c) => c.id === id ? { ...c, inesigibile: value } : c))
+    const prima = items.find((c) => c.id === id)
+    // Segnata inesigibile esce anche dai Calcoli, come fa l'azione sul server
+    setItems((prev) => prev.map((c) => c.id === id ? { ...c, inesigibile: value, ...(value ? { in_calcoli: false } : {}) } : c))
     try {
       await toggleInesigibile(id, value)
       router.refresh()
     } catch {
-      setItems((prev) => prev.map((c) => c.id === id ? { ...c, inesigibile: !value } : c))
+      setItems((prev) => prev.map((c) => c.id === id ? { ...c, inesigibile: !value, in_calcoli: prima?.in_calcoli ?? c.in_calcoli } : c))
       toast.error('Errore nel salvataggio')
     }
   }
@@ -651,7 +657,8 @@ export default function TabellaCommesse({
       totale:  all.reduce((s, c) => s + c.totale, 0),
       iva:     all.reduce((s, c) => s + c.iva_totale, 0),
       acconti: all.reduce((s, c) => s + c.totale_acconti, 0),
-      saldo:   all.reduce((s, c) => s + c.saldo, 0),
+      // Il saldo di un'inesigibile non e' piu' un credito: fuori dal totale da incassare
+      saldo:   all.reduce((s, c) => s + (c.inesigibile ? 0 : c.saldo), 0),
       count:   all.length,
     }
   }, [filtered, filteredPending])

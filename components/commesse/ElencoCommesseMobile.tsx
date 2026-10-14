@@ -127,7 +127,7 @@ function Importi({ c, preventiviById, onScheda, terzo = 'saldo' }: {
       {terzo === 'saldo' ? (
         <div>
           <p className="text-[10px] text-gray-500">Saldo</p>
-          <p className={`text-[13px] font-bold ${coloreSaldo(c.saldo)}`}>{formatEuro(c.saldo)}</p>
+          <p className={`text-[13px] font-bold ${c.inesigibile ? 'text-gray-400 line-through' : coloreSaldo(c.saldo)}`}>{formatEuro(c.saldo)}</p>
         </div>
       ) : (
         <div>
@@ -151,6 +151,7 @@ function TastiRapidi({ c, a }: { c: CommessaCompleta; a: AzioniCommessaMobile })
       <Button
         type="button" variant="outline" size="sm" className="h-7 px-2"
         onClick={a.onToggleCalcoli}
+        disabled={!!c.inesigibile && !c.in_calcoli}
         aria-label={c.in_calcoli ? 'Togli dai Calcoli' : 'Aggiungi ai Calcoli'}
       >
         <Star className={`h-3.5 w-3.5 ${c.in_calcoli ? 'fill-amber-400 text-amber-400' : 'text-gray-400'}`} />
@@ -176,7 +177,7 @@ function MenuCommessa({ c, a, altriGruppi, completo }: {
           <>
             <DropdownMenuItem onClick={a.onAcconto}><Euro className="mr-2 h-3.5 w-3.5" />Acconti</DropdownMenuItem>
             <DropdownMenuItem onClick={a.onDocumenti}><Paperclip className="mr-2 h-3.5 w-3.5" />Documenti ({c.documenti.length})</DropdownMenuItem>
-            <DropdownMenuItem onClick={a.onToggleCalcoli}>
+            <DropdownMenuItem onClick={a.onToggleCalcoli} disabled={!!c.inesigibile && !c.in_calcoli}>
               <Star className="mr-2 h-3.5 w-3.5" />{c.in_calcoli ? 'Togli dai Calcoli' : 'Aggiungi ai Calcoli'}
             </DropdownMenuItem>
           </>
