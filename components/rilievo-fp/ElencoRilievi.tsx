@@ -5,6 +5,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Loader2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { createCliente } from '@/actions/clienti'
+import PulsanteIndietro from '@/components/layout/PulsanteIndietro'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -80,6 +81,7 @@ export default function ElencoRilievi({ onApri }: { onApri: (id: string) => void
 
   return (
     <div className="space-y-3">
+      <PulsanteIndietro fallback="/rilievo" />
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Rilievi in cantiere</h1>
         <Button onClick={() => setNuovo(!nuovo)} className="h-11"><Plus className="mr-1 size-4" />Nuovo</Button>

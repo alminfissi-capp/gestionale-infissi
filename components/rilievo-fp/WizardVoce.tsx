@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { toast } from 'sonner'
+import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -111,7 +112,7 @@ export default function WizardVoce({ rilievoId, voceId, onFine }: Props) {
 
   const testa = (
     <div className="flex items-center justify-between">
-      <Button variant="ghost" size="sm" onClick={() => salva('chiudi')}>Chiudi</Button>
+      <Button variant="outline" size="sm" className="gap-1.5" onClick={() => salva('chiudi')}><ArrowLeft className="h-4 w-4" />Indietro</Button>
       <span className="text-sm text-muted-foreground">{passo + 1}/{PASSI.length} · {PASSI[passo]}</span>
     </div>
   )

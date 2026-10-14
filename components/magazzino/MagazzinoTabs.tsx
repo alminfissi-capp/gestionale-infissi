@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Tag, Package, Warehouse, ShoppingCart, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import PulsanteIndietro from '@/components/layout/PulsanteIndietro'
 
 const TABS = [
   { href: '/magazzino/categorie', label: 'Categorie', icon: Tag },
@@ -15,9 +16,13 @@ const TABS = [
 
 export default function MagazzinoTabs() {
   const pathname = usePathname()
+  // La singola categoria (/magazzino/categorie/[tipo]) ha già il suo tasto "Categorie"
+  const haGiaIndietro = pathname.split('/').filter(Boolean).length > 2
 
   return (
-    <div className="border-b border-gray-200 mb-6">
+    <div className="mb-6">
+      {!haGiaIndietro && <div className="mb-3"><PulsanteIndietro fallback="/" /></div>}
+      <div className="border-b border-gray-200">
       <nav className="-mb-px flex gap-1 overflow-x-auto">
         {TABS.map(({ href, label, icon: Icon }) => {
           const isActive = pathname.startsWith(href) ||
@@ -40,6 +45,7 @@ export default function MagazzinoTabs() {
           )
         })}
       </nav>
+      </div>
     </div>
   )
 }

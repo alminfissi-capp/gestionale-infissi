@@ -2,6 +2,7 @@ import { getClienti } from '@/actions/clienti'
 import { getCategorie } from '@/actions/listini'
 import { getSettings, getNoteTemplates } from '@/actions/impostazioni'
 import { getScorevoliListino } from '@/actions/scorrevoli'
+import PulsanteIndietro from '@/components/layout/PulsanteIndietro'
 import NuovoPreventivoShell from '@/components/preventivi/NuovoPreventivoShell'
 
 export default async function NuovoPreventivoPage() {
@@ -14,6 +15,7 @@ export default async function NuovoPreventivoPage() {
   return (
     <div>
       <div className="mb-6">
+        <div className="mb-2"><PulsanteIndietro fallback="/preventivi" /></div>
         <h1 className="text-2xl font-bold">Nuovo Preventivo</h1>
         <p className="text-sm text-muted-foreground mt-1">Compila il modulo passo per passo</p>
       </div>

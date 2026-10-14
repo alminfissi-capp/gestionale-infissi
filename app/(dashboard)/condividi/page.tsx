@@ -1,3 +1,4 @@
+import PulsanteIndietro from '@/components/layout/PulsanteIndietro'
 import ImbutoCondivisione from '@/components/condivisione/ImbutoCondivisione'
 
 /**
@@ -17,6 +18,7 @@ export default async function CondividiPage({
   return (
     <div className="p-4 sm:p-6 max-w-lg mx-auto space-y-4">
       <div>
+        <div className="mb-2"><PulsanteIndietro fallback="/" /></div>
         <h1 className="text-2xl font-bold text-gray-900">Salva nel gestionale</h1>
         <p className="text-sm text-gray-500 mt-0.5">
           Scegli dove far finire il file che hai condiviso
