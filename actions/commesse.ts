@@ -1112,7 +1112,7 @@ export async function addCreditoFiscale(): Promise<CreditoFiscale> {
 
 export async function updateCreditoFiscale(
   id: string,
-  campi: { nome: string; descrizione: string; importo: number }
+  campi: { nome: string; descrizione: string; importo: number; anno: number | null }
 ): Promise<void> {
   const supabase = await createClient()
   const orgId = await getOrgId()
@@ -1122,6 +1122,19 @@ export async function updateCreditoFiscale(
     .eq('id', id)
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
+}
+
+/** Nuovo ordine dei crediti fiscali, dal trascinamento: ids nell'ordine voluto. */
+export async function riordinaCreditiFiscali(ids: string[]): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const esiti = await Promise.all(
+    ids.map((id, i) =>
+      supabase.from('crediti_fiscali').update({ ordine: i }).eq('id', id).eq('organization_id', orgId)
+    )
+  )
+  const errore = esiti.find((r) => r.error)?.error
+  if (errore) throw new Error(errore.message)
 }
 
 export async function setRecuperatoCreditoFiscale(id: string, recuperato: boolean): Promise<void> {

@@ -280,6 +280,8 @@ export type CreditoFiscale = {
   nome: string
   descrizione: string
   importo: number
+  /** Anno di riferimento (es. la quota 2028 di un bonus); facoltativo */
+  anno: number | null
   recuperato: boolean
   ordine: number
   created_at: string
