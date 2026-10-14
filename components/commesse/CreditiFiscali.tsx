@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Plus, Trash2, Check, Landmark } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import {
   addCreditoFiscale,
   updateCreditoFiscale,
@@ -144,12 +145,12 @@ export default function CreditiFiscali({ acconti, creditiFiscali, oggi }: Props)
         {items.length > 0 && (
           <ul className="pt-1 space-y-1 border-t border-amber-200">
             {items.map((r) => (
-              <li key={r.id} className="flex items-center gap-1.5">
+              <li key={r.id} className="flex items-start gap-1.5">
                 <button
                   type="button"
                   onClick={() => handleToggle(r)}
                   title={r.recuperato ? 'Segna come ancora da recuperare' : 'Segna come recuperato'}
-                  className={`h-5 w-5 shrink-0 rounded border flex items-center justify-center transition-colors ${
+                  className={`mt-1.5 h-5 w-5 shrink-0 rounded border flex items-center justify-center transition-colors ${
                     r.recuperato
                       ? 'bg-emerald-600 border-emerald-600 text-white'
                       : 'border-gray-300 bg-white text-transparent hover:border-gray-400'
@@ -157,15 +158,18 @@ export default function CreditiFiscali({ acconti, creditiFiscali, oggi }: Props)
                 >
                   <Check className="h-3 w-3" />
                 </button>
-                <Input
+                {/* Il nome va a capo invece di essere tagliato: la card e' stretta */}
+                <Textarea
+                  rows={1}
                   value={r.nome}
                   onChange={(e) =>
                     setItems((cur) => cur.map((x) => (x.id === r.id ? { ...x, nome: e.target.value } : x)))
                   }
                   onBlur={() => handleSalva(r.id)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() } }}
                   placeholder="IVA a credito, acconto imposte..."
-                  className={`h-8 text-sm bg-white ${r.recuperato ? 'line-through text-gray-400' : ''}`}
+                  title={r.nome}
+                  className={`min-h-8 flex-1 resize-none px-2 py-1.5 text-sm leading-snug bg-white ${r.recuperato ? 'line-through text-gray-400' : ''}`}
                 />
                 <Input
                   value={importi[r.id] ?? ''}
@@ -180,7 +184,7 @@ export default function CreditiFiscali({ acconti, creditiFiscali, oggi }: Props)
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 shrink-0 text-red-400 hover:text-red-600"
+                  className="h-8 w-7 shrink-0 text-red-400 hover:text-red-600"
                   onClick={() => handleDelete(r.id)}
                   title="Elimina"
                 >
