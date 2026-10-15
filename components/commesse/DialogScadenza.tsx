@@ -263,6 +263,10 @@ export default function DialogScadenza({
           if (esito.spostata) spostataIn = meseAnnoDi(form.data_scadenza)
         } else {
           mostraEsitoFic(await updateScadenza(scadenza.id, payload))
+          // Data portata in un altro anno: il server l'ha spostata nel blocco di quell'anno
+          if (scadenza.data_scadenza && form.data_scadenza && scadenza.data_scadenza.slice(0, 4) !== form.data_scadenza.slice(0, 4)) {
+            spostataIn = meseAnnoDi(form.data_scadenza)
+          }
         }
         id = scadenza.id
       } else {
@@ -306,7 +310,7 @@ export default function DialogScadenza({
       }
       toast.success(
         spostataIn
-          ? `Scadenza pagata · spostata in ${spostataIn}`
+          ? `${daProgrammare ? 'Scadenza pagata' : 'Scadenza aggiornata'} · spostata in ${spostataIn}`
           : scadenza
             ? 'Scadenza aggiornata'
             : ripetute > 0

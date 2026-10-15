@@ -116,6 +116,40 @@ async function prossimoOrdine(
   return (maxRow?.ordine ?? 0) + 1
 }
 
+/**
+ * Una scadenza datata sta nel blocco del suo anno: se la data e' stata portata in
+ * un altro anno (es. da 2026 a 2027) la riga passa nel blocco giusto, creato se
+ * manca, in fondo. Vale solo per i blocchi anno ("2026", "2027"...): i blocchi
+ * scadenze con un nome libero e il limbo "Da programmare" restano dove sono
+ * (il limbo ha la sua regola in programmaScadenza). Ritorna l'anno di arrivo.
+ */
+async function ricollocaNelBloccoAnno(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+  id: string,
+): Promise<number | null> {
+  const { data: row } = await supabase
+    .from('scadenze')
+    .select('data_scadenza, gruppo:gruppi_commesse(tipo, nome)')
+    .eq('id', id)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+  const gruppo = (Array.isArray(row?.gruppo) ? row.gruppo[0] : row?.gruppo) as { tipo: string; nome: string } | null | undefined
+  if (!row?.data_scadenza || gruppo?.tipo !== 'scadenze' || !/^\d{4}$/.test(gruppo.nome)) return null
+  const anno = Number(row.data_scadenza.slice(0, 4))
+  if (anno === Number(gruppo.nome)) return null
+
+  const gruppoId = await resolveGruppoScadenzeAnno(supabase, orgId, anno)
+  const ordine = await prossimoOrdine(supabase, orgId, gruppoId)
+  const { error } = await supabase
+    .from('scadenze')
+    .update({ gruppo_id: gruppoId, ordine })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error(error.message)
+  return anno
+}
+
 export async function createScadenza(input: ScadenzaInput): Promise<{ id: string }> {
   const supabase = await createClient()
   const orgId = await getOrgId()
@@ -134,6 +168,8 @@ export async function createScadenza(input: ScadenzaInput): Promise<{ id: string
     .select('id')
     .single()
   if (error) throw new Error(error.message)
+  // Creata dal blocco 2026 con una data del 2027: nasce gia' nel 2027
+  await ricollocaNelBloccoAnno(supabase, orgId, data.id)
   revalidatePath('/commesse', 'layout')
   return { id: data.id }
 }
@@ -165,6 +201,8 @@ export async function updateScadenza(id: string, input: Partial<ScadenzaInput>):
     .eq('id', id)
     .eq('organization_id', orgId)
   if (error) throw new Error(error.message)
+  // Data spostata in un altro anno: la riga segue la data nel blocco di quell'anno.
+  if (input.data_scadenza) await ricollocaNelBloccoAnno(supabase, orgId, id)
   // Chi e' in agenda ci resta con i dati aggiornati; chi non c'e' non entra.
   await sincronizzaEventoScadenza(id)
   // Se la scadenza paga fatture FiC, FiC segue: scrive, toglie o riscrive il pagamento.
