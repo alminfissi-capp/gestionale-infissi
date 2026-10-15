@@ -147,7 +147,7 @@ export default function DialogArticoliFattura({
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
       {/* La larghezza va data con sm:/xl: (vedi components/ui/dialog.tsx), altrimenti resta quella di base. */}
-      <DialogContent className="flex max-h-[94vh] w-[96vw] flex-col sm:max-w-[96vw] xl:max-w-[1400px] p-4 sm:p-6">
+      <DialogContent className="flex max-h-[94dvh] w-[96vw] flex-col sm:max-w-[96vw] xl:max-w-[1400px] p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>{aperto ? 'Articoli da attribuire alla commessa' : 'Aggiungi da fattura'}</DialogTitle>
         </DialogHeader>

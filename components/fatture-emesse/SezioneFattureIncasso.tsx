@@ -243,7 +243,7 @@ function DialogQuoteIncasso({
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-h-[94vh] overflow-y-auto sm:max-w-xl xl:max-w-2xl">
+      <DialogContent className="max-h-[94dvh] overflow-y-auto sm:max-w-xl xl:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Incasso di € {formatEuro(acconto.importo)}</DialogTitle>
           <DialogDescription>

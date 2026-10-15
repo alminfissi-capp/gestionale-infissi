@@ -334,7 +334,7 @@ export default function DialogScadenza({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[92vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md max-h-[92dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {daProgrammare

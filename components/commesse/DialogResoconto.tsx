@@ -440,7 +440,7 @@ export default function DialogResoconto({ open, onOpenChange, commessa }: Props)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-5xl xl:max-w-6xl max-h-[92vh] flex flex-col p-0 gap-0">
+      <DialogContent className="sm:max-w-5xl xl:max-w-6xl max-h-[92dvh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-5 pt-5 pb-4 border-b shrink-0">
           <DialogTitle>Resoconto economico — {commessa.cliente_nome}</DialogTitle>
         </DialogHeader>

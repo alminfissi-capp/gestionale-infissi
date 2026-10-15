@@ -102,7 +102,7 @@ export default function DialogRicercaScadenze({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl flex flex-col max-h-[85vh] gap-3">
+      <DialogContent className="sm:max-w-2xl flex flex-col max-h-[85dvh] gap-3">
         <DialogHeader>
           <DialogTitle>Cerca nelle scadenze {anno}</DialogTitle>
           <DialogDescription>

@@ -44,7 +44,7 @@ export default function DettaglioStrutturaFp({ id, onChiudi }: Props) {
 
   return (
     <Dialog open={id !== null} onOpenChange={aperto => { if (!aperto) onChiudi() }}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {s?.nome ?? 'Struttura'}

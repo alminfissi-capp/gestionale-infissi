@@ -134,7 +134,7 @@ export default function DialogEventoAdmin({
 
   return (
     <Dialog open onOpenChange={(aperto) => !aperto && onClose()}>
-      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-h-[85dvh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {soloLettura

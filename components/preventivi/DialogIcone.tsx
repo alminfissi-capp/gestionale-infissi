@@ -58,7 +58,7 @@ export default function DialogIcone({ icone, urlSelezionato, onSelect }: Props) 
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Scegli un&apos;icona</DialogTitle>
             <DialogDescription>

@@ -157,3 +157,15 @@
     page-break-inside: avoid;
   }
 }
+
+/* Finestre (Dialog): quando il contenuto scorre, i tasti del footer restano
+   visibili in fondo invece di finire fuori dallo schermo. Dove la finestra non
+   scorre (o scorre un pannello interno) sticky non sposta niente. */
+[data-slot="dialog-content"] [data-slot="dialog-footer"] {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background: var(--background);
+  padding-top: 0.75rem;
+  box-shadow: 0 -1px 0 var(--border);
+}

@@ -639,7 +639,7 @@ export default function DialogSchedaCommessa({ open, onOpenChange, commessa, ute
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl xl:max-w-4xl max-h-[92vh] flex flex-col p-0 gap-0">
+      <DialogContent className="sm:max-w-2xl xl:max-w-4xl max-h-[92dvh] flex flex-col p-0 gap-0">
 
         {/* ── Header ── */}
         <div className="px-5 pt-5 pb-4 border-b shrink-0">

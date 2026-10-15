@@ -109,7 +109,7 @@ export default function DialogSelezioneProdottiMagazzino({ open, onClose, linked
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="sm:max-w-2xl xl:max-w-4xl max-h-[80vh] flex flex-col">
+      <DialogContent className="sm:max-w-2xl xl:max-w-4xl max-h-[80dvh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link2 className="h-4 w-4" />

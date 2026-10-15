@@ -5,6 +5,7 @@ import { XIcon } from "lucide-react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+import { recuperaRotella } from "@/lib/rotella-bloccata"
 import { Button } from "@/components/ui/button"
 
 function Dialog({
@@ -53,6 +54,7 @@ function DialogContent({
   showCloseButton = true,
   fullscreen = false,
   wide = false,
+  onWheel,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
@@ -70,7 +72,9 @@ function DialogContent({
         // modificatore non entra in conflitto con `sm:max-w-lg` nel merge delle
         // classi, resta in piedi anche lui e sopra i 640px perde, lasciando
         // tutte le finestre larghe 32rem invece della misura voluta.
-        "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 outline-none sm:max-w-lg xl:max-w-2xl"
+        // Mai piu' alte dello schermo: oltre scorrono dentro, e i tasti del
+        // DialogFooter restano incollati in fondo (regola in globals.css).
+        "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto overscroll-contain rounded-lg border p-4 shadow-lg duration-200 outline-none sm:max-w-lg sm:p-6 xl:max-w-2xl"
 
   return (
     <DialogPortal data-slot="dialog-portal">
@@ -78,6 +82,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(contentClass, className)}
+        onWheel={(e) => { onWheel?.(e); recuperaRotella(e) }}
         {...props}
       >
         {children}

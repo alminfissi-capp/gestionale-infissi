@@ -144,7 +144,7 @@ export default function DialogFattureEmesse({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[94vh] w-[96vw] flex-col sm:max-w-[96vw] xl:max-w-5xl">
+      <DialogContent className="flex max-h-[94dvh] w-[96vw] flex-col sm:max-w-[96vw] xl:max-w-5xl">
         <DialogHeader>
           <DialogTitle>Fatture emesse {dati ? `— ${dati.commessa.nome}` : ''}</DialogTitle>
           <DialogDescription>

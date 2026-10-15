@@ -121,7 +121,7 @@ export default function DialogVenditaAnonima({ sezioneId, vendita, onClose }: Pr
 
   return (
     <Dialog open onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="sm:max-w-md xl:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md xl:max-w-lg max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{vendita ? 'Modifica vendita' : 'Nuova vendita'}</DialogTitle>
         </DialogHeader>

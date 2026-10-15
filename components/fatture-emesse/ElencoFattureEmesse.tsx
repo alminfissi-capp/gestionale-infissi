@@ -257,7 +257,7 @@ function DettaglioFatturaEmessa({ fattura, onClose }: { fattura: FatturaEmessaEl
 
   return (
     <Dialog open={fattura !== null} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-h-[94vh] overflow-y-auto sm:max-w-2xl xl:max-w-3xl">
+      <DialogContent className="max-h-[94dvh] overflow-y-auto sm:max-w-2xl xl:max-w-3xl">
         {fattura && (
           <>
             <DialogHeader>
