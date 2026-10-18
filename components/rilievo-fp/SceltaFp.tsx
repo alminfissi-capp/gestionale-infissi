@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { Check, ChevronsUpDown, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -29,6 +29,8 @@ interface Props {
   id?: string
   /** Come mostrare il valore salvato se non e' (piu') nell'elenco */
   riserva?: VoceScelta | null
+  /** Con questo, ogni riga ha la stellina dei preferiti (non sceglie la voce e non chiude il menu) */
+  onStella?: (v: VoceScelta, attiva: boolean) => void
 }
 
 const MAX_RISULTATI = 60
@@ -38,7 +40,7 @@ const MAX_RISULTATI = 60
  * SI RICHIUDE subito. La ricerca la fa questo componente (testo + descrizione) e mostra
  * al massimo 60 righe, cosi' anche centinaia di colori o profili con miniatura restano veloci.
  */
-export default function SceltaFp({ voci, preferiti, valore, onScegli, segnaposto, etichettaNessuno, conMiniature, id, riserva }: Props) {
+export default function SceltaFp({ voci, preferiti, valore, onScegli, segnaposto, etichettaNessuno, conMiniature, id, riserva, onStella }: Props) {
   const [aperto, setAperto] = useState(false)
   const [cerca, setCerca] = useState('')
   const { voce: mostrata, fuoriCatalogo } = voceMostrata(voci, valore, riserva ?? null)
@@ -66,6 +68,18 @@ export default function SceltaFp({ voci, preferiti, valore, onScegli, segnaposto
         {v.sotto && <span className="block truncate text-xs text-muted-foreground">{v.sotto}</span>}
       </span>
       <Check className={cn('size-4 shrink-0 text-primary', valore === v.id ? 'opacity-100' : 'opacity-0')} />
+      {onStella && (
+        <button
+          type="button"
+          className="-my-1 shrink-0 rounded p-1 hover:bg-muted"
+          aria-label={preferiti?.has(v.id) ? 'Togli dai preferiti' : 'Aggiungi ai preferiti'}
+          // Solo la stella: la riga non viene scelta e il menu resta aperto.
+          onPointerDown={e => e.stopPropagation()}
+          onClick={e => { e.preventDefault(); e.stopPropagation(); onStella(v, !preferiti?.has(v.id)) }}
+        >
+          <Star className={cn('size-4', preferiti?.has(v.id) ? 'fill-amber-400 text-amber-500' : 'text-muted-foreground')} />
+        </button>
+      )}
     </CommandItem>
   )
 

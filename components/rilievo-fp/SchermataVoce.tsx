@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { db } from '@/lib/db'
 import { salvaVoceLocale } from '@/lib/rilievo-fp-locale'
+import { cambiaPreferenzaFp } from '@/lib/preferenze-fp'
 import {
   campiRiempimento, coloriAccessori, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
 } from '@/lib/fppro/rilievo-fp'
@@ -258,6 +259,7 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
                 <SceltaFp
                   voci={vociColori(perAcc)}
                   preferiti={perAcc ? undefined : pref('colore')}
+                  onStella={(x, attiva) => void cambiaPreferenzaFp('colore', x.id, attiva)}
                   valore={v[campo]?.fpId !== undefined ? String(v[campo]!.fpId) : null}
                   segnaposto={perAcc ? 'Cerca colore accessori (es. 9010)' : 'Cerca colore (es. 9010)'}
                   etichettaNessuno="Non indicato"
@@ -303,6 +305,7 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
                 <SceltaFp
                   voci={vociVetri}
                   preferiti={pref('vetro')}
+                  onStella={(x, attiva) => void cambiaPreferenzaFp('vetro', x.id, attiva)}
                   valore={v.vetri[c.codice] ? String(v.vetri[c.codice].fpId) : null}
                   segnaposto="Cerca vetro (es. 33.1)"
                   etichettaNessuno={`Come la struttura (${c.codiceDefault})`}
