@@ -39,12 +39,12 @@ per trattamento in `fp_accessori_costi` (`colore_fp_id`, `prezzo`, `unita_vendit
 
 **Correzione.**
 - `calcolaRilievoFp` carica anche `fp_accessori_costi` degli accessori in uso.
-- Prezzo unitario dell'accessorio per la voce: riga di `fp_accessori_costi` del
-  colore della voce — nell'ordine colore accessori, colore esterno, colore interno
-  — `prezzo / unita_vendita`; se non c'è, `fp_accessori.prezzo / unita_vendita`
-  come oggi. L'avviso "senza prezzo" resta solo se entrambi mancano.
-- Il colore accessori è un campo nuovo della voce (`coloreAcc`, facoltativo); se
-  vuoto vale l'esterno, poi l'interno.
+- In FP PRO i colori accessori sono un elenco a parte (`fp_colori.per_accessori`,
+  367 trattamenti tipo "NO", "9010", "1013OP"), non le classi colore dei profili:
+  il colore accessori va scelto nella voce (`coloreAcc`, campo nuovo facoltativo).
+- Prezzo: trattamento del colore accessori scelto; senza scelta, il prezzo comune
+  se tutti i trattamenti costano uguale, altrimenti il più alto con avviso
+  "scegli il colore accessori"; senza trattamenti, `fp_accessori.prezzo` come oggi.
 - Da chiarire nel lavoro (non cambiano il disegno): "SCARICO ACQUA non trovato"
   (codice senza riga in `fp_accessori`) e "Profilo  non trovato" con codice vuoto
   sulla struttura `09B-UNI_PFIN1A_AG+SERR+DOGHE`.
@@ -53,8 +53,9 @@ per trattamento in `fp_accessori_costi` (`colore_fp_id`, `prezzo`, `unita_vendit
 
 ## 2. Minuti
 
-- Nella pagina "Calcolo e preventivo" le correzioni per voce mostrano **minuti**
-  (manodopera e posa in opera, come FP PRO) e la colonna "Ore" diventa "Minuti".
+- Nella pagina "Calcolo e preventivo" le correzioni per voce mostrano i 5 tempi di
+  FP PRO **in minuti** (taglio, lavorazione = manodopera, montaggio, assemblaggio,
+  posa in opera) e la colonna "Ore" diventa "Minuti".
 - Dentro il motore restano le ore (`OreVoce`): la conversione è solo
   all'ingresso/uscita della UI (`campiOre`/`oreDaSalvare` in
   `lib/fppro/calcolo/correzioni.ts`). Le correzioni già salvate non cambiano.
