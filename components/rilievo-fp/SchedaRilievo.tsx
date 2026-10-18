@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Calculator, ChevronLeft, Plus, Trash2 } from 'lucide-react'
+import { Calculator, ChevronLeft, Plus, Printer, Trash2 } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import AllegatiVoce from '@/components/rilievo/AllegatiVoce'
@@ -10,7 +10,7 @@ import { db } from '@/lib/db'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { eliminaRilievoLocale, eliminaVoceLocale, salvaRilievoLocale } from '@/lib/rilievo-fp-locale'
 import type { RilievoFp } from '@/types/rilievo-fp'
-import DisegnoVoceSvg from './DisegnoVoceSvg'
+import SchedaVoceRiepilogo from './SchedaVoceRiepilogo'
 import { nomeCliente } from './ElencoRilievi'
 
 /**
@@ -31,9 +31,10 @@ interface Props {
   id: string
   onIndietro: () => void
   onVoce: (voceId: string | null) => void
+  onRiepilogo: () => void
 }
 
-export default function SchedaRilievo({ id, onIndietro, onVoce }: Props) {
+export default function SchedaRilievo({ id, onIndietro, onVoce, onRiepilogo }: Props) {
   const { isOnline } = useOnlineStatus()
   const rilievo = useLiveQuery(() => db.rilieviFp.get(id), [id])
   const voci = useLiveQuery(() => db.vociFp.where('rilievoId').equals(id).sortBy('ordine'), [id])
@@ -47,7 +48,10 @@ export default function SchedaRilievo({ id, onIndietro, onVoce }: Props) {
 
   return (
     <div className="space-y-3">
-      <Button variant="ghost" size="sm" onClick={onIndietro}><ChevronLeft className="mr-1 size-4" />Rilievi</Button>
+      <div className="flex items-center justify-between gap-2">
+        <Button variant="ghost" size="sm" onClick={onIndietro}><ChevronLeft className="mr-1 size-4" />Rilievi</Button>
+        {(voci ?? []).length > 0 && <Button variant="outline" size="sm" className="gap-1.5" onClick={onRiepilogo}><Printer className="size-4" />Stampa / PDF</Button>}
+      </div>
       <div>
         <h1 className="text-lg font-semibold">{nomeCliente(rilievo.cliente) || 'Senza nome'}</h1>
         {rilievo.cliente.cantiere && <p className="text-sm text-muted-foreground">{rilievo.cliente.cantiere}</p>}
@@ -55,26 +59,21 @@ export default function SchedaRilievo({ id, onIndietro, onVoce }: Props) {
       <NoteRilievo key={rilievo.id} rilievo={rilievo} />
 
       <ul className="space-y-2">
-        {(voci ?? []).map(v => {
+        {(voci ?? []).map((v, i) => {
           const s = strutture?.get(v.fp.strutturaId)
           return (
-            <li key={v.id} className="rounded-md border bg-card p-2">
-              <div className="flex gap-3">
-                <button type="button" className="flex flex-1 gap-3 text-left" onClick={() => onVoce(v.id)}>
-                  {s ? <DisegnoVoceSvg struttura={s} voce={v.fp} className="size-20 shrink-0" /> : <div className="size-20 shrink-0 bg-muted" />}
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium">{v.posizione || 'Voce'} · {v.quantita} pz</span>
-                    <span className="block text-xs text-muted-foreground">{v.fp.serie} · {v.fp.nome}</span>
-                    <span className="block text-xs">{v.fp.larghezza ?? '?'} × {v.fp.altezza ?? '?'} mm</span>
-                    {!s && <span className="block text-xs text-amber-700">{catalogoVuoto ? 'Catalogo FP PRO non ancora scaricato' : 'Struttura non più in FP PRO'}</span>}
-                    {s && !s.presente && <span className="block text-xs text-amber-700">Struttura non più in FP PRO</span>}
-                    {v.daInviare === 1 && <span className="block text-xs text-red-700">da inviare</span>}
-                  </span>
+            <li key={v.id} className="space-y-1">
+              <div className="flex items-start gap-1">
+                <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onVoce(v.id)} aria-label={`Apri ${v.posizione || 'voce'}`}>
+                  <SchedaVoceRiepilogo voce={v} struttura={s ?? null} prezzo={null} numero={i + 1} />
                 </button>
                 <button type="button" className="p-2" aria-label="Elimina voce" onClick={() => { if (confirm('Eliminare questa voce?')) void eliminaVoceLocale(v.id) }}>
                   <Trash2 className="size-4 text-muted-foreground" />
                 </button>
               </div>
+              {!s && <p className="text-xs text-amber-700">{catalogoVuoto ? 'Catalogo FP PRO non ancora scaricato' : 'Struttura non più in FP PRO'}</p>}
+              {s && !s.presente && <p className="text-xs text-amber-700">Struttura non più in FP PRO</p>}
+              {v.daInviare === 1 && <p className="text-xs text-red-700">da inviare</p>}
               {isOnline && v.daInviare === 0 && <div className="mt-2"><AllegatiVoce voceId={v.id} /></div>}
             </li>
           )
