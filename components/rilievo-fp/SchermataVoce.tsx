@@ -239,91 +239,9 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
   return (
     <div className="space-y-3">
       {testata}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_26rem]">
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{v.serie}</span> · {v.nome}
-            {!struttura.presente && <span className="ml-2 text-amber-700">struttura non più presente in FP PRO</span>}
-          </p>
-          <DisegnoConNote
-            struttura={struttura}
-            voce={v}
-            note={v.noteTelaio ?? {}}
-            onNota={(lato, testo) => {
-              const note = { ...(v.noteTelaio ?? {}) }
-              if (testo) note[lato] = testo; else delete note[lato]
-              aggiorna({ noteTelaio: note })
-            }}
-          />
-          {divisioni.length > 0 && (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {divisioni.map(d => {
-                const totale = d.tipo === 'traverso' ? (v.altezza ?? struttura.h_nominale) : (v.larghezza ?? struttura.l_nominale)
-                const nominaleTot = d.tipo === 'traverso' ? struttura.h_nominale : struttura.l_nominale
-                const proporzionale = totale && nominaleTot ? Math.round((d.nominale * totale) / nominaleTot) : null
-                return (
-                  <div key={d.codice}>
-                    <Label htmlFor={`sv-d${d.codice}`} className="text-xs">{d.etichetta} {d.tipo === 'traverso' ? '(dal basso)' : '(da sinistra)'}</Label>
-                    <Input id={`sv-d${d.codice}`} className="h-8" inputMode="numeric" placeholder={proporzionale ? `≈ ${proporzionale}` : ''} value={v.quote[d.codice] ?? ''}
-                      onChange={e => {
-                        const n = numero(e.target.value)
-                        const quote = { ...v.quote }
-                        if (n === null) delete quote[d.codice]; else quote[d.codice] = n
-                        aggiorna({ quote })
-                      }} />
-                  </div>
-                )
-              })}
-            </div>
-          )}
-          {problemi.length > 0 && <ul className="text-sm text-amber-700">{problemi.map(p => <li key={p}>{p}</li>)}</ul>}
-        </div>
-
-        <div className="space-y-2">
-          <Pannello titolo="Serie e struttura">
-            <div className="flex items-center justify-between gap-2 text-sm">
-              <span className="min-w-0 truncate">{v.serie} · {v.nome}</span>
-              <Button variant="outline" size="sm" onClick={() => { setSerieScelta(v.serie); setCambiaStruttura(true) }}>Cambia</Button>
-            </div>
-          </Pannello>
-
-          {latiTelaio.length > 0 && (
-            <Pannello titolo="Telai">
-              {latiTelaio.map(({ lato, etichetta }) => (
-                <div key={lato} className="space-y-1">
-                  <Label className="text-xs">{etichetta}</Label>
-                  <SceltaFp
-                    voci={vociProfili([UTILIZZO_TELAIO])}
-                    valore={v.telai[lato] ?? null}
-                    segnaposto="Cerca telaio"
-                    etichettaNessuno={`Come la struttura (${telaiDefault[lato]})`}
-                    conMiniature
-                    riserva={v.telai[lato] ? { id: v.telai[lato]!, testo: v.telai[lato]! } : null}
-                    onScegli={x => {
-                      const telai = { ...v.telai }
-                      if (x) telai[lato] = x.id; else delete telai[lato]
-                      aggiorna({ telai })
-                    }}
-                  />
-                </div>
-              ))}
-            </Pannello>
-          )}
-
-          {haAnte(struttura.albero) && (
-            <Pannello titolo="Anta">
-              <SceltaFp
-                voci={vociProfili(UTILIZZI_ANTA)}
-                valore={v.anta ?? null}
-                segnaposto="Cerca profilo anta"
-                etichettaNessuno="Come la struttura"
-                conMiniature
-                riserva={v.anta ? { id: v.anta, testo: v.anta } : null}
-                onScegli={x => aggiorna({ anta: x?.id ?? null })}
-              />
-            </Pannello>
-          )}
-
+      {/* Tre colonne: scelte di finitura a sinistra, disegno al centro, struttura e profili a destra. Sul telefono il disegno va in cima. */}
+      <div className="grid gap-4 lg:grid-cols-[18rem_minmax(0,1fr)_18rem] xl:grid-cols-[20rem_minmax(0,1fr)_20rem]">
+        <div className="order-2 space-y-2 lg:order-1">
           <Pannello titolo="Colori">
             {([['coloreInt', 'Interno', false], ['coloreEst', 'Esterno', false], ['coloreAcc', 'Accessori', true]] as const).map(([campo, etichetta, perAcc]) => (
               <div key={campo} className="space-y-1">
@@ -383,6 +301,92 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
               ))}
             </Pannello>
           )}
+        </div>
+
+        <div className="order-1 space-y-3 lg:order-2">
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">{v.serie}</span> · {v.nome}
+            {!struttura.presente && <span className="ml-2 text-amber-700">struttura non più presente in FP PRO</span>}
+          </p>
+          <DisegnoConNote
+            struttura={struttura}
+            voce={v}
+            note={v.noteTelaio ?? {}}
+            onNota={(lato, testo) => {
+              const note = { ...(v.noteTelaio ?? {}) }
+              if (testo) note[lato] = testo; else delete note[lato]
+              aggiorna({ noteTelaio: note })
+            }}
+          />
+          {divisioni.length > 0 && (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {divisioni.map(d => {
+                const totale = d.tipo === 'traverso' ? (v.altezza ?? struttura.h_nominale) : (v.larghezza ?? struttura.l_nominale)
+                const nominaleTot = d.tipo === 'traverso' ? struttura.h_nominale : struttura.l_nominale
+                const proporzionale = totale && nominaleTot ? Math.round((d.nominale * totale) / nominaleTot) : null
+                return (
+                  <div key={d.codice}>
+                    <Label htmlFor={`sv-d${d.codice}`} className="text-xs">{d.etichetta} {d.tipo === 'traverso' ? '(dal basso)' : '(da sinistra)'}</Label>
+                    <Input id={`sv-d${d.codice}`} className="h-8" inputMode="numeric" placeholder={proporzionale ? `≈ ${proporzionale}` : ''} value={v.quote[d.codice] ?? ''}
+                      onChange={e => {
+                        const n = numero(e.target.value)
+                        const quote = { ...v.quote }
+                        if (n === null) delete quote[d.codice]; else quote[d.codice] = n
+                        aggiorna({ quote })
+                      }} />
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {problemi.length > 0 && <ul className="text-sm text-amber-700">{problemi.map(p => <li key={p}>{p}</li>)}</ul>}
+        </div>
+
+        <div className="order-3 space-y-2">
+          <Pannello titolo="Serie e struttura">
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span className="min-w-0 truncate">{v.serie} · {v.nome}</span>
+              <Button variant="outline" size="sm" onClick={() => { setSerieScelta(v.serie); setCambiaStruttura(true) }}>Cambia</Button>
+            </div>
+          </Pannello>
+
+          {latiTelaio.length > 0 && (
+            <Pannello titolo="Telai">
+              {latiTelaio.map(({ lato, etichetta }) => (
+                <div key={lato} className="space-y-1">
+                  <Label className="text-xs">{etichetta}</Label>
+                  <SceltaFp
+                    voci={vociProfili([UTILIZZO_TELAIO])}
+                    valore={v.telai[lato] ?? null}
+                    segnaposto="Cerca telaio"
+                    etichettaNessuno={`Come la struttura (${telaiDefault[lato]})`}
+                    conMiniature
+                    riserva={v.telai[lato] ? { id: v.telai[lato]!, testo: v.telai[lato]! } : null}
+                    onScegli={x => {
+                      const telai = { ...v.telai }
+                      if (x) telai[lato] = x.id; else delete telai[lato]
+                      aggiorna({ telai })
+                    }}
+                  />
+                </div>
+              ))}
+            </Pannello>
+          )}
+
+          {haAnte(struttura.albero) && (
+            <Pannello titolo="Anta">
+              <SceltaFp
+                voci={vociProfili(UTILIZZI_ANTA)}
+                valore={v.anta ?? null}
+                segnaposto="Cerca profilo anta"
+                etichettaNessuno="Come la struttura"
+                conMiniature
+                riserva={v.anta ? { id: v.anta, testo: v.anta } : null}
+                onScegli={x => aggiorna({ anta: x?.id ?? null })}
+              />
+            </Pannello>
+          )}
+
 
           <Pannello titolo="Apertura e note">
             {haAnteBattenti(struttura.albero) && (
