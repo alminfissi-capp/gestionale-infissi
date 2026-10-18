@@ -151,3 +151,19 @@ describe('bracci della ribalta a fasce: un solo braccio per anta', () => {
     expect(accessoriVoce(albero as never, {}, zona(600) as never, 20, regoleDaElenchi([], [], [], {})).some(a => a.regolaIgnota)).toBe(false)
   })
 })
+
+describe('ribalta su finestre a piu ante: il braccio si sceglie sulla larghezza di UNA anta', () => {
+  const braccio = (codice: string, min: number, max: number) => ({
+    codice, descrizione: codice, serie: 'AL_SISTEM', tipo: 1, quantita: 1, dimRif: 5, dimCalcolo: 0,
+    min, max, passo: null, formula: 'O1+AE+AE', dimDistribuzione: 0, formulaDistribuzione: null, opzionale: false, confermato: true,
+  })
+  const kit = [braccio('ACP 50446/415', 410, 549.9), braccio('ACP 50446/538', 550, 1800), braccio('ACP 5153', 1000.1, 1800)]
+  // Nodo anta di FP PRO con 2 ante dentro: 8 profili d'anta (4 lati x 2)
+  const pezziAnta = (ante: number) => Array.from({ length: ante * 4 }, (_, i) => ({ tipo: 8090, dxf: 'X.DXF', serie: 'S', indice: i }))
+  const nodo = (ante: number) => [{ tipo: 8610, codice: 2, x: null, y: null, pezzi: pezziAnta(ante), accessori: [], kit: [{ codice: 'PLANET 2AR', confermato: true, opzionale: false, accessori: kit }], figli: [] }]
+  const codici = (ante: number, l: number) => accessoriVoce(nodo(ante) as never, {}, { 2: { L: l, H: 1300 } } as never, 20, regoleDaElenchi([], [], [], {}))
+    .filter(a => a.quantita > 0).map(a => a.codice)
+  it('2 ante su 1200 mm: anta da 600 -> solo il braccio 538, niente supplementare', () => expect(codici(2, 1200)).toEqual(['ACP 50446/538']))
+  it('3 ante su 1500 mm: anta da 500 -> braccio 415', () => expect(codici(3, 1500)).toEqual(['ACP 50446/415']))
+  it('1 anta da 1200 mm: braccio 538 + supplementare', () => expect(codici(1, 1200)).toEqual(['ACP 50446/538', 'ACP 5153']))
+})

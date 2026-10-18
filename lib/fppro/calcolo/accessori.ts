@@ -89,7 +89,8 @@ export function accessoriDaCatalogo(righe: RigaKitCatalogo[]): AccessorioStruttu
   })
 }
 
-type Misure = { L: number; H: number; w: number; h: number }
+/** a = larghezza di UNA anta (nei nodi con piu' ante e' L diviso il numero di ante), per la formula O1 */
+type Misure = { L: number; H: number; w: number; h: number; a?: number }
 
 /** Regole costruite dagli elenchi letti dal database (o dalle fixture). */
 export function regoleDaElenchi(
@@ -130,13 +131,13 @@ export function regoleDaElenchi(
  */
 export function valutaFormula(f: string, d: Misure): number | null {
   // Variabili dei kit a fasce (bracci della ribalta): O1+AE+AE = larghezza dell'anta. O1 e'
-  // la larghezza della zona del nodo (l'anta), AE la sovrapposizione, presa a 0: si sceglie
-  // comunque un solo braccio per anta, al massimo quello della fascia accanto vicino ai limiti.
-  const testo = f.replace(/,/g, '.').replace(/\s+/g, '').replace(/O1/g, 'L').replace(/AE/g, '0')
-  if (!/^[0-9wWhHlL.+\-*/()]+$/.test(testo)) return null
+  // la larghezza di UNA anta (la ribalta va su un'anta sola, anche nelle finestre a piu' ante),
+  // AE la sovrapposizione, presa a 0: vicino ai limiti di fascia puo' uscire il braccio accanto.
+  const testo = f.replace(/,/g, '.').replace(/\s+/g, '').replace(/O1/g, 'a').replace(/AE/g, '0')
+  if (!/^[0-9wWhHlLa.+\-*/()]+$/.test(testo)) return null
   let i = 0
   const variabile = (c: string): number | null =>
-    c === 'w' || c === 'W' ? d.w : c === 'h' ? d.h : c === 'H' ? d.H : c === 'l' || c === 'L' ? d.L : null
+    c === 'w' || c === 'W' ? d.w : c === 'h' ? d.h : c === 'H' ? d.H : c === 'l' || c === 'L' ? d.L : c === 'a' ? (d.a ?? d.L) : null
   const fattore = (): number | null => {
     const c = testo[i]
     if (c === '(') {
@@ -236,7 +237,10 @@ export function accessoriVoce(
   const visita = (nodi: NodoStruttura[], ereditata: { L: number; H: number }) => {
     for (const n of nodi) {
       const z = zone[n.codice] ?? ereditata
-      const d: Misure = { L: z.L, H: z.H, w: peso, h: z.H }
+      // Nodo anta di FP PRO che contiene piu' ante (2 ante = 8 profili d'anta): larghezza di una.
+      const profiliAnta = n.pezzi.filter(p => p.tipo === 8090 || p.tipo === 8100).length
+      const ante = profiliAnta >= 4 ? Math.round(profiliAnta / 4) : 1
+      const d: Misure = { L: z.L, H: z.H, w: peso, h: z.H, a: z.L / ante }
       for (const a of n.accessori) {
         espliciti.add(a.codice)
         if (scelto(a)) usa(a, d)
