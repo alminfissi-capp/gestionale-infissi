@@ -447,3 +447,51 @@ export async function getDatiCalcoloRilievo(rilievoId: string): Promise<DatiPagi
     return { errore: messaggio(e, 'Rilievo non disponibile') }
   }
 }
+
+export interface DatiRiepilogoServer {
+  /** Prezzi dell'ultimo calcolo salvato (null = rilievo mai calcolato) */
+  prezzi: { calcolatoAt: string; voci: Record<string, { unitario: number; superata: boolean }> } | null
+  intestazione: { denominazione: string; logoUrl: string | null }
+}
+
+/**
+ * Quello che il riepilogo stampabile del rilievo prende dal server (serve la rete):
+ * prezzi dell'ultimo calcolo, con le voci cambiate o corrette dopo segnate superate, e
+ * intestazione dell'azienda col logo.
+ */
+export async function getRiepilogoServer(rilievoId: string): Promise<DatiRiepilogoServer | { errore: string }> {
+  await requireAccesso('rilievo')
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+    const { data: rilievo, error } = await supabase.from('rilievi_veloci').select('calcolo')
+      .eq('organization_id', orgId).eq('id', rilievoId).maybeSingle()
+    if (error) throw new Error(error.message)
+    const calcolo = (rilievo?.calcolo as CalcoloRilievo | null) ?? null
+    let prezzi: DatiRiepilogoServer['prezzi'] = null
+    if (calcolo) {
+      const { data: voci } = await supabase.from('rilievo_veloce_voci').select('id, updated_at, correzioni_fp_at')
+        .eq('organization_id', orgId).eq('rilievo_id', rilievoId)
+      const quando = new Map((voci ?? []).map(v => [v.id as string, v]))
+      const t = (s: unknown) => (s ? new Date(String(s)).getTime() : 0)
+      const calcolatoMs = new Date(calcolo.calcolatoAt).getTime()
+      prezzi = {
+        calcolatoAt: calcolo.calcolatoAt,
+        voci: Object.fromEntries(calcolo.voci.map(v => {
+          const q = quando.get(v.voceId)
+          const superata = !q || t(q.updated_at) > calcolatoMs || t(q.correzioni_fp_at) > calcolatoMs
+          return [v.voceId, { unitario: Math.round(v.calcolo.prezzo.imponibile * 100) / 100, superata }]
+        })),
+      }
+    }
+    const { data: imp } = await supabase.from('settings').select('denominazione, logo_url').eq('organization_id', orgId).maybeSingle()
+    let logoUrl: string | null = null
+    if (imp?.logo_url) {
+      const { data } = await supabase.storage.from('logos').createSignedUrl(String(imp.logo_url), 3600)
+      logoUrl = data?.signedUrl ?? null
+    }
+    return { prezzi, intestazione: { denominazione: String(imp?.denominazione ?? 'A.L.M. Infissi'), logoUrl } }
+  } catch (e) {
+    return { errore: messaggio(e, 'Riepilogo non disponibile') }
+  }
+}
