@@ -75,3 +75,11 @@ export function motivoVoceNonCalcolabile(
   if (!voce.larghezza || !voce.altezza) return 'Mancano le misure'
   return null
 }
+
+/** Riga "Note telaio" della riga di preventivo: i lati scritti, nell'ordine del disegno. */
+export function noteTelaioTesto(note: Partial<Record<'sinistra' | 'alto' | 'destra' | 'basso', string>> | undefined): string | null {
+  const lati = (['sinistra', 'alto', 'destra', 'basso'] as const)
+    .map(l => [l, note?.[l]?.trim() ?? ''] as const)
+    .filter(([, t]) => t)
+  return lati.length ? `Note telaio: ${lati.map(([l, t]) => `${l} ${t}`).join('; ')}` : null
+}

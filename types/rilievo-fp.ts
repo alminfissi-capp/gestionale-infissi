@@ -30,6 +30,10 @@ export interface VoceFpDati {
   mano: 'sx' | 'dx' | null
   /** lato -> codice profilo di telaio (assente = come la struttura) */
   telai: Partial<Record<Lato, string>>
+  /** Codice del profilo anta scelto (assente = come la struttura) */
+  anta?: string | null
+  /** Note libere sui 4 lati del telaio */
+  noteTelaio?: Partial<Record<Lato, string>>
 }
 
 export interface RilievoFp {

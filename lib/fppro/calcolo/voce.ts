@@ -82,6 +82,8 @@ export interface InputVoce {
   larghezze?: Larghezze
   /** Profilo di telaio scelto in cantiere per lato (codice); assente = come la struttura */
   telai?: Partial<Record<'sinistra' | 'alto' | 'destra' | 'basso', string>>
+  /** Profilo anta scelto nella voce (codice): sostituisce i pezzi 8090/8100 delle ante; assente = come la struttura */
+  anta?: string
   /**
    * Costo barre / costo pezzi di tutta la commessa (fattoreBarreCommessa): i profili si pagano
    * come pezzi x fattore. Assente = barre ottimizzate sulla sola voce.
@@ -108,6 +110,21 @@ function conTelaiScelti(albero: NodoStruttura[], telai: InputVoce['telai']): Nod
   })
 }
 
+/** Albero con i pezzi anta (8090 battente, 8100 scorrevole) sostituiti dal profilo scelto. */
+function conAntaScelta(albero: NodoStruttura[], anta: string | undefined): NodoStruttura[] {
+  if (!anta) return albero
+  return albero.map(n => {
+    const figli = conAntaScelta(n.figli, anta)
+    if (n.tipo !== 8610 && n.tipo !== 8620) return { ...n, figli }
+    const pezzi = n.pezzi.map(p => {
+      if (p.tipo !== 8090 && p.tipo !== 8100) return p
+      const cartella = p.dxf.slice(0, Math.max(p.dxf.lastIndexOf('\\'), p.dxf.lastIndexOf('/')) + 1)
+      return { ...p, dxf: `${cartella}${anta}.DXF` }
+    })
+    return { ...n, pezzi, figli }
+  })
+}
+
 export function codiceDaDxf(dxf: string): string {
   return dxf.slice(Math.max(dxf.lastIndexOf('\\'), dxf.lastIndexOf('/')) + 1).replace(/\.dxf$/i, '')
 }
@@ -119,7 +136,7 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
   const righe: RigaMateriale[] = []
   // I poligoni dell'anteprima di FP PRO sono schematici: servono solo se mancano le sezioni dei DXF.
   const larghezze = input.larghezze ?? larghezzeDaPoligoni(input.poligoni)
-  const albero = conTelaiScelti(input.albero, input.telai)
+  const albero = conAntaScelta(conTelaiScelti(input.albero, input.telai), input.anta)
   const { pezzi, campi, zone } = pezziECampi(albero, input, larghezze, dxf => listino.sezione(codiceDaDxf(dxf)))
 
   // Profili: si risale al codice, i composti si dividono nei componenti, poi barre per codice.

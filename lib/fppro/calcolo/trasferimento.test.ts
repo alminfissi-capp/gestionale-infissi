@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clienteDelRilievo, clienteEsistente, motivoCalcoloSuperato, motivoVoceNonCalcolabile } from './trasferimento'
+import { clienteDelRilievo, clienteEsistente, motivoCalcoloSuperato, motivoVoceNonCalcolabile, noteTelaioTesto } from './trasferimento'
 
 describe('clienteEsistente', () => {
   const clienti = [
@@ -91,5 +91,15 @@ describe('clienteDelRilievo', () => {
   })
   it('senza cliente scelto: come clienteEsistente', () => {
     expect(clienteDelRilievo({ ...base, cognome: 'Giuseppe Palazzotto' }, clienti)).toBeNull()
+  })
+})
+
+describe('noteTelaioTesto', () => {
+  it('lati nell\'ordine sinistra, alto, destra, basso, solo quelli scritti', () => {
+    expect(noteTelaioTesto({ basso: 'soglia ribassata', sinistra: 'muro storto' })).toBe('Note telaio: sinistra muro storto; basso soglia ribassata')
+  })
+  it('vuote o assenti: null', () => {
+    expect(noteTelaioTesto(undefined)).toBeNull()
+    expect(noteTelaioTesto({ alto: '  ' })).toBeNull()
   })
 })

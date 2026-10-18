@@ -9,7 +9,7 @@ import { requireAccesso } from '@/lib/permessi'
 import { selectAll } from '@/lib/supabase/paginate'
 import { regoleDaElenchi, type RegoleAccessori, type RigaKitCatalogo } from '@/lib/fppro/calcolo/accessori'
 import { listinoDaRighe, type RigheListino } from '@/lib/fppro/calcolo/listino'
-import { clienteDelRilievo, motivoCalcoloSuperato, motivoVoceNonCalcolabile } from '@/lib/fppro/calcolo/trasferimento'
+import { clienteDelRilievo, motivoCalcoloSuperato, motivoVoceNonCalcolabile, noteTelaioTesto } from '@/lib/fppro/calcolo/trasferimento'
 import { calcolaVoce, codiceDaDxf, type CalcoloVoce, type InputVoce, type ListinoCalcolo } from '@/lib/fppro/calcolo/voce'
 import { fattoreBarreCommessa } from '@/lib/fppro/calcolo/commessa'
 import type { CorrezioniVoce, OreVoce, ProfiloCalcolo } from '@/lib/fppro/calcolo/tipi'
@@ -145,6 +145,7 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
     }
     for (const v of righeVoci) {
       Object.values(v.fp.telai ?? {}).forEach(c => c && codiciProfili.add(c))
+      if (v.fp.anta) codiciProfili.add(v.fp.anta)
       Object.values(v.fp.vetri ?? {}).forEach(x => codiciVetri.add(x.codice))
     }
 
@@ -223,7 +224,7 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
         L: v.fp.larghezza, H: v.fp.altezza, L0: s.l_nominale ?? v.fp.larghezza, H0: s.h_nominale ?? v.fp.altezza,
         quote: v.fp.quote ?? {}, kitScelti: v.fp.kit ?? {},
         vetriScelti: Object.fromEntries(Object.entries(v.fp.vetri ?? {}).map(([k, x]) => [k, x.codice])),
-        telai: v.fp.telai, tempi: s.tempi ?? { taglio: 0, lavorazione: 0, montaggio: 0, assemblaggio: 0, posa: 0 },
+        telai: v.fp.telai, anta: v.fp.anta ?? undefined, tempi: s.tempi ?? { taglio: 0, lavorazione: 0, montaggio: 0, assemblaggio: 0, posa: 0 },
         profilo, maggiorazioni, correzioni: v.correzioni_fp ?? undefined,
       }
       daCalcolare.push({ v, s, input, listino: listinoPer(colore, v.fp.coloreAcc?.fpId ?? null), regole })
@@ -344,7 +345,10 @@ export async function trasferisciInPreventivi(rilievoId: string): Promise<{ prev
         fp?.serie ? `Profili: ${fp.serie}` : null,
         fp?.coloreEst ? `Est.: ${fp.coloreEst.descrizione}` : null,
         fp?.coloreInt ? `Int.: ${fp.coloreInt.descrizione}` : null,
+        fp?.coloreAcc ? `Col. accessori: ${fp.coloreAcc.descrizione}` : null,
         fp && Object.keys(fp.vetri ?? {}).length > 0 ? `Vetri: ${[...new Set(Object.values(fp.vetri).map(x => x.codice))].join(', ')}` : null,
+        fp?.anta ? `Anta: ${fp.anta}` : null,
+        noteTelaioTesto(fp?.noteTelaio),
       ].filter(Boolean).join('\n')
       const pu = Math.round(v.calcolo.prezzo.imponibile * 100) / 100
       articoli.push({
