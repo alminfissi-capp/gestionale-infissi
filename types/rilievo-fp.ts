@@ -21,6 +21,8 @@ export interface VoceFpDati {
   quote: Record<string, number>
   coloreInt: RifFp | null
   coloreEst: RifFp | null
+  /** Colore (trattamento) degli accessori: in FP PRO e' un elenco a parte. Assente = non scelto */
+  coloreAcc?: RifFp | null
   /** codice nodo del riempimento -> vetro scelto (assente = come la struttura) */
   vetri: Record<string, { fpId: number; codice: string }>
   /** `${codiceNodo}:${indiceKit}` -> scelto (solo kit opzionali) */
@@ -28,6 +30,10 @@ export interface VoceFpDati {
   mano: 'sx' | 'dx' | null
   /** lato -> codice profilo di telaio (assente = come la struttura) */
   telai: Partial<Record<Lato, string>>
+  /** Codice del profilo anta scelto (assente = come la struttura) */
+  anta?: string | null
+  /** Note libere sui 4 lati del telaio */
+  noteTelaio?: Partial<Record<Lato, string>>
 }
 
 export interface RilievoFp {
@@ -57,7 +63,7 @@ export interface EliminatoFp {
   tipo: 'rilievo' | 'voce'
 }
 
-export type TabellaCatalogoLocale = 'fp_strutture' | 'fp_colori' | 'fp_vetri' | 'fp_telai' | 'fp_serie'
+export type TabellaCatalogoLocale = 'fp_strutture' | 'fp_colori' | 'fp_vetri' | 'fp_telai' | 'fp_serie' | 'fp_sezioni'
 
 export interface StrutturaLocale {
   id: string
@@ -76,9 +82,13 @@ export interface StrutturaLocale {
   segno_server: string
 }
 
-export interface ColoreLocale { fp_id: number; descrizione: string; presente: boolean; segno_server: string }
+export interface ColoreLocale { fp_id: number; descrizione: string; per_profili?: boolean; per_accessori?: boolean; presente: boolean; segno_server: string }
 export interface VetroLocale { fp_id: number; codice: string; descrizione: string | null; presente: boolean; segno_server: string }
-export interface TelaioLocale { fp_id: number; serie_fp_id: number | null; codice: string; descrizione: string | null; presente: boolean; segno_server: string }
+/** Profilo di telaio o anta della serie (tabella locale fpTelai). utilizzi = codici FP PRO (8050 telaio, 8090/8100 anta) */
+export interface TelaioLocale { fp_id: number; serie_fp_id: number | null; codice: string; descrizione: string | null; utilizzi: number[]; presente: boolean; segno_server: string }
+/** Miniatura della sezione del profilo, ricavata dal DXF dal ponte */
+export interface AnteprimaProfilo { viewBox: string; d: string }
+export interface SezioneLocale { fp_id: number; codice: string; anteprima: AnteprimaProfilo | null; presente: boolean; segno_server: string }
 export interface SerieLocale { fp_id: number; nome: string; descrizione: string | null; presente: boolean; segno_server: string }
 
 export interface PreferenzaFp {

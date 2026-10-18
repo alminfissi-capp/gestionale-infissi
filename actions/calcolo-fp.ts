@@ -9,7 +9,7 @@ import { requireAccesso } from '@/lib/permessi'
 import { selectAll } from '@/lib/supabase/paginate'
 import { regoleDaElenchi, type RegoleAccessori, type RigaKitCatalogo } from '@/lib/fppro/calcolo/accessori'
 import { listinoDaRighe, type RigheListino } from '@/lib/fppro/calcolo/listino'
-import { clienteDelRilievo, motivoCalcoloSuperato, motivoVoceNonCalcolabile } from '@/lib/fppro/calcolo/trasferimento'
+import { clienteDelRilievo, motivoCalcoloSuperato, motivoVoceNonCalcolabile, noteTelaioTesto } from '@/lib/fppro/calcolo/trasferimento'
 import { calcolaVoce, codiceDaDxf, type CalcoloVoce, type InputVoce, type ListinoCalcolo } from '@/lib/fppro/calcolo/voce'
 import { fattoreBarreCommessa } from '@/lib/fppro/calcolo/commessa'
 import type { CorrezioniVoce, OreVoce, ProfiloCalcolo } from '@/lib/fppro/calcolo/tipi'
@@ -145,6 +145,7 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
     }
     for (const v of righeVoci) {
       Object.values(v.fp.telai ?? {}).forEach(c => c && codiciProfili.add(c))
+      if (v.fp.anta) codiciProfili.add(v.fp.anta)
       Object.values(v.fp.vetri ?? {}).forEach(x => codiciVetri.add(x.codice))
     }
 
@@ -184,20 +185,26 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       scarti: await inLista(supabase, orgId, 'fp_scarti', 'fp_id, codice, testa, coda', 'codice', codiciTutti),
       sezioni: await inLista(supabase, orgId, 'fp_profili_sezioni', 'fp_id, codice, vista, aletta', 'codice', codiciTutti),
       accessori: await inLista(supabase, orgId, 'fp_accessori', 'fp_id, codice, serie, prezzo, unita_vendita', 'codice', [...codiciAccessori]),
+      costiAccessori: [],
       vetri: await inLista(supabase, orgId, 'fp_vetri', 'fp_id, codice, prezzo_mq, min_fatt, kg_mq', 'codice', [...codiciVetri]),
       pannelli: await inLista(supabase, orgId, 'fp_pannelli', 'fp_id, codice, prezzo_mq, min_fatt', 'codice', [...codiciPannelli]),
     }
+
+    // Prezzi per trattamento degli accessori: in FP PRO molti hanno 0 nel prezzo generale.
+    righeListino.costiAccessori = await inLista(supabase, orgId, 'fp_accessori_costi',
+      'fp_id, accessorio_fp_id, colore_fp_id, prezzo, unita_vendita', 'accessorio_fp_id', righeListino.accessori.map(a => a.fp_id))
 
     // Colori delle voci: prezzo al kg e tolleranza di peso del trattamento.
     const idColori = righeVoci.map(v => (v.fp.coloreEst ?? v.fp.coloreInt)?.fpId).filter((x): x is number => typeof x === 'number')
     const colori = await inLista<{ fp_id: number; dati: Record<string, unknown> | null }>(supabase, orgId, 'fp_colori', 'fp_id, dati', 'fp_id', idColori)
     const tolleranza = new Map(colori.map(c => [c.fp_id, num(c.dati?.tolleranza_peso)]))
-    const listini = new Map<number | null, ReturnType<typeof listinoDaRighe>>()
-    const listinoPer = (colore: number | null) => {
-      if (!listini.has(colore)) {
-        listini.set(colore, listinoDaRighe(righeListino, colore === null ? null : { fpId: colore, tolleranzaPeso: tolleranza.get(colore) ?? 0 }))
+    const listini = new Map<string, ReturnType<typeof listinoDaRighe>>()
+    const listinoPer = (colore: number | null, coloreAcc: number | null) => {
+      const k = `${colore}|${coloreAcc}`
+      if (!listini.has(k)) {
+        listini.set(k, listinoDaRighe(righeListino, colore === null ? null : { fpId: colore, tolleranzaPeso: tolleranza.get(colore) ?? 0 }, coloreAcc))
       }
-      return listini.get(colore)!
+      return listini.get(k)!
     }
 
     // Prima passata: ogni voce da sola, per avere i pezzi dei profili.
@@ -217,10 +224,10 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
         L: v.fp.larghezza, H: v.fp.altezza, L0: s.l_nominale ?? v.fp.larghezza, H0: s.h_nominale ?? v.fp.altezza,
         quote: v.fp.quote ?? {}, kitScelti: v.fp.kit ?? {},
         vetriScelti: Object.fromEntries(Object.entries(v.fp.vetri ?? {}).map(([k, x]) => [k, x.codice])),
-        telai: v.fp.telai, tempi: s.tempi ?? { taglio: 0, lavorazione: 0, montaggio: 0, assemblaggio: 0, posa: 0 },
+        telai: v.fp.telai, anta: v.fp.anta ?? undefined, tempi: s.tempi ?? { taglio: 0, lavorazione: 0, montaggio: 0, assemblaggio: 0, posa: 0 },
         profilo, maggiorazioni, correzioni: v.correzioni_fp ?? undefined,
       }
-      daCalcolare.push({ v, s, input, listino: listinoPer(colore), regole })
+      daCalcolare.push({ v, s, input, listino: listinoPer(colore, v.fp.coloreAcc?.fpId ?? null), regole })
     }
     // Come FP PRO: le barre si ottimizzano su tutta la commessa e si ripartiscono sui pezzi.
     const { fattore } = fattoreBarreCommessa(daCalcolare.map(d => ({
@@ -338,7 +345,10 @@ export async function trasferisciInPreventivi(rilievoId: string): Promise<{ prev
         fp?.serie ? `Profili: ${fp.serie}` : null,
         fp?.coloreEst ? `Est.: ${fp.coloreEst.descrizione}` : null,
         fp?.coloreInt ? `Int.: ${fp.coloreInt.descrizione}` : null,
+        fp?.coloreAcc ? `Col. accessori: ${fp.coloreAcc.descrizione}` : null,
         fp && Object.keys(fp.vetri ?? {}).length > 0 ? `Vetri: ${[...new Set(Object.values(fp.vetri).map(x => x.codice))].join(', ')}` : null,
+        fp?.anta ? `Anta: ${fp.anta}` : null,
+        noteTelaioTesto(fp?.noteTelaio),
       ].filter(Boolean).join('\n')
       const pu = Math.round(v.calcolo.prezzo.imponibile * 100) / 100
       articoli.push({

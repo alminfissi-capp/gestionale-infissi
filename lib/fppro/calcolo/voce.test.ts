@@ -125,6 +125,13 @@ describe('casi difficili', () => {
     expect(r.avvisi.some(a => a.includes('Vetro') && a.includes('senza prezzo'))).toBe(true)
     expect(r.avvisi.some(a => a.includes('Accessorio') && a.includes('senza prezzo'))).toBe(true)
   })
+  it('pezzo senza DXF (es. tipo 8040 delle strutture con doghe): ignorato, nessun avviso col codice vuoto', () => {
+    const albero = structuredClone(input.albero)
+    albero[0].pezzi.push({ tipo: 8040, dxf: '', serie: '', indice: 99 })
+    const r = calcolaVoce({ ...input, albero }, listino, regole)
+    expect(r.avvisi.some(a => a.startsWith('Profilo  '))).toBe(false)
+    expect(r.materiali).toBeCloseTo(calcolaVoce(input, listino, regole).materiali, 6)
+  })
   it('correzione di riga: cambia solo questa voce', () => {
     const base = calcolaVoce(input, listino, regole)
     const corretta = calcolaVoce({ ...input, correzioni: { percentuali: { utile: 0.25 }, extra: [{ descrizione: 'x', importo: 80 }] } }, listino, regole)
@@ -145,6 +152,31 @@ describe('telaio scelto per lato in cantiere', () => {
     expect(calcolaVoce(input, listino, regole).righe.some(r => r.codice === 'TAC809')).toBe(true)
     const r = calcolaVoce({ ...input, telai: { basso: 'TT8011' } }, listino, regole)
     expect(r.righe.some(x => x.codice === 'TAC809' || x.codice === 'SX9901')).toBe(false)
+  })
+})
+
+describe('profilo anta scelto nella voce', () => {
+  const { dati, input, regole } = inputDa('170-26G', alm2026, 0.03)
+  const listino = listinoDa(dati, 1.03)
+  // Codice dell'anta nella struttura: il primo pezzo 8090/8100 dentro un nodo anta.
+  const anteOriginali = new Set<string>()
+  const visita = (nodi: typeof input.albero) => nodi.forEach(n => {
+    if (n.tipo === 8610 || n.tipo === 8620) n.pezzi.filter(p => p.tipo === 8090 || p.tipo === 8100).forEach(p => anteOriginali.add(codiceDaDxf(p.dxf)))
+    visita(n.figli)
+  })
+  visita(input.albero)
+  const originale = [...anteOriginali][0]
+  // Listino in cui XX9999 costa come l'anta originale: si vede se i pezzi cambiano codice.
+  const listinoConXX: ListinoCalcolo = { ...listino, profilo: c => listino.profilo(c === 'XX9999' ? originale : c) }
+
+  it('la struttura di prova ha davvero ante', () => expect(originale).toBeTruthy())
+  it('anta scelta: i pezzi anta prendono il codice scelto, quello originale sparisce', () => {
+    const r = calcolaVoce({ ...input, anta: 'XX9999' }, listinoConXX, regole)
+    expect(r.righe.some(x => x.codice === 'XX9999')).toBe(true)
+    expect(r.righe.some(x => x.codice === originale)).toBe(false)
+  })
+  it('senza anta scelta: identico a prima', () => {
+    expect(calcolaVoce({ ...input, anta: undefined }, listino, regole).materiali).toBeCloseTo(calcolaVoce(input, listino, regole).materiali, 6)
   })
 })
 

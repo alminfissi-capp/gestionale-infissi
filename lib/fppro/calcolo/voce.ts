@@ -23,7 +23,8 @@ export interface ProfiloListino {
 
 export interface ListinoCalcolo {
   profilo(codice: string): ProfiloListino | null
-  accessorio(codice: string, serie: string): { prezzo: number; unitaVendita: number } | null
+  /** avviso: es. prezzo diverso per colore senza colore accessori scelto */
+  accessorio(codice: string, serie: string): { prezzo: number; unitaVendita: number; avviso?: string | null } | null
   vetro(codice: string): { euroMq: number; minFatt: number; kgMq: number } | null
   pannello(codice: string): { euroMq: number; minFatt: number } | null
   /** Misure in vista dal DXF del profilo (fp_profili_sezioni) */
@@ -81,6 +82,8 @@ export interface InputVoce {
   larghezze?: Larghezze
   /** Profilo di telaio scelto in cantiere per lato (codice); assente = come la struttura */
   telai?: Partial<Record<'sinistra' | 'alto' | 'destra' | 'basso', string>>
+  /** Profilo anta scelto nella voce (codice): sostituisce i pezzi 8090/8100 delle ante; assente = come la struttura */
+  anta?: string
   /**
    * Costo barre / costo pezzi di tutta la commessa (fattoreBarreCommessa): i profili si pagano
    * come pezzi x fattore. Assente = barre ottimizzate sulla sola voce.
@@ -107,6 +110,21 @@ function conTelaiScelti(albero: NodoStruttura[], telai: InputVoce['telai']): Nod
   })
 }
 
+/** Albero con i pezzi anta (8090 battente, 8100 scorrevole) sostituiti dal profilo scelto. */
+function conAntaScelta(albero: NodoStruttura[], anta: string | undefined): NodoStruttura[] {
+  if (!anta) return albero
+  return albero.map(n => {
+    const figli = conAntaScelta(n.figli, anta)
+    if (n.tipo !== 8610 && n.tipo !== 8620) return { ...n, figli }
+    const pezzi = n.pezzi.map(p => {
+      if (p.tipo !== 8090 && p.tipo !== 8100) return p
+      const cartella = p.dxf.slice(0, Math.max(p.dxf.lastIndexOf('\\'), p.dxf.lastIndexOf('/')) + 1)
+      return { ...p, dxf: `${cartella}${anta}.DXF` }
+    })
+    return { ...n, pezzi, figli }
+  })
+}
+
 export function codiceDaDxf(dxf: string): string {
   return dxf.slice(Math.max(dxf.lastIndexOf('\\'), dxf.lastIndexOf('/')) + 1).replace(/\.dxf$/i, '')
 }
@@ -118,7 +136,7 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
   const righe: RigaMateriale[] = []
   // I poligoni dell'anteprima di FP PRO sono schematici: servono solo se mancano le sezioni dei DXF.
   const larghezze = input.larghezze ?? larghezzeDaPoligoni(input.poligoni)
-  const albero = conTelaiScelti(input.albero, input.telai)
+  const albero = conAntaScelta(conTelaiScelti(input.albero, input.telai), input.anta)
   const { pezzi, campi, zone } = pezziECampi(albero, input, larghezze, dxf => listino.sezione(codiceDaDxf(dxf)))
 
   // Profili: si risale al codice, i composti si dividono nei componenti, poi barre per codice.
@@ -137,6 +155,8 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
   }
   for (const pezzo of pezzi) {
     const codice = codiceDaDxf(pezzo.dxf)
+    // Pezzo senza disegno nella struttura (es. 8040 delle doghe): non c'e' niente da prezzare.
+    if (!codice.trim()) continue
     const trovato = cercaProfilo(codice)
     if (!trovato) {
       avvisi.push(`Profilo ${codice} non trovato nel listino di FP PRO`)
@@ -199,6 +219,7 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
     const prezzo = listino.accessorio(a.codice, a.serie)
     if (!prezzo) avvisi.push(`Accessorio ${a.codice} non trovato nel listino di FP PRO`)
     else if (prezzo.prezzo <= 0) avvisi.push(`Accessorio ${a.codice} senza prezzo`)
+    if (prezzo?.avviso) avvisi.push(prezzo.avviso)
     if (a.regolaIgnota) avvisi.push(`Regola dell'accessorio ${a.codice} non interpretata: contato come da kit`)
     const costo = prezzo && prezzo.unitaVendita > 0 ? (prezzo.prezzo / prezzo.unitaVendita) * a.quantita : 0
     righe.push({ gruppo: 'accessori', codice: a.codice, descrizione: a.descrizione, quantita: tondo(a.quantita), unita: a.metri ? 'm' : 'pz', costo })

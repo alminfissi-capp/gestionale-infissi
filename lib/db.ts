@@ -6,7 +6,7 @@ import type { VanoMisurato } from '@/lib/rilievo'
 import type { CommessaCompleta, CommessaInput, AccontoInput } from '@/types/commessa'
 import type {
   ColoreLocale, EliminatoFp, ImmagineLocale, MetaFp, PreferenzaFp, RilievoLocale, SerieLocale,
-  StrutturaLocale, TelaioLocale, VetroLocale, VoceLocale,
+  StrutturaLocale, SezioneLocale, TelaioLocale, VetroLocale, VoceLocale,
 } from '@/types/rilievo-fp'
 
 export interface PendingPreventivo {
@@ -83,6 +83,7 @@ class GestionaleDB extends Dexie {
   fpColori!: EntityTable<ColoreLocale, 'fp_id'>
   fpVetri!: EntityTable<VetroLocale, 'fp_id'>
   fpTelai!: EntityTable<TelaioLocale, 'fp_id'>
+  fpSezioni!: EntityTable<SezioneLocale, 'fp_id'>
   fpSerie!: EntityTable<SerieLocale, 'fp_id'>
   fpPreferenze!: EntityTable<PreferenzaFp, 'id'>
   fpMeta!: EntityTable<MetaFp, 'chiave'>
@@ -159,6 +160,37 @@ class GestionaleDB extends Dexie {
       vociFp: 'id, rilievoId, aggiornatoAt, daInviare',
       eliminatiFp: 'id',
     })
+    this.version(7).stores({
+      clienti: 'id, cognome, nome',
+      listiniData: 'id, nome',
+      pendingPreventivi: '++tempId, createdAt',
+      rilievoSessione: 'id',
+      vanoCanvas: 'vanoId',
+      bozzeWizard: 'id, updatedAt',
+      commesse: 'id, data_conferma, cliente_nome',
+      pendingCommesse: '++tempId, createdAt',
+      pendingAcconti: '++tempId, commessaId, createdAt',
+      condivisioni: '++id, createdAt',
+      fpStrutture: 'id, *serie, cartella, immagine',
+      fpImmagini: 'path',
+      fpColori: 'fp_id, descrizione',
+      fpVetri: 'fp_id, codice',
+      fpTelai: 'fp_id, serie_fp_id, codice',
+      fpSezioni: 'fp_id, codice',
+      fpSerie: 'fp_id, nome',
+      fpPreferenze: 'id, tipo',
+      fpMeta: 'chiave',
+      rilieviFp: 'id, aggiornatoAt, daInviare',
+      vociFp: 'id, rilievoId, aggiornatoAt, daInviare',
+      eliminatiFp: 'id',
+    })
+      // Profili ora con gli utilizzi (telai e ante) e colori anche degli accessori: si
+      // riscaricano da capo azzerando i cursori. Le righe vecchie NON si svuotano: senza
+      // rete in cantiere gli elenchi resterebbero vuoti fino al prossimo download (le righe
+      // senza utilizzi valgono come telai, i colori senza flag come colori dei profili).
+      .upgrade(async tx => {
+        await tx.table('fpMeta').bulkDelete(['cursore:fp_telai', 'cursore:fp_colori'])
+      })
   }
 }
 

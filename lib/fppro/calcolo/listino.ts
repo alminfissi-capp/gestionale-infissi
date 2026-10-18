@@ -1,6 +1,7 @@
 // Listino del calcolo costruito dalle righe delle tabelle fp_* (lette da actions/calcolo-fp.ts).
 import type { SezioneProfilo } from '../dxf-sezione'
 import type { ListinoCalcolo, ProfiloListino } from './voce'
+import { prezzoAccessorio, type CostoAccessorio, type RigaAccessorio } from './prezzo-accessorio'
 
 export interface RigheListino {
   profili: { fp_id: number; codice: string; kg_ml: number | null; costo_kg: number | null; costo_ml: number | null }[]
@@ -10,7 +11,9 @@ export interface RigheListino {
   scarti: { codice: string; testa: number | null; coda: number | null }[]
   componenti: { composto_fp_id: number; componente_fp_id: number; principale: boolean | null; offset_mm: number | null }[]
   sezioni: { codice: string; vista: number | null; aletta: number | null }[]
-  accessori: { codice: string; serie: string | null; prezzo: number | null; unita_vendita: number | null }[]
+  accessori: RigaAccessorio[]
+  /** costi per trattamento (colore accessori) di FP PRO: vincono sul prezzo generale */
+  costiAccessori?: CostoAccessorio[]
   vetri: { codice: string; prezzo_mq: number | null; min_fatt: number | null; kg_mq: number | null }[]
   pannelli: { codice: string; prezzo_mq: number | null; min_fatt: number | null }[]
 }
@@ -23,7 +26,11 @@ const n = (v: number | null | undefined) => (v === null || v === undefined || !N
 const chiave = (s: string) => s.trim().toUpperCase()
 const positivo = (v: number | null | undefined) => (n(v) > 0 ? n(v) : null)
 
-export function listinoDaRighe(r: RigheListino, colore: { fpId: number; tolleranzaPeso: number } | null): ListinoCalcolo {
+export function listinoDaRighe(
+  r: RigheListino,
+  colore: { fpId: number; tolleranzaPeso: number } | null,
+  coloreAcc: number | null = null,
+): ListinoCalcolo {
   const perCodice = new Map<string, RigheListino['profili'][number]>()
   for (const p of r.profili) if (!perCodice.has(chiave(p.codice))) perCodice.set(chiave(p.codice), p)
   const perId = new Map(r.profili.map(p => [p.fp_id, p]))
@@ -71,8 +78,7 @@ export function listinoDaRighe(r: RigheListino, colore: { fpId: number; tolleran
     },
     accessorio(codice, serie) {
       const tutti = r.accessori.filter(a => chiave(a.codice) === chiave(codice))
-      const a = tutti.find(x => x.serie === serie) ?? tutti.find(x => n(x.prezzo) > 0) ?? tutti[0]
-      return a ? { prezzo: n(a.prezzo), unitaVendita: n(a.unita_vendita) || 1 } : null
+      return prezzoAccessorio(tutti, r.costiAccessori ?? [], serie, coloreAcc)
     },
     vetro(codice) {
       const v = vetri.get(chiave(codice))

@@ -7,7 +7,7 @@ import { db } from '@/lib/db'
 import { firmeImmagini, getPreferenzeFp, scaricaCatalogo } from '@/actions/rilievo-fp'
 import { posizioneSicura } from '@/lib/fppro/sync-rilievi'
 import type {
-  ColoreLocale, PosizioneFp, SerieLocale, StrutturaLocale, TabellaCatalogoLocale, TelaioLocale, VetroLocale,
+  ColoreLocale, PosizioneFp, SerieLocale, SezioneLocale, StrutturaLocale, TabellaCatalogoLocale, TelaioLocale, VetroLocale,
 } from '@/types/rilievo-fp'
 
 export interface StatoCatalogo {
@@ -17,7 +17,8 @@ export interface StatoCatalogo {
   ultimo: string | null
 }
 
-const TABELLE: TabellaCatalogoLocale[] = ['fp_serie', 'fp_colori', 'fp_vetri', 'fp_telai', 'fp_strutture']
+// Miniature per ultime: sono le piu' pesanti e non devono ritardare le strutture.
+const TABELLE: TabellaCatalogoLocale[] = ['fp_serie', 'fp_colori', 'fp_vetri', 'fp_telai', 'fp_strutture', 'fp_sezioni']
 const BLOCCO_IMMAGINI = 50
 
 /** Salva una pagina scaricata nella tabella locale giusta. */
@@ -35,6 +36,7 @@ async function salvaPagina(t: TabellaCatalogoLocale, righe: unknown[]): Promise<
     case 'fp_colori': await db.fpColori.bulkPut(righe as ColoreLocale[]); break
     case 'fp_vetri': await db.fpVetri.bulkPut(righe as VetroLocale[]); break
     case 'fp_telai': await db.fpTelai.bulkPut(righe as TelaioLocale[]); break
+    case 'fp_sezioni': await db.fpSezioni.bulkPut(righe as SezioneLocale[]); break
     default: await db.fpSerie.bulkPut(righe as SerieLocale[])
   }
 }

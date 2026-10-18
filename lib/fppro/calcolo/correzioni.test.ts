@@ -1,27 +1,36 @@
 import { describe, expect, it } from 'vitest'
-import { campiOre, oreDaSalvare } from './correzioni'
+import { campiMinuti, oreDaMinuti } from './correzioni'
 
 const attuali = { taglio: 0, lavorazione: 4, montaggio: 0, assemblaggio: 0, posa: 0 }
 
-describe('ore nel pannello Correggi', () => {
-  it('i campi partono dalle ore che il calcolo usa davvero (le 4 h della struttura si vedono)', () => {
-    expect(campiOre(attuali)).toEqual({ taglio: '0', lavorazione: '4', montaggio: '0', assemblaggio: '0', posa: '0' })
+describe('minuti nel pannello Correggi', () => {
+  it('i campi partono dai minuti che il calcolo usa davvero (le 4 h della struttura = 240 min)', () => {
+    expect(campiMinuti(attuali)).toEqual({ taglio: '0', lavorazione: '240', montaggio: '0', assemblaggio: '0', posa: '0' })
   })
-  it('caso Palazzotto: lavorazione 4 -> 2,5 e posa 1 sostituiscono, non si sommano', () => {
-    const campi = { ...campiOre(attuali), lavorazione: '2,5', posa: '1' }
-    expect(oreDaSalvare(campi, attuali, {})).toEqual({ lavorazione: 2.5, posa: 1 })
+  it('caso Palazzotto: lavorazione 240 -> 150 min e posa 60 sostituiscono, non si sommano', () => {
+    const campi = { ...campiMinuti(attuali), lavorazione: '150', posa: '60' }
+    expect(oreDaMinuti(campi, attuali, {})).toEqual({ lavorazione: 2.5, posa: 1 })
   })
-  it('campo svuotato = 0 ore', () => {
-    expect(oreDaSalvare({ ...campiOre(attuali), lavorazione: '' }, attuali, {})).toEqual({ lavorazione: 0 })
+  it('campo svuotato = 0 minuti', () => {
+    expect(oreDaMinuti({ ...campiMinuti(attuali), lavorazione: '' }, attuali, {})).toEqual({ lavorazione: 0 })
   })
-  it('ore non toccate: nessuna correzione (restano quelle della struttura)', () => {
-    expect(oreDaSalvare(campiOre(attuali), attuali, {})).toEqual({})
+  it('minuti non toccati: nessuna correzione (restano quelli della struttura)', () => {
+    expect(oreDaMinuti(campiMinuti(attuali), attuali, {})).toEqual({})
+  })
+  it('ore della struttura non intere in minuti (0,3333 h): mostrate arrotondate, non diventano una correzione', () => {
+    const strane = { ...attuali, taglio: 0.3333 }
+    expect(campiMinuti(strane).taglio).toBe('20')
+    expect(oreDaMinuti(campiMinuti(strane), strane, {})).toEqual({})
   })
   it('una correzione gia\' salvata resta anche se il valore non cambia', () => {
     const conCorrezione = { ...attuali, assemblaggio: 2.5 }
-    expect(oreDaSalvare(campiOre(conCorrezione), conCorrezione, { assemblaggio: 2.5 })).toEqual({ assemblaggio: 2.5 })
+    expect(oreDaMinuti(campiMinuti(conCorrezione), conCorrezione, { assemblaggio: 2.5 })).toEqual({ assemblaggio: 2.5 })
   })
-  it('testo non numerico: il valore attuale', () => {
-    expect(oreDaSalvare({ ...campiOre(attuali), lavorazione: 'abc' }, attuali, {})).toEqual({})
+  it('testo non numerico o negativo: il valore attuale', () => {
+    expect(oreDaMinuti({ ...campiMinuti(attuali), lavorazione: 'abc' }, attuali, {})).toEqual({})
+    expect(oreDaMinuti({ ...campiMinuti(attuali), lavorazione: '-5' }, attuali, {})).toEqual({})
+  })
+  it('decimali con la virgola: 90,5 min', () => {
+    expect(oreDaMinuti({ ...campiMinuti(attuali), posa: '90,5' }, attuali, {}).posa).toBeCloseTo(90.5 / 60, 9)
   })
 })

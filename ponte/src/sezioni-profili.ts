@@ -5,6 +5,7 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { basename, dirname, join, sep } from 'node:path'
 import { sezioneDaDxf } from '../../lib/fppro/dxf-sezione.ts'
+import { dxfInSvg } from '../../lib/fppro/dxf-svg.ts'
 import type { RigaFp } from '../../lib/fppro/sync-tabelle.ts'
 import { log } from './log.ts'
 
@@ -36,12 +37,16 @@ export async function sezioniProfili(profili: RigaFp[], serie: RigaFp[], cartell
       continue
     }
     try {
-      const s = sezioneDaDxf(new TextDecoder('windows-1252').decode(await readFile(join(cartellaDxf, scelto))))
+      const testo = new TextDecoder('windows-1252').decode(await readFile(join(cartellaDxf, scelto)))
+      const s = sezioneDaDxf(testo)
       if (!s) {
         senza++
         continue
       }
-      righe.push({ fp_id: p.fp_id, codice: p.codice, vista: s.vista, aletta: s.aletta, dati: { file: scelto.split(sep).join('\\') } })
+      // Miniatura per gli elenchi del rilievo: facoltativa, non deve mai far perdere le misure.
+      let anteprima: ReturnType<typeof dxfInSvg> = null
+      try { anteprima = dxfInSvg(testo) } catch { anteprima = null }
+      righe.push({ fp_id: p.fp_id, codice: p.codice, vista: s.vista, aletta: s.aletta, anteprima, dati: { file: scelto.split(sep).join('\\') } })
     } catch {
       senza++
     }

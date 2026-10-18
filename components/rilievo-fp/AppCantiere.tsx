@@ -7,7 +7,7 @@ import ElencoRilievi from './ElencoRilievi'
 import ProntoOffline from './ProntoOffline'
 import SchedaRilievo from './SchedaRilievo'
 import StatoSync from './StatoSync'
-import WizardVoce from './WizardVoce'
+import SchermataVoce from './SchermataVoce'
 
 type Vista = { tipo: 'elenco' } | { tipo: 'rilievo'; id: string } | { tipo: 'voce'; rilievoId: string; voceId: string | null }
 
@@ -29,7 +29,8 @@ export default function AppCantiere() {
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-3 p-3">
+    // La voce e' una schermata larga (disegno + pannelli): il resto resta stretto.
+    <div className={`mx-auto space-y-3 p-3 ${vista.tipo === 'voce' ? 'max-w-7xl' : 'max-w-xl'}`}>
       <ProntoOffline catalogoPronto={catalogo.stato.ultimo !== null} onScaricaCatalogo={catalogo.aggiorna} />
       <StatoSync catalogo={catalogo} invio={invio} />
       {vista.tipo === 'elenco' && <ElencoRilievi onApri={id => vai({ tipo: 'rilievo', id })} />}
@@ -37,7 +38,7 @@ export default function AppCantiere() {
         <SchedaRilievo id={vista.id} onIndietro={() => window.history.back()} onVoce={voceId => vai({ tipo: 'voce', rilievoId: vista.id, voceId })} />
       )}
       {vista.tipo === 'voce' && (
-        <WizardVoce key={vista.voceId ?? 'nuova'} rilievoId={vista.rilievoId} voceId={vista.voceId} onFine={() => window.history.back()} />
+        <SchermataVoce key={vista.voceId ?? 'nuova'} rilievoId={vista.rilievoId} voceId={vista.voceId} onFine={() => window.history.back()} />
       )}
     </div>
   )

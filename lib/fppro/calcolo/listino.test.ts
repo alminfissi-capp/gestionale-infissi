@@ -23,8 +23,13 @@ const righe: RigheListino = {
   ],
   sezioni: [{ codice: 'TT8002B', vista: 46.7, aletta: 22 }],
   accessori: [
-    { codice: 'AGP 4000', serie: 'ALSISTEM GUARNIZ.TUTTE + ROT', prezzo: 114.32, unita_vendita: 400 },
-    { codice: 'AGP 4000', serie: 'ALTRA', prezzo: 182.08, unita_vendita: 400 },
+    { fp_id: 1, codice: 'AGP 4000', serie: 'ALSISTEM GUARNIZ.TUTTE + ROT', prezzo: 114.32, unita_vendita: 400 },
+    { fp_id: 2, codice: 'AGP 4000', serie: 'ALTRA', prezzo: 182.08, unita_vendita: 400 },
+    { fp_id: 3, codice: 'ACP 8020M', serie: 'ALSISTEM SLIDE 80/106', prezzo: 0, unita_vendita: 5 },
+  ],
+  costiAccessori: [
+    { accessorio_fp_id: 3, colore_fp_id: 59, prezzo: 200, unita_vendita: 5 },
+    { accessorio_fp_id: 3, colore_fp_id: 62, prezzo: 210.037, unita_vendita: 5 },
   ],
   vetri: [{ codice: '33.1_10_33.1S', prezzo_mq: 68, min_fatt: 0, kg_mq: 34 }],
   pannelli: [{ codice: 'SANDWICH_28', prezzo_mq: 161, min_fatt: 0 }],
@@ -51,9 +56,18 @@ describe('listinoDaRighe', () => {
     expect(l.profilo('tt8002')).not.toBeNull()
   })
   it('accessorio della stessa serie, altrimenti il primo', () => {
-    expect(l.accessorio('AGP 4000', 'ALTRA')).toEqual({ prezzo: 182.08, unitaVendita: 400 })
-    expect(l.accessorio('AGP 4000', 'SCONOSCIUTA')).toEqual({ prezzo: 114.32, unitaVendita: 400 })
+    expect(l.accessorio('AGP 4000', 'ALTRA')).toEqual({ prezzo: 182.08, unitaVendita: 400, avviso: null })
+    expect(l.accessorio('AGP 4000', 'SCONOSCIUTA')).toEqual({ prezzo: 114.32, unitaVendita: 400, avviso: null })
     expect(l.accessorio('X', '')).toBeNull()
+  })
+  it('accessorio con prezzi per colore: quello del colore accessori della voce', () => {
+    const conColore = listinoDaRighe(righe, { fpId: 56, tolleranzaPeso: 0.03 }, 62)
+    expect(conColore.accessorio('ACP 8020M', 'ALSISTEM SLIDE 80/106')).toEqual({ prezzo: 210.037, unitaVendita: 5, avviso: null })
+  })
+  it('accessorio con prezzi per colore e nessun colore accessori: il piu alto con avviso', () => {
+    const r = l.accessorio('ACP 8020M', 'ALSISTEM SLIDE 80/106')
+    expect(r?.prezzo).toBe(210.037)
+    expect(r?.avviso).toMatch(/colore accessori/)
   })
   it('vetri, pannelli e sezioni', () => {
     expect(l.vetro('33.1_10_33.1S')).toEqual({ euroMq: 68, minFatt: 0, kgMq: 34 })

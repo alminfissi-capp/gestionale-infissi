@@ -9,13 +9,18 @@ import type {
   EliminatoFp, PosizioneFp, PreferenzaFp, RilievoFp, TabellaCatalogoLocale, VoceFp, VoceFpDati,
 } from '@/types/rilievo-fp'
 import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
+import { dimensionePagina } from '@/lib/fppro/scelta'
 
-const PAGINA = 200
 const BLOCCO_ID = 100
 const messaggio = (e: unknown, riserva: string) => (e instanceof Error ? e.message : riserva)
 const iso = (s: string) => new Date(s).toISOString()
 
-const UTILIZZO_TELAIO = Array.from({ length: 10 }, (_, i) => `dati->>utilizzo${i + 1}.eq.8050`).join(',')
+// Profili di telaio (8050) e di anta (8090 battente, 8100 scorrevole) per gli elenchi della voce.
+const UTILIZZI_PROFILI = [8050, 8090, 8100]
+const UTILIZZO_PROFILI = Array.from({ length: 10 }, (_, i) => `dati->>utilizzo${i + 1}.in.(${UTILIZZI_PROFILI.join(',')})`).join(',')
+
+const utilizziProfilo = (dati: Record<string, unknown> | null): number[] =>
+  Array.from({ length: 10 }, (_, i) => Number(dati?.[`utilizzo${i + 1}`] ?? 0)).filter(u => u > 0)
 
 const blocchi = <T,>(righe: T[], n: number): T[][] => {
   const out: T[][] = []
@@ -48,22 +53,27 @@ export async function scaricaCatalogo(
       tabella === 'fp_strutture'
         ? base('fp_strutture', 'id, percorso, cartella, nome, codice, descrizione, serie, l_nominale, h_nominale, albero, poligoni, immagine, presente').is('errore', null)
         : tabella === 'fp_colori'
-          ? base('fp_colori', 'fp_id, descrizione, presente').eq('per_profili', true)
+          ? base('fp_colori', 'fp_id, descrizione, per_profili, per_accessori, presente').or('per_profili.eq.true,per_accessori.eq.true')
           : tabella === 'fp_vetri'
             ? base('fp_vetri', 'fp_id, codice, descrizione, presente')
             : tabella === 'fp_telai'
-              ? base('fp_profili', 'fp_id, serie_fp_id, codice, descrizione, presente').or(UTILIZZO_TELAIO)
-              : base('fp_serie', 'fp_id, nome, descrizione, presente')
-    const { data, error } = await query.order('segno_server').order(chiave).limit(PAGINA)
+              ? base('fp_profili', 'fp_id, serie_fp_id, codice, descrizione, presente, dati').or(UTILIZZO_PROFILI)
+              : tabella === 'fp_sezioni'
+                ? base('fp_profili_sezioni', 'fp_id, codice, anteprima, presente').not('anteprima', 'is', null)
+                : base('fp_serie', 'fp_id, nome, descrizione, presente')
+    const { data, error } = await query.order('segno_server').order(chiave).limit(dimensionePagina(tabella))
     if (error) return { errore: error.message }
     const grezze = (data ?? []) as unknown as (Record<string, unknown> & { segno_server: string })[]
     const righe = tabella === 'fp_strutture'
       ? grezze.map(r => ({ ...r, albero: alberoLeggero(r.albero as NodoStruttura[]) }))
-      : grezze
+      : tabella === 'fp_telai'
+        // Al telefono non serve tutto `dati`: solo gli utilizzi del profilo.
+        ? grezze.map(({ dati, ...r }) => ({ ...r, utilizzi: utilizziProfilo(dati as Record<string, unknown> | null) }))
+        : grezze
     const ultima = grezze.length > 0
       ? { segno: grezze[grezze.length - 1].segno_server, chiave: String(grezze[grezze.length - 1][chiave]) }
       : null
-    return { righe, ultima, fine: grezze.length < PAGINA, adesso: new Date().toISOString() }
+    return { righe, ultima, fine: grezze.length < dimensionePagina(tabella), adesso: new Date().toISOString() }
   } catch (e) {
     return { errore: messaggio(e, 'Scaricamento non riuscito') }
   }
