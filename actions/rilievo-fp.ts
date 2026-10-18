@@ -93,7 +93,7 @@ export async function firmeImmagini(paths: string[]): Promise<{ url: Record<stri
   }
 }
 
-type RigaRilievo = { id: string; cliente_snapshot: ClienteSnapshotRilievo; note: string | null; created_at: string; updated_at: string; segno_server: string }
+type RigaRilievo = { id: string; cliente_snapshot: ClienteSnapshotRilievo; note: string | null; data_rilievo: string | null; created_at: string; updated_at: string; segno_server: string }
 type RigaVoce = { id: string; rilievo_id: string; ordine: number; voce: string | null; quantita: number; note: string | null; fp: VoceFpDati; updated_at: string; segno_server: string }
 type RigaEliminato = { id: string; tipo: 'rilievo' | 'voce'; rilievo_id: string | null; segno_server: string }
 
@@ -149,7 +149,7 @@ export async function inviaRilieviFp(p: { rilievi: RilievoFp[]; voci: VoceFp[]; 
     const rilievi = await piuRecenti('rilievi_veloci', rilieviVivi)
     if (rilievi.length > 0) {
       const { error } = await supabase.from('rilievi_veloci').upsert(rilievi.map(r => ({
-        id: r.id, organization_id: orgId, cliente_snapshot: r.cliente, note: r.note || null,
+        id: r.id, organization_id: orgId, cliente_snapshot: r.cliente, note: r.note || null, data_rilievo: r.dataRilievo ?? null,
         created_at: r.creatoAt, updated_at: r.aggiornatoAt,
       })))
       if (error) return { errore: error.message }
@@ -185,7 +185,7 @@ export async function getRilieviFp(da: string | null): Promise<{
     const orgId = await getOrgId()
     const dal = <Q extends { gte: (c: string, v: string) => Q }>(q: Q) => (da ? q.gte('segno_server', da) : q)
     const rilievi = await selectAll<RigaRilievo>((a, b) =>
-      dal(supabase.from('rilievi_veloci').select('id, cliente_snapshot, note, created_at, updated_at, segno_server').eq('organization_id', orgId))
+      dal(supabase.from('rilievi_veloci').select('id, cliente_snapshot, note, data_rilievo, created_at, updated_at, segno_server').eq('organization_id', orgId))
         .order('id').range(a, b))
     const voci = await selectAll<RigaVoce>((a, b) =>
       dal(supabase.from('rilievo_veloce_voci').select('id, rilievo_id, ordine, voce, quantita, note, fp, updated_at, segno_server')
@@ -197,7 +197,7 @@ export async function getRilieviFp(da: string | null): Promise<{
     const segni = [...rilievi, ...voci, ...eliminati].map(r => r.segno_server)
     const ultimoSegno = segni.reduce<string | null>((m, s) => (!m || Date.parse(s) > Date.parse(m) ? s : m), null)
     return {
-      rilievi: rilievi.map(r => ({ id: r.id, cliente: r.cliente_snapshot, note: r.note ?? '', creatoAt: iso(r.created_at), aggiornatoAt: iso(r.updated_at) })),
+      rilievi: rilievi.map(r => ({ id: r.id, cliente: r.cliente_snapshot, note: r.note ?? '', dataRilievo: r.data_rilievo ?? null, creatoAt: iso(r.created_at), aggiornatoAt: iso(r.updated_at) })),
       voci: voci.map(v => ({ id: v.id, rilievoId: v.rilievo_id, ordine: v.ordine, posizione: v.voce ?? '', quantita: v.quantita, note: v.note ?? '', fp: v.fp, aggiornatoAt: iso(v.updated_at) })),
       eliminati: eliminati.map(e => ({ id: e.id, tipo: e.tipo, rilievoId: e.rilievo_id })),
       ultimoSegno,

@@ -5,10 +5,10 @@ import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
 
 const adesso = () => new Date().toISOString()
 
-export async function creaRilievoLocale(cliente: ClienteSnapshotRilievo, note: string): Promise<string> {
+export async function creaRilievoLocale(cliente: ClienteSnapshotRilievo, note: string, dataRilievo: string | null = null): Promise<string> {
   const id = crypto.randomUUID()
   const ora = adesso()
-  await db.rilieviFp.put({ id, cliente, note, creatoAt: ora, aggiornatoAt: ora, daInviare: 1 })
+  await db.rilieviFp.put({ id, cliente, note, dataRilievo, creatoAt: ora, aggiornatoAt: ora, daInviare: 1 })
   return id
 }
 

@@ -9,6 +9,7 @@ import { db } from '@/lib/db'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { formatEuro } from '@/lib/pricing'
 import { datiRiepilogo, formatMq, statoPrezzo } from '@/lib/fppro/riepilogo'
+import { dataRilievoTesto } from '@/lib/fppro/cantiere-elenco'
 import { getRiepilogoServer, type DatiRiepilogoServer } from '@/actions/calcolo-fp'
 import SchedaVoceRiepilogo from './SchedaVoceRiepilogo'
 import { nomeCliente } from './ElencoRilievi'
@@ -53,7 +54,7 @@ export default function RiepilogoRilievo({ id, onIndietro }: { id: string; onInd
   const totale = stati.reduce((t, s, i) => t + (s?.tipo === 'prezzo' ? s.unitario * (voci[i].quantita || 1) : 0), 0)
   const incompleto = stati.some(s => s && s.tipo !== 'prezzo')
   const c = rilievo.cliente
-  const oggi = new Date().toLocaleDateString('it-IT')
+  const oggi = dataRilievoTesto(rilievo)
 
   return (
     <div className="space-y-3">
@@ -82,7 +83,7 @@ export default function RiepilogoRilievo({ id, onIndietro }: { id: string; onInd
               {rilievo.note && <p className="line-clamp-2"><span className="text-gray-500">Note </span>{rilievo.note}</p>}
             </div>
             <div className="text-right">
-              <p>Data {oggi}</p>
+              <p>Rilievo del {oggi}</p>
               <p>Pagina {p + 1} / {pagine.length}</p>
             </div>
           </header>

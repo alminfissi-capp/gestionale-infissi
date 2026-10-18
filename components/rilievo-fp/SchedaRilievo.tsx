@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Calculator, ChevronLeft, Plus, Printer, Trash2 } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import AllegatiVoce from '@/components/rilievo/AllegatiVoce'
 import { db } from '@/lib/db'
@@ -25,6 +26,26 @@ function NoteRilievo({ rilievo }: { rilievo: RilievoFp }) {
     return () => clearTimeout(id)
   }, [testo, rilievo])
   return <Textarea aria-label="Note del rilievo" placeholder="Note del rilievo" value={testo} onChange={e => setTesto(e.target.value)} />
+}
+
+/** Cantiere e data del rilievo: si salvano uscendo dal campo (come le note, senza scrivere a ogni tasto). */
+function DatiRilievo({ rilievo }: { rilievo: RilievoFp }) {
+  const [cantiere, setCantiere] = useState(rilievo.cliente.cantiere ?? '')
+  const data = rilievo.dataRilievo || rilievo.creatoAt.slice(0, 10)
+  const salvaCantiere = () => {
+    const nuovo = cantiere.trim() || null
+    if (nuovo !== (rilievo.cliente.cantiere ?? null)) void salvaRilievoLocale({ ...rilievo, cliente: { ...rilievo.cliente, cantiere: nuovo } })
+  }
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_10rem] gap-2">
+      <label className="text-xs text-muted-foreground">Cantiere / indirizzo
+        <Input className="h-8" value={cantiere} onChange={e => setCantiere(e.target.value)} onBlur={salvaCantiere} placeholder="se diverso dall'indirizzo del cliente" />
+      </label>
+      <label className="text-xs text-muted-foreground">Data del rilievo
+        <Input className="h-8" type="date" value={data} onChange={e => { if (e.target.value) void salvaRilievoLocale({ ...rilievo, dataRilievo: e.target.value }) }} />
+      </label>
+    </div>
+  )
 }
 
 interface Props {
@@ -54,8 +75,9 @@ export default function SchedaRilievo({ id, onIndietro, onVoce, onRiepilogo }: P
       </div>
       <div>
         <h1 className="text-lg font-semibold">{nomeCliente(rilievo.cliente) || 'Senza nome'}</h1>
-        {rilievo.cliente.cantiere && <p className="text-sm text-muted-foreground">{rilievo.cliente.cantiere}</p>}
+        {rilievo.cliente.indirizzo && <p className="text-sm text-muted-foreground">{rilievo.cliente.indirizzo}</p>}
       </div>
+      <DatiRilievo key={rilievo.id} rilievo={rilievo} />
       <NoteRilievo key={rilievo.id} rilievo={rilievo} />
 
       <ul className="space-y-2">

@@ -42,6 +42,8 @@ export interface RilievoFp {
   id: string
   cliente: ClienteSnapshotRilievo
   note: string
+  /** Data del rilievo (AAAA-MM-GG); assente nei rilievi fatti prima: vale creatoAt */
+  dataRilievo?: string | null
   creatoAt: string
   aggiornatoAt: string
 }

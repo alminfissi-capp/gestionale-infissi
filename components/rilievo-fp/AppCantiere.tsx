@@ -10,26 +10,25 @@ import SchedaRilievo from './SchedaRilievo'
 import StatoSync from './StatoSync'
 import SchermataVoce from './SchermataVoce'
 
-type Vista =
-  | { tipo: 'elenco' }
-  | { tipo: 'rilievo'; id: string }
-  | { tipo: 'riepilogo'; id: string }
-  | { tipo: 'voce'; rilievoId: string; voceId: string | null }
+import { vistaPrecedente, type VistaCantiere as Vista } from '@/lib/fppro/cantiere-elenco'
 
 export default function AppCantiere() {
   const [vista, setVista] = useState<Vista>({ tipo: 'elenco' })
   const catalogo = useCatalogoLocale()
   const invio = useInvioRilievi()
 
+  // Indietro (tasto del telefono, o Salva/Indietro nelle viste) = vista precedente nella gerarchia
+  // elenco > rilievo > voce/riepilogo. Non si legge history.state: Next.js lo riscrive, e da una
+  // voce salvata si finiva sull'elenco dei rilievi invece che nel rilievo.
   useEffect(() => {
-    window.history.replaceState({ vista: { tipo: 'elenco' } }, '')
-    const indietro = (e: PopStateEvent) => setVista((e.state?.vista as Vista | undefined) ?? { tipo: 'elenco' })
+    const indietro = () => setVista(v => vistaPrecedente(v))
     window.addEventListener('popstate', indietro)
     return () => window.removeEventListener('popstate', indietro)
   }, [])
 
   const vai = (v: Vista) => {
-    window.history.pushState({ vista: v }, '')
+    // Lo stato di Next.js resta com'e': si aggiunge solo una voce alla cronologia.
+    window.history.pushState(window.history.state, '')
     setVista(v)
   }
 

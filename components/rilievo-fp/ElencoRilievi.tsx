@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Loader2, Plus } from 'lucide-react'
+import { CalendarDays, Loader2, MapPin, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { createCliente } from '@/actions/clienti'
 import PulsanteIndietro from '@/components/layout/PulsanteIndietro'
@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { db } from '@/lib/db'
 import { creaRilievoLocale } from '@/lib/rilievo-fp-locale'
 import { filtraClienti } from '@/lib/ricerca-clienti'
+import { dataRilievoTesto, riepilogoPezzi } from '@/lib/fppro/cantiere-elenco'
 import { separaNome } from '@/lib/rilievo-cliente'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import type { Cliente } from '@/types/cliente'
@@ -33,14 +34,19 @@ export default function ElencoRilievi({ onApri }: { onApri: (id: string) => void
   const [nuovo, setNuovo] = useState(false)
   const [cerca, setCerca] = useState('')
   const [cantiere, setCantiere] = useState('')
+  const oggi = () => new Date().toLocaleDateString('sv-SE')
+  const [dataRilievo, setDataRilievo] = useState(oggi)
+  const pezzi = useLiveQuery(async () => riepilogoPezzi(await db.vociFp.toArray()), [], new Map<string, { serramenti: number; pezzi: number }>())
   // Cliente non trovato in anagrafica: modulo per registrarlo
   const [scheda, setScheda] = useState<{ nome: string; cognome: string; telefono: string } | null>(null)
   const [registrando, setRegistrando] = useState(false)
   const { isOnline } = useOnlineStatus()
 
   const crea = async (cliente: ClienteSnapshotRilievo) => {
-    const id = await creaRilievoLocale({ ...cliente, cantiere: cantiere || cliente.cantiere }, '')
+    const id = await creaRilievoLocale({ ...cliente, cantiere: cantiere.trim() || cliente.cantiere }, '', dataRilievo || oggi())
     setNuovo(false)
+    setCantiere('')
+    setDataRilievo(oggi())
     setScheda(null)
     setCerca('')
     onApri(id)
@@ -90,8 +96,16 @@ export default function ElencoRilievi({ onApri }: { onApri: (id: string) => void
         <div className="space-y-2 rounded-md border p-3">
           <Label htmlFor="cerca-cliente">Cliente</Label>
           <Input id="cerca-cliente" value={cerca} onChange={e => setCerca(e.target.value)} placeholder="Cerca in anagrafica o scrivi un nome nuovo" />
-          <Label htmlFor="cantiere">Cantiere / indirizzo</Label>
-          <Input id="cantiere" value={cantiere} onChange={e => setCantiere(e.target.value)} />
+          <div className="grid grid-cols-[minmax(0,1fr)_10rem] gap-2">
+            <div>
+              <Label htmlFor="cantiere">Cantiere / indirizzo</Label>
+              <Input id="cantiere" value={cantiere} placeholder="se diverso dall'indirizzo del cliente" onChange={e => setCantiere(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="data-rilievo">Data del rilievo</Label>
+              <Input id="data-rilievo" type="date" value={dataRilievo} onChange={e => setDataRilievo(e.target.value)} />
+            </div>
+          </div>
           <ul className="divide-y">
             {trovati.map(c => (
               <li key={c.id}>
@@ -134,10 +148,22 @@ export default function ElencoRilievi({ onApri }: { onApri: (id: string) => void
       <ul className="space-y-2">
         {rilievi.map(r => (
           <li key={r.id}>
-            <button type="button" onClick={() => onApri(r.id)} className="w-full rounded-md border bg-card p-3 text-left">
-              <span className="block text-sm font-medium">{nomeCliente(r.cliente) || 'Senza nome'}</span>
-              <span className="block text-xs text-muted-foreground">
-                {r.cliente.cantiere ?? ''} {r.daInviare ? '· da inviare' : ''}
+            <button type="button" onClick={() => onApri(r.id)} className="w-full space-y-1 rounded-md border bg-card p-3 text-left hover:bg-muted/40">
+              <span className="flex items-baseline justify-between gap-2">
+                <span className="truncate text-sm font-semibold">{nomeCliente(r.cliente) || 'Senza nome'}</span>
+                <span className="shrink-0 text-xs font-medium">
+                  {(() => {
+                    const p = pezzi.get(r.id)
+                    return p ? `${p.serramenti} serrament${p.serramenti === 1 ? 'o' : 'i'} · ${p.pezzi} pz` : 'nessun serramento'
+                  })()}
+                </span>
+              </span>
+              <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><CalendarDays className="size-3.5" />{dataRilievoTesto(r)}</span>
+                {(r.cliente.cantiere || r.cliente.indirizzo) && (
+                  <span className="flex min-w-0 items-center gap-1"><MapPin className="size-3.5 shrink-0" /><span className="truncate">{r.cliente.cantiere || r.cliente.indirizzo}</span></span>
+                )}
+                {r.daInviare ? <span className="text-red-700">da inviare</span> : null}
               </span>
             </button>
           </li>
