@@ -61,7 +61,7 @@ describe('listinoDaRighe', () => {
     expect(l.accessorio('X', '')).toBeNull()
   })
   it('accessorio con prezzi per colore: quello del colore accessori della voce', () => {
-    const conColore = listinoDaRighe(righe, { fpId: 56, tolleranzaPeso: 0.03 }, 62)
+    const conColore = listinoDaRighe(righe, { fpId: 56, tolleranzaPeso: 0.03 }, [{ fpId: 62, descrizione: '9010' }])
     expect(conColore.accessorio('ACP 8020M', 'ALSISTEM SLIDE 80/106')).toEqual({ prezzo: 210.037, unitaVendita: 5, avviso: null })
   })
   it('accessorio con prezzi per colore e nessun colore accessori: il piu alto con avviso', () => {

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { XMLParser } from 'fast-xml-parser'
 import { OPZIONI_XML, strutturaDaXml } from './strutture-xml'
 import {
-  alberoLeggero, campiRiempimento, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
+  alberoLeggero, campiRiempimento, coloriAccessori, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
 } from './rilievo-fp'
 
 const leggi = (nome: string) => strutturaDaXml(new XMLParser(OPZIONI_XML).parse(
@@ -92,4 +92,11 @@ describe('alberoLeggero', () => {
     expect(campiRiempimento(leggero)).toEqual(campiRiempimento(al50.albero))
     expect(JSON.stringify(leggero).length).toBeLessThan(JSON.stringify(al50.albero).length)
   })
+})
+
+describe('coloriAccessori', () => {
+  const inox = { fpId: 9, descrizione: 'INOX' }, c9010 = { fpId: 62, descrizione: '9010' }
+  it('elenco ordinato se c\'e\'', () => expect(coloriAccessori({ coloriAcc: [inox, c9010], coloreAcc: c9010 })).toEqual([inox, c9010]))
+  it('voce vecchia con un solo colore: quello', () => expect(coloriAccessori({ coloreAcc: inox })).toEqual([inox]))
+  it('niente: elenco vuoto', () => expect(coloriAccessori({ coloreAcc: null, coloriAcc: [] })).toEqual([]))
 })

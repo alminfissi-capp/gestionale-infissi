@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { toast } from 'sonner'
-import { ArrowLeft, ChevronDown, Save } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowUp, ChevronDown, Save, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { db } from '@/lib/db'
 import { salvaVoceLocale } from '@/lib/rilievo-fp-locale'
 import {
-  campiRiempimento, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
+  campiRiempimento, coloriAccessori, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
 } from '@/lib/fppro/rilievo-fp'
 import { profiliPer, UTILIZZI_ANTA, UTILIZZO_TELAIO } from '@/lib/fppro/profili-voce'
 import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
@@ -232,6 +232,15 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
   }
 
   const problemi = problemiVoce(v, divisioni)
+  const coloriAcc = coloriAccessori(v)
+  // Il primo resta anche in coloreAcc: le voci e i dispositivi non ancora aggiornati lo leggono da li'.
+  const impostaColoriAcc = (lista: RifFp[]) => aggiorna({ coloriAcc: lista, coloreAcc: lista[0] ?? null })
+  const sposta = (i: number, dir: -1 | 1) => {
+    const lista = [...coloriAcc]
+    const [c] = lista.splice(i, 1)
+    lista.splice(i + dir, 0, c)
+    impostaColoriAcc(lista)
+  }
   const latiTelaio = LATI.filter(l => telaiDefault[l.lato])
   const campiVetro = campi.filter(c => c.tipo === 'vetro')
   const rif = (x: VoceScelta | null): RifFp | null => (x ? { fpId: Number(x.id), descrizione: x.testo } : null)
@@ -243,7 +252,7 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
       <div className="grid gap-4 lg:grid-cols-[18rem_minmax(0,1fr)_18rem] xl:grid-cols-[20rem_minmax(0,1fr)_20rem]">
         <div className="order-2 space-y-2 lg:order-1">
           <Pannello titolo="Colori">
-            {([['coloreInt', 'Interno', false], ['coloreEst', 'Esterno', false], ['coloreAcc', 'Accessori', true]] as const).map(([campo, etichetta, perAcc]) => (
+            {([['coloreInt', 'Interno', false], ['coloreEst', 'Esterno', false]] as const).map(([campo, etichetta, perAcc]) => (
               <div key={campo} className="space-y-1">
                 <Label className="text-xs">{etichetta}</Label>
                 <SceltaFp
@@ -257,6 +266,26 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
                 />
               </div>
             ))}
+            {/* Come FP PRO: elenco in ordine; per ogni accessorio vale il primo colore in cui esiste. */}
+            <div className="space-y-1">
+              <Label className="text-xs">Accessori <span className="text-muted-foreground">(in ordine: vale il primo che l&apos;accessorio ha)</span></Label>
+              {coloriAcc.map((c, i) => (
+                <div key={c.fpId} className="flex items-center gap-1 rounded border px-2 py-1 text-sm">
+                  <span className="w-4 text-xs text-muted-foreground">{i + 1}.</span>
+                  <span className="min-w-0 flex-1 truncate">{c.descrizione}</span>
+                  <Button type="button" variant="ghost" size="icon" className="size-6" aria-label="Sposta su" disabled={i === 0} onClick={() => sposta(i, -1)}><ArrowUp className="size-3.5" /></Button>
+                  <Button type="button" variant="ghost" size="icon" className="size-6" aria-label="Sposta giu" disabled={i === coloriAcc.length - 1} onClick={() => sposta(i, 1)}><ArrowDown className="size-3.5" /></Button>
+                  <Button type="button" variant="ghost" size="icon" className="size-6" aria-label="Togli" onClick={() => impostaColoriAcc(coloriAcc.filter((_, j) => j !== i))}><X className="size-3.5" /></Button>
+                </div>
+              ))}
+              <SceltaFp
+                voci={vociColori(true).filter(x => !coloriAcc.some(c => String(c.fpId) === x.id))}
+                valore={null}
+                segnaposto="Cerca colore accessori (es. 9010)"
+                etichettaNessuno={coloriAcc.length ? 'Aggiungi un altro colore…' : 'Non indicato: aggiungi un colore…'}
+                onScegli={x => { const c = rif(x); if (c) impostaColoriAcc([...coloriAcc, c]) }}
+              />
+            </div>
           </Pannello>
 
           <Pannello titolo="Vetri">

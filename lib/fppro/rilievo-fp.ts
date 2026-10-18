@@ -1,5 +1,5 @@
 // Analisi di una struttura di FP PRO per il rilievo in cantiere (solo app).
-import type { Lato, VoceFpDati } from '@/types/rilievo-fp'
+import type { Lato, RifFp, VoceFpDati } from '@/types/rilievo-fp'
 import type { NodoStruttura } from './strutture-xml'
 
 const LATI_TELAIO: Lato[] = ['sinistra', 'alto', 'destra', 'basso']
@@ -130,4 +130,10 @@ export function alberoLeggero(albero: NodoStruttura[]): NodoStruttura[] {
     kit: n.kit.map(k => ({ ...k, accessori: [] })),
     figli: alberoLeggero(n.figli),
   }))
+}
+
+/** Colori accessori della voce in ordine: l'elenco se c'e', altrimenti il singolo colore delle voci vecchie. */
+export function coloriAccessori(v: Pick<VoceFpDati, 'coloreAcc' | 'coloriAcc'>): RifFp[] {
+  if (v.coloriAcc && v.coloriAcc.length > 0) return v.coloriAcc
+  return v.coloreAcc ? [v.coloreAcc] : []
 }

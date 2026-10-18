@@ -1,6 +1,6 @@
 // Testi del riepilogo del rilievo (scheda compatta a schermo e stampa A4): una funzione
 // pura per voce, cosi' schermo e carta dicono la stessa cosa.
-import { campiRiempimento, kitOpzionali } from './rilievo-fp'
+import { campiRiempimento, coloriAccessori, kitOpzionali } from './rilievo-fp'
 import type { Lato, StrutturaLocale, VoceFp } from '@/types/rilievo-fp'
 
 export interface DatiRiepilogo {
@@ -68,7 +68,7 @@ export function datiRiepilogo(
     serie: fp.serie,
     finituraEst: fp.coloreEst?.descrizione ?? null,
     finituraInt: fp.coloreInt?.descrizione ?? null,
-    coloreAcc: fp.coloreAcc?.descrizione ?? null,
+    coloreAcc: coloriAccessori(fp).map(c => c.descrizione).join(', ') || null,
     vetri: vetri.length ? vetri.join(', ') : null,
     profili: profili.length ? profili.join(' · ') : null,
     mano: fp.mano === 'sx' ? 'Apertura sinistra' : fp.mano === 'dx' ? 'Apertura destra' : null,

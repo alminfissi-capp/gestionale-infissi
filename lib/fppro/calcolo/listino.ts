@@ -29,7 +29,8 @@ const positivo = (v: number | null | undefined) => (n(v) > 0 ? n(v) : null)
 export function listinoDaRighe(
   r: RigheListino,
   colore: { fpId: number; tolleranzaPeso: number } | null,
-  coloreAcc: number | null = null,
+  /** Colori accessori della voce, in ordine di preferenza */
+  coloriAcc: { fpId: number; descrizione: string }[] = [],
 ): ListinoCalcolo {
   const perCodice = new Map<string, RigheListino['profili'][number]>()
   for (const p of r.profili) if (!perCodice.has(chiave(p.codice))) perCodice.set(chiave(p.codice), p)
@@ -78,7 +79,7 @@ export function listinoDaRighe(
     },
     accessorio(codice, serie) {
       const tutti = r.accessori.filter(a => chiave(a.codice) === chiave(codice))
-      return prezzoAccessorio(tutti, r.costiAccessori ?? [], serie, coloreAcc)
+      return prezzoAccessorio(tutti, r.costiAccessori ?? [], serie, coloriAcc.map(c => c.fpId), coloriAcc.map(c => c.descrizione))
     },
     vetro(codice) {
       const v = vetri.get(chiave(codice))

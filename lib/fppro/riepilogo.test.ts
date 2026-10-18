@@ -41,6 +41,10 @@ describe('datiRiepilogo', () => {
     expect(d.finituraInt).toBeNull()
     expect(d.coloreAcc).toBe('9010')
   })
+  it('colori accessori in ordine di preferenza', () => {
+    const d = datiRiepilogo(voce({ coloriAcc: [{ fpId: 9, descrizione: 'INOX' }, { fpId: 62, descrizione: '9010' }] }), ekos)
+    expect(d.coloreAcc).toBe('INOX, 9010')
+  })
   it('vetri: quelli scelti, altrimenti quelli della struttura, senza doppioni', () => {
     expect(datiRiepilogo(voce(), ekos).vetri).toBe('4_15_33.1_S+G')
     expect(datiRiepilogo(voce({ vetri: { '3': { fpId: 5, codice: '33.1-12-4' } } }), ekos).vetri).toBe('33.1-12-4, 4_15_33.1_S+G')
