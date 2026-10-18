@@ -23,7 +23,8 @@ export interface ProfiloListino {
 
 export interface ListinoCalcolo {
   profilo(codice: string): ProfiloListino | null
-  accessorio(codice: string, serie: string): { prezzo: number; unitaVendita: number } | null
+  /** avviso: es. prezzo diverso per colore senza colore accessori scelto */
+  accessorio(codice: string, serie: string): { prezzo: number; unitaVendita: number; avviso?: string | null } | null
   vetro(codice: string): { euroMq: number; minFatt: number; kgMq: number } | null
   pannello(codice: string): { euroMq: number; minFatt: number } | null
   /** Misure in vista dal DXF del profilo (fp_profili_sezioni) */
@@ -199,6 +200,7 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
     const prezzo = listino.accessorio(a.codice, a.serie)
     if (!prezzo) avvisi.push(`Accessorio ${a.codice} non trovato nel listino di FP PRO`)
     else if (prezzo.prezzo <= 0) avvisi.push(`Accessorio ${a.codice} senza prezzo`)
+    if (prezzo?.avviso) avvisi.push(prezzo.avviso)
     if (a.regolaIgnota) avvisi.push(`Regola dell'accessorio ${a.codice} non interpretata: contato come da kit`)
     const costo = prezzo && prezzo.unitaVendita > 0 ? (prezzo.prezzo / prezzo.unitaVendita) * a.quantita : 0
     righe.push({ gruppo: 'accessori', codice: a.codice, descrizione: a.descrizione, quantita: tondo(a.quantita), unita: a.metri ? 'm' : 'pz', costo })
