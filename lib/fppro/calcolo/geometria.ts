@@ -62,17 +62,31 @@ export function larghezzeDaPoligoni(poligoni: number[][]): Larghezze {
   return { ...LARGHEZZE_PREDEFINITE }
 }
 
+/** Un'anta con la sua posizione (mm, y dal basso): per i simboli di apertura del disegno. */
+export interface AntaGeometria {
+  nodo: number
+  /** 8610 battente, 8620 scorrevole */
+  tipo: number
+  indice: number
+  /** Ante nel nodo */
+  ante: number
+  /** Anta principale per FP PRO (MainSashIndex) */
+  principale: number
+  zona: { x0: number; x1: number; y0: number; y1: number }
+}
+
 export function pezziECampi(
   albero: NodoStruttura[],
   misure: { L: number; H: number; L0: number; H0: number; quote: Record<string, number> },
   larghezze: Larghezze,
   /** Misure vere del profilo di un pezzo (dal suo DXF); senza, valgono le larghezze predefinite */
   sezione: (dxf: string) => SezioneProfilo | null = () => null,
-): { pezzi: PezzoCalcolo[]; campi: CampoCalcolo[]; zone: Record<number, { L: number; H: number }> } {
+): { pezzi: PezzoCalcolo[]; campi: CampoCalcolo[]; zone: Record<number, { L: number; H: number }>; ante: AntaGeometria[] } {
   const pezzi: PezzoCalcolo[] = []
   // Misure della zona di ogni nodo: le regole dei kit (L, H, perimetro) si misurano sul nodo.
   const zone: Record<number, { L: number; H: number }> = {}
   const campi: CampoCalcolo[] = []
+  const anteTrovate: AntaGeometria[] = []
   const aggiungi = (dxf: string, tipo: number, lunghezza: number) => {
     if (lunghezza > 0) pezzi.push({ dxf, tipo, lunghezza: Math.round(lunghezza * 10) / 10 })
   }
@@ -144,6 +158,8 @@ export function pezziECampi(
         ante.push({ x0: x, x1: x + w, y0: z.y0 - incasso, y1: z.y1 + incasso })
         x += w - sormonto
       }
+      const principale = Number(n.macro?.MainSashIndex ?? 0)
+      ante.forEach((zona, indice) => anteTrovate.push({ nodo: n.codice, tipo: n.tipo, indice, ante: k, principale: Number.isFinite(principale) ? principale : 0, zona }))
       for (let i = 0; i < k; i++) {
         profili.filter(p => !RIPORTI.has(p.tipo) && p.indice === i)
           .forEach((p, j) => aggiungi(p.dxf, p.tipo, j % 2 === 0 ? alt(ante[i]) : larg(ante[i])))
@@ -190,5 +206,5 @@ export function pezziECampi(
   }
 
   albero.forEach(n => visita(n, { x0: 0, y0: 0, x1: misure.L, y1: misure.H }, false))
-  return { pezzi, campi, zone }
+  return { pezzi, campi, zone, ante: anteTrovate }
 }

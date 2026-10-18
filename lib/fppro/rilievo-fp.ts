@@ -137,3 +137,13 @@ export function coloriAccessori(v: Pick<VoceFpDati, 'coloreAcc' | 'coloriAcc'>):
   if (v.coloriAcc && v.coloriAcc.length > 0) return v.coloriAcc
   return v.coloreAcc ? [v.coloreAcc] : []
 }
+
+const KIT_RIBALTA = /\dAR\b|A\/R|RIBALTA/i
+
+/** La voce ha un kit anta-ribalta attivo (quelli scelti, e quelli non opzionali della struttura)? */
+export function haRibalta(albero: NodoStruttura[], kitScelti: Record<string, boolean>): boolean {
+  return tutti(albero).some(n => n.kit.some((k, i) => {
+    const attivo = !k.opzionale || (kitScelti[`${n.codice}:${i}`] ?? k.confermato)
+    return attivo && KIT_RIBALTA.test(`${k.codice} ${k.descrizione}`)
+  }))
+}

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { XMLParser } from 'fast-xml-parser'
 import { OPZIONI_XML, strutturaDaXml } from './strutture-xml'
 import {
-  alberoLeggero, campiRiempimento, coloriAccessori, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
+  alberoLeggero, campiRiempimento, coloriAccessori, haRibalta, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
 } from './rilievo-fp'
 
 const leggi = (nome: string) => strutturaDaXml(new XMLParser(OPZIONI_XML).parse(
@@ -99,4 +99,18 @@ describe('coloriAccessori', () => {
   it('elenco ordinato se c\'e\'', () => expect(coloriAccessori({ coloriAcc: [inox, c9010], coloreAcc: c9010 })).toEqual([inox, c9010]))
   it('voce vecchia con un solo colore: quello', () => expect(coloriAccessori({ coloreAcc: inox })).toEqual([inox]))
   it('niente: elenco vuoto', () => expect(coloriAccessori({ coloreAcc: null, coloriAcc: [] })).toEqual([]))
+})
+
+describe('haRibalta', () => {
+  const nodo = (kit: { codice: string; descrizione: string; opzionale: boolean; confermato: boolean }[]) =>
+    [{ tipo: 8610, codice: 2, elementi: 1, x: null, y: null, prm: [], macro: null, ante: [], ird: [], pezzi: [], accessori: [], kit: kit.map(k => ({ ...k, serie: '', accessori: [] })), figli: [] }]
+  it('kit anta-ribalta scelto nella voce (2AR, 1AR, A/R): si', () => {
+    const a = nodo([{ codice: 'PLANET 2A BAT-COMPLANARE-DS', descrizione: '2 ante battente', opzionale: true, confermato: true }, { codice: 'PLANET 2AR COMPLANARE-DS', descrizione: '2 ante a ribalta', opzionale: true, confermato: false }])
+    expect(haRibalta(a, { '2:1': true, '2:0': false })).toBe(true)
+    expect(haRibalta(a, {})).toBe(false)
+    expect(haRibalta(nodo([{ codice: 'PLANET  EXENS A/R-DS', descrizione: 'Kit Exens', opzionale: false, confermato: true }]), {})).toBe(true)
+  })
+  it('solo battente: no', () => {
+    expect(haRibalta(nodo([{ codice: 'PLANET 1A BATT-COMPLANARE-DS', descrizione: '1 anta finestra a battente', opzionale: true, confermato: true }]), {})).toBe(false)
+  })
 })
