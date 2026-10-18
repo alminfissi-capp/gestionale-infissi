@@ -10,10 +10,10 @@ import SchedaRilievo from './SchedaRilievo'
 import StatoSync from './StatoSync'
 import SchermataVoce from './SchermataVoce'
 
-import { vistaPrecedente, type VistaCantiere as Vista } from '@/lib/fppro/cantiere-elenco'
+import { rilievoDaIndirizzo, vistaPrecedente, type VistaCantiere as Vista } from '@/lib/fppro/cantiere-elenco'
 
-export default function AppCantiere() {
-  const [vista, setVista] = useState<Vista>({ tipo: 'elenco' })
+export default function AppCantiere({ rilievoIniziale = null }: { rilievoIniziale?: string | null }) {
+  const [vista, setVista] = useState<Vista>(rilievoIniziale ? { tipo: 'rilievo', id: rilievoIniziale } : { tipo: 'elenco' })
   const catalogo = useCatalogoLocale()
   const invio = useInvioRilievi()
 
@@ -21,6 +21,12 @@ export default function AppCantiere() {
   // elenco > rilievo > voce/riepilogo. Non si legge history.state: Next.js lo riscrive, e da una
   // voce salvata si finiva sull'elenco dei rilievi invece che nel rilievo.
   useEffect(() => {
+    // Arrivo dal Calcolo e preventivo (?rilievo=ID, letto dalla pagina): il rilievo e' gia' aperto;
+    // qui si mette l'elenco dietro nella cronologia e si ripulisce l'indirizzo.
+    if (rilievoDaIndirizzo(window.location.search)) {
+      window.history.replaceState(window.history.state, '', window.location.pathname)
+      window.history.pushState(window.history.state, '')
+    }
     const indietro = () => setVista(v => vistaPrecedente(v))
     window.addEventListener('popstate', indietro)
     return () => window.removeEventListener('popstate', indietro)

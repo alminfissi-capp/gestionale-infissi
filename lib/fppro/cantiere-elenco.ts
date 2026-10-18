@@ -34,3 +34,9 @@ export function dataRilievoTesto(r: { dataRilievo?: string | null; creatoAt: str
   const [a, m, g] = iso.split('-')
   return `${g}/${m}/${a}`
 }
+
+/** Rilievo da aprire subito (/rilievo/cantiere?rilievo=ID, dal Calcolo e preventivo); null se manca o non e' un id. */
+export function rilievoDaIndirizzo(search: string): string | null {
+  const id = new URLSearchParams(search).get('rilievo')
+  return id && /^[0-9a-f-]{36}$/i.test(id) ? id : null
+}

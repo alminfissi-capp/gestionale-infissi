@@ -5,7 +5,7 @@
 import { Fragment, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ChevronDown, ChevronLeft, ChevronRight, Loader2, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Loader2, Plus, Trash2 } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatEuro } from '@/lib/pricing'
@@ -186,7 +186,10 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-4">
-      <a href="/rilievo/cantiere" className={buttonVariants({ variant: 'ghost', size: 'sm' })}><ChevronLeft className="mr-1 size-4" />Rilievi</a>
+      {/* Navigazione piena: il rilievo sta nella pagina del cantiere, che lo apre da ?rilievo= */}
+      <a href={`/rilievo/cantiere?rilievo=${rilievoId}`} className={buttonVariants({ variant: 'outline', size: 'sm', className: 'gap-1.5' })}>
+        <ArrowLeft className="size-4" />Torna al rilievo
+      </a>
       <div>
         <h1 className="text-xl font-semibold">Calcolo · {nomeCliente(dati.cliente) || 'Senza nome'}</h1>
         {dati.cliente.cantiere && <p className="text-sm text-muted-foreground">{dati.cliente.cantiere}</p>}
