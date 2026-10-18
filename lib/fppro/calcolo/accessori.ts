@@ -129,7 +129,10 @@ export function regoleDaElenchi(
  * null se non interpretabile: non si esegue mai codice.
  */
 export function valutaFormula(f: string, d: Misure): number | null {
-  const testo = f.replace(/,/g, '.').replace(/\s+/g, '')
+  // Variabili dei kit a fasce (bracci della ribalta): O1+AE+AE = larghezza dell'anta. O1 e'
+  // la larghezza della zona del nodo (l'anta), AE la sovrapposizione, presa a 0: si sceglie
+  // comunque un solo braccio per anta, al massimo quello della fascia accanto vicino ai limiti.
+  const testo = f.replace(/,/g, '.').replace(/\s+/g, '').replace(/O1/g, 'L').replace(/AE/g, '0')
   if (!/^[0-9wWhHlL.+\-*/()]+$/.test(testo)) return null
   let i = 0
   const variabile = (c: string): number | null =>

@@ -81,6 +81,9 @@ describe('valutaFormula', () => {
     expect(valutaFormula('2*H+L-100', d)).toBe(6500)
     expect(valutaFormula('(L+H)*2', d)).toBe(8500)
   })
+  it('bracci della ribalta: O1+AE+AE = larghezza anta (O1 = larghezza della zona, AE = 0)', () => {
+    expect(valutaFormula('O1+AE+AE', { L: 600, H: 1300, w: 20, h: 1300 })).toBe(600)
+  })
   it('formula non interpretabile: null, mai eseguita', () => {
     expect(valutaFormula('alert(1)', d)).toBeNull()
     expect(valutaFormula('L/', d)).toBeNull()
@@ -127,5 +130,24 @@ describe('kit scelto senza righe nella struttura (caso Palazzotto, SLIDE 60)', (
   })
   it('kit non scelto: nessuna riga', () => {
     expect(accessoriVoce(albero, { '2:1': false }, { 2: { L: 1920, H: 1240 } }, 40, regole).map(a => a.codice)).toEqual(['RB304'])
+  })
+})
+
+describe('bracci della ribalta a fasce: un solo braccio per anta', () => {
+  const braccio = (codice: string, min: number, max: number) => ({
+    codice, descrizione: codice, serie: 'AL_SISTEM', tipo: 1, quantita: 1, dimRif: 5, dimCalcolo: 0,
+    min, max, passo: null, formula: 'O1+AE+AE', dimDistribuzione: 0, formulaDistribuzione: null, opzionale: false, confermato: true,
+  })
+  const kit = [braccio('ACP 50446/350', 350, 409.9), braccio('ACP 50446/415', 410, 549.9), braccio('ACP 50446/538', 550, 1800),
+    braccio('ACP 5153', 1000.1, 1800), braccio('_AVVISO1', 1800.1, 10000)]
+  const albero = [{ tipo: 8610, codice: 1, x: null, y: null, pezzi: [], accessori: [], kit: [{ codice: 'PLANET 2AR', confermato: true, opzionale: false, accessori: kit }], figli: [] }]
+  const zona = (l: number) => ({ 1: { L: l, H: 1300 } })
+  const codici = (l: number) => accessoriVoce(albero as never, {}, zona(l) as never, 20, regoleDaElenchi([], [], [], {}))
+    .filter(a => a.quantita > 0).map(a => a.codice)
+  it('anta da 600 mm: solo il braccio 538', () => expect(codici(600)).toEqual(['ACP 50446/538']))
+  it('anta da 480 mm: solo il braccio 415', () => expect(codici(480)).toEqual(['ACP 50446/415']))
+  it('anta da 1200 mm: braccio 538 + supplementare', () => expect(codici(1200)).toEqual(['ACP 50446/538', 'ACP 5153']))
+  it('nessuna regola non interpretata', () => {
+    expect(accessoriVoce(albero as never, {}, zona(600) as never, 20, regoleDaElenchi([], [], [], {})).some(a => a.regolaIgnota)).toBe(false)
   })
 })

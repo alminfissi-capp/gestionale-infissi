@@ -132,6 +132,17 @@ describe('casi difficili', () => {
     expect(r.avvisi.some(a => a.startsWith('Profilo  '))).toBe(false)
     expect(r.materiali).toBeCloseTo(calcolaVoce(input, listino, regole).materiali, 6)
   })
+  it('codice "_..." di FP PRO (es. _AVVISO1): messaggio come avviso, mai un costo ne un "non trovato"', () => {
+    const albero = structuredClone(input.albero)
+    albero[0].accessori.push({
+      codice: '_AVVISO1', descrizione: 'ATTENZIONE !! MISURE FUORI CAMPO: BRACCIO AR NON CALCOLATO', serie: 'AL_SISTEM', tipo: 1, quantita: 1,
+      dimRif: 0, dimCalcolo: 0, min: null, max: null, passo: null, formula: null, dimDistribuzione: 0, formulaDistribuzione: null, opzionale: false, confermato: true,
+    })
+    const r = calcolaVoce({ ...input, albero }, listino, regole)
+    expect(r.avvisi).toContain('ATTENZIONE !! MISURE FUORI CAMPO: BRACCIO AR NON CALCOLATO')
+    expect(r.avvisi.some(x => x.includes('_AVVISO1'))).toBe(false)
+    expect(r.righe.some(x => x.codice === '_AVVISO1')).toBe(false)
+  })
   it('correzione di riga: cambia solo questa voce', () => {
     const base = calcolaVoce(input, listino, regole)
     const corretta = calcolaVoce({ ...input, correzioni: { percentuali: { utile: 0.25 }, extra: [{ descrizione: 'x', importo: 80 }] } }, listino, regole)

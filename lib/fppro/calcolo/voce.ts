@@ -216,6 +216,11 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
 
   // Accessori (le formule dei kit usano il peso del serramento).
   for (const a of accessoriVoce(albero, input.kitScelti, zone, peso, regole)) {
+    // "_AVVISO1" e simili: messaggi di FP PRO dentro i kit (es. misure fuori campo), non prodotti.
+    if (a.codice.startsWith('_')) {
+      avvisi.push(a.descrizione || a.codice)
+      continue
+    }
     const prezzo = listino.accessorio(a.codice, a.serie)
     if (!prezzo) avvisi.push(`Accessorio ${a.codice} non trovato nel listino di FP PRO`)
     else if (prezzo.prezzo <= 0) avvisi.push(`Accessorio ${a.codice} senza prezzo`)
