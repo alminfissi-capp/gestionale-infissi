@@ -184,11 +184,11 @@ class GestionaleDB extends Dexie {
       vociFp: 'id, rilievoId, aggiornatoAt, daInviare',
       eliminatiFp: 'id',
     })
-      // Profili ora con gli utilizzi (telai e ante) e colori anche degli accessori:
-      // si svuotano e si riscaricano. Rilievi e voci nel telefono non si toccano.
+      // Profili ora con gli utilizzi (telai e ante) e colori anche degli accessori: si
+      // riscaricano da capo azzerando i cursori. Le righe vecchie NON si svuotano: senza
+      // rete in cantiere gli elenchi resterebbero vuoti fino al prossimo download (le righe
+      // senza utilizzi valgono come telai, i colori senza flag come colori dei profili).
       .upgrade(async tx => {
-        await tx.table('fpTelai').clear()
-        await tx.table('fpColori').clear()
         await tx.table('fpMeta').bulkDelete(['cursore:fp_telai', 'cursore:fp_colori'])
       })
   }

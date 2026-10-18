@@ -9,8 +9,8 @@ import type {
   EliminatoFp, PosizioneFp, PreferenzaFp, RilievoFp, TabellaCatalogoLocale, VoceFp, VoceFpDati,
 } from '@/types/rilievo-fp'
 import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
+import { dimensionePagina } from '@/lib/fppro/scelta'
 
-const PAGINA = 200
 const BLOCCO_ID = 100
 const messaggio = (e: unknown, riserva: string) => (e instanceof Error ? e.message : riserva)
 const iso = (s: string) => new Date(s).toISOString()
@@ -61,7 +61,7 @@ export async function scaricaCatalogo(
               : tabella === 'fp_sezioni'
                 ? base('fp_profili_sezioni', 'fp_id, codice, anteprima, presente').not('anteprima', 'is', null)
                 : base('fp_serie', 'fp_id, nome, descrizione, presente')
-    const { data, error } = await query.order('segno_server').order(chiave).limit(PAGINA)
+    const { data, error } = await query.order('segno_server').order(chiave).limit(dimensionePagina(tabella))
     if (error) return { errore: error.message }
     const grezze = (data ?? []) as unknown as (Record<string, unknown> & { segno_server: string })[]
     const righe = tabella === 'fp_strutture'
@@ -73,7 +73,7 @@ export async function scaricaCatalogo(
     const ultima = grezze.length > 0
       ? { segno: grezze[grezze.length - 1].segno_server, chiave: String(grezze[grezze.length - 1][chiave]) }
       : null
-    return { righe, ultima, fine: grezze.length < PAGINA, adesso: new Date().toISOString() }
+    return { righe, ultima, fine: grezze.length < dimensionePagina(tabella), adesso: new Date().toISOString() }
   } catch (e) {
     return { errore: messaggio(e, 'Scaricamento non riuscito') }
   }

@@ -17,7 +17,8 @@ export interface StatoCatalogo {
   ultimo: string | null
 }
 
-const TABELLE: TabellaCatalogoLocale[] = ['fp_serie', 'fp_colori', 'fp_vetri', 'fp_telai', 'fp_sezioni', 'fp_strutture']
+// Miniature per ultime: sono le piu' pesanti e non devono ritardare le strutture.
+const TABELLE: TabellaCatalogoLocale[] = ['fp_serie', 'fp_colori', 'fp_vetri', 'fp_telai', 'fp_strutture', 'fp_sezioni']
 const BLOCCO_IMMAGINI = 50
 
 /** Salva una pagina scaricata nella tabella locale giusta. */

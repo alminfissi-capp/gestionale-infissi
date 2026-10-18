@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { cn } from '@/lib/utils'
+import { voceMostrata } from '@/lib/fppro/scelta'
 import MiniaturaProfilo from './MiniaturaProfilo'
 import type { AnteprimaProfilo } from '@/types/rilievo-fp'
 
@@ -26,6 +27,8 @@ interface Props {
   etichettaNessuno?: string
   conMiniature?: boolean
   id?: string
+  /** Come mostrare il valore salvato se non e' (piu') nell'elenco */
+  riserva?: VoceScelta | null
 }
 
 const MAX_RISULTATI = 60
@@ -35,10 +38,11 @@ const MAX_RISULTATI = 60
  * SI RICHIUDE subito. La ricerca la fa questo componente (testo + descrizione) e mostra
  * al massimo 60 righe, cosi' anche centinaia di colori o profili con miniatura restano veloci.
  */
-export default function SceltaFp({ voci, preferiti, valore, onScegli, segnaposto, etichettaNessuno, conMiniature, id }: Props) {
+export default function SceltaFp({ voci, preferiti, valore, onScegli, segnaposto, etichettaNessuno, conMiniature, id, riserva }: Props) {
   const [aperto, setAperto] = useState(false)
   const [cerca, setCerca] = useState('')
-  const scelta = voci.find(v => v.id === valore) ?? null
+  const { voce: mostrata, fuoriCatalogo } = voceMostrata(voci, valore, riserva ?? null)
+  const scelta = mostrata as VoceScelta | null
 
   const { pref, altri, oltre } = useMemo(() => {
     const q = cerca.trim().toLowerCase()
@@ -76,7 +80,9 @@ export default function SceltaFp({ voci, preferiti, valore, onScegli, segnaposto
               <span className={cn('block truncate text-sm', !scelta && 'text-muted-foreground')}>
                 {scelta ? scelta.testo : (etichettaNessuno ?? segnaposto)}
               </span>
-              {scelta?.sotto && <span className="block truncate text-xs text-muted-foreground">{scelta.sotto}</span>}
+              {fuoriCatalogo
+                ? <span className="block truncate text-xs text-amber-700">non più nel catalogo</span>
+                : scelta?.sotto && <span className="block truncate text-xs text-muted-foreground">{scelta.sotto}</span>}
             </span>
           </span>
           <ChevronsUpDown className="size-4 shrink-0 opacity-50" />

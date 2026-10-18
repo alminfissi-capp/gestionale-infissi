@@ -176,11 +176,11 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
           </div>
           <div className="w-24">
             <Label htmlFor="sv-l" className="text-xs">Larghezza</Label>
-            <Input id="sv-l" className="h-8" inputMode="numeric" value={v.larghezza ?? ''} onChange={e => aggiorna({ larghezza: numero(e.target.value) })} />
+            <Input id="sv-l" className="h-8" inputMode="numeric" readOnly={struttura === null} value={v.larghezza ?? ''} onChange={e => aggiorna({ larghezza: numero(e.target.value) })} />
           </div>
           <div className="w-24">
             <Label htmlFor="sv-h" className="text-xs">Altezza</Label>
-            <Input id="sv-h" className="h-8" inputMode="numeric" value={v.altezza ?? ''} onChange={e => aggiorna({ altezza: numero(e.target.value) })} />
+            <Input id="sv-h" className="h-8" inputMode="numeric" readOnly={struttura === null} value={v.altezza ?? ''} onChange={e => aggiorna({ altezza: numero(e.target.value) })} />
           </div>
           <div className="w-16">
             <Label htmlFor="sv-q" className="text-xs">Q.tà</Label>
@@ -298,6 +298,7 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
                     segnaposto="Cerca telaio"
                     etichettaNessuno={`Come la struttura (${telaiDefault[lato]})`}
                     conMiniature
+                    riserva={v.telai[lato] ? { id: v.telai[lato]!, testo: v.telai[lato]! } : null}
                     onScegli={x => {
                       const telai = { ...v.telai }
                       if (x) telai[lato] = x.id; else delete telai[lato]
@@ -317,6 +318,7 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
                 segnaposto="Cerca profilo anta"
                 etichettaNessuno="Come la struttura"
                 conMiniature
+                riserva={v.anta ? { id: v.anta, testo: v.anta } : null}
                 onScegli={x => aggiorna({ anta: x?.id ?? null })}
               />
             </Pannello>
@@ -332,6 +334,7 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
                   valore={v[campo]?.fpId !== undefined ? String(v[campo]!.fpId) : null}
                   segnaposto={perAcc ? 'Cerca colore accessori (es. 9010)' : 'Cerca colore (es. 9010)'}
                   etichettaNessuno="Non indicato"
+                  riserva={v[campo] ? { id: String(v[campo]!.fpId), testo: v[campo]!.descrizione } : null}
                   onScegli={x => aggiorna({ [campo]: rif(x) })}
                 />
               </div>
@@ -356,6 +359,7 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
                   valore={v.vetri[c.codice] ? String(v.vetri[c.codice].fpId) : null}
                   segnaposto="Cerca vetro (es. 33.1)"
                   etichettaNessuno={`Come la struttura (${c.codiceDefault})`}
+                  riserva={v.vetri[c.codice] ? { id: String(v.vetri[c.codice].fpId), testo: v.vetri[c.codice].codice } : null}
                   onScegli={x => {
                     const nuovi = { ...v.vetri }
                     if (x) nuovi[c.codice] = { fpId: Number(x.id), codice: x.testo }; else delete nuovi[c.codice]
