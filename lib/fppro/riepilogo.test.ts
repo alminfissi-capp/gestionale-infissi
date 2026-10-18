@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { XMLParser } from 'fast-xml-parser'
 import { OPZIONI_XML, strutturaDaXml } from './strutture-xml'
 import { kitOpzionali, nuovaVoceFp } from './rilievo-fp'
-import { datiRiepilogo, formatMq, statoPrezzo } from './riepilogo'
+import { datiRiepilogo, formatMq, nomeFileRilievo, statoPrezzo } from './riepilogo'
 import type { VoceFp } from '@/types/rilievo-fp'
 
 const leggi = (nome: string) => strutturaDaXml(new XMLParser(OPZIONI_XML).parse(
@@ -17,6 +17,22 @@ const voce = (patch: Partial<VoceFp['fp']> = {}, altro: Partial<VoceFp> = {}): V
   id: 'v1', rilievoId: 'r1', ordine: 0, posizione: 'C.da letto', quantita: 2, note: 'davanzale in marmo',
   fp: { ...nuovaVoceFp(ekos, 'Ekos_66th'), larghezza: 1000, altezza: 1240, ...patch },
   aggiornatoAt: '2026-10-18T10:00:00.000Z', ...altro,
+})
+
+describe('nomeFileRilievo', () => {
+  const cliente = { tipo: 'privato' as const, ragione_sociale: null, nome: 'Marcello', cognome: 'Zamueli', telefono: null, email: null, indirizzo: null, cantiere: null }
+  it('nome e cognome del cliente + RILIEVO MISURE', () => {
+    expect(nomeFileRilievo(cliente)).toBe('Marcello Zamueli_RILIEVO MISURE')
+  })
+  it('azienda: ragione sociale', () => {
+    expect(nomeFileRilievo({ ...cliente, tipo: 'azienda', ragione_sociale: 'Edil Rossi S.r.l.' })).toBe('Edil Rossi S.r.l._RILIEVO MISURE')
+  })
+  it('senza nome resta solo RILIEVO MISURE', () => {
+    expect(nomeFileRilievo({ ...cliente, nome: null, cognome: ' ' })).toBe('RILIEVO MISURE')
+  })
+  it('toglie i caratteri che un nome di file non puo\' avere', () => {
+    expect(nomeFileRilievo({ ...cliente, nome: 'Anna/Maria', cognome: 'De "Luca"' })).toBe('Anna Maria De Luca_RILIEVO MISURE')
+  })
 })
 
 describe('formatMq', () => {
@@ -52,6 +68,13 @@ describe('datiRiepilogo', () => {
   it('profili cambiati rispetto alla struttura (telai per lato e anta)', () => {
     expect(datiRiepilogo(voce(), ekos).profili).toBeNull()
     expect(datiRiepilogo(voce({ telai: { basso: 'TT8011' }, anta: 'ES2468' }), ekos).profili).toBe('Telaio inferiore TT8011 · Anta ES2468')
+  })
+  it('profili: i lati con lo stesso telaio stanno insieme (la riga non esce dalla scheda)', () => {
+    const tre = { sinistra: 'TT1642B', alto: 'TT1642B', destra: 'TT1642B', basso: 'TT1642D' }
+    expect(datiRiepilogo(voce({ telai: tre, anta: 'TT1618' }), ekos).profili)
+      .toBe('Telaio sinistro/superiore/destro TT1642B · Telaio inferiore TT1642D · Anta TT1618')
+    const quattro = { sinistra: 'TT1642B', alto: 'TT1642B', destra: 'TT1642B', basso: 'TT1642B' }
+    expect(datiRiepilogo(voce({ telai: quattro }), ekos).profili).toBe('Telaio TT1642B')
   })
   it('mano di apertura', () => {
     expect(datiRiepilogo(voce({ mano: 'sx' }), ekos).mano).toBe('Apertura sinistra')

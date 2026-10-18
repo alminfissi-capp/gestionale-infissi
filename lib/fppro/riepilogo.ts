@@ -2,6 +2,7 @@
 // pura per voce, cosi' schermo e carta dicono la stessa cosa.
 import { campiRiempimento, coloriAccessori, kitOpzionali } from './rilievo-fp'
 import type { Lato, StrutturaLocale, VoceFp } from '@/types/rilievo-fp'
+import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
 
 export interface DatiRiepilogo {
   /** L x H x quantita' in m², null se mancano le misure */
@@ -30,6 +31,27 @@ const LATI: { lato: Lato; nome: string }[] = [
 
 export const formatMq = (mq: number): string => mq.toFixed(2).replace('.', ',')
 
+/** Telai cambiati, raggruppando i lati con lo stesso profilo: "Telaio sinistro/destro TT1642B" */
+function telaiRaggruppati(telai: Partial<Record<Lato, string>> | undefined): string[] {
+  const perCodice = new Map<string, string[]>()
+  for (const l of LATI) {
+    const codice = telai?.[l.lato]
+    if (codice) perCodice.set(codice, [...(perCodice.get(codice) ?? []), l.nome])
+  }
+  return [...perCodice].map(([codice, lati]) =>
+    lati.length === LATI.length ? `Telaio ${codice}` : `Telaio ${lati.join('/')} ${codice}`)
+}
+
+/**
+ * Nome del PDF del riepilogo ("Marcello Zamueli_RILIEVO MISURE"): il browser lo prende dal
+ * titolo della pagina. Via i caratteri che Windows non accetta nei nomi di file.
+ */
+export function nomeFileRilievo(c: ClienteSnapshotRilievo): string {
+  const nome = (c.tipo === 'azienda' ? c.ragione_sociale ?? '' : [c.nome, c.cognome].filter(Boolean).join(' '))
+    .replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim()
+  return nome ? `${nome}_RILIEVO MISURE` : 'RILIEVO MISURE'
+}
+
 const pulito = (s: string | null | undefined): string | null => (s && s.trim() ? s.trim() : null)
 
 export function datiRiepilogo(
@@ -48,7 +70,7 @@ export function datiRiepilogo(
   const vetri = [...new Set(vetriScelti.length ? [...vetriScelti, ...vetriRestanti] : vetriStruttura)]
 
   const profili = [
-    ...LATI.filter(l => fp.telai?.[l.lato]).map(l => `Telaio ${l.nome} ${fp.telai[l.lato]}`),
+    ...telaiRaggruppati(fp.telai),
     ...(fp.anta ? [`Anta ${fp.anta}`] : []),
   ]
 

@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch'
 import { db } from '@/lib/db'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { formatEuro } from '@/lib/pricing'
-import { datiRiepilogo, formatMq, statoPrezzo } from '@/lib/fppro/riepilogo'
+import { datiRiepilogo, formatMq, nomeFileRilievo, statoPrezzo } from '@/lib/fppro/riepilogo'
 import { dataRilievoTesto } from '@/lib/fppro/cantiere-elenco'
 import { getRiepilogoServer, type DatiRiepilogoServer } from '@/actions/calcolo-fp'
 import SchedaVoceRiepilogo from './SchedaVoceRiepilogo'
@@ -31,6 +31,15 @@ export default function RiepilogoRilievo({ id, onIndietro }: { id: string; onInd
   }, [voci])
   const [server, setServer] = useState<DatiRiepilogoServer | null>(null)
   const [mostraPrezzi, setMostraPrezzi] = useState(false)
+  const titoloFile = rilievo ? nomeFileRilievo(rilievo.cliente) : null
+
+  // Il PDF salvato dalla stampa prende il nome dal titolo della pagina
+  useEffect(() => {
+    if (!titoloFile) return
+    const prima = document.title
+    document.title = titoloFile
+    return () => { document.title = prima }
+  }, [titoloFile])
 
   useEffect(() => {
     if (!isOnline) return

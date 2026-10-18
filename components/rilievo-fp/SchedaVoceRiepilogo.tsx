@@ -13,9 +13,10 @@ interface Props {
   numero: number
 }
 
+/** largo = tutta la riga e a capo su 2 righe (profili, accessori): su una riga sola in stampa usciva dalla scheda */
 function Campo({ etichetta, valore, largo }: { etichetta: string; valore: string | null; largo?: boolean }) {
   return (
-    <div className={`min-w-0 truncate border-b border-gray-200 px-1 py-px text-[11px] leading-tight ${largo ? 'col-span-2' : ''}`}>
+    <div className={`min-w-0 border-b border-gray-200 px-1 py-px text-[11px] leading-tight ${largo ? 'col-span-2 line-clamp-2 break-words' : 'truncate'}`}>
       <span className="text-[9px] uppercase tracking-wide text-gray-500">{etichetta} </span>
       <span className={`text-[11px] ${valore ? 'font-medium text-gray-900' : 'text-gray-300'}`}>{valore ?? '—'}</span>
     </div>
