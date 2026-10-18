@@ -59,7 +59,7 @@ export interface EliminatoFp {
   tipo: 'rilievo' | 'voce'
 }
 
-export type TabellaCatalogoLocale = 'fp_strutture' | 'fp_colori' | 'fp_vetri' | 'fp_telai' | 'fp_serie'
+export type TabellaCatalogoLocale = 'fp_strutture' | 'fp_colori' | 'fp_vetri' | 'fp_telai' | 'fp_serie' | 'fp_sezioni'
 
 export interface StrutturaLocale {
   id: string
@@ -78,9 +78,13 @@ export interface StrutturaLocale {
   segno_server: string
 }
 
-export interface ColoreLocale { fp_id: number; descrizione: string; presente: boolean; segno_server: string }
+export interface ColoreLocale { fp_id: number; descrizione: string; per_profili?: boolean; per_accessori?: boolean; presente: boolean; segno_server: string }
 export interface VetroLocale { fp_id: number; codice: string; descrizione: string | null; presente: boolean; segno_server: string }
-export interface TelaioLocale { fp_id: number; serie_fp_id: number | null; codice: string; descrizione: string | null; presente: boolean; segno_server: string }
+/** Profilo di telaio o anta della serie (tabella locale fpTelai). utilizzi = codici FP PRO (8050 telaio, 8090/8100 anta) */
+export interface TelaioLocale { fp_id: number; serie_fp_id: number | null; codice: string; descrizione: string | null; utilizzi: number[]; presente: boolean; segno_server: string }
+/** Miniatura della sezione del profilo, ricavata dal DXF dal ponte */
+export interface AnteprimaProfilo { viewBox: string; d: string }
+export interface SezioneLocale { fp_id: number; codice: string; anteprima: AnteprimaProfilo | null; presente: boolean; segno_server: string }
 export interface SerieLocale { fp_id: number; nome: string; descrizione: string | null; presente: boolean; segno_server: string }
 
 export interface PreferenzaFp {

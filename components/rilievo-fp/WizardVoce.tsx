@@ -58,7 +58,7 @@ export default function WizardVoce({ rilievoId, voceId, onFine }: Props) {
     const v = await db.vociFp.orderBy('aggiornatoAt').reverse().limit(100).toArray()
     return [...new Set(v.map(x => x.fp.serie))].slice(0, 5)
   }, [], [] as string[])
-  const colori = useLiveQuery(() => db.fpColori.filter(c => c.presente).toArray(), [], [])
+  const colori = useLiveQuery(() => db.fpColori.filter(c => c.presente && c.per_profili !== false).toArray(), [], [])
   const vetri = useLiveQuery(() => db.fpVetri.filter(v => v.presente).toArray(), [], [])
   const preferenze = useLiveQuery(() => db.fpPreferenze.toArray(), [], [])
   const serieFp = useLiveQuery(() => (voce ? db.fpSerie.where('nome').equals(voce.fp.serie).first() : undefined), [voce?.fp.serie])
