@@ -14,15 +14,15 @@ import {
   type CalcoloRilievo as Calcolo, type DatiPaginaCalcolo, type VoceCalcolata,
 } from '@/actions/calcolo-fp'
 import type { CorrezioniVoce, OreVoce } from '@/lib/fppro/calcolo/tipi'
-import { campiOre, oreDaSalvare } from '@/lib/fppro/calcolo/correzioni'
+import { campiMinuti, minutiDaOre, oreDaMinuti } from '@/lib/fppro/calcolo/correzioni'
 import { nomeCliente } from './ElencoRilievi'
 
 const ORE: { chiave: keyof OreVoce; etichetta: string }[] = [
   { chiave: 'taglio', etichetta: 'Taglio' },
-  { chiave: 'lavorazione', etichetta: 'Lavorazione' },
+  { chiave: 'lavorazione', etichetta: 'Lavorazione (manodopera)' },
   { chiave: 'montaggio', etichetta: 'Montaggio' },
   { chiave: 'assemblaggio', etichetta: 'Assemblaggio' },
-  { chiave: 'posa', etichetta: 'Posa' },
+  { chiave: 'posa', etichetta: 'Posa in opera' },
 ]
 const PERCENTUALI = [
   { chiave: 'spese_generali', etichetta: 'Spese generali' },
@@ -42,13 +42,13 @@ const numero = (s: string) => {
 }
 
 /**
- * Pannello delle correzioni di una voce. Le ore partono da quelle usate nel calcolo (struttura
+ * Pannello delle correzioni di una voce. I minuti partono da quelli usati nel calcolo (struttura
  * + correzioni): si vede e si cambia il valore vero. Percentuali vuote = profilo di calcolo.
  */
 function Correzioni({ iniziali, oreAttuali, onSalva, inCorso }: {
   iniziali: CorrezioniVoce; oreAttuali: OreVoce; onSalva: (c: CorrezioniVoce) => void; inCorso: boolean
 }) {
-  const [ore, setOre] = useState<Record<string, string>>(() => campiOre(oreAttuali))
+  const [ore, setOre] = useState<Record<string, string>>(() => campiMinuti(oreAttuali))
   const [perc, setPerc] = useState<Record<string, string>>(
     Object.fromEntries(Object.entries(iniziali.percentuali ?? {}).map(([k, v]) => [k, String(Math.round((v ?? 0) * 10000) / 100)])))
   // Importi come testo: si possono scrivere i decimali ("12,50") e lasciare il campo vuoto.
@@ -59,7 +59,7 @@ function Correzioni({ iniziali, oreAttuali, onSalva, inCorso }: {
       ore: {}, percentuali: {},
       extra: extra.map(e => ({ descrizione: e.descrizione.trim(), importo: numero(e.importo) ?? 0 })).filter(e => e.descrizione || e.importo),
     }
-    c.ore = oreDaSalvare(ore, oreAttuali, iniziali.ore ?? {})
+    c.ore = oreDaMinuti(ore, oreAttuali, iniziali.ore ?? {})
     for (const { chiave } of PERCENTUALI) {
       const v = numero(perc[chiave] ?? '')
       if ((perc[chiave] ?? '').trim() !== '' && v !== null) c.percentuali![chiave] = v / 100
@@ -71,8 +71,8 @@ function Correzioni({ iniziali, oreAttuali, onSalva, inCorso }: {
     <div className="space-y-3 rounded-md bg-muted/40 p-3 text-sm">
       <p className="text-xs text-muted-foreground">Le correzioni valgono solo per questa voce.</p>
       <div>
-        <p className="mb-1 font-medium">Ore per pezzo</p>
-        <p className="mb-1 text-xs text-muted-foreground">Sono le ore usate ora nel calcolo (quelle della struttura di FP PRO, se non le hai cambiate). Scrivi il valore giusto: sostituisce, non si somma.</p>
+        <p className="mb-1 font-medium">Minuti per pezzo</p>
+        <p className="mb-1 text-xs text-muted-foreground">Sono i minuti usati ora nel calcolo (quelli della struttura di FP PRO, se non li hai cambiati). Scrivi il valore giusto: sostituisce, non si somma.</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           {ORE.map(o => (
             <label key={o.chiave} className="text-xs">{o.etichetta}
@@ -126,7 +126,7 @@ function DettaglioMateriali({ voce }: { voce: VoceCalcolata }) {
           </div>
         )
       })}
-      <p>Lavoro: {oreTotali(c.ore).toFixed(2)} h · {formatEuro(c.prezzo.costoLavoro)} — Costo industriale {formatEuro(c.prezzo.costoIndustriale)}
+      <p>Lavoro: {minutiDaOre(oreTotali(c.ore))} min · {formatEuro(c.prezzo.costoLavoro)} — Costo industriale {formatEuro(c.prezzo.costoIndustriale)}
         {' '}— Utile {formatEuro(c.prezzo.utile)} — Provvigione {formatEuro(c.prezzo.provvigione)} — Spese varie {formatEuro(c.prezzo.speseVarie)}</p>
     </div>
   )
@@ -218,7 +218,7 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
               <thead className="bg-muted/50 text-left text-xs">
                 <tr>
                   <th className="p-2">Voce</th><th className="p-2 text-right">Q.tà</th><th className="p-2 text-right">Materiali</th>
-                  <th className="p-2 text-right">Ore</th><th className="p-2 text-right">Prezzo unit.</th><th className="p-2 text-right">Totale</th><th className="p-2" />
+                  <th className="p-2 text-right">Minuti</th><th className="p-2 text-right">Prezzo unit.</th><th className="p-2 text-right">Totale</th><th className="p-2" />
                 </tr>
               </thead>
               <tbody>
@@ -238,7 +238,7 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
                       </td>
                       <td className="p-2 text-right">{v.quantita}</td>
                       <td className="p-2 text-right">{formatEuro(v.calcolo.materiali)}</td>
-                      <td className="p-2 text-right">{oreTotali(v.calcolo.ore).toFixed(2)}</td>
+                      <td className="p-2 text-right">{minutiDaOre(oreTotali(v.calcolo.ore))}</td>
                       <td className="p-2 text-right">{formatEuro(v.calcolo.prezzo.imponibile)}</td>
                       <td className="p-2 text-right font-medium">{formatEuro(v.calcolo.prezzo.imponibile * v.quantita)}</td>
                       <td className="p-2 text-right">

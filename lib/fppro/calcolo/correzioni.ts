@@ -1,15 +1,19 @@
-// Ore nel pannello Correggi: i campi mostrano le ore che il calcolo usa davvero (struttura
-// + correzioni), cosi' le ore della struttura non restano nascoste e non si sommano a quelle
-// scritte a mano. Si salva solo cio' che cambia (o era gia' corretto).
+// Tempi nel pannello Correggi, in MINUTI come in FP PRO. Il motore lavora in ore: la
+// conversione sta solo qui. I campi mostrano i minuti che il calcolo usa davvero (struttura
+// + correzioni), cosi' i tempi della struttura non restano nascosti e non si sommano a quelli
+// scritti a mano. Si salva solo cio' che cambia (o era gia' corretto).
 import type { OreVoce } from './tipi'
 
 const CHIAVI = ['taglio', 'lavorazione', 'montaggio', 'assemblaggio', 'posa'] as const
 
-export function campiOre(attuali: OreVoce): Record<keyof OreVoce, string> {
-  return Object.fromEntries(CHIAVI.map(k => [k, String(attuali[k])])) as Record<keyof OreVoce, string>
+export const minutiDaOre = (ore: number): number => Math.round(ore * 60)
+
+export function campiMinuti(attuali: OreVoce): Record<keyof OreVoce, string> {
+  return Object.fromEntries(CHIAVI.map(k => [k, String(minutiDaOre(attuali[k]))])) as Record<keyof OreVoce, string>
 }
 
-export function oreDaSalvare(
+/** Minuti scritti nei campi -> correzioni in ore da salvare. */
+export function oreDaMinuti(
   campi: Partial<Record<keyof OreVoce, string>>,
   attuali: OreVoce,
   giaCorrette: Partial<OreVoce>,
@@ -17,9 +21,11 @@ export function oreDaSalvare(
   const out: Partial<OreVoce> = {}
   for (const k of CHIAVI) {
     const testo = (campi[k] ?? '').trim()
-    const n = testo === '' ? 0 : Number(testo.replace(',', '.'))
-    const valore = Number.isFinite(n) && n >= 0 ? n : attuali[k]
-    if (k in giaCorrette || valore !== attuali[k]) out[k] = valore
+    const minuti = testo === '' ? 0 : Number(testo.replace(',', '.'))
+    // Valore non valido o uguale a quello mostrato: restano le ore attuali, senza arrotondarle.
+    const cambiato = Number.isFinite(minuti) && minuti >= 0 && minuti !== minutiDaOre(attuali[k])
+    const valore = cambiato ? minuti / 60 : attuali[k]
+    if (k in giaCorrette || cambiato) out[k] = valore
   }
   return out
 }
