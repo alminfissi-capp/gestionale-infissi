@@ -125,6 +125,13 @@ describe('casi difficili', () => {
     expect(r.avvisi.some(a => a.includes('Vetro') && a.includes('senza prezzo'))).toBe(true)
     expect(r.avvisi.some(a => a.includes('Accessorio') && a.includes('senza prezzo'))).toBe(true)
   })
+  it('pezzo senza DXF (es. tipo 8040 delle strutture con doghe): ignorato, nessun avviso col codice vuoto', () => {
+    const albero = structuredClone(input.albero)
+    albero[0].pezzi.push({ tipo: 8040, dxf: '', serie: '', indice: 99 })
+    const r = calcolaVoce({ ...input, albero }, listino, regole)
+    expect(r.avvisi.some(a => a.startsWith('Profilo  '))).toBe(false)
+    expect(r.materiali).toBeCloseTo(calcolaVoce(input, listino, regole).materiali, 6)
+  })
   it('correzione di riga: cambia solo questa voce', () => {
     const base = calcolaVoce(input, listino, regole)
     const corretta = calcolaVoce({ ...input, correzioni: { percentuali: { utile: 0.25 }, extra: [{ descrizione: 'x', importo: 80 }] } }, listino, regole)

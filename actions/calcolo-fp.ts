@@ -184,20 +184,26 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       scarti: await inLista(supabase, orgId, 'fp_scarti', 'fp_id, codice, testa, coda', 'codice', codiciTutti),
       sezioni: await inLista(supabase, orgId, 'fp_profili_sezioni', 'fp_id, codice, vista, aletta', 'codice', codiciTutti),
       accessori: await inLista(supabase, orgId, 'fp_accessori', 'fp_id, codice, serie, prezzo, unita_vendita', 'codice', [...codiciAccessori]),
+      costiAccessori: [],
       vetri: await inLista(supabase, orgId, 'fp_vetri', 'fp_id, codice, prezzo_mq, min_fatt, kg_mq', 'codice', [...codiciVetri]),
       pannelli: await inLista(supabase, orgId, 'fp_pannelli', 'fp_id, codice, prezzo_mq, min_fatt', 'codice', [...codiciPannelli]),
     }
+
+    // Prezzi per trattamento degli accessori: in FP PRO molti hanno 0 nel prezzo generale.
+    righeListino.costiAccessori = await inLista(supabase, orgId, 'fp_accessori_costi',
+      'fp_id, accessorio_fp_id, colore_fp_id, prezzo, unita_vendita', 'accessorio_fp_id', righeListino.accessori.map(a => a.fp_id))
 
     // Colori delle voci: prezzo al kg e tolleranza di peso del trattamento.
     const idColori = righeVoci.map(v => (v.fp.coloreEst ?? v.fp.coloreInt)?.fpId).filter((x): x is number => typeof x === 'number')
     const colori = await inLista<{ fp_id: number; dati: Record<string, unknown> | null }>(supabase, orgId, 'fp_colori', 'fp_id, dati', 'fp_id', idColori)
     const tolleranza = new Map(colori.map(c => [c.fp_id, num(c.dati?.tolleranza_peso)]))
-    const listini = new Map<number | null, ReturnType<typeof listinoDaRighe>>()
-    const listinoPer = (colore: number | null) => {
-      if (!listini.has(colore)) {
-        listini.set(colore, listinoDaRighe(righeListino, colore === null ? null : { fpId: colore, tolleranzaPeso: tolleranza.get(colore) ?? 0 }))
+    const listini = new Map<string, ReturnType<typeof listinoDaRighe>>()
+    const listinoPer = (colore: number | null, coloreAcc: number | null) => {
+      const k = `${colore}|${coloreAcc}`
+      if (!listini.has(k)) {
+        listini.set(k, listinoDaRighe(righeListino, colore === null ? null : { fpId: colore, tolleranzaPeso: tolleranza.get(colore) ?? 0 }, coloreAcc))
       }
-      return listini.get(colore)!
+      return listini.get(k)!
     }
 
     // Prima passata: ogni voce da sola, per avere i pezzi dei profili.
@@ -220,7 +226,7 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
         telai: v.fp.telai, tempi: s.tempi ?? { taglio: 0, lavorazione: 0, montaggio: 0, assemblaggio: 0, posa: 0 },
         profilo, maggiorazioni, correzioni: v.correzioni_fp ?? undefined,
       }
-      daCalcolare.push({ v, s, input, listino: listinoPer(colore), regole })
+      daCalcolare.push({ v, s, input, listino: listinoPer(colore, v.fp.coloreAcc?.fpId ?? null), regole })
     }
     // Come FP PRO: le barre si ottimizzano su tutta la commessa e si ripartiscono sui pezzi.
     const { fattore } = fattoreBarreCommessa(daCalcolare.map(d => ({

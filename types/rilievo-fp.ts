@@ -21,6 +21,8 @@ export interface VoceFpDati {
   quote: Record<string, number>
   coloreInt: RifFp | null
   coloreEst: RifFp | null
+  /** Colore (trattamento) degli accessori: in FP PRO e' un elenco a parte. Assente = non scelto */
+  coloreAcc?: RifFp | null
   /** codice nodo del riempimento -> vetro scelto (assente = come la struttura) */
   vetri: Record<string, { fpId: number; codice: string }>
   /** `${codiceNodo}:${indiceKit}` -> scelto (solo kit opzionali) */

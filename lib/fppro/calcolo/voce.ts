@@ -138,6 +138,8 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
   }
   for (const pezzo of pezzi) {
     const codice = codiceDaDxf(pezzo.dxf)
+    // Pezzo senza disegno nella struttura (es. 8040 delle doghe): non c'e' niente da prezzare.
+    if (!codice.trim()) continue
     const trovato = cercaProfilo(codice)
     if (!trovato) {
       avvisi.push(`Profilo ${codice} non trovato nel listino di FP PRO`)
