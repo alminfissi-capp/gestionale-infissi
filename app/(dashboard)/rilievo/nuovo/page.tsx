@@ -1,9 +1,6 @@
-import { getClienti } from '@/actions/clienti'
-import NuovoRilievo from '@/components/rilievo/NuovoRilievo'
+import { redirect } from 'next/navigation'
 
-export const metadata = { title: 'Nuovo Rilievo' }
-
-export default async function NuovoRilievoPage() {
-  const clienti = await getClienti()
-  return <NuovoRilievo clienti={clienti} />
+// Il vecchio rilievo grafico (vani + canvas) e' stato sostituito dal rilievo grafico come FP PRO.
+export default function NuovoRilievoPage() {
+  redirect('/rilievo/grafico')
 }

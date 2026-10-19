@@ -8,6 +8,7 @@ import type {
   ColoreLocale, EliminatoFp, ImmagineLocale, MetaFp, PreferenzaFp, RilievoLocale, SerieLocale,
   StrutturaLocale, SezioneLocale, TelaioLocale, VetroLocale, VoceLocale,
 } from '@/types/rilievo-fp'
+import type { EliminatoGrafico, RilievoGraficoLocale } from '@/types/rilievo-grafico'
 
 export interface PendingPreventivo {
   tempId?: number
@@ -90,6 +91,8 @@ class GestionaleDB extends Dexie {
   rilieviFp!: EntityTable<RilievoLocale, 'id'>
   vociFp!: EntityTable<VoceLocale, 'id'>
   eliminatiFp!: EntityTable<EliminatoFp, 'id'>
+  rilieviGrafici!: EntityTable<RilievoGraficoLocale, 'id'>
+  eliminatiGrafici!: EntityTable<EliminatoGrafico, 'id'>
 
   constructor() {
     super('gestionale-infissi')
@@ -191,6 +194,33 @@ class GestionaleDB extends Dexie {
       .upgrade(async tx => {
         await tx.table('fpMeta').bulkDelete(['cursore:fp_telai', 'cursore:fp_colori'])
       })
+    // Rilievo grafico: serramenti fuori standard disegnati nel dispositivo.
+    this.version(8).stores({
+      clienti: 'id, cognome, nome',
+      listiniData: 'id, nome',
+      pendingPreventivi: '++tempId, createdAt',
+      rilievoSessione: 'id',
+      vanoCanvas: 'vanoId',
+      bozzeWizard: 'id, updatedAt',
+      commesse: 'id, data_conferma, cliente_nome',
+      pendingCommesse: '++tempId, createdAt',
+      pendingAcconti: '++tempId, commessaId, createdAt',
+      condivisioni: '++id, createdAt',
+      fpStrutture: 'id, *serie, cartella, immagine',
+      fpImmagini: 'path',
+      fpColori: 'fp_id, descrizione',
+      fpVetri: 'fp_id, codice',
+      fpTelai: 'fp_id, serie_fp_id, codice',
+      fpSezioni: 'fp_id, codice',
+      fpSerie: 'fp_id, nome',
+      fpPreferenze: 'id, tipo',
+      fpMeta: 'chiave',
+      rilieviFp: 'id, aggiornatoAt, daInviare',
+      vociFp: 'id, rilievoId, aggiornatoAt, daInviare',
+      eliminatiFp: 'id',
+      rilieviGrafici: 'id, aggiornatoAt, daInviare',
+      eliminatiGrafici: 'id',
+    })
   }
 }
 
