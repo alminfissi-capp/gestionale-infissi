@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { PlusCircle, Database, Zap } from 'lucide-react'
+import { PenTool, Database, Zap } from 'lucide-react'
 
 const VOCI = [
   {
@@ -13,10 +13,10 @@ const VOCI = [
     bg: 'bg-orange-50 hover:bg-orange-100 border-orange-200',
   },
   {
-    href: '/rilievo/nuovo',
-    icon: PlusCircle,
-    titolo: 'Nuovo rilievo grafico',
-    descrizione: 'Avvia un nuovo rilievo misure con disegno cantiere',
+    href: '/rilievo/grafico',
+    icon: PenTool,
+    titolo: 'Rilievo grafico',
+    descrizione: 'Serramenti fuori standard: disegni la struttura, poi assegni profili e vetri',
     color: 'text-teal-600',
     bg: 'bg-teal-50 hover:bg-teal-100 border-teal-200',
   },
