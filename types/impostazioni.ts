@@ -51,3 +51,21 @@ export type IconaPreventivo = {
   ordine: number
   created_at: string
 }
+
+/** Categoria dell'archivio immagini (Grate, Pergole...) */
+export type ArchivioCategoria = {
+  id: string
+  nome: string
+  ordine: number
+}
+
+/** Immagine dell'archivio: file nel bucket `archivio-immagini` */
+export type ArchivioImmagine = {
+  id: string
+  categoria_id: string
+  nome: string
+  storage_path: string
+  ordine: number
+}
+
+export type ArchivioCategoriaConImmagini = ArchivioCategoria & { immagini: ArchivioImmagine[] }
