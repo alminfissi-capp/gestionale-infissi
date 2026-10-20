@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSettings, getNoteTemplates, getLogoSignedUrl } from '@/actions/impostazioni'
 import { getIconePreventivo } from '@/actions/icone-preventivo'
+import { getArchivioImmagini } from '@/actions/archivio-immagini'
 import { getConti } from '@/actions/conti'
 import { requireAccesso, getMyPermissions } from '@/lib/permessi'
 import { getCollegamentoFic } from '@/actions/fatture-in-cloud'
@@ -16,6 +17,7 @@ import FormAzienda from '@/components/impostazioni/FormAzienda'
 import UploadLogo from '@/components/impostazioni/UploadLogo'
 import TemplateNote from '@/components/impostazioni/TemplateNote'
 import IconeVoceLibera from '@/components/impostazioni/IconeVoceLibera'
+import ArchivioImmagini from '@/components/impostazioni/ArchivioImmagini'
 import FormAliquoteIva from '@/components/impostazioni/FormAliquoteIva'
 import FormNumerazione from '@/components/impostazioni/FormNumerazione'
 import FormValiditaPreventivo from '@/components/impostazioni/FormValiditaPreventivo'
@@ -41,11 +43,12 @@ export default async function ImpostazioniPage() {
     .eq('id', user!.id)
     .single()
 
-  const [settings, templates, icone, conti, orariLavoro, chiusure, tipiAttivita, linee, anticipi, collegamentoFic, { permessi }, parametriContabilita, preferenze] =
+  const [settings, templates, icone, archivio, conti, orariLavoro, chiusure, tipiAttivita, linee, anticipi, collegamentoFic, { permessi }, parametriContabilita, preferenze] =
     await Promise.all([
       getSettings(),
       getNoteTemplates(),
       getIconePreventivo(),
+      getArchivioImmagini(),
       getConti(),
       getOrariLavoro(),
       getChiusure(),
@@ -329,6 +332,20 @@ export default async function ImpostazioniPage() {
         </CardHeader>
         <CardContent>
           <IconeVoceLibera orgId={profile!.organization_id} icone={icone} />
+        </CardContent>
+      </Card>
+
+      {/* Archivio immagini per categorie */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Archivio immagini</CardTitle>
+          <CardDescription>
+            Immagini divise per categoria (Grate, Pergole...) da scegliere nelle voci libere col pulsante
+            «Icone / Archivio». Vengono ridotte in automatico.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ArchivioImmagini orgId={profile!.organization_id} categorie={archivio} />
         </CardContent>
       </Card>
 

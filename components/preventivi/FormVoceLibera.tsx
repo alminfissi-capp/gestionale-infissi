@@ -5,10 +5,11 @@ import { Plus, Camera, ImageIcon, FolderOpen, X, Loader2, TrendingUp } from 'luc
 import { toast } from 'sonner'
 import { getCurrentOrgId } from '@/actions/listini'
 import { getIconePreventivo } from '@/actions/icone-preventivo'
+import { getArchivioImmagini } from '@/actions/archivio-immagini'
 import { createClient } from '@/lib/supabase/client'
 import { resizeImage } from '@/lib/immagini'
-import { urlIcona } from '@/lib/icone-preventivo'
-import DialogIcone from './DialogIcone'
+import { copiaNelPreventivo } from '@/lib/archivio-immagini'
+import DialogIcone, { type ImmagineScelta } from './DialogIcone'
 import { calcolaTotaleRiga, formatEuro } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,7 +23,7 @@ import {
 } from '@/components/ui/select'
 import ScontoSelect from './ScontoSelect'
 import type { ArticoloWizard } from '@/types/preventivo'
-import type { IconaPreventivo } from '@/types/impostazioni'
+import type { ArchivioCategoriaConImmagini, IconaPreventivo } from '@/types/impostazioni'
 
 interface Props {
   aliquote: number[]
@@ -51,12 +52,19 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
   // giu' per pagina -> shell -> wizard -> editor sarebbe una catena di quattro
   // componenti per un elenco di poche righe.
   const [icone, setIcone] = useState<IconaPreventivo[]>([])
+  const [archivio, setArchivio] = useState<ArchivioCategoriaConImmagini[]>([])
+  // Immagine presa da icone/archivio: al salvataggio della voce se ne fa una copia
+  // nel bucket dei preventivi, cosi' il preventivo non dipende piu' dall'archivio.
+  const [daCopiare, setDaCopiare] = useState<string | null>(null)
 
   useEffect(() => {
     let vivo = true
     getIconePreventivo()
       .then((r) => { if (vivo) setIcone(r) })
       .catch(() => { /* offline o senza permessi: si resta senza icone */ })
+    getArchivioImmagini()
+      .then((r) => { if (vivo) setArchivio(r) })
+      .catch(() => { /* offline o senza permessi: si resta senza archivio */ })
     return () => { vivo = false }
   }, [])
 
@@ -71,24 +79,28 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
   const handleFileSelect = (file: File) => {
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
     setImageFile(file)
+    setDaCopiare(null)
     setImagePreviewUrl(URL.createObjectURL(file))
   }
 
   /**
-   * Un'icona non si ricarica: la voce punta al file gia' in storage. Il nome
+   * Icona o immagine dell'archivio: per ora si mostra l'originale, al salvataggio
+   * della voce se ne fa una copia (il preventivo e' un documento a se'). Il nome
    * finisce nella descrizione solo se e' ancora vuota, per non cancellare
    * quello che l'utente ha gia' scritto.
    */
-  const handleSelectIcona = (icona: IconaPreventivo) => {
+  const handleSelectIcona = (immagine: ImmagineScelta) => {
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
     setImageFile(null)
-    setImagePreviewUrl(urlIcona(icona.storage_path))
-    setDescrizione((d) => (d.trim() ? d : icona.nome))
+    setDaCopiare(immagine.url)
+    setImagePreviewUrl(immagine.url)
+    setDescrizione((d) => (d.trim() ? d : immagine.nome))
   }
 
   const handleRemoveImage = () => {
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
     setImageFile(null)
+    setDaCopiare(null)
     setImagePreviewUrl(null)
     if (inputCameraRef.current) inputCameraRef.current.value = ''
     if (inputGalleriaRef.current) inputGalleriaRef.current.value = ''
@@ -116,6 +128,9 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
           .from('preventivi-allegati')
           .getPublicUrl(fileName)
         immagineUrl = publicUrl
+      } else if (daCopiare && daCopiare === imagePreviewUrl) {
+        // Da icone/archivio → copia nel preventivo: cambiare l'archivio non lo tocchera'
+        immagineUrl = await copiaNelPreventivo(daCopiare, await getCurrentOrgId())
       } else {
         // Nessun nuovo file → mantieni l'URL esistente (null se l'utente l'ha rimossa)
         immagineUrl = imagePreviewUrl
@@ -338,6 +353,7 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
               </Button>
               <DialogIcone
                 icone={icone}
+                archivio={archivio}
                 urlSelezionato={imagePreviewUrl}
                 onSelect={handleSelectIcona}
               />
@@ -376,6 +392,7 @@ export default function FormVoceLibera({ aliquote, initialValues, isEditing, onA
               </Button>
               <DialogIcone
                 icone={icone}
+                archivio={archivio}
                 urlSelezionato={imagePreviewUrl}
                 onSelect={handleSelectIcona}
               />
