@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   totaliPerCategoria, costoManodopera, riepilogo, rimanente, propostaCronometro,
-  categoriaProposta, confrontoFattura, stimaDaPreventivo, totaliStima, importoRiga,
+  categoriaProposta, confrontoFattura, stimaDaPreventivo, totaliStima, importoRiga, conCostiManuali,
 } from '@/lib/contabilita-commessa'
 
 const costo = (categoria: Parameters<typeof totaliPerCategoria>[0][number]['categoria'], importo: number) => ({ categoria, importo })
@@ -136,5 +136,27 @@ describe('stima', () => {
       materiali: 9850, manodopera: 2000,
     })
     expect(totaliStima(null)).toEqual({ materiali: 0, manodopera: 0 })
+  })
+})
+
+describe('stima con il preventivo caricato a mano', () => {
+  // Caso LA FABBRICA DEL GHIACCIO 2026: nessun preventivo WinStudio, costi del preventivo
+  // manuale nella scheda commessa (materiale 1232, utile 184,80 su imponibile 1416,80).
+  it('i costi del preventivo manuale diventano la stima', () => {
+    expect(conCostiManuali(null, { materiali: 1232, manodopera: null })).toEqual({ materiali_preventivo: 1232 })
+    const stima = conCostiManuali(null, { materiali: 1232, manodopera: null })
+    const ts = totaliStima(stima)
+    const stimato = riepilogo({ totaleLavoro: 1416.8, materiali: ts.materiali, manodopera: ts.manodopera, percFissi: 0, imprevisti: 0 })
+    const reale = riepilogo({ totaleLavoro: 1416.8, materiali: 1231.77, manodopera: 0, percFissi: 0, imprevisti: 0 })
+    expect(stimato.utile).toBe(184.8)
+    expect(Math.round((reale.utile - stimato.utile) * 100) / 100).toBe(0.23)
+  })
+  it('si sommano a quelli dei preventivi WinStudio collegati', () => {
+    expect(conCostiManuali({ materiali_preventivo: 9000, manodopera: 2000, trasporti: 350 }, { materiali: 500, manodopera: 300 }))
+      .toEqual({ materiali_preventivo: 9500, manodopera: 2300, trasporti: 350 })
+  })
+  it('senza costi manuali la stima resta quella che era (anche nessuna)', () => {
+    expect(conCostiManuali(null, { materiali: null, manodopera: null })).toBeNull()
+    expect(conCostiManuali({ manodopera: 100 }, { materiali: null, manodopera: null })).toEqual({ manodopera: 100 })
   })
 })

@@ -8,7 +8,7 @@ import { getMyPermissions } from '@/lib/permessi'
 import { selectAll } from '@/lib/supabase/paginate'
 import { calcolaCostiPreventivo, type ArticoloCosti } from '@/lib/preventivo-costi'
 import {
-  categoriaProposta, confrontoFattura, importoRiga, propostaCronometro, rimanente, stimaDaPreventivo,
+  categoriaProposta, confrontoFattura, conCostiManuali, importoRiga, propostaCronometro, rimanente, stimaDaPreventivo,
 } from '@/lib/contabilita-commessa'
 import {
   CATEGORIE_COSTO, type CategoriaCosto, type ContabilitaCommessa, type CostoCommessa,
@@ -81,7 +81,7 @@ export async function getPaginaContabile(commessaId: string): Promise<PaginaCont
 
   const { data: c } = await supabase
     .from('commesse')
-    .select('id, numero_commessa, cliente_nome, totale, iva_totale, data_conferma, preventivo_id')
+    .select('id, numero_commessa, cliente_nome, totale, iva_totale, data_conferma, preventivo_id, costo_materiali_manuale, costo_manodopera_manuale')
     .eq('id', commessaId).eq('organization_id', orgId).maybeSingle()
   if (!c) return { errore: 'Commessa non trovata' }
 
@@ -157,7 +157,8 @@ export async function getPaginaContabile(commessaId: string): Promise<PaginaCont
       percFissi: Number(setRaw.data?.perc_costi_fissi ?? 5),
     },
     cronometro: propostaCronometro((eventi.data ?? []).map((e) => ({ tipo: e.tipo as string, secondi: Number(e.secondi_lavorati) || 0 }))),
-    stimaPreventivo,
+    // Preventivo caricato a mano: i suoi costi stanno sulla commessa
+    stimaPreventivo: conCostiManuali(stimaPreventivo, { materiali: num(c.costo_materiali_manuale), manodopera: num(c.costo_manodopera_manuale) }),
     puoModificare: (await permesso('scrittura')) === null,
   }
 }
