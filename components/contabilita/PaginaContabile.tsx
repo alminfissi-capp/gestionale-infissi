@@ -75,6 +75,9 @@ export default function PaginaContabile({ dati }: { dati: Dati }) {
     totaleLavoro: dati.commessa.totale_lavoro, materiali: ts.materiali, manodopera: ts.manodopera,
     percFissi, imprevisti: cont.stima?.altro ?? 0,
   })
+  // Senza stima (nessun preventivo e nessun costo scritto) l'utile stimato sarebbe tutto
+  // l'imponibile e la differenza un numero senza senso: meglio il trattino.
+  const haStima = !!cont.stima && Object.values(cont.stima).some((v) => typeof v === 'number' && v !== 0)
   const gruppi = raggruppa(dati.costi)
   const puo = dati.puoModificare
 
@@ -145,8 +148,12 @@ export default function PaginaContabile({ dati }: { dati: Dati }) {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {riquadro('Totale costi', `€ ${formatEuro(reale.totaleCosti)}`)}
         {riquadro('Utile reale', `€ ${formatEuro(reale.utile)}`, `ricarico ${perc(reale.ricarico)} · margine ${perc(reale.margine)}`, reale.utile < 0 ? 'text-destructive' : 'text-emerald-700')}
-        {riquadro('Utile stimato', `€ ${formatEuro(stimato.utile)}`, `ricarico ${perc(stimato.ricarico)} · margine ${perc(stimato.margine)}`)}
-        {riquadro('Differenza', `€ ${formatEuro(Math.round((reale.utile - stimato.utile) * 100) / 100)}`, 'reale − stimato', reale.utile < stimato.utile ? 'text-destructive' : 'text-emerald-700')}
+        {haStima
+          ? riquadro('Utile stimato', `€ ${formatEuro(stimato.utile)}`, `ricarico ${perc(stimato.ricarico)} · margine ${perc(stimato.margine)}`)
+          : riquadro('Utile stimato', '—', 'nessuna stima: compila la sezione Stima')}
+        {haStima
+          ? riquadro('Differenza', `€ ${formatEuro(Math.round((reale.utile - stimato.utile) * 100) / 100)}`, 'reale − stimato', reale.utile < stimato.utile ? 'text-destructive' : 'text-emerald-700')
+          : riquadro('Differenza', '—', 'reale − stimato')}
       </div>
 
       {/* ── Materiali e spese ── */}

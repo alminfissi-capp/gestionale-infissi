@@ -138,3 +138,21 @@ export function totaliStima(stima: StimaCommessa | null): { materiali: number; m
   const categorie = CATEGORIE_COSTO.reduce((s, c) => s + (stima[c.value] ?? 0), 0)
   return { materiali: cent(categorie + (stima.materiali_preventivo ?? 0)), manodopera: cent(stima.manodopera ?? 0) }
 }
+
+/**
+ * Aggiunge alla stima i costi del preventivo caricato a mano (scheda commessa, "Costi
+ * preventivo manuale"): senza, una commessa nata da un preventivo esterno aveva stima
+ * zero e l'"utile stimato" diventava tutto l'imponibile (caso Fabbrica del Ghiaccio 2026).
+ */
+export function conCostiManuali(
+  stima: StimaCommessa | null,
+  manuale: { materiali: number | null; manodopera: number | null },
+): StimaCommessa | null {
+  const materiali = manuale.materiali ?? 0
+  const manodopera = manuale.manodopera ?? 0
+  if (!materiali && !manodopera) return stima
+  const s: StimaCommessa = { ...(stima ?? {}) }
+  if (materiali) s.materiali_preventivo = cent((s.materiali_preventivo ?? 0) + materiali)
+  if (manodopera) s.manodopera = cent((s.manodopera ?? 0) + manodopera)
+  return s
+}
