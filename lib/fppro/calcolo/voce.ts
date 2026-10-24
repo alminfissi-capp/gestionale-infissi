@@ -72,6 +72,8 @@ export interface InputVoce {
   H0: number
   quote: Record<string, number>
   kitScelti: Record<string, boolean>
+  /** Accessori opzionali scelti nella voce (chiaveAccessorio -> scelto); assente = come FP PRO */
+  accessoriScelti?: Record<string, boolean>
   /** codice del nodo di riempimento -> codice vetro scelto */
   vetriScelti: Record<string, string>
   tempi: OreVoce
@@ -215,7 +217,7 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
   }
 
   // Accessori (le formule dei kit usano il peso del serramento).
-  for (const a of accessoriVoce(albero, input.kitScelti, zone, peso, regole)) {
+  for (const a of accessoriVoce(albero, input.kitScelti, zone, peso, regole, input.accessoriScelti)) {
     // "_AVVISO1" e simili: messaggi di FP PRO dentro i kit (es. misure fuori campo), non prodotti.
     if (a.codice.startsWith('_')) {
       avvisi.push(a.descrizione || a.codice)

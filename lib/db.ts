@@ -221,6 +221,36 @@ class GestionaleDB extends Dexie {
       rilieviGrafici: 'id, aggiornatoAt, daInviare',
       eliminatiGrafici: 'id',
     })
+    // Strutture con gli accessori opzionali dei kit e i tempi: si riscaricano. Si azzera solo
+    // il cursore (come la v7): senza rete gli elenchi devono restare.
+    this.version(9).stores({
+      clienti: 'id, cognome, nome',
+      listiniData: 'id, nome',
+      pendingPreventivi: '++tempId, createdAt',
+      rilievoSessione: 'id',
+      vanoCanvas: 'vanoId',
+      bozzeWizard: 'id, updatedAt',
+      commesse: 'id, data_conferma, cliente_nome',
+      pendingCommesse: '++tempId, createdAt',
+      pendingAcconti: '++tempId, commessaId, createdAt',
+      condivisioni: '++id, createdAt',
+      fpStrutture: 'id, *serie, cartella, immagine',
+      fpImmagini: 'path',
+      fpColori: 'fp_id, descrizione',
+      fpVetri: 'fp_id, codice',
+      fpTelai: 'fp_id, serie_fp_id, codice',
+      fpSezioni: 'fp_id, codice',
+      fpSerie: 'fp_id, nome',
+      fpPreferenze: 'id, tipo',
+      fpMeta: 'chiave',
+      rilieviFp: 'id, aggiornatoAt, daInviare',
+      vociFp: 'id, rilievoId, aggiornatoAt, daInviare',
+      eliminatiFp: 'id',
+      rilieviGrafici: 'id, aggiornatoAt, daInviare',
+      eliminatiGrafici: 'id',
+    }).upgrade(async tx => {
+      await tx.table('fpMeta').delete('cursore:fp_strutture')
+    })
   }
 }
 

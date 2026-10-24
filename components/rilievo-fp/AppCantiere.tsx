@@ -48,11 +48,12 @@ export default function AppCantiere({ rilievoIniziale = null }: { rilievoInizial
       {vista.tipo === 'elenco' && <ElencoRilievi onApri={id => vai({ tipo: 'rilievo', id })} />}
       {vista.tipo === 'rilievo' && (
         <SchedaRilievo id={vista.id} onIndietro={() => window.history.back()} onVoce={voceId => vai({ tipo: 'voce', rilievoId: vista.id, voceId })}
+          onCopia={copiaDa => vai({ tipo: 'voce', rilievoId: vista.id, voceId: null, copiaDa })}
           onRiepilogo={() => vai({ tipo: 'riepilogo', id: vista.id })} />
       )}
       {vista.tipo === 'riepilogo' && <RiepilogoRilievo id={vista.id} onIndietro={() => window.history.back()} />}
       {vista.tipo === 'voce' && (
-        <SchermataVoce key={vista.voceId ?? 'nuova'} rilievoId={vista.rilievoId} voceId={vista.voceId} onFine={() => window.history.back()} />
+        <SchermataVoce key={vista.voceId ?? (vista.copiaDa ? `copia-${vista.copiaDa}` : 'nuova')} rilievoId={vista.rilievoId} voceId={vista.voceId} copiaDa={vista.copiaDa ?? null} onFine={() => window.history.back()} />
       )}
     </div>
   )

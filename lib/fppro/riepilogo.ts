@@ -1,6 +1,6 @@
 // Testi del riepilogo del rilievo (scheda compatta a schermo e stampa A4): una funzione
 // pura per voce, cosi' schermo e carta dicono la stessa cosa.
-import { campiRiempimento, coloriAccessori, kitOpzionali } from './rilievo-fp'
+import { accessoriOpzionaliScelti, campiRiempimento, coloriAccessori, kitOpzionali } from './rilievo-fp'
 import type { Lato, StrutturaLocale, VoceFp } from '@/types/rilievo-fp'
 import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
 
@@ -75,7 +75,11 @@ export function datiRiepilogo(
   ]
 
   const accessori = s
-    ? kitOpzionali(s.albero).filter(k => fp.kit?.[k.chiave] ?? k.predefinito).map(k => k.descrizione || k.codice)
+    ? [
+        ...kitOpzionali(s.albero).filter(k => fp.kit?.[k.chiave] ?? k.predefinito).map(k => k.descrizione || k.codice),
+        // Solo quelli spuntati in cantiere: i predefiniti di FP PRO allungherebbero la scheda.
+        ...accessoriOpzionaliScelti(s.albero, fp).filter(a => fp.accessori?.[a.chiave] === true).map(a => a.descrizione || a.codice),
+      ]
     : []
 
   const noteTelaio: Partial<Record<Lato, string>> = {}

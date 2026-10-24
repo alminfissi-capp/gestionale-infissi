@@ -1,8 +1,11 @@
 // Tipi del rilievo in cantiere con le strutture di FP PRO (fase 3).
-import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
+import type { NodoStruttura, TempiStruttura } from '@/lib/fppro/strutture-xml'
 import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
 
 export type Lato = 'sinistra' | 'alto' | 'destra' | 'basso'
+
+/** Fasi di lavoro con un tempo, come in FP PRO (FP_TIMES) */
+export type FaseLavoro = 'taglio' | 'lavorazione' | 'montaggio' | 'assemblaggio' | 'posa'
 
 export interface RifFp {
   fpId: number
@@ -29,6 +32,13 @@ export interface VoceFpDati {
   vetri: Record<string, { fpId: number; codice: string }>
   /** `${codiceNodo}:${indiceKit}` -> scelto (solo kit opzionali) */
   kit: Record<string, boolean>
+  /**
+   * Accessori opzionali dentro i kit o sciolti nella struttura (es. serratura, martellina):
+   * chiaveAccessorio -> scelto. Assente = come FP PRO (confermato nella struttura).
+   */
+  accessori?: Record<string, boolean>
+  /** Minuti di lavoro per pezzo scritti in cantiere: sostituiscono quelli della struttura (assente = struttura) */
+  minuti?: Partial<Record<FaseLavoro, number>>
   mano: 'sx' | 'dx' | null
   /** lato -> codice profilo di telaio (assente = come la struttura) */
   telai: Partial<Record<Lato, string>>
@@ -82,6 +92,8 @@ export interface StrutturaLocale {
   albero: NodoStruttura[]
   poligoni: number[][]
   immagine: string | null
+  /** Ore per fase della struttura (assente nelle strutture scaricate prima di Dexie v9) */
+  tempi?: TempiStruttura | null
   presente: boolean
   segno_server: string
 }

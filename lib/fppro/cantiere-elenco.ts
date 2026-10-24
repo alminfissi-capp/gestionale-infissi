@@ -4,7 +4,7 @@ export type VistaCantiere =
   | { tipo: 'elenco' }
   | { tipo: 'rilievo'; id: string }
   | { tipo: 'riepilogo'; id: string }
-  | { tipo: 'voce'; rilievoId: string; voceId: string | null }
+  | { tipo: 'voce'; rilievoId: string; voceId: string | null; copiaDa?: string | null }
 
 /**
  * Dove si torna quando la cronologia del browser non porta la vista (Next.js riscrive

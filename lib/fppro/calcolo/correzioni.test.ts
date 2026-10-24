@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { campiMinuti, oreDaMinuti } from './correzioni'
+import { campiMinuti, oreDaMinuti, tempiConMinuti } from './correzioni'
 
 const attuali = { taglio: 0, lavorazione: 4, montaggio: 0, assemblaggio: 0, posa: 0 }
 
@@ -32,5 +32,16 @@ describe('minuti nel pannello Correggi', () => {
   })
   it('decimali con la virgola: 90,5 min', () => {
     expect(oreDaMinuti({ ...campiMinuti(attuali), posa: '90,5' }, attuali, {}).posa).toBeCloseTo(90.5 / 60, 9)
+  })
+})
+
+describe('tempiConMinuti (minuti scritti in cantiere)', () => {
+  const tempi = { taglio: 0.5, lavorazione: 1, montaggio: 0, assemblaggio: 0, posa: 2 }
+  it('il minuto scritto sostituisce la struttura, il resto resta', () => {
+    expect(tempiConMinuti(tempi, { lavorazione: 90, posa: 0 })).toEqual({ ...tempi, lavorazione: 1.5, posa: 0 })
+  })
+  it('niente minuti o valori non validi: la struttura', () => {
+    expect(tempiConMinuti(tempi, undefined)).toEqual(tempi)
+    expect(tempiConMinuti(tempi, { taglio: -3, montaggio: Number.NaN })).toEqual(tempi)
   })
 })

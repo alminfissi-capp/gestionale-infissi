@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Calculator, ChevronLeft, Plus, Printer, Trash2 } from 'lucide-react'
+import { Calculator, ChevronLeft, Copy, Plus, Printer, Trash2 } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -52,10 +52,12 @@ interface Props {
   id: string
   onIndietro: () => void
   onVoce: (voceId: string | null) => void
+  /** Nuova voce con le scelte di questa (si salva solo con Salva) */
+  onCopia: (voceId: string) => void
   onRiepilogo: () => void
 }
 
-export default function SchedaRilievo({ id, onIndietro, onVoce, onRiepilogo }: Props) {
+export default function SchedaRilievo({ id, onIndietro, onVoce, onCopia, onRiepilogo }: Props) {
   const { isOnline } = useOnlineStatus()
   const rilievo = useLiveQuery(() => db.rilieviFp.get(id), [id])
   const voci = useLiveQuery(() => db.vociFp.where('rilievoId').equals(id).sortBy('ordine'), [id])
@@ -88,6 +90,9 @@ export default function SchedaRilievo({ id, onIndietro, onVoce, onRiepilogo }: P
               <div className="flex items-start gap-1">
                 <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onVoce(v.id)} aria-label={`Apri ${v.posizione || 'voce'}`}>
                   <SchedaVoceRiepilogo voce={v} struttura={s ?? null} prezzo={null} numero={i + 1} />
+                </button>
+                <button type="button" className="p-2" aria-label="Copia voce" title="Copia" onClick={() => onCopia(v.id)}>
+                  <Copy className="size-4 text-muted-foreground" />
                 </button>
                 <button type="button" className="p-2" aria-label="Elimina voce" onClick={() => { if (confirm('Eliminare questa voce?')) void eliminaVoceLocale(v.id) }}>
                   <Trash2 className="size-4 text-muted-foreground" />
