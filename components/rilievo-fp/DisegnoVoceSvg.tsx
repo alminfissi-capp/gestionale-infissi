@@ -4,15 +4,18 @@ import { useId, useMemo } from 'react'
 import { disegnoVoce } from '@/lib/fppro/disegno-voce'
 import { haRibalta } from '@/lib/fppro/rilievo-fp'
 import { simboliApertura } from '@/lib/fppro/simboli-apertura'
+import { campiDisegno } from '@/lib/fppro/disegno-voce'
 import type { StrutturaLocale, VoceFpDati } from '@/types/rilievo-fp'
 
 interface Props {
   struttura: Pick<StrutturaLocale, 'albero' | 'poligoni' | 'l_nominale' | 'h_nominale'>
-  voce: Pick<VoceFpDati, 'larghezza' | 'altezza' | 'quote'> & Partial<Pick<VoceFpDati, 'mano' | 'kit'>>
+  voce: Pick<VoceFpDati, 'larghezza' | 'altezza' | 'quote'> & Partial<Pick<VoceFpDati, 'mano' | 'kit' | 'vetri' | 'pannelli'>>
   className?: string
 }
 
 const BLU = '#1e3a8a'
+/** Pannello: pieno chiaro con tratteggio, per distinguerlo dal vetro azzurro */
+const PANNELLO = '#e7e5e4'
 
 /** Disegno della voce: profili della struttura alle misure del rilievo e simboli di apertura. */
 export default function DisegnoVoceSvg({ struttura, voce, className }: Props) {
@@ -33,6 +36,19 @@ export default function DisegnoVoceSvg({ struttura, voce, className }: Props) {
     }
   }, [d, struttura.albero, struttura.l_nominale, struttura.h_nominale, voce.quote, voce.mano, voce.kit])
 
+  // Riempimenti che sono pannelli (della struttura o scelti nella voce): colore del pannello.
+  const pannelli = useMemo(() => {
+    if (!d) return []
+    try {
+      return campiDisegno(struttura.albero,
+        { L: d.larghezza, H: d.altezza, L0: struttura.l_nominale ?? d.larghezza, H0: struttura.h_nominale ?? d.altezza, quote: voce.quote ?? {} },
+        { vetri: voce.vetri, pannelli: voce.pannelli }).filter(c => c.tipo === 'pannello')
+    } catch {
+      return []
+    }
+  }, [d, struttura.albero, struttura.l_nominale, struttura.h_nominale, voce.quote, voce.vetri, voce.pannelli])
+  const idTratteggio = `${idFreccia}-pannello`
+
   if (!d) return <div className={`grid place-items-center text-xs text-muted-foreground ${className ?? ''}`}>Disegno non disponibile</div>
   return (
     <svg viewBox={d.viewBox} className={className} role="img" aria-label={`Disegno ${d.larghezza} per ${d.altezza} mm`}>
@@ -40,8 +56,15 @@ export default function DisegnoVoceSvg({ struttura, voce, className }: Props) {
         <marker id={idFreccia} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M0,0 L10,5 L0,10 z" fill={BLU} />
         </marker>
+        <pattern id={idTratteggio} width="40" height="40" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="40" height="40" fill={PANNELLO} />
+          <line x1="0" y1="0" x2="0" y2="40" stroke="#a8a29e" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        </pattern>
       </defs>
       <rect x={0} y={0} width={d.larghezza} height={d.altezza} fill="#bfdbfe" />
+      {pannelli.map(c => (
+        <rect key={c.codiceNodo} x={c.x} y={c.y} width={c.w} height={c.h} fill={`url(#${idTratteggio})`} />
+      ))}
       {d.profili.map((p, i) => (
         <polygon key={i} points={p} fill="#d4d4d8" stroke="#3f3f46" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
       ))}

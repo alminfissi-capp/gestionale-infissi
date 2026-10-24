@@ -7,7 +7,7 @@ import type { Lato, StrutturaLocale, VoceFpDati } from '@/types/rilievo-fp'
 
 interface Props {
   struttura: Pick<StrutturaLocale, 'albero' | 'poligoni' | 'l_nominale' | 'h_nominale'>
-  voce: Pick<VoceFpDati, 'larghezza' | 'altezza' | 'quote'>
+  voce: Pick<VoceFpDati, 'larghezza' | 'altezza' | 'quote'> & Partial<Pick<VoceFpDati, 'mano' | 'kit' | 'vetri' | 'pannelli'>>
   note: Partial<Record<Lato, string>>
   onNota: (lato: Lato, testo: string) => void
 }
