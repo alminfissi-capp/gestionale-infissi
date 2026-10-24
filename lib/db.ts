@@ -6,7 +6,7 @@ import type { VanoMisurato } from '@/lib/rilievo'
 import type { CommessaCompleta, CommessaInput, AccontoInput } from '@/types/commessa'
 import type {
   ColoreLocale, EliminatoFp, ImmagineLocale, MetaFp, PreferenzaFp, RilievoLocale, SerieLocale,
-  StrutturaLocale, SezioneLocale, TelaioLocale, VetroLocale, VoceLocale,
+  StrutturaLocale, SezioneLocale, TelaioLocale, VetroLocale, PannelloLocale, VoceLocale,
 } from '@/types/rilievo-fp'
 import type { EliminatoGrafico, RilievoGraficoLocale } from '@/types/rilievo-grafico'
 
@@ -83,6 +83,7 @@ class GestionaleDB extends Dexie {
   fpImmagini!: EntityTable<ImmagineLocale, 'path'>
   fpColori!: EntityTable<ColoreLocale, 'fp_id'>
   fpVetri!: EntityTable<VetroLocale, 'fp_id'>
+  fpPannelli!: EntityTable<PannelloLocale, 'fp_id'>
   fpTelai!: EntityTable<TelaioLocale, 'fp_id'>
   fpSezioni!: EntityTable<SezioneLocale, 'fp_id'>
   fpSerie!: EntityTable<SerieLocale, 'fp_id'>
@@ -250,6 +251,34 @@ class GestionaleDB extends Dexie {
       eliminatiGrafici: 'id',
     }).upgrade(async tx => {
       await tx.table('fpMeta').delete('cursore:fp_strutture')
+    })
+    // Pannelli di FP PRO, da mettere al posto dei vetri.
+    this.version(10).stores({
+      clienti: 'id, cognome, nome',
+      listiniData: 'id, nome',
+      pendingPreventivi: '++tempId, createdAt',
+      rilievoSessione: 'id',
+      vanoCanvas: 'vanoId',
+      bozzeWizard: 'id, updatedAt',
+      commesse: 'id, data_conferma, cliente_nome',
+      pendingCommesse: '++tempId, createdAt',
+      pendingAcconti: '++tempId, commessaId, createdAt',
+      condivisioni: '++id, createdAt',
+      fpStrutture: 'id, *serie, cartella, immagine',
+      fpImmagini: 'path',
+      fpColori: 'fp_id, descrizione',
+      fpVetri: 'fp_id, codice',
+      fpPannelli: 'fp_id, codice',
+      fpTelai: 'fp_id, serie_fp_id, codice',
+      fpSezioni: 'fp_id, codice',
+      fpSerie: 'fp_id, nome',
+      fpPreferenze: 'id, tipo',
+      fpMeta: 'chiave',
+      rilieviFp: 'id, aggiornatoAt, daInviare',
+      vociFp: 'id, rilievoId, aggiornatoAt, daInviare',
+      eliminatiFp: 'id',
+      rilieviGrafici: 'id, aggiornatoAt, daInviare',
+      eliminatiGrafici: 'id',
     })
   }
 }

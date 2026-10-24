@@ -21,11 +21,30 @@ describe('mappaAsse', () => {
     const f = mappaAsse(1000, 2000, [{ nominale: 500, reale: 700 }])
     expect([f(425), f(500), f(575)]).toEqual([625, 700, 775])
   })
-  it('misure troppo piccole per le zone rigide: riduzione uniforme', () => {
+  it('misure troppo piccole per le zone rigide: zone ristrette, centro al centro', () => {
     expect(mappaAsse(1000, 200, [])(500)).toBe(100)
   })
-  it('divisione che invade il bordo: riduzione uniforme', () => {
-    expect(mappaAsse(1000, 2000, [{ nominale: 500, reale: 100 }])(500)).toBe(1000)
+  it('divisione vicina al bordo: va comunque alla quota (zone ristrette)', () => {
+    const f = mappaAsse(1000, 2000, [{ nominale: 500, reale: 100 }])
+    expect(f(500)).toBe(100)
+    expect(f(1000)).toBe(2000)
+    expect(f(400)).toBeLessThan(100)
+    expect(f(600)).toBeGreaterThan(100)
+  })
+  it('sopraluce di 200 mm (porta 43C-PLANET62UP): il traverso segue la quota', () => {
+    // H nominale 2800, traverso a 2600; porta alta 2620 con traverso a 2300 o a 2000.
+    expect(mappaAsse(2800, 2620, [{ nominale: 2600, reale: 2300 }])(2600)).toBe(2300)
+    expect(mappaAsse(2800, 2620, [{ nominale: 2600, reale: 2000 }])(2600)).toBe(2000)
+  })
+  it('quota fuori dal telaio o fuori ordine: ignorata', () => {
+    expect(mappaAsse(1000, 2000, [{ nominale: 500, reale: 2500 }])(500)).toBe(1000)
+    const f = mappaAsse(1000, 2000, [{ nominale: 300, reale: 1500 }, { nominale: 700, reale: 1000 }])
+    expect(f(300)).toBe(1500)
+  })
+  it('sempre crescente: nessun profilo si ribalta', () => {
+    const f = mappaAsse(2800, 2620, [{ nominale: 2600, reale: 2550 }])
+    const valori = Array.from({ length: 57 }, (_, i) => f(i * 50))
+    expect(valori.every((v, i) => i === 0 || v >= valori[i - 1])).toBe(true)
   })
 })
 

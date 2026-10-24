@@ -11,31 +11,42 @@ export const MEZZA_ZONA = 75
 const tondo = (n: number) => Math.round(n * 10) / 10
 
 /**
- * Mappa a tratti di un asse: zone rigide al bordo e attorno alle divisioni, tratti
- * intermedi (i vetri) che si allungano. Se le zone non ci stanno: riduzione uniforme.
+ * Mappa a tratti di un asse. Le divisioni (traversi, montanti) vanno SEMPRE alla loro quota;
+ * attorno a loro e al bordo restano zone rigide (profili che non si deformano) e i tratti
+ * intermedi (i vetri) si allungano. Dove le zone rigide non ci stanno (es. sopraluce di 200 mm
+ * sotto il bordo) si stringono, senza mai rinunciare alla quota. Quote fuori ordine o fuori
+ * dal telaio si ignorano (la divisione resta proporzionale).
  */
 export function mappaAsse(
   nominale: number,
   reale: number,
   ancore: { nominale: number; reale: number }[],
 ): (v: number) => number {
-  const uniforme = (v: number) => (nominale > 0 ? (v * reale) / nominale : v)
-  if (nominale <= 2 * ZONA_BORDO || reale <= 2 * ZONA_BORDO) return uniforme
-  const punti: [number, number][] = [
-    [0, 0], [ZONA_BORDO, ZONA_BORDO],
-    [nominale - ZONA_BORDO, reale - ZONA_BORDO], [nominale, reale],
-  ]
-  for (const a of ancore) punti.push([a.nominale - MEZZA_ZONA, a.reale - MEZZA_ZONA], [a.nominale + MEZZA_ZONA, a.reale + MEZZA_ZONA])
-  punti.sort((p, q) => p[0] - q[0])
-  for (let i = 1; i < punti.length; i++) {
-    if (punti[i][0] <= punti[i - 1][0] || punti[i][1] < punti[i - 1][1]) return uniforme
+  if (nominale <= 0 || reale <= 0) return v => v
+  // Punti fissi: estremi e divisioni valide, in ordine e crescenti su entrambi gli assi.
+  const fissi: [number, number][] = [[0, 0]]
+  for (const a of [...ancore].sort((x, y) => x.nominale - y.nominale)) {
+    const [n0, r0] = fissi[fissi.length - 1]
+    if (a.nominale > n0 && a.nominale < nominale && a.reale > r0 && a.reale < reale) fissi.push([a.nominale, a.reale])
+  }
+  fissi.push([nominale, reale])
+
+  const punti: [number, number][] = [fissi[0]]
+  for (let i = 1; i < fissi.length; i++) {
+    const [n0, r0] = fissi[i - 1]
+    const [n1, r1] = fissi[i]
+    const sx = i === 1 ? ZONA_BORDO : MEZZA_ZONA
+    const dx = i === fissi.length - 1 ? ZONA_BORDO : MEZZA_ZONA
+    // Zone rigide intere se ci stanno, altrimenti ristrette (resta sempre un tratto che si allunga).
+    const k = Math.min(1, (0.9 * (n1 - n0)) / (sx + dx), (0.9 * (r1 - r0)) / (sx + dx))
+    punti.push([n0 + sx * k, r0 + sx * k], [n1 - dx * k, r1 - dx * k], [n1, r1])
   }
   return v => {
     if (v <= 0) return v
     for (let i = 1; i < punti.length; i++) {
       const [x0, y0] = punti[i - 1]
       const [x1, y1] = punti[i]
-      if (v <= x1) return y0 + ((v - x0) * (y1 - y0)) / (x1 - x0)
+      if (v <= x1) return x1 > x0 ? y0 + ((v - x0) * (y1 - y0)) / (x1 - x0) : y1
     }
     return v - nominale + reale
   }

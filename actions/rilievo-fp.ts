@@ -99,6 +99,8 @@ export async function scaricaCatalogo(
           ? base('fp_colori', 'fp_id, descrizione, per_profili, per_accessori, presente').or('per_profili.eq.true,per_accessori.eq.true')
           : tabella === 'fp_vetri'
             ? base('fp_vetri', 'fp_id, codice, descrizione, presente')
+            : tabella === 'fp_pannelli'
+              ? base('fp_pannelli', 'fp_id, codice, descrizione, presente')
             : tabella === 'fp_telai'
               ? base('fp_profili', 'fp_id, serie_fp_id, codice, descrizione, presente, dati').or(UTILIZZO_PROFILI)
               : tabella === 'fp_sezioni'
@@ -276,5 +278,44 @@ export async function impostaPreferenzaFp(tipo: PreferenzaFp['tipo'], rif: strin
     return { ok: true }
   } catch (e) {
     return { errore: messaggio(e, 'Preferenza non salvata') }
+  }
+}
+
+export interface SerieAccessoriFp { marca: string; serie: string; accessori: number }
+export interface AccessorioCatalogoFp { codice: string; descrizione: string | null; serie: string | null }
+
+/** Marchi e serie degli accessori di FP PRO (vista fp_accessori_serie), per "Aggiungi accessorio". */
+export async function getSerieAccessoriFp(): Promise<SerieAccessoriFp[] | { errore: string }> {
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+    const righe = await selectAll<SerieAccessoriFp>((da, a) => supabase.from('fp_accessori_serie').select('marca, serie, accessori')
+      .eq('organization_id', orgId).order('marca').order('serie').range(da, a) as unknown as PromiseLike<{ data: SerieAccessoriFp[] | null; error: { message: string } | null }>)
+    return righe
+  } catch (e) {
+    return { errore: messaggio(e, 'Serie degli accessori non disponibili') }
+  }
+}
+
+/**
+ * Accessori del catalogo di FP PRO per marchio/serie e/o testo (codice o descrizione), al
+ * massimo 100. Serve la rete: il catalogo degli accessori (~21.000) non sta nel telefono.
+ */
+export async function cercaAccessoriFp(f: { marca?: string | null; serie?: string | null; testo?: string }): Promise<AccessorioCatalogoFp[] | { errore: string }> {
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+    let q = supabase.from('fp_accessori').select('codice, descrizione, serie').eq('organization_id', orgId).eq('presente', true)
+    if (f.serie) q = q.eq('serie', f.serie)
+    if (f.marca) q = q.eq('dati->>marca_nome', f.marca)
+    // Virgole e parentesi romperebbero il filtro "or" di PostgREST.
+    const testo = (f.testo ?? '').replace(/[,()*%]/g, ' ').trim()
+    if (testo) q = q.or(`codice.ilike.*${testo}*,descrizione.ilike.*${testo}*`)
+    if (!f.serie && !f.marca && !testo) return []
+    const { data, error } = await q.order('codice').limit(100)
+    if (error) throw new Error(error.message)
+    return (data ?? []) as AccessorioCatalogoFp[]
+  } catch (e) {
+    return { errore: messaggio(e, 'Ricerca accessori non riuscita') }
   }
 }

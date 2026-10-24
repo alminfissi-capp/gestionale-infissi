@@ -149,6 +149,30 @@ describe('casi difficili', () => {
     expect(corretta.prezzo.imponibile).not.toBeCloseTo(base.prezzo.imponibile, 0)
     expect(corretta.materiali).toBeCloseTo(base.materiali, 6)
   })
+  it('pannello al posto del vetro: niente vetro in quel campo, pannello a m² col minimo fatturabile', () => {
+    const base = calcolaVoce(input, listino, regole)
+    const campo = base.righe.find(r => r.gruppo === 'vetri')!
+    const nodi = (n: typeof input.albero): typeof input.albero => n.flatMap(x => [x, ...nodi(x.figli)])
+    const riempimenti = nodi(input.albero).filter(n => n.pezzi.some(p => p.tipo === 8510)).map(n => String(n.codice))
+    const r = calcolaVoce({ ...input, pannelliScelti: Object.fromEntries(riempimenti.map(c => [c, 'PAN30'])) },
+      { ...listino, pannello: c => (c === 'PAN30' ? { euroMq: 32, minFatt: 0.5 } : null) }, regole)
+    expect(r.righe.some(x => x.gruppo === 'vetri')).toBe(false)
+    const pannelli = r.righe.filter(x => x.gruppo === 'pannelli')
+    expect(pannelli.length).toBe(base.righe.filter(x => x.gruppo === 'vetri').length)
+    expect(pannelli[0].codice).toBe('PAN30')
+    expect(pannelli[0].quantita).toBe(campo.quantita)
+    expect(pannelli[0].costo).toBeCloseTo(Math.max(campo.quantita, 0.5) * 32, 1)
+  })
+  it('accessori aggiunti a mano: prezzo da listino per pezzi, avviso se non c\'e\'', () => {
+    const base = calcolaVoce(input, listino, regole)
+    const r = calcolaVoce({ ...input, accessoriAggiunti: [
+      { codice: 'NEKMTR', serie: 'AUTOMAZIONI', descrizione: 'MOTORE VASISTAS NEKOS', quantita: 2 },
+      { codice: 'MANCANTE', serie: '', descrizione: 'x', quantita: 1 },
+    ] }, { ...listino, accessorio: (c, s) => (c === 'NEKMTR' ? { prezzo: 45, unitaVendita: 1 } : listino.accessorio(c, s)) }, regole)
+    expect(r.righe.find(x => x.codice === 'NEKMTR')).toMatchObject({ gruppo: 'accessori', quantita: 2, unita: 'pz', costo: 90 })
+    expect(r.materiali).toBeCloseTo(base.materiali + 90, 6)
+    expect(r.avvisi).toContain('Accessorio MANCANTE non trovato nel listino di FP PRO')
+  })
   it('misure piu\' grandi: piu\' materiale', () => {
     const base = calcolaVoce(input, listino, regole)
     const grande = calcolaVoce({ ...input, L: 2600, H: 2600 }, listino, regole)
