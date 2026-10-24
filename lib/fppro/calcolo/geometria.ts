@@ -6,7 +6,11 @@ import type { SezioneProfilo } from '../dxf-sezione'
 import type { NodoStruttura, PezzoStruttura } from '../strutture-xml'
 
 export interface PezzoCalcolo { dxf: string; tipo: number; lunghezza: number }
-export interface CampoCalcolo { codiceNodo: string; tipo: 'vetro' | 'pannello'; dxf: string; l: number; h: number }
+export interface CampoCalcolo {
+  codiceNodo: string; tipo: 'vetro' | 'pannello'; dxf: string; l: number; h: number
+  /** Zona visibile del riempimento in mm (y dal basso): serve al disegno della voce */
+  zona: { x0: number; y0: number; x1: number; y1: number }
+}
 /** Larghezze in vista (mm) usate per ridurre le zone interne */
 export interface Larghezze {
   telaio: number
@@ -105,7 +109,7 @@ export function pezziECampi(
       const l = larg(z) - 2 * r
       const h = alt(z) - 2 * r
       if (l > 0 && h > 0) {
-        campi.push({ codiceNodo: String(n.codice), tipo: riempimento.tipo === 8510 ? 'vetro' : 'pannello', dxf: riempimento.dxf, l, h })
+        campi.push({ codiceNodo: String(n.codice), tipo: riempimento.tipo === 8510 ? 'vetro' : 'pannello', dxf: riempimento.dxf, l, h, zona: { ...z } })
       }
     }
     const profili = n.pezzi.filter(p => p.tipo !== 8510 && p.tipo !== 8500)

@@ -1,6 +1,7 @@
 // Disegno della voce: i poligoni della struttura adattati alle misure del rilievo.
 import type { VoceFpDati } from '@/types/rilievo-fp'
 import { divisioniStruttura } from './rilievo-fp'
+import { LARGHEZZE_PREDEFINITE, pezziECampi } from './calcolo/geometria'
 import type { NodoStruttura } from './strutture-xml'
 
 /** Fascia lungo il bordo che si sposta senza deformarsi (telaio, anta, fermavetro). */
@@ -97,4 +98,35 @@ export function disegnoVoce(
   })
   const margine = Math.max(5, Math.round(Math.min(L, H) * 0.02))
   return { viewBox: `${-margine} ${-margine} ${L + 2 * margine} ${H + 2 * margine}`, larghezza: L, altezza: H, profili }
+}
+
+export interface CampoDisegno {
+  codiceNodo: string
+  /** Tipo effettivo: pannello scelto nella voce > vetro scelto > struttura */
+  tipo: 'vetro' | 'pannello'
+  /** Rettangolo SVG (y verso il basso) */
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+/**
+ * Riempimenti della voce nel disegno, con la stessa geometria del calcolo (che rispetta le
+ * quote di traversi e montanti, come mappaAsse). Il tipo tiene conto delle scelte della voce.
+ */
+export function campiDisegno(
+  albero: NodoStruttura[],
+  misure: { L: number; H: number; L0: number; H0: number; quote: Record<string, number> },
+  scelte: Partial<Pick<VoceFpDati, 'vetri' | 'pannelli'>>,
+): CampoDisegno[] {
+  const { campi } = pezziECampi(albero, misure, LARGHEZZE_PREDEFINITE)
+  return campi.map(c => ({
+    codiceNodo: c.codiceNodo,
+    tipo: scelte.pannelli?.[c.codiceNodo] ? 'pannello' : scelte.vetri?.[c.codiceNodo] ? 'vetro' : c.tipo,
+    x: tondo(c.zona.x0),
+    y: tondo(misure.H - c.zona.y1),
+    w: tondo(c.zona.x1 - c.zona.x0),
+    h: tondo(c.zona.y1 - c.zona.y0),
+  }))
 }

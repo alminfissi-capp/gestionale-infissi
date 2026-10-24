@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { XMLParser } from 'fast-xml-parser'
 import { OPZIONI_XML, strutturaDaXml } from './strutture-xml'
-import { disegnoVoce, mappaAsse } from './disegno-voce'
+import { campiDisegno, disegnoVoce, mappaAsse } from './disegno-voce'
 
 const leggi = (nome: string) => {
   const s = strutturaDaXml(new XMLParser(OPZIONI_XML).parse(
@@ -64,5 +64,33 @@ describe('disegnoVoce', () => {
   })
   it('struttura senza anteprima: niente disegno', () => {
     expect(disegnoVoce({ albero: [], poligoni: [], l_nominale: 1000, h_nominale: 1000 }, { larghezza: 1, altezza: 1, quote: {} })).toBeNull()
+  })
+})
+
+describe('campiDisegno (riempimenti colorati: vetro o pannello)', () => {
+  const s = leggi('al50plus-monoblocco.str.xml')
+  const misure = { L: 3000, H: 3000, L0: s.l_nominale!, H0: s.h_nominale!, quote: { 3: 1200 } }
+  const campi = campiDisegno(s.albero, misure, {})
+
+  it('ogni riempimento dentro il serramento, y verso il basso', () => {
+    expect(campi.length).toBeGreaterThan(0)
+    for (const c of campi) {
+      expect(c.x).toBeGreaterThanOrEqual(0)
+      expect(c.y).toBeGreaterThanOrEqual(0)
+      expect(c.x + c.w).toBeLessThanOrEqual(3000)
+      expect(c.y + c.h).toBeLessThanOrEqual(3000)
+    }
+  })
+  it('il traverso a 1200 divide i riempimenti alla quota', () => {
+    const sopra = campi.filter(c => c.y + c.h <= 3000 - 1200)
+    const sotto = campi.filter(c => c.y >= 3000 - 1200)
+    expect(sopra.length).toBeGreaterThan(0)
+    expect(sotto.length).toBeGreaterThan(0)
+  })
+  it('pannello scelto nella voce: quel campo diventa pannello, gli altri restano', () => {
+    const primo = campi[0].codiceNodo
+    const scelti = campiDisegno(s.albero, misure, { pannelli: { [primo]: { fpId: 83, codice: '30MM' } } })
+    expect(scelti.find(c => c.codiceNodo === primo)?.tipo).toBe('pannello')
+    expect(scelti.filter(c => c.codiceNodo !== primo).map(c => c.tipo)).toEqual(campi.filter(c => c.codiceNodo !== primo).map(c => c.tipo))
   })
 })
