@@ -3,13 +3,16 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { toast } from 'sonner'
-import { ArrowDown, ArrowLeft, ArrowUp, ChevronDown, Save, X } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowUp, ChevronDown, Plus, Save, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { db } from '@/lib/db'
 import { salvaVoceLocale } from '@/lib/rilievo-fp-locale'
+import { getSerieAccessoriFp, type SerieAccessoriFp } from '@/actions/rilievo-fp'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import DialogAccessorioFp from './DialogAccessorioFp'
 import { cambiaPreferenzaFp } from '@/lib/preferenze-fp'
 import {
   accessoriOpzionali, campiRiempimento, coloriAccessori, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
@@ -131,6 +134,20 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
   }, [], [] as string[])
   const colori = useLiveQuery(() => db.fpColori.filter(c => c.presente).toArray(), [], [])
   const vetri = useLiveQuery(() => db.fpVetri.filter(v => v.presente).toArray(), [], [])
+  const pannelli = useLiveQuery(() => db.fpPannelli.filter(p => p.presente).toArray(), [], [])
+  // Campi in cui si sta scegliendo l'altro tipo di riempimento (prima di aver scelto il codice).
+  const [tipoRiempimento, setTipoRiempimento] = useState<Record<string, 'vetro' | 'pannello'>>({})
+  const { isOnline } = useOnlineStatus()
+  const [serieAccessori, setSerieAccessori] = useState<SerieAccessoriFp[] | null>(null)
+  const [aggiungiAperto, setAggiungiAperto] = useState(false)
+  const apriAggiungi = async () => {
+    if (!serieAccessori) {
+      const r = await getSerieAccessoriFp()
+      if ('errore' in r) { toast.error(r.errore); return }
+      setSerieAccessori(r)
+    }
+    setAggiungiAperto(true)
+  }
   const preferenze = useLiveQuery(() => db.fpPreferenze.toArray(), [], [])
   const nomeSerie = serieScelta ?? voce?.fp.serie ?? null
   const serieFp = useLiveQuery(() => (nomeSerie ? db.fpSerie.where('nome').equals(nomeSerie).first() : undefined), [nomeSerie])
@@ -159,6 +176,7 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
     .filter(c => (perAccessori ? c.per_accessori === true : c.per_profili !== false))
     .map(c => ({ id: String(c.fp_id), testo: c.descrizione }))
   const vociVetri: VoceScelta[] = vetri.map(x => ({ id: String(x.fp_id), testo: x.codice, sotto: x.descrizione }))
+  const vociPannelli: VoceScelta[] = pannelli.map(x => ({ id: String(x.fp_id), testo: x.codice, sotto: x.descrizione }))
   const vociSerie: VoceScelta[] = [...elencoSerie]
     .sort((a, b) => Number(serieRecenti.includes(b.nome)) - Number(serieRecenti.includes(a.nome)))
     .map(s => ({ id: s.nome, testo: s.nome, sotto: [s.descrizione, serieRecenti.includes(s.nome) ? 'recente' : null].filter(Boolean).join(' · ') }))
@@ -290,7 +308,6 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
     impostaColoriAcc(lista)
   }
   const latiTelaio = LATI.filter(l => telaiDefault[l.lato])
-  const campiVetro = campi.filter(c => c.tipo === 'vetro')
   const rif = (x: VoceScelta | null): RifFp | null => (x ? { fpId: Number(x.id), descrizione: x.testo } : null)
 
   return (
@@ -337,40 +354,76 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
             </div>
           </Pannello>
 
-          <Pannello titolo="Vetri">
-            {campiVetro.map((c, i) => (
-              <div key={c.codice} className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs">{c.etichetta} <span className="text-muted-foreground">(FP PRO: {c.codiceDefault})</span></Label>
-                  {i === 0 && campiVetro.length > 1 && v.vetri[c.codice] && (
-                    <Button variant="link" size="sm" className="h-auto p-0 text-xs"
-                      onClick={() => aggiorna({ vetri: Object.fromEntries(campiVetro.map(x => [x.codice, v.vetri[c.codice]])) })}>
-                      Uguale per tutti
-                    </Button>
-                  )}
+          <Pannello titolo="Vetri e pannelli">
+            {campi.map((c, i) => {
+              const pannello = v.pannelli?.[c.codice]
+              const vetro = v.vetri[c.codice]
+              const tipo = pannello ? 'pannello' : vetro ? 'vetro' : (tipoRiempimento[c.codice] ?? c.tipo)
+              // Scelta del campo: un pannello toglie il vetro e viceversa.
+              const scegli = (x: VoceScelta | null, comeTipo: 'vetro' | 'pannello', codici = [c.codice]) => {
+                const vetriNuovi = { ...v.vetri }
+                const pannelliNuovi = { ...(v.pannelli ?? {}) }
+                for (const k of codici) {
+                  delete vetriNuovi[k]
+                  delete pannelliNuovi[k]
+                  if (x && comeTipo === 'vetro') vetriNuovi[k] = { fpId: Number(x.id), codice: x.testo }
+                  if (x && comeTipo === 'pannello') pannelliNuovi[k] = { fpId: Number(x.id), codice: x.testo }
+                }
+                aggiorna({ vetri: vetriNuovi, pannelli: pannelliNuovi })
+              }
+              const scelto = pannello ?? vetro
+              return (
+                <div key={c.codice} className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-xs">{c.etichetta} <span className="text-muted-foreground">(FP PRO: {c.codiceDefault})</span></Label>
+                    {i === 0 && campi.length > 1 && scelto && (
+                      <Button variant="link" size="sm" className="h-auto p-0 text-xs"
+                        onClick={() => scegli({ id: String(scelto.fpId), testo: scelto.codice }, pannello ? 'pannello' : 'vetro', campi.map(x => x.codice))}>
+                        Uguale per tutti
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
+                    {(['vetro', 'pannello'] as const).map(t => (
+                      <Button key={t} type="button" size="sm" variant={tipo === t ? 'default' : 'outline'} className="h-7 flex-1 text-xs"
+                        onClick={() => {
+                          if (tipo === t) return
+                          setTipoRiempimento({ ...tipoRiempimento, [c.codice]: t })
+                          // Cambiando tipo si torna a "come la struttura" finche' non si sceglie il codice.
+                          if (scelto) scegli(null, t)
+                        }}>
+                        {t === 'vetro' ? 'Vetro' : 'Pannello'}
+                      </Button>
+                    ))}
+                  </div>
+                  {tipo === 'vetro'
+                    ? <SceltaFp
+                        voci={vociVetri}
+                        preferiti={pref('vetro')}
+                        onStella={(x, attiva) => void cambiaPreferenzaFp('vetro', x.id, attiva)}
+                        valore={vetro ? String(vetro.fpId) : null}
+                        segnaposto="Cerca vetro (es. 33.1)"
+                        etichettaNessuno={c.tipo === 'vetro' ? `Come la struttura (${c.codiceDefault})` : 'Scegli il vetro'}
+                        riserva={vetro ? { id: String(vetro.fpId), testo: vetro.codice } : null}
+                        onScegli={x => scegli(x, 'vetro')}
+                      />
+                    : <SceltaFp
+                        voci={vociPannelli}
+                        valore={pannello ? String(pannello.fpId) : null}
+                        segnaposto="Cerca pannello (es. 30MM)"
+                        etichettaNessuno={c.tipo === 'pannello' ? `Come la struttura (${c.codiceDefault})` : 'Scegli il pannello'}
+                        riserva={pannello ? { id: String(pannello.fpId), testo: pannello.codice } : null}
+                        onScegli={x => scegli(x, 'pannello')}
+                      />}
+                  {tipo !== c.tipo && !scelto && <p className="text-xs text-amber-700">Finché non scegli il codice resta {c.tipo === 'vetro' ? 'il vetro' : 'il pannello'} della struttura.</p>}
                 </div>
-                <SceltaFp
-                  voci={vociVetri}
-                  preferiti={pref('vetro')}
-                  onStella={(x, attiva) => void cambiaPreferenzaFp('vetro', x.id, attiva)}
-                  valore={v.vetri[c.codice] ? String(v.vetri[c.codice].fpId) : null}
-                  segnaposto="Cerca vetro (es. 33.1)"
-                  etichettaNessuno={`Come la struttura (${c.codiceDefault})`}
-                  riserva={v.vetri[c.codice] ? { id: String(v.vetri[c.codice].fpId), testo: v.vetri[c.codice].codice } : null}
-                  onScegli={x => {
-                    const nuovi = { ...v.vetri }
-                    if (x) nuovi[c.codice] = { fpId: Number(x.id), codice: x.testo }; else delete nuovi[c.codice]
-                    aggiorna({ vetri: nuovi })
-                  }}
-                />
-              </div>
-            ))}
-            {campi.some(c => c.tipo === 'pannello') && <p className="text-xs text-muted-foreground">I pannelli restano come nella struttura.</p>}
-            {campi.length === 0 && <p className="text-xs text-muted-foreground">Questa struttura non ha vetri.</p>}
+              )
+            })}
+            {campi.length === 0 && <p className="text-xs text-muted-foreground">Questa struttura non ha vetri né pannelli.</p>}
+            {campi.length > 0 && pannelli.length === 0 && <p className="text-xs text-muted-foreground">Elenco pannelli non ancora nel telefono: aggiorna il catalogo con la rete.</p>}
           </Pannello>
 
-          {(kit.length > 0 || opzionali.length > 0) && (
-            <Pannello titolo="Accessori">
+          <Pannello titolo="Accessori">
               {kit.map(k => {
                 const scelto = v.kit[k.chiave] ?? k.predefinito
                 return (
@@ -393,8 +446,40 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
                   <AccessoriKit gruppo={g} scelte={v.accessori} onCambia={accessori => aggiorna({ accessori })} />
                 </div>
               ))}
+              {/* Accessori presi dal catalogo a mano (es. MEDISYSTEM: maniglione FIMET, motore vasistas) */}
+              <div className="space-y-1 border-t pt-2">
+                <p className="text-sm">Accessori aggiunti</p>
+                {(v.accessoriAggiunti ?? []).map((a, i) => (
+                  <div key={`${a.serie}|${a.codice}`} className="flex items-center gap-1 text-xs">
+                    <span className="min-w-0 flex-1"><span className="block truncate">{a.descrizione || a.codice}</span><span className="block text-muted-foreground">{a.codice}</span></span>
+                    <Input aria-label={`Quantità ${a.codice}`} className="h-7 w-14" inputMode="numeric" value={a.quantita || ''}
+                      onChange={e => {
+                        const n = numero(e.target.value)
+                        aggiorna({ accessoriAggiunti: (v.accessoriAggiunti ?? []).map((x, j) => (j === i ? { ...x, quantita: n !== null && n >= 0 ? n : 0 } : x)) })
+                      }} />
+                    <Button type="button" variant="ghost" size="icon" className="size-7" aria-label={`Togli ${a.codice}`}
+                      onClick={() => aggiorna({ accessoriAggiunti: (v.accessoriAggiunti ?? []).filter((_, j) => j !== i) })}>
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                ))}
+                <Button type="button" variant="outline" size="sm" className="w-full gap-1.5" disabled={!isOnline} onClick={() => void apriAggiungi()}>
+                  <Plus className="size-4" />Aggiungi accessorio
+                </Button>
+                {!isOnline && <p className="text-xs text-muted-foreground">Serve la rete per sfogliare il catalogo.</p>}
+              </div>
             </Pannello>
-          )}
+            {aggiungiAperto && serieAccessori && (
+              <DialogAccessorioFp aperto serie={serieAccessori} onChiudi={() => setAggiungiAperto(false)}
+                onAggiungi={a => {
+                  const lista = v.accessoriAggiunti ?? []
+                  const gia = lista.findIndex(x => x.codice === a.codice && x.serie === (a.serie ?? ''))
+                  aggiorna({ accessoriAggiunti: gia >= 0
+                    ? lista.map((x, j) => (j === gia ? { ...x, quantita: x.quantita + 1 } : x))
+                    : [...lista, { codice: a.codice, descrizione: a.descrizione ?? '', serie: a.serie ?? '', quantita: 1 }] })
+                  toast.success(`Aggiunto ${a.codice}`)
+                }} />
+            )}
         </div>
 
         <div className="order-1 space-y-3 lg:order-2">

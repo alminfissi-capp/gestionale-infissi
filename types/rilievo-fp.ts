@@ -30,6 +30,10 @@ export interface VoceFpDati {
   coloriAcc?: RifFp[]
   /** codice nodo del riempimento -> vetro scelto (assente = come la struttura) */
   vetri: Record<string, { fpId: number; codice: string }>
+  /** codice nodo del riempimento -> pannello scelto al posto del vetro (o di un altro pannello); vince su vetri */
+  pannelli?: Record<string, { fpId: number; codice: string }>
+  /** Accessori aggiunti a mano dal catalogo (es. maniglione, motore vasistas): pezzi per serramento */
+  accessoriAggiunti?: AccessorioAggiunto[]
   /** `${codiceNodo}:${indiceKit}` -> scelto (solo kit opzionali) */
   kit: Record<string, boolean>
   /**
@@ -46,6 +50,14 @@ export interface VoceFpDati {
   anta?: string | null
   /** Note libere sui 4 lati del telaio */
   noteTelaio?: Partial<Record<Lato, string>>
+}
+
+export interface AccessorioAggiunto {
+  codice: string
+  descrizione: string
+  /** Serie dell'accessorio in FP PRO (serve a distinguere codici uguali) */
+  serie: string
+  quantita: number
 }
 
 export interface RilievoFp {
@@ -77,7 +89,7 @@ export interface EliminatoFp {
   tipo: 'rilievo' | 'voce'
 }
 
-export type TabellaCatalogoLocale = 'fp_strutture' | 'fp_colori' | 'fp_vetri' | 'fp_telai' | 'fp_serie' | 'fp_sezioni'
+export type TabellaCatalogoLocale = 'fp_strutture' | 'fp_colori' | 'fp_vetri' | 'fp_pannelli' | 'fp_telai' | 'fp_serie' | 'fp_sezioni'
 
 export interface StrutturaLocale {
   id: string
@@ -100,6 +112,7 @@ export interface StrutturaLocale {
 
 export interface ColoreLocale { fp_id: number; descrizione: string; per_profili?: boolean; per_accessori?: boolean; presente: boolean; segno_server: string }
 export interface VetroLocale { fp_id: number; codice: string; descrizione: string | null; presente: boolean; segno_server: string }
+export interface PannelloLocale { fp_id: number; codice: string; descrizione: string | null; presente: boolean; segno_server: string }
 /** Profilo di telaio o anta della serie (tabella locale fpTelai). utilizzi = codici FP PRO (8050 telaio, 8090/8100 anta) */
 export interface TelaioLocale { fp_id: number; serie_fp_id: number | null; codice: string; descrizione: string | null; utilizzi: number[]; presente: boolean; segno_server: string }
 /** Miniatura della sezione del profilo, ricavata dal DXF dal ponte */

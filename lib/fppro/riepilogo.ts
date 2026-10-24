@@ -61,26 +61,30 @@ export function datiRiepilogo(
   const fp = v.fp
   const mq = fp.larghezza && fp.altezza ? (fp.larghezza * fp.altezza * (v.quantita || 1)) / 1e6 : null
 
-  const vetriScelti = Object.values(fp.vetri ?? {}).map(x => x.codice)
-  const vetriStruttura = s ? campiRiempimento(s.albero).filter(c => c.tipo === 'vetro').map(c => c.codiceDefault) : []
-  // I campi scelti prendono il loro vetro, gli altri restano come la struttura.
-  const vetriRestanti = s
-    ? campiRiempimento(s.albero).filter(c => c.tipo === 'vetro' && !fp.vetri?.[c.codice]).map(c => c.codiceDefault)
-    : []
-  const vetri = [...new Set(vetriScelti.length ? [...vetriScelti, ...vetriRestanti] : vetriStruttura)]
+  // Per campo: pannello scelto, vetro scelto, altrimenti il vetro della struttura.
+  const vetri = [...new Set(s
+    ? campiRiempimento(s.albero).map(c => {
+        const pannello = fp.pannelli?.[c.codice]
+        if (pannello) return `Pannello ${pannello.codice}`
+        return fp.vetri?.[c.codice]?.codice ?? (c.tipo === 'vetro' ? c.codiceDefault : null)
+      }).filter((x): x is string => !!x)
+    : [...Object.values(fp.vetri ?? {}).map(x => x.codice), ...Object.values(fp.pannelli ?? {}).map(x => `Pannello ${x.codice}`)])]
 
   const profili = [
     ...telaiRaggruppati(fp.telai),
     ...(fp.anta ? [`Anta ${fp.anta}`] : []),
   ]
 
+  const aggiunti = (fp.accessoriAggiunti ?? []).filter(a => a.quantita > 0)
+    .map(a => `${a.quantita > 1 ? `${a.quantita} x ` : ''}${a.descrizione || a.codice}`)
   const accessori = s
     ? [
         ...kitOpzionali(s.albero).filter(k => fp.kit?.[k.chiave] ?? k.predefinito).map(k => k.descrizione || k.codice),
         // Solo quelli spuntati in cantiere: i predefiniti di FP PRO allungherebbero la scheda.
         ...accessoriOpzionaliScelti(s.albero, fp).filter(a => fp.accessori?.[a.chiave] === true).map(a => a.descrizione || a.codice),
+        ...aggiunti,
       ]
-    : []
+    : aggiunti
 
   const noteTelaio: Partial<Record<Lato, string>> = {}
   for (const { lato } of LATI) {

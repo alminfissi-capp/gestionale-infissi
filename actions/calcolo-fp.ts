@@ -170,6 +170,8 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       Object.values(v.fp.telai ?? {}).forEach(c => c && codiciProfili.add(c))
       if (v.fp.anta) codiciProfili.add(v.fp.anta)
       Object.values(v.fp.vetri ?? {}).forEach(x => codiciVetri.add(x.codice))
+      Object.values(v.fp.pannelli ?? {}).forEach(x => codiciPannelli.add(x.codice))
+      ;(v.fp.accessoriAggiunti ?? []).forEach(a => codiciAccessori.add(a.codice))
     }
 
     const profili = await inLista<RigheListino['profili'][number]>(supabase, orgId, 'fp_profili', 'fp_id, codice, kg_ml, costo_kg, costo_ml', 'codice', [...codiciProfili])
@@ -247,6 +249,8 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
         L: v.fp.larghezza, H: v.fp.altezza, L0: s.l_nominale ?? v.fp.larghezza, H0: s.h_nominale ?? v.fp.altezza,
         quote: v.fp.quote ?? {}, kitScelti: v.fp.kit ?? {}, accessoriScelti: v.fp.accessori ?? {},
         vetriScelti: Object.fromEntries(Object.entries(v.fp.vetri ?? {}).map(([k, x]) => [k, x.codice])),
+        pannelliScelti: Object.fromEntries(Object.entries(v.fp.pannelli ?? {}).map(([k, x]) => [k, x.codice])),
+        accessoriAggiunti: v.fp.accessoriAggiunti ?? [],
         telai: v.fp.telai, anta: v.fp.anta ?? undefined, tempi: tempiConMinuti(s.tempi ?? { taglio: 0, lavorazione: 0, montaggio: 0, assemblaggio: 0, posa: 0 }, v.fp.minuti),
         profilo, maggiorazioni, correzioni: v.correzioni_fp ?? undefined,
       }

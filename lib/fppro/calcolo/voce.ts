@@ -76,6 +76,10 @@ export interface InputVoce {
   accessoriScelti?: Record<string, boolean>
   /** codice del nodo di riempimento -> codice vetro scelto */
   vetriScelti: Record<string, string>
+  /** codice del nodo di riempimento -> codice pannello scelto (anche al posto di un vetro); vince sul vetro */
+  pannelliScelti?: Record<string, string>
+  /** Accessori aggiunti a mano nella voce: pezzi per serramento */
+  accessoriAggiunti?: { codice: string; serie: string; descrizione: string; quantita: number }[]
   tempi: OreVoce
   profilo: ProfiloCalcolo
   /** Maggiorazioni del profilo di calcolo di FP PRO (maggrottvetri, maggrottpannelli) */
@@ -200,9 +204,13 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
 
   // Vetri e pannelli.
   for (const c of campi) {
-    const codice = c.tipo === 'vetro' ? (input.vetriScelti[c.codiceNodo] ?? codiceDaDxf(c.dxf)) : codiceDaDxf(c.dxf)
+    // Scelta della voce: pannello (anche al posto del vetro), poi vetro, poi la struttura.
+    const pannelloScelto = input.pannelliScelti?.[c.codiceNodo]
+    const vetroScelto = input.vetriScelti[c.codiceNodo]
+    const tipo = pannelloScelto ? 'pannello' : vetroScelto ? 'vetro' : c.tipo
+    const codice = pannelloScelto ?? vetroScelto ?? codiceDaDxf(c.dxf)
     const mq = (c.l * c.h) / 1e6
-    if (c.tipo === 'vetro') {
+    if (tipo === 'vetro') {
       const v = listino.vetro(codice)
       if (!v || v.euroMq <= 0) avvisi.push(`Vetro ${codice} senza prezzo`)
       peso += mq * (v?.kgMq ?? 0)
@@ -216,8 +224,13 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
     }
   }
 
-  // Accessori (le formule dei kit usano il peso del serramento).
-  for (const a of accessoriVoce(albero, input.kitScelti, zone, peso, regole, input.accessoriScelti)) {
+  // Accessori (le formule dei kit usano il peso del serramento) + quelli aggiunti a mano nella voce.
+  const accessori = [
+    ...accessoriVoce(albero, input.kitScelti, zone, peso, regole, input.accessoriScelti),
+    ...(input.accessoriAggiunti ?? []).filter(a => a.quantita > 0)
+      .map(a => ({ codice: a.codice, serie: a.serie, descrizione: a.descrizione, quantita: a.quantita, metri: false, regolaIgnota: false })),
+  ]
+  for (const a of accessori) {
     // "_AVVISO1" e simili: messaggi di FP PRO dentro i kit (es. misure fuori campo), non prodotti.
     if (a.codice.startsWith('_')) {
       avvisi.push(a.descrizione || a.codice)

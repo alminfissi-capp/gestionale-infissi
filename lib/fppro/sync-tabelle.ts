@@ -145,8 +145,10 @@ export const TABELLE_SYNC: TabellaSync[] = [
   {
     mysql: 'accessori',
     supabase: 'fp_accessori',
-    sql: 'select a.*, sa.serie as serie_nome from accessori a ' +
-      'left join serie_accessori sa on sa.pkid = a.serieid order by a.pkid',
+    // Marchio della serie (es. MEDISYSTEM): per sfogliare gli accessori da aggiungere alla voce.
+    sql: 'select a.*, sa.serie as serie_nome, ma.marca as marca_nome from accessori a ' +
+      'left join serie_accessori sa on sa.pkid = a.serieid ' +
+      'left join marca_accessori ma on ma.pkid = sa.marcaid order by a.pkid',
     colonne: ['pkid', 'serieid', 'codice', 'descr', 'costo_grezzo', 'un_vend', 'confezione',
       'min_fatt', 'varlistino'],
     mappa: r => ({
