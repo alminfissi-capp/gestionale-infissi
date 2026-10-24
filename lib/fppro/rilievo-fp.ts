@@ -1,6 +1,7 @@
 // Analisi di una struttura di FP PRO per il rilievo in cantiere (solo app).
 import type { Lato, RifFp, VoceFpDati } from '@/types/rilievo-fp'
-import type { NodoStruttura } from './strutture-xml'
+import type { AccessorioStruttura, NodoStruttura } from './strutture-xml'
+import { chiaveAccessorio } from './calcolo/accessori'
 
 const LATI_TELAIO: Lato[] = ['sinistra', 'alto', 'destra', 'basso']
 
@@ -120,16 +121,71 @@ export function problemiVoce(v: VoceFpDati, divisioni: Divisione[]): string[] {
 }
 
 /**
- * Albero senza accessori (ne' sciolti ne' dentro i kit): e' quasi tutto il peso delle
- * strutture e al rilievo non serve. I costi (fase 4) leggono l'albero completo dal database.
+ * Albero per il telefono: solo gli accessori OPZIONALI (sciolti e dentro i kit), che in
+ * cantiere si scelgono; gli altri sono quasi tutto il peso delle strutture e al rilievo non
+ * servono. I costi (fase 4) leggono l'albero completo dal database. Un kit senza righe nello
+ * STR (FP PRO scrive solo quelle del kit confermato) prende le sue dal catalogo dei kit.
  */
-export function alberoLeggero(albero: NodoStruttura[]): NodoStruttura[] {
+export function alberoLeggero(
+  albero: NodoStruttura[],
+  righeCatalogo: (kit: string) => AccessorioStruttura[] = () => [],
+): NodoStruttura[] {
   return albero.map(n => ({
     ...n,
-    accessori: [],
-    kit: n.kit.map(k => ({ ...k, accessori: [] })),
-    figli: alberoLeggero(n.figli),
+    accessori: n.accessori.filter(a => a.opzionale),
+    kit: n.kit.map(k => ({ ...k, accessori: (k.accessori.length > 0 ? k.accessori : righeCatalogo(k.codice)).filter(a => a.opzionale) })),
+    figli: alberoLeggero(n.figli, righeCatalogo),
   }))
+}
+
+export interface AccessorioOpzionale {
+  /** chiaveAccessorio: dove si salva la scelta in VoceFpDati.accessori */
+  chiave: string
+  codice: string
+  descrizione: string
+  /** Scelto se nella voce non si tocca (come lo conta FP PRO) */
+  predefinito: boolean
+}
+
+export interface GruppoAccessoriOpzionali {
+  titolo: string
+  /** Chiave del kit opzionale da cui dipende (si mostra solo se il kit e' scelto); null = sempre */
+  kit: string | null
+  accessori: AccessorioOpzionale[]
+}
+
+/**
+ * Accessori opzionali da scegliere nella voce, per kit (es. serratura e martellina dentro
+ * "MARTELLINA + MARTELLINA" dello scorrevole). Stesso codice ripetuto nel kit = una scelta sola.
+ */
+export function accessoriOpzionali(albero: NodoStruttura[]): GruppoAccessoriOpzionali[] {
+  const out: GruppoAccessoriOpzionali[] = []
+  const elenco = (righe: AccessorioStruttura[], chiave: (codice: string) => string): AccessorioOpzionale[] => {
+    const perCodice = new Map<string, AccessorioOpzionale>()
+    for (const a of righe.filter(x => x.opzionale)) {
+      const prima = perCodice.get(a.codice)
+      if (prima) prima.predefinito ||= a.confermato
+      else perCodice.set(a.codice, { chiave: chiave(a.codice), codice: a.codice, descrizione: a.descrizione, predefinito: a.confermato })
+    }
+    return [...perCodice.values()]
+  }
+  for (const n of tutti(albero)) {
+    const sciolti = elenco(n.accessori, c => chiaveAccessorio(n.codice, null, c))
+    if (sciolti.length > 0) out.push({ titolo: 'Accessori della struttura', kit: null, accessori: sciolti })
+    n.kit.forEach((k, i) => {
+      const accessori = elenco(k.accessori, c => chiaveAccessorio(n.codice, i, c))
+      if (accessori.length > 0) out.push({ titolo: k.descrizione || k.codice, kit: k.opzionale ? `${n.codice}:${i}` : null, accessori })
+    })
+  }
+  return out
+}
+
+/** Accessori opzionali scelti nella voce (solo nei kit attivi), per il riepilogo. */
+export function accessoriOpzionaliScelti(albero: NodoStruttura[], v: Pick<VoceFpDati, 'kit' | 'accessori'>): AccessorioOpzionale[] {
+  const predefiniti = new Map(kitOpzionali(albero).map(k => [k.chiave, k.predefinito]))
+  return accessoriOpzionali(albero)
+    .filter(g => g.kit === null || (v.kit?.[g.kit] ?? predefiniti.get(g.kit) ?? false))
+    .flatMap(g => g.accessori.filter(a => v.accessori?.[a.chiave] ?? a.predefinito))
 }
 
 /** Colori accessori della voce in ordine: l'elenco se c'e', altrimenti il singolo colore delle voci vecchie. */

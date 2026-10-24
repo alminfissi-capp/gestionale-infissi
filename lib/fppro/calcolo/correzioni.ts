@@ -29,3 +29,17 @@ export function oreDaMinuti(
   }
   return out
 }
+
+/**
+ * Tempi della struttura con i minuti scritti nella voce in cantiere (VoceFpDati.minuti):
+ * un valore scritto sostituisce quello della struttura, non si somma. Le correzioni del
+ * Calcolo si applicano dopo e vincono su entrambi.
+ */
+export function tempiConMinuti(tempi: OreVoce, minuti: Partial<Record<keyof OreVoce, number>> | undefined): OreVoce {
+  const out = { ...tempi }
+  for (const k of CHIAVI) {
+    const m = minuti?.[k]
+    if (typeof m === 'number' && Number.isFinite(m) && m >= 0) out[k] = m / 60
+  }
+  return out
+}

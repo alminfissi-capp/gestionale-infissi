@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { XMLParser } from 'fast-xml-parser'
-import { OPZIONI_XML, strutturaDaXml } from './strutture-xml'
+import { OPZIONI_XML, strutturaDaXml, type NodoStruttura } from './strutture-xml'
 import {
-  alberoLeggero, campiRiempimento, coloriAccessori, haRibalta, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
+  accessoriOpzionali, accessoriOpzionaliScelti, alberoLeggero, campiRiempimento, coloriAccessori, haRibalta, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
 } from './rilievo-fp'
 
 const leggi = (nome: string) => strutturaDaXml(new XMLParser(OPZIONI_XML).parse(
@@ -83,10 +83,11 @@ describe('nuovaVoceFp e problemiVoce', () => {
 })
 
 describe('alberoLeggero', () => {
-  it('toglie accessori e accessori dei kit, tiene tutto il resto', () => {
+  it('tiene solo gli accessori opzionali (sciolti e nei kit) e tutto il resto', () => {
     const leggero = alberoLeggero(al50.albero)
     const tutti = (n: typeof leggero): typeof leggero => n.flatMap(x => [x, ...tutti(x.figli)])
-    expect(tutti(leggero).every(n => n.accessori.length === 0 && n.kit.every(k => k.accessori.length === 0))).toBe(true)
+    expect(tutti(leggero).every(n => n.accessori.every(a => a.opzionale) && n.kit.every(k => k.accessori.every(a => a.opzionale)))).toBe(true)
+    expect(accessoriOpzionali(leggero)).toEqual(accessoriOpzionali(al50.albero))
     expect(divisioniStruttura(leggero)).toEqual(divisioniStruttura(al50.albero))
     expect(kitOpzionali(leggero)).toEqual(kitOpzionali(al50.albero))
     expect(campiRiempimento(leggero)).toEqual(campiRiempimento(al50.albero))
@@ -112,5 +113,46 @@ describe('haRibalta', () => {
   })
   it('solo battente: no', () => {
     expect(haRibalta(nodo([{ codice: 'PLANET 1A BATT-COMPLANARE-DS', descrizione: '1 anta finestra a battente', opzionale: true, confermato: true }]), {})).toBe(false)
+  })
+})
+
+describe('accessori opzionali (es. serratura dello scorrevole)', () => {
+  const acc = (codice: string, opzionale: boolean, confermato: boolean) => ({
+    codice, descrizione: codice, serie: '', tipo: 1, quantita: 1, dimRif: 0, dimCalcolo: 0, min: null, max: null, passo: null,
+    formula: null, dimDistribuzione: 0, formulaDistribuzione: null, opzionale, confermato,
+  })
+  const nodo = (codice: number, extra: Partial<NodoStruttura>): NodoStruttura => ({
+    tipo: 8620, codice, elementi: 1, x: null, y: null, prm: [], macro: null, ante: [], ird: [], pezzi: [], accessori: [], kit: [], figli: [], ...extra,
+  })
+  const albero = [nodo(10, {
+    accessori: [acc('RB304', true, true), acc('VITE', false, true)],
+    kit: [
+      { codice: 'MART-MART', descrizione: 'Martellina', serie: '', opzionale: true, confermato: true,
+        accessori: [acc('ACP 8002', false, true), acc('ACP 8020M', true, false), acc('ACP 50552', true, false), acc('ACP 50552', true, true)] },
+      { codice: 'CREM-CREM', descrizione: 'Cremonese', serie: '', opzionale: true, confermato: false, accessori: [] },
+    ],
+  })]
+
+  it('per kit, senza gli obbligatori, un codice ripetuto = una scelta (predefinito se uno e\' confermato)', () => {
+    expect(accessoriOpzionali(albero)).toEqual([
+      { titolo: 'Accessori della struttura', kit: null, accessori: [{ chiave: '10:a:RB304', codice: 'RB304', descrizione: 'RB304', predefinito: true }] },
+      { titolo: 'Martellina', kit: '10:0', accessori: [
+        { chiave: '10:0:ACP 8020M', codice: 'ACP 8020M', descrizione: 'ACP 8020M', predefinito: false },
+        { chiave: '10:0:ACP 50552', codice: 'ACP 50552', descrizione: 'ACP 50552', predefinito: true },
+      ] },
+    ])
+  })
+
+  it('kit senza righe nello STR: al telefono arrivano gli opzionali del catalogo', () => {
+    const leggero = alberoLeggero(albero, kit => (kit === 'CREM-CREM' ? [acc('ACP 8011', true, false), acc('ACP 8005', false, true)] : []))
+    expect(leggero[0].kit[1].accessori.map(a => a.codice)).toEqual(['ACP 8011'])
+    expect(leggero[0].kit[0].accessori.map(a => a.codice)).toEqual(['ACP 8020M', 'ACP 50552', 'ACP 50552'])
+  })
+
+  it('scelti: la scelta della voce vince sul predefinito; kit non scelto = nessuno', () => {
+    expect(accessoriOpzionaliScelti(albero, { kit: {}, accessori: { '10:0:ACP 8020M': true, '10:a:RB304': false } }).map(a => a.codice))
+      .toEqual(['ACP 8020M', 'ACP 50552'])
+    expect(accessoriOpzionaliScelti(albero, { kit: { '10:0': false }, accessori: { '10:0:ACP 8020M': true } }).map(a => a.codice))
+      .toEqual(['RB304'])
   })
 })

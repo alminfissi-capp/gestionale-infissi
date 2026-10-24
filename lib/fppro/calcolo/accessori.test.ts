@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { commessaFp } from '../__fixtures__/commesse'
-import { accessoriVoce, regoleDaElenchi, valutaFormula, type RigaKitCatalogo } from './accessori'
+import { accessoriVoce, chiaveAccessorio, regoleDaElenchi, valutaFormula, type RigaKitCatalogo } from './accessori'
 import { LARGHEZZE_PREDEFINITE, pezziECampi } from './geometria'
 
-function accessoriDi(nome: string, telaio: number, peso: number) {
+function accessoriDi(nome: string, telaio: number, peso: number, scelti: (albero: ReturnType<typeof commessaFp>['struttura']['albero']) => Record<string, boolean> = () => ({})) {
   const { dati, struttura } = commessaFp(nome)
   const { zone } = pezziECampi(struttura.albero, { L: dati.l, H: dati.h, L0: dati.l, H0: dati.h, quote: {} }, { ...LARGHEZZE_PREDEFINITE, telaio })
   const regole = regoleDaElenchi(struttura.serie, dati.anagrafica.righeKit, dati.anagrafica.collegati.map(c => ({ ...c, serie: '' })))
-  const acc = accessoriVoce(struttura.albero, {}, zone, peso, regole)
+  const acc = accessoriVoce(struttura.albero, {}, zone, peso, regole, scelti(struttura.albero))
   const q = (codice: string) => acc.filter(a => a.codice === codice).reduce((t, a) => t + a.quantita, 0)
   return { acc, q, dati }
 }
@@ -33,6 +33,28 @@ describe('accessori di 170-26G come FP PRO', () => {
   it('a metro con maggiorazione: spazzolino e guarnizioni vetro entro il 10%', () => {
     entro(q('AGP 8005'), 23.033, 0.1)
     entro(q('AGP 4014'), 12.793, 0.1)
+  })
+})
+
+describe('accessori opzionali scelti nella voce (170-26G, scorrevole)', () => {
+  // Chiave dell'accessorio `codice` nel primo kit che lo contiene.
+  const chiaveDi = (albero: ReturnType<typeof commessaFp>['struttura']['albero'], codice: string): string => {
+    for (const n of albero) {
+      const i = n.kit.findIndex(k => k.accessori.some(a => a.codice === codice))
+      if (i >= 0) return chiaveAccessorio(n.codice, i, codice)
+      const dentro = chiaveDi(n.figli, codice)
+      if (dentro) return dentro
+    }
+    return ''
+  }
+  it('martellina con vaschetta al posto della martellina quadra, serratura aggiunta', () => {
+    const { q } = accessoriDi('170-26G', 46.7, 170, albero => ({
+      [chiaveDi(albero, 'ACP 50552')]: false, [chiaveDi(albero, 'ACP 80201')]: true, [chiaveDi(albero, 'ACP 8020M')]: true,
+    }))
+    expect(q('ACP 50552')).toBe(0)
+    expect(q('ACP 80201')).toBe(2)
+    expect(q('ACP 8020M')).toBeGreaterThan(0)
+    expect(q('ACP 8012')).toBe(4)
   })
 })
 

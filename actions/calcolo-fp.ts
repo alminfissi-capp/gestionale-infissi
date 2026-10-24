@@ -12,7 +12,8 @@ import { listinoDaRighe, type RigheListino } from '@/lib/fppro/calcolo/listino'
 import { clienteDelRilievo, motivoCalcoloSuperato, motivoVoceNonCalcolabile, noteTelaioTesto } from '@/lib/fppro/calcolo/trasferimento'
 import { calcolaVoce, codiceDaDxf, type CalcoloVoce, type InputVoce, type ListinoCalcolo } from '@/lib/fppro/calcolo/voce'
 import { fattoreBarreCommessa } from '@/lib/fppro/calcolo/commessa'
-import type { CorrezioniVoce, OreVoce, ProfiloCalcolo } from '@/lib/fppro/calcolo/tipi'
+import type { CorrezioniVoce, OreVoce, PercentualiCalcolo, ProfiloCalcolo } from '@/lib/fppro/calcolo/tipi'
+import { tempiConMinuti } from '@/lib/fppro/calcolo/correzioni'
 import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
 import { createPreventivo } from '@/actions/preventivi'
 import type { PreventivoInput } from '@/types/preventivo'
@@ -66,15 +67,30 @@ async function inLista<T>(
 
 const tuttiNodi = (nodi: NodoStruttura[]): NodoStruttura[] => nodi.flatMap(n => [n, ...tuttiNodi(n.figli)])
 
-export async function getProfiliCalcoloFp(): Promise<{ fpId: number; nome: string }[] | { errore: string }> {
+export interface ProfiloCalcoloFp {
+  fpId: number
+  nome: string
+  /** Percentuali del profilo di FP PRO: i valori di partenza della finestra delle percentuali */
+  percentuali: Required<PercentualiCalcolo>
+}
+
+export async function getProfiliCalcoloFp(): Promise<ProfiloCalcoloFp[] | { errore: string }> {
   await requireAccesso('rilievo')
   try {
     const supabase = await createClient()
     const orgId = await getOrgId()
-    const { data, error } = await supabase.from('fp_config_prev').select('fp_id, nome')
+    const { data, error } = await supabase.from('fp_config_prev')
+      .select('fp_id, nome, spese_generali, utile, provvigione, imballo, viaggio, materiali_vari, altro')
       .eq('organization_id', orgId).eq('presente', true).order('fp_id')
     if (error) throw new Error(error.message)
-    return (data ?? []).map(r => ({ fpId: r.fp_id as number, nome: r.nome as string }))
+    return (data ?? []).map(r => ({
+      fpId: r.fp_id as number,
+      nome: r.nome as string,
+      percentuali: {
+        spese_generali: num(r.spese_generali), utile: num(r.utile), provvigione: num(r.provvigione), imballo: num(r.imballo),
+        viaggio: num(r.viaggio), materiali_vari: num(r.materiali_vari), altro: num(r.altro),
+      },
+    }))
   } catch (e) {
     return { errore: messaggio(e, 'Profili di calcolo non disponibili') }
   }
@@ -112,6 +128,12 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       materiali_vari: num(config.materiali_vari), altro: num(config.altro),
     }
     const maggiorazioni = { vetri: num(dati.maggrottvetri), pannelli: num(dati.maggrottpannelli) }
+
+    // Percentuali comuni del rilievo: sopra quelle del profilo, sotto le correzioni della voce.
+    const { data: rilievo, error: eRilievo } = await supabase.from('rilievi_veloci').select('percentuali_fp')
+      .eq('organization_id', orgId).eq('id', rilievoId).maybeSingle()
+    if (eRilievo) throw new Error(eRilievo.message)
+    Object.assign(profilo, (rilievo?.percentuali_fp as PercentualiCalcolo | null) ?? {})
 
     const { data: voci, error: eVoci } = await supabase.from('rilievo_veloce_voci')
       .select('id, ordine, voce, quantita, fp, correzioni_fp').eq('organization_id', orgId).eq('rilievo_id', rilievoId)
@@ -223,9 +245,9 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       const input: InputVoce = {
         albero: s.albero, serie: s.serie, poligoni: s.poligoni,
         L: v.fp.larghezza, H: v.fp.altezza, L0: s.l_nominale ?? v.fp.larghezza, H0: s.h_nominale ?? v.fp.altezza,
-        quote: v.fp.quote ?? {}, kitScelti: v.fp.kit ?? {},
+        quote: v.fp.quote ?? {}, kitScelti: v.fp.kit ?? {}, accessoriScelti: v.fp.accessori ?? {},
         vetriScelti: Object.fromEntries(Object.entries(v.fp.vetri ?? {}).map(([k, x]) => [k, x.codice])),
-        telai: v.fp.telai, anta: v.fp.anta ?? undefined, tempi: s.tempi ?? { taglio: 0, lavorazione: 0, montaggio: 0, assemblaggio: 0, posa: 0 },
+        telai: v.fp.telai, anta: v.fp.anta ?? undefined, tempi: tempiConMinuti(s.tempi ?? { taglio: 0, lavorazione: 0, montaggio: 0, assemblaggio: 0, posa: 0 }, v.fp.minuti),
         profilo, maggiorazioni, correzioni: v.correzioni_fp ?? undefined,
       }
       daCalcolare.push({ v, s, input, listino: listinoPer(colore, coloriAccessori(v.fp)), regole })
@@ -285,6 +307,44 @@ export async function salvaCorrezioniVoce(voceId: string, correzioni: Correzioni
     return { ok: true }
   } catch (e) {
     return { errore: messaggio(e, 'Correzioni non salvate') }
+  }
+}
+
+/**
+ * Percentuali comuni del rilievo (finestra "Percentuali" del Calcolo). Valgono per tutte le
+ * voci: si tolgono quelle scritte nelle singole voci (scelta dell'utente: salvare la finestra
+ * sovrascrive sempre). Tutte le voci vengono segnate corrette adesso, cosi' il calcolo salvato
+ * risulta superato e va rifatto prima del trasferimento.
+ */
+export async function salvaPercentualiRilievo(rilievoId: string, percentuali: PercentualiCalcolo): Promise<{ ok: true } | { errore: string }> {
+  await requireAccesso('rilievo', 'scrittura')
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+    const pulite = Object.fromEntries(Object.entries(percentuali).filter(([, v]) => typeof v === 'number' && Number.isFinite(v)))
+    const { data, error } = await supabase.from('rilievi_veloci')
+      .update({ percentuali_fp: Object.keys(pulite).length > 0 ? pulite : null })
+      .eq('organization_id', orgId).eq('id', rilievoId).select('id')
+    if (error) throw new Error(error.message)
+    if (!data || data.length === 0) return { errore: 'Rilievo non trovato' }
+
+    const { data: voci, error: eVoci } = await supabase.from('rilievo_veloce_voci').select('id, correzioni_fp')
+      .eq('organization_id', orgId).eq('rilievo_id', rilievoId).not('fp', 'is', null)
+    if (eVoci) throw new Error(eVoci.message)
+    const ora = new Date().toISOString()
+    for (const v of voci ?? []) {
+      const c = (v.correzioni_fp as CorrezioniVoce | null) ?? null
+      const senza: CorrezioniVoce | null = c ? { ...c } : null
+      if (senza) delete senza.percentuali
+      const vuote = !senza || Object.keys(senza).length === 0
+      const { error: e } = await supabase.from('rilievo_veloce_voci')
+        .update({ correzioni_fp: vuote ? null : senza, correzioni_fp_at: ora })
+        .eq('organization_id', orgId).eq('id', v.id as string)
+      if (e) throw new Error(e.message)
+    }
+    return { ok: true }
+  } catch (e) {
+    return { errore: messaggio(e, 'Percentuali non salvate') }
   }
 }
 
@@ -404,7 +464,9 @@ export interface DatiPaginaCalcolo {
   cliente: ClienteSnapshotRilievo
   configPrevFpId: number | null
   calcolo: CalcoloRilievo | null
-  profili: { fpId: number; nome: string }[]
+  profili: ProfiloCalcoloFp[]
+  /** Percentuali comuni del rilievo (vuoto = profilo di calcolo) */
+  percentualiRilievo: PercentualiCalcolo
   correzioni: Record<string, CorrezioniVoce>
   /** Perche' il calcolo salvato non e' piu' valido (voci cambiate dopo); null = valido */
   superato: string | null
@@ -417,7 +479,7 @@ export async function getDatiCalcoloRilievo(rilievoId: string): Promise<DatiPagi
   try {
     const supabase = await createClient()
     const orgId = await getOrgId()
-    const { data: rilievo, error } = await supabase.from('rilievi_veloci').select('id, cliente_snapshot, config_prev_fp_id, calcolo')
+    const { data: rilievo, error } = await supabase.from('rilievi_veloci').select('id, cliente_snapshot, config_prev_fp_id, calcolo, percentuali_fp')
       .eq('organization_id', orgId).eq('id', rilievoId).maybeSingle()
     if (error) throw new Error(error.message)
     if (!rilievo) return { errore: 'Rilievo non trovato' }
@@ -441,6 +503,7 @@ export async function getDatiCalcoloRilievo(rilievoId: string): Promise<DatiPagi
       calcolo,
       superato,
       profili,
+      percentualiRilievo: (rilievo.percentuali_fp as PercentualiCalcolo | null) ?? {},
       correzioni,
       preventivi: (prev ?? []).map(p => ({ id: p.id as string, numero: (p.numero as string | null) ?? null })),
     }

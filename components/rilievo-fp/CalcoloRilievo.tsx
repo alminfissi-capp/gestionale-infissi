@@ -5,15 +5,16 @@
 import { Fragment, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowLeft, ChevronDown, ChevronRight, Loader2, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Info, Loader2, Percent, Plus, Trash2 } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { formatEuro } from '@/lib/pricing'
 import {
-  calcolaRilievoFp, salvaCorrezioniVoce, trasferisciInPreventivi,
+  calcolaRilievoFp, salvaCorrezioniVoce, salvaPercentualiRilievo, trasferisciInPreventivi,
   type CalcoloRilievo as Calcolo, type DatiPaginaCalcolo, type VoceCalcolata,
 } from '@/actions/calcolo-fp'
-import type { CorrezioniVoce, OreVoce } from '@/lib/fppro/calcolo/tipi'
+import type { CorrezioniVoce, OreVoce, PercentualiCalcolo } from '@/lib/fppro/calcolo/tipi'
 import { campiMinuti, minutiDaOre, oreDaMinuti } from '@/lib/fppro/calcolo/correzioni'
 import { nomeCliente } from './ElencoRilievi'
 
@@ -35,6 +36,9 @@ const PERCENTUALI = [
 ] as const
 const GRUPPI = { profili: 'Profili', accessori: 'Accessori', vetri: 'Vetri', pannelli: 'Pannelli' } as const
 
+/** Frazione -> testo in % per i campi (0.125 -> "12.5") */
+const testoPercento = (v: number | undefined) => (v === undefined ? '' : String(Math.round(v * 10000) / 100))
+
 const oreTotali = (o: OreVoce) => o.taglio + o.lavorazione + o.montaggio + o.assemblaggio + o.posa
 const numero = (s: string) => {
   const n = Number(s.replace(',', '.'))
@@ -45,8 +49,8 @@ const numero = (s: string) => {
  * Pannello delle correzioni di una voce. I minuti partono da quelli usati nel calcolo (struttura
  * + correzioni): si vede e si cambia il valore vero. Percentuali vuote = profilo di calcolo.
  */
-function Correzioni({ iniziali, oreAttuali, onSalva, inCorso }: {
-  iniziali: CorrezioniVoce; oreAttuali: OreVoce; onSalva: (c: CorrezioniVoce) => void; inCorso: boolean
+function Correzioni({ iniziali, oreAttuali, comuni, onSalva, inCorso }: {
+  iniziali: CorrezioniVoce; oreAttuali: OreVoce; comuni: PercentualiCalcolo; onSalva: (c: CorrezioniVoce) => void; inCorso: boolean
 }) {
   const [ore, setOre] = useState<Record<string, string>>(() => campiMinuti(oreAttuali))
   const [perc, setPerc] = useState<Record<string, string>>(
@@ -72,7 +76,7 @@ function Correzioni({ iniziali, oreAttuali, onSalva, inCorso }: {
       <p className="text-xs text-muted-foreground">Le correzioni valgono solo per questa voce.</p>
       <div>
         <p className="mb-1 font-medium">Minuti per pezzo</p>
-        <p className="mb-1 text-xs text-muted-foreground">Sono i minuti usati ora nel calcolo (quelli della struttura di FP PRO, se non li hai cambiati). Scrivi il valore giusto: sostituisce, non si somma.</p>
+        <p className="mb-1 text-xs text-muted-foreground">Sono i minuti usati ora nel calcolo (quelli scritti nel rilievo, altrimenti quelli della struttura di FP PRO). Scrivi il valore giusto: sostituisce, non si somma.</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           {ORE.map(o => (
             <label key={o.chiave} className="text-xs">{o.etichetta}
@@ -83,11 +87,11 @@ function Correzioni({ iniziali, oreAttuali, onSalva, inCorso }: {
       </div>
       <div>
         <p className="mb-1 font-medium">Percentuali (%)</p>
-        <p className="mb-1 text-xs text-muted-foreground">Vuoto = valore del profilo di calcolo.</p>
+        <p className="mb-1 text-xs text-muted-foreground">Vuoto = valore comune del rilievo (in grigio), dalla finestra Percentuali.</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {PERCENTUALI.map(p => (
             <label key={p.chiave} className="text-xs">{p.etichetta}
-              <Input inputMode="decimal" value={perc[p.chiave] ?? ''} onChange={e => setPerc({ ...perc, [p.chiave]: e.target.value })} />
+              <Input inputMode="decimal" placeholder={testoPercento(comuni[p.chiave])} value={perc[p.chiave] ?? ''} onChange={e => setPerc({ ...perc, [p.chiave]: e.target.value })} />
             </label>
           ))}
         </div>
@@ -105,6 +109,67 @@ function Correzioni({ iniziali, oreAttuali, onSalva, inCorso }: {
       </div>
       <Button onClick={salva} disabled={inCorso}>{inCorso && <Loader2 className="mr-2 size-4 animate-spin" />}Salva e ricalcola</Button>
     </div>
+  )
+}
+
+/**
+ * Finestra delle percentuali comuni del rilievo: salvando valgono per TUTTE le voci (si tolgono
+ * quelle scritte nelle singole voci). Se qualche voce ne ha di sue lo dice, e il tasto le
+ * risincronizza. Campi vuoti = profilo di calcolo di FP PRO (in grigio).
+ */
+function FinestraPercentuali({ aperta, onChiudi, iniziali, profilo, diverse, inCorso, onSalva }: {
+  aperta: boolean
+  onChiudi: () => void
+  iniziali: PercentualiCalcolo
+  profilo: PercentualiCalcolo
+  /** Voci con percentuali proprie (nome da mostrare) */
+  diverse: string[]
+  inCorso: boolean
+  onSalva: (p: PercentualiCalcolo) => void
+}) {
+  const [campi, setCampi] = useState<Record<string, string>>(() => Object.fromEntries(PERCENTUALI.map(p => [p.chiave, testoPercento(iniziali[p.chiave])])))
+  const salva = () => {
+    const out: PercentualiCalcolo = {}
+    for (const { chiave } of PERCENTUALI) {
+      const testo = (campi[chiave] ?? '').trim()
+      const v = numero(testo)
+      if (testo !== '' && v !== null) out[chiave] = v / 100
+    }
+    onSalva(out)
+  }
+  return (
+    <Dialog open={aperta} onOpenChange={o => { if (!o) onChiudi() }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Percentuali del rilievo</DialogTitle>
+          <DialogDescription>Valgono per tutte le voci. Vuoto = valore del profilo di calcolo (in grigio). Dopo si possono ancora cambiare voce per voce con Correggi.</DialogDescription>
+        </DialogHeader>
+        {diverse.length > 0 && (
+          <div className="flex gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
+            <Info className="mt-0.5 size-4 shrink-0" />
+            <p>
+              {diverse.length === 1 ? 'Una voce ha' : `${diverse.length} voci hanno`} percentuali diverse: {diverse.join(', ')}.
+              {' '}Salvando, tutte le voci tornano a queste percentuali.
+            </p>
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {PERCENTUALI.map(p => (
+            <label key={p.chiave} className="text-xs">{p.etichetta} (%)
+              <Input inputMode="decimal" placeholder={testoPercento(profilo[p.chiave])} value={campi[p.chiave] ?? ''}
+                onChange={e => setCampi({ ...campi, [p.chiave]: e.target.value })} />
+            </label>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onChiudi}>Annulla</Button>
+          <Button onClick={salva} disabled={inCorso}>
+            {inCorso && <Loader2 className="mr-2 size-4 animate-spin" />}
+            {diverse.length > 0 ? 'Salva e risincronizza tutte' : 'Salva per tutte le voci'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -142,6 +207,18 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
   const [dettaglio, setDettaglio] = useState<string | null>(null)
   const [inCorso, setInCorso] = useState<'calcolo' | 'trasferimento' | null>(null)
   const [superato, setSuperato] = useState<string | null>(dati.superato)
+  const [percentuali, setPercentuali] = useState<PercentualiCalcolo>(dati.percentualiRilievo)
+  const [finestraPercentuali, setFinestraPercentuali] = useState(false)
+  const profiloScelto = dati.profili.find(p => p.fpId === configId)
+  // Valori comuni effettivi: quelli del rilievo, altrimenti quelli del profilo scelto.
+  const comuni: PercentualiCalcolo = { ...(profiloScelto?.percentuali ?? {}), ...percentuali }
+  const nomeVoce = (id: string) => {
+    const v = calcolo?.voci.find(x => x.voceId === id)
+    return v ? (v.posizione || v.struttura) : 'voce'
+  }
+  const vociDiverse = Object.entries(correzioni)
+    .filter(([, c]) => c.percentuali && Object.keys(c.percentuali).length > 0)
+    .map(([id]) => nomeVoce(id))
 
   const calcola = async () => {
     if (configId === null) return
@@ -166,6 +243,23 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
     setCorrezioni({ ...correzioni, [voceId]: c })
     setSuperato('Ricalcola: dopo il calcolo sono state modificate delle voci')
     setAperta(null)
+    await calcola()
+  }
+
+  const salvaPercentuali = async (p: PercentualiCalcolo) => {
+    setInCorso('calcolo')
+    const r = await salvaPercentualiRilievo(rilievoId, p)
+    setInCorso(null)
+    if ('errore' in r) { toast.error(r.errore); return }
+    setPercentuali(p)
+    setCorrezioni(Object.fromEntries(Object.entries(correzioni).flatMap(([id, c]) => {
+      const senza = { ...c }
+      delete senza.percentuali
+      return Object.keys(senza).length > 0 ? [[id, senza]] : []
+    })))
+    setFinestraPercentuali(false)
+    setSuperato('Ricalcola: sono cambiate le percentuali')
+    toast.success('Percentuali applicate a tutte le voci')
     await calcola()
   }
 
@@ -205,8 +299,17 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
         <Button onClick={calcola} disabled={configId === null || inCorso !== null}>
           {inCorso === 'calcolo' && <Loader2 className="mr-2 size-4 animate-spin" />}{calcolo ? 'Ricalcola' : 'Calcola'}
         </Button>
+        <Button variant="outline" className="gap-1.5" onClick={() => setFinestraPercentuali(true)} disabled={inCorso !== null}>
+          <Percent className="size-4" />Percentuali
+        </Button>
         {dati.profili.length === 0 && <p className="text-sm text-amber-700">Nessun profilo di calcolo: sincronizza FP PRO dal Catalogo FP PRO.</p>}
       </div>
+      {/* key: a ogni apertura i campi ripartono dai valori salvati */}
+      {finestraPercentuali && (
+        <FinestraPercentuali key={JSON.stringify(percentuali)} aperta onChiudi={() => setFinestraPercentuali(false)}
+          iniziali={percentuali} profilo={profiloScelto?.percentuali ?? {}} diverse={vociDiverse} inCorso={inCorso !== null}
+          onSalva={p => void salvaPercentuali(p)} />
+      )}
 
       {calcolo && (
         <>
@@ -251,7 +354,7 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
                     {dettaglio === v.voceId && <tr><td colSpan={7} className="px-8 pb-3"><DettaglioMateriali voce={v} /></td></tr>}
                     {aperta === v.voceId && (
                       <tr><td colSpan={7} className="p-2">
-                        <Correzioni iniziali={correzioni[v.voceId] ?? {}} oreAttuali={v.calcolo.ore} inCorso={inCorso !== null} onSalva={c => void salvaCorrezioni(v.voceId, c)} />
+                        <Correzioni iniziali={correzioni[v.voceId] ?? {}} oreAttuali={v.calcolo.ore} comuni={comuni} inCorso={inCorso !== null} onSalva={c => void salvaCorrezioni(v.voceId, c)} />
                       </td></tr>
                     )}
                   </Fragment>

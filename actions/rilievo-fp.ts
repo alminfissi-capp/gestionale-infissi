@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
 import { selectAll } from '@/lib/supabase/paginate'
 import { alberoLeggero } from '@/lib/fppro/rilievo-fp'
-import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
+import { accessoriDaCatalogo, type RigaKitCatalogo } from '@/lib/fppro/calcolo/accessori'
+import type { AccessorioStruttura, NodoStruttura } from '@/lib/fppro/strutture-xml'
 import type {
   EliminatoFp, PosizioneFp, PreferenzaFp, RilievoFp, TabellaCatalogoLocale, VoceFp, VoceFpDati,
 } from '@/types/rilievo-fp'
@@ -26,6 +27,48 @@ const blocchi = <T,>(righe: T[], n: number): T[][] => {
   const out: T[][] = []
   for (let i = 0; i < righe.length; i += n) out.push(righe.slice(i, i + n))
   return out
+}
+
+type ClientSupabase = Awaited<ReturnType<typeof createClient>>
+
+/**
+ * Accessori opzionali del catalogo dei kit (fp_kit_righe) per i kit che nello STR non hanno
+ * righe: FP PRO scrive solo quelle del kit confermato, ma in cantiere si scelgono anche negli
+ * altri (es. la serratura nella cremonese dello scorrevole). Righe limitate ad altre serie escluse.
+ */
+async function opzionaliDeiKit(supabase: ClientSupabase, orgId: string, alberi: NodoStruttura[][]) {
+  const tutti = (nodi: NodoStruttura[]): NodoStruttura[] => nodi.flatMap(n => [n, ...tutti(n.figli)])
+  const nomi = [...new Set(alberi.flatMap(a => tutti(a).flatMap(n => n.kit.filter(k => k.accessori.length === 0).map(k => k.codice))))]
+  const perKit = new Map<string, (RigaKitCatalogo & { serie: string[] | null })[]>()
+  for (const nomiBlocco of blocchi(nomi, BLOCCO_ID)) {
+    const { data: kit, error } = await supabase.from('fp_kit').select('fp_id, nome')
+      .eq('organization_id', orgId).eq('presente', true).in('nome', nomiBlocco)
+    if (error) throw new Error(error.message)
+    const nomeDi = new Map((kit ?? []).map(k => [k.fp_id as number, k.nome as string]))
+    for (const idBlocco of blocchi([...nomeDi.keys()], BLOCCO_ID)) {
+      const { data: righe, error: e2 } = await supabase.from('fp_kit_righe')
+        .select('fp_id, kit_fp_id, codice, tipo, quantita, opzionale, dim_rif, lim_inf, lim_sup, passo, formula_r, formula_dist, dati')
+        .eq('organization_id', orgId).eq('presente', true).eq('opzionale', true).in('kit_fp_id', idBlocco)
+      if (e2) throw new Error(e2.message)
+      const opzionali = (righe ?? []) as (RigaKitCatalogo & { kit_fp_id: number })[]
+      const serie = new Map<number, string[]>()
+      for (const rb of blocchi(opzionali.map(r => r.fp_id), BLOCCO_ID)) {
+        const { data: s, error: e3 } = await supabase.from('fp_kit_righe_serie').select('riga_fp_id, serie')
+          .eq('organization_id', orgId).eq('presente', true).in('riga_fp_id', rb)
+        if (e3) throw new Error(e3.message)
+        for (const x of s ?? []) serie.set(x.riga_fp_id as number, [...(serie.get(x.riga_fp_id as number) ?? []), x.serie as string])
+      }
+      for (const r of opzionali) {
+        const nome = nomeDi.get(r.kit_fp_id)
+        if (!nome) continue
+        perKit.set(nome, [...(perKit.get(nome) ?? []), { ...r, serie: serie.get(r.fp_id) ?? null }])
+      }
+    }
+  }
+  return (kit: string, serieStruttura: string[]): AccessorioStruttura[] => {
+    const righe = (perKit.get(kit) ?? []).filter(r => r.serie === null || r.serie.some(x => serieStruttura.includes(x)))
+    return accessoriDaCatalogo(righe)
+  }
 }
 
 /**
@@ -51,7 +94,7 @@ export async function scaricaCatalogo(
     }
     const query =
       tabella === 'fp_strutture'
-        ? base('fp_strutture', 'id, percorso, cartella, nome, codice, descrizione, serie, l_nominale, h_nominale, albero, poligoni, immagine, presente').is('errore', null)
+        ? base('fp_strutture', 'id, percorso, cartella, nome, codice, descrizione, serie, l_nominale, h_nominale, albero, poligoni, immagine, tempi, presente').is('errore', null)
         : tabella === 'fp_colori'
           ? base('fp_colori', 'fp_id, descrizione, per_profili, per_accessori, presente').or('per_profili.eq.true,per_accessori.eq.true')
           : tabella === 'fp_vetri'
@@ -64,8 +107,9 @@ export async function scaricaCatalogo(
     const { data, error } = await query.order('segno_server').order(chiave).limit(dimensionePagina(tabella))
     if (error) return { errore: error.message }
     const grezze = (data ?? []) as unknown as (Record<string, unknown> & { segno_server: string })[]
+    const catalogo = tabella === 'fp_strutture' ? await opzionaliDeiKit(supabase, orgId, grezze.map(r => r.albero as NodoStruttura[])) : null
     const righe = tabella === 'fp_strutture'
-      ? grezze.map(r => ({ ...r, albero: alberoLeggero(r.albero as NodoStruttura[]) }))
+      ? grezze.map(r => ({ ...r, albero: alberoLeggero(r.albero as NodoStruttura[], kit => catalogo!(kit, r.serie as string[])) }))
       : tabella === 'fp_telai'
         // Al telefono non serve tutto `dati`: solo gli utilizzi del profilo.
         ? grezze.map(({ dati, ...r }) => ({ ...r, utilizzi: utilizziProfilo(dati as Record<string, unknown> | null) }))

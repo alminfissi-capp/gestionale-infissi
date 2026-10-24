@@ -25,9 +25,12 @@ export interface OreVoce {
   posa: number
 }
 
+/** Percentuali del profilo di calcolo che si possono cambiare (frazioni: 0.1 = 10%) */
+export type PercentualiCalcolo = Partial<Pick<ProfiloCalcolo, 'spese_generali' | 'utile' | 'provvigione' | 'imballo' | 'viaggio' | 'materiali_vari' | 'altro'>>
+
 /** Correzioni fatte a mano su una voce: valgono solo per quella voce */
 export interface CorrezioniVoce {
   ore?: Partial<OreVoce>
-  percentuali?: Partial<Pick<ProfiloCalcolo, 'spese_generali' | 'utile' | 'provvigione' | 'imballo' | 'viaggio' | 'materiali_vari' | 'altro'>>
+  percentuali?: PercentualiCalcolo
   extra?: { descrizione: string; importo: number }[]
 }

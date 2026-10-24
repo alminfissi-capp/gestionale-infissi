@@ -12,20 +12,31 @@ import { db } from '@/lib/db'
 import { salvaVoceLocale } from '@/lib/rilievo-fp-locale'
 import { cambiaPreferenzaFp } from '@/lib/preferenze-fp'
 import {
-  campiRiempimento, coloriAccessori, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
+  accessoriOpzionali, campiRiempimento, coloriAccessori, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
+  type GruppoAccessoriOpzionali,
 } from '@/lib/fppro/rilievo-fp'
 import { profiliPer, UTILIZZI_ANTA, UTILIZZO_TELAIO } from '@/lib/fppro/profili-voce'
 import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
 import DisegnoConNote from './DisegnoConNote'
 import SceltaFp, { type VoceScelta } from './SceltaFp'
 import SceltaTipologia from './SceltaTipologia'
-import type { AnteprimaProfilo, Lato, RifFp, StrutturaLocale, TelaioLocale, VoceFp, VoceFpDati } from '@/types/rilievo-fp'
+import type { AnteprimaProfilo, FaseLavoro, Lato, RifFp, StrutturaLocale, TelaioLocale, VoceFp, VoceFpDati } from '@/types/rilievo-fp'
 
 interface Props {
   rilievoId: string
   voceId: string | null
+  /** Voce da copiare: si apre una voce NUOVA con le sue scelte, salvata solo con Salva */
+  copiaDa?: string | null
   onFine: () => void
 }
+
+const FASI: { fase: FaseLavoro; etichetta: string }[] = [
+  { fase: 'taglio', etichetta: 'Taglio' },
+  { fase: 'lavorazione', etichetta: 'Lavorazione' },
+  { fase: 'montaggio', etichetta: 'Montaggio' },
+  { fase: 'assemblaggio', etichetta: 'Assemblaggio' },
+  { fase: 'posa', etichetta: 'Posa in opera' },
+]
 
 const LATI: { lato: Lato; etichetta: string }[] = [
   { lato: 'sinistra', etichetta: 'Sinistro' },
@@ -60,12 +71,43 @@ function Pannello({ titolo, children, aperto = true }: { titolo: string; childre
  * centro il disegno con le note del telaio sui 4 lati, a destra i pannelli delle scelte.
  * Gli elenchi sono menu a tendina che si chiudono dopo la scelta (SceltaFp).
  */
-export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
+/** Accessori opzionali di un kit (es. serratura, martellina): spunta = si conta nel calcolo. */
+function AccessoriKit({ gruppo, scelte, onCambia }: {
+  gruppo: GruppoAccessoriOpzionali; scelte: Record<string, boolean> | undefined; onCambia: (scelte: Record<string, boolean>) => void
+}) {
+  return (
+    <div className="ml-6 space-y-1 border-l pl-2">
+      {gruppo.accessori.map(a => (
+        <label key={a.chiave} className="flex items-start gap-2 text-xs">
+          <input type="checkbox" className="mt-0.5 size-3.5" checked={scelte?.[a.chiave] ?? a.predefinito}
+            onChange={e => onCambia({ ...(scelte ?? {}), [a.chiave]: e.target.checked })} />
+          <span><span className="block">{a.descrizione || a.codice}</span><span className="block text-muted-foreground">{a.codice}</span></span>
+        </label>
+      ))}
+    </div>
+  )
+}
+
+export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFine }: Props) {
   const esistente = useLiveQuery(() => (voceId ? db.vociFp.get(voceId) : undefined), [voceId])
+  // Copia: stesse scelte della voce d'origine, id nuovo e in fondo all'elenco. Non e' ancora
+  // nel telefono finche' non si preme Salva (o la si modifica e si esce, come le altre voci).
+  const [idCopia] = useState(() => crypto.randomUUID())
+  const copia = useLiveQuery(async () => {
+    if (!copiaDa || voceId) return undefined
+    const origine = await db.vociFp.get(copiaDa)
+    if (!origine) return undefined
+    const ordine = await db.vociFp.where('rilievoId').equals(rilievoId).count()
+    const { daInviare, ...dati } = origine
+    void daInviare
+    const nuova: VoceFp = { ...dati, id: idCopia, ordine, aggiornatoAt: new Date().toISOString() }
+    return nuova
+  }, [copiaDa, voceId, rilievoId, idCopia])
+  const [copiaSalvata, setCopiaSalvata] = useState(false)
   const [bozza, setBozza] = useState<VoceFp | null>(null)
   // true = ci sono modifiche non ancora salvate nel telefono
   const [sporca, setSporca] = useState(false)
-  const voce = bozza ?? esistente ?? null
+  const voce = bozza ?? esistente ?? copia ?? null
   const [serieScelta, setSerieScelta] = useState<string | null>(null)
   const [cambiaStruttura, setCambiaStruttura] = useState(false)
   const [quantitaTesto, setQuantitaTesto] = useState<string | null>(null)
@@ -105,6 +147,7 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
   const divisioni = useMemo(() => (struttura ? divisioniStruttura(struttura.albero) : []), [struttura])
   const campi = useMemo(() => (struttura ? campiRiempimento(struttura.albero) : []), [struttura])
   const kit = useMemo(() => (struttura ? kitOpzionali(struttura.albero) : []), [struttura])
+  const opzionali = useMemo(() => (struttura ? accessoriOpzionali(struttura.albero) : []), [struttura])
   const telaiDefault = useMemo(() => (struttura ? telaiStruttura(struttura.albero) : {}), [struttura])
 
   const pref = (tipo: 'colore' | 'vetro') => new Set(preferenze.filter(p => p.tipo === tipo).map(p => String(p.rif)))
@@ -128,12 +171,15 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
 
   // Si salva solo se qualcosa e' cambiato: aprire e chiudere una voce non deve renderla
   // "piu' recente" di una modifica vera fatta su un altro telefono.
-  const salva = async (chiudi: boolean, avviso = true) => {
-    if (voce && sporca) {
+  // Una copia appena aperta si salva col tasto Salva anche senza modifiche; con Indietro no.
+  const copiaDaSalvare = copiaDa !== null && !copiaSalvata
+  const salva = async (chiudi: boolean, avviso = true, conCopia = false) => {
+    if (voce && (sporca || (conCopia && copiaDaSalvare))) {
       await salvaVoceLocale(voce)
       setSporca(false)
+      setCopiaSalvata(true)
       daSalvare.current = null
-      if (avviso) toast.success('Voce salvata')
+      if (avviso) toast.success(copiaDaSalvare ? 'Copia salvata' : 'Voce salvata')
     }
     if (chiudi) onFine()
   }
@@ -193,7 +239,8 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
                 if (n !== null && n >= 1) aggiorna({}, { quantita: Math.round(n) })
               }} />
           </div>
-          <Button size="sm" className="ml-auto gap-1.5" onClick={() => void salva(true)}><Save className="size-4" />Salva</Button>
+          {copiaDaSalvare && <span className="self-center text-xs text-blue-700">Copia: modifica e premi Salva</span>}
+          <Button size="sm" className="ml-auto gap-1.5" onClick={() => void salva(true, true, true)}><Save className="size-4" />Salva</Button>
         </>
       )}
     </div>
@@ -213,7 +260,7 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
     </div>
   )
 
-  if (!voceId && !bozza) return <div className="space-y-3">{testata}{sceltaSerieStruttura}</div>
+  if (!voceId && !copiaDa && !bozza) return <div className="space-y-3">{testata}{sceltaSerieStruttura}</div>
   if (!voce || !v || struttura === undefined) return <div className="space-y-3">{testata}<p className="text-sm text-muted-foreground">Caricamento…</p></div>
   if (cambiaStruttura) return <div className="space-y-3">{testata}{sceltaSerieStruttura}</div>
 
@@ -322,14 +369,29 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
             {campi.length === 0 && <p className="text-xs text-muted-foreground">Questa struttura non ha vetri.</p>}
           </Pannello>
 
-          {kit.length > 0 && (
+          {(kit.length > 0 || opzionali.length > 0) && (
             <Pannello titolo="Accessori">
-              {kit.map(k => (
-                <label key={k.chiave} className="flex items-start gap-2 text-sm">
-                  <input type="checkbox" className="mt-0.5 size-4" checked={v.kit[k.chiave] ?? k.predefinito}
-                    onChange={e => aggiorna({ kit: { ...v.kit, [k.chiave]: e.target.checked } })} />
-                  <span><span className="block">{k.descrizione || k.codice}</span><span className="block text-xs text-muted-foreground">{k.codice}</span></span>
-                </label>
+              {kit.map(k => {
+                const scelto = v.kit[k.chiave] ?? k.predefinito
+                return (
+                  <div key={k.chiave} className="space-y-1">
+                    <label className="flex items-start gap-2 text-sm">
+                      <input type="checkbox" className="mt-0.5 size-4" checked={scelto}
+                        onChange={e => aggiorna({ kit: { ...v.kit, [k.chiave]: e.target.checked } })} />
+                      <span><span className="block">{k.descrizione || k.codice}</span><span className="block text-xs text-muted-foreground">{k.codice}</span></span>
+                    </label>
+                    {scelto && opzionali.filter(g => g.kit === k.chiave).map((g, i) => (
+                      <AccessoriKit key={i} gruppo={g} scelte={v.accessori} onCambia={accessori => aggiorna({ accessori })} />
+                    ))}
+                  </div>
+                )
+              })}
+              {/* Kit obbligatori e accessori sciolti con opzioni (es. rapid block del telaio) */}
+              {opzionali.filter(g => g.kit === null).map((g, i) => (
+                <div key={i} className="space-y-1">
+                  <p className="text-sm">{g.titolo}</p>
+                  <AccessoriKit gruppo={g} scelte={v.accessori} onCambia={accessori => aggiorna({ accessori })} />
+                </div>
               ))}
             </Pannello>
           )}
@@ -419,6 +481,28 @@ export default function SchermataVoce({ rilievoId, voceId, onFine }: Props) {
             </Pannello>
           )}
 
+
+          <Pannello titolo="Minuti di lavoro">
+            <p className="text-xs text-muted-foreground">Per pezzo. Vuoto = minuti della struttura di FP PRO (in grigio). Nel Calcolo si possono ancora correggere.</p>
+            <div className="grid grid-cols-2 gap-2">
+              {FASI.map(({ fase, etichetta }) => {
+                const daStruttura = struttura.tempi ? Math.round(struttura.tempi[fase] * 60) : null
+                return (
+                  <div key={fase}>
+                    <Label htmlFor={`sv-min-${fase}`} className="text-xs">{etichetta}</Label>
+                    <Input id={`sv-min-${fase}`} className="h-8" inputMode="decimal" placeholder={daStruttura !== null ? String(daStruttura) : ''}
+                      value={v.minuti?.[fase] ?? ''}
+                      onChange={e => {
+                        const n = numero(e.target.value)
+                        const minuti = { ...(v.minuti ?? {}) }
+                        if (n === null || n < 0) delete minuti[fase]; else minuti[fase] = n
+                        aggiorna({ minuti })
+                      }} />
+                  </div>
+                )
+              })}
+            </div>
+          </Pannello>
 
           <Pannello titolo="Apertura e note">
             {haAnteBattenti(struttura.albero) && (

@@ -9,6 +9,13 @@
 //   righe dal catalogo dei kit; tra le alternative di uno stesso gruppo vale la prima.
 import type { AccessorioStruttura, NodoStruttura } from '../strutture-xml'
 
+/**
+ * Chiave della scelta di un accessorio opzionale nella voce (VoceFpDati.accessori): nodo,
+ * indice del kit (null = accessorio sciolto del nodo) e codice.
+ */
+export const chiaveAccessorio = (nodo: number, kit: number | null, codice: string): string =>
+  kit === null ? `${nodo}:a:${codice}` : `${nodo}:${kit}:${codice}`
+
 /** Maggiorazione degli accessori a metro (guarnizioni, spazzolini) */
 export const MAGGIORAZIONE_METRO = 1.06
 
@@ -220,6 +227,8 @@ export function accessoriVoce(
   zone: Record<number, { L: number; H: number }>,
   peso: number,
   regole: RegoleAccessori,
+  /** Scelte fatte nella voce sugli accessori opzionali (chiaveAccessorio); assente = come FP PRO */
+  accessoriScelti: Record<string, boolean> = {},
 ): QuantitaAccessorio[] {
   const trovati: QuantitaAccessorio[] = []
   const espliciti = new Set<string>()
@@ -229,7 +238,7 @@ export function accessoriVoce(
       trovati.push({ codice: a.codice, serie: a.serie, descrizione: a.descrizione, quantita, metri: a.tipo === 2 || a.tipo === 4, regolaIgnota: ignota })
     }
   }
-  const scelto = (a: AccessorioStruttura) => !a.opzionale || a.confermato
+  const scelto = (a: AccessorioStruttura, chiave: string) => !a.opzionale || (accessoriScelti[chiave] ?? a.confermato)
   const valePerSerie = (kit: string, codice: string) => {
     const serie = regole.serieRigaKit(kit, codice)
     return serie === null || serie.some(s => regole.serieStruttura.includes(s))
@@ -243,7 +252,7 @@ export function accessoriVoce(
       const d: Misure = { L: z.L, H: z.H, w: peso, h: z.H, a: z.L / ante }
       for (const a of n.accessori) {
         espliciti.add(a.codice)
-        if (scelto(a)) usa(a, d)
+        if (scelto(a, chiaveAccessorio(n.codice, null, a.codice))) usa(a, d)
       }
       n.kit.forEach((k, i) => {
         const kitScelto = !k.opzionale || (kitScelti[`${n.codice}:${i}`] ?? k.confermato)
@@ -251,7 +260,7 @@ export function accessoriVoce(
         const righe = k.accessori.length > 0 ? k.accessori : regole.righeCatalogo(k.codice)
         for (const a of righe) {
           espliciti.add(a.codice)
-          if (scelto(a) && valePerSerie(k.codice, a.codice)) usa(a, d)
+          if (scelto(a, chiaveAccessorio(n.codice, i, a.codice)) && valePerSerie(k.codice, a.codice)) usa(a, d)
         }
       })
       visita(n.figli, z)
