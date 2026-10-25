@@ -58,6 +58,10 @@ export interface CalcoloVoce {
   prezzo: PrezzoVoce
   peso: number
   avvisi: string[]
+  /** Costi orari e percentuali usati davvero (profilo + correzioni): per il riepilogo costi. Assente nei calcoli vecchi. */
+  profilo?: ProfiloCalcolo
+  /** Extra fissi della voce (correzioni) */
+  extraFissi?: number
   /** Pezzi dei profili: servono a fattoreBarreCommessa, non si salvano */
   tagli?: TagliProfilo[]
 }
@@ -247,5 +251,5 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
 
   const materiali = righe.reduce((s, r) => s + r.costo, 0)
   const { profilo, ore, extraFissi } = applicaCorrezioni(input.profilo, input.tempi, input.correzioni)
-  return { materiali, righe, ore, prezzo: prezzoComeFp(materiali, ore, profilo, extraFissi), peso, avvisi: [...new Set(avvisi)], tagli }
+  return { materiali, righe, ore, prezzo: prezzoComeFp(materiali, ore, profilo, extraFissi), peso, avvisi: [...new Set(avvisi)], profilo, extraFissi, tagli }
 }
