@@ -98,6 +98,19 @@ export interface NodoStruttura {
   codiciColore?: string[]
 }
 
+/**
+ * Come si apre un'anta battente (nodo 8610). FP PRO lo scrive nei parametri dell'anta:
+ * _HTYPE 4 o 5 = cerniere orizzontali (vasistas); con OpeningType 2 (verso l'esterno)
+ * le cerniere stanno in alto = anta a sporgere. Tutto il resto apre di lato.
+ */
+export type AperturaAnta = 'battente' | 'vasistas' | 'sporgere'
+
+export function aperturaAnta(n: Pick<NodoStruttura, 'prm' | 'macro'>): AperturaAnta {
+  const tipo = n.prm.map(p => p.variabili._HTYPE).find(v => v !== undefined)
+  if (tipo !== 4 && tipo !== 5) return 'battente'
+  return n.macro?.OpeningType === '2' ? 'sporgere' : 'vasistas'
+}
+
 /** Ore di lavoro della struttura (FP_TIMES), come le usa il preventivo di FP PRO */
 export interface TempiStruttura {
   taglio: number
@@ -243,23 +256,39 @@ function ingombro(punti: number[][]): { l: number; h: number } | null {
   return { l: tondo(Math.max(...xs) - Math.min(...xs)), h: tondo(Math.max(...ys) - Math.min(...ys)) }
 }
 
+/**
+ * FP PRO salva alcune posizioni dal lato opposto: x negativa = dal bordo destro, y negativa =
+ * dal bordo alto (es. traverso -500 su 2300 = asse a 1800, come nei poligoni dell'anteprima;
+ * verificato su 2272 divisioni del catalogo). Qui diventano tutte da sinistra e dal basso.
+ */
+export function posizioniDaOrigine(albero: NodoStruttura[], l: number, h: number): NodoStruttura[] {
+  return albero.map(n => ({
+    ...n,
+    x: n.x !== null && n.x < 0 ? tondo(l + n.x) : n.x,
+    y: n.y !== null && n.y < 0 ? tondo(h + n.y) : n.y,
+    figli: posizioniDaOrigine(n.figli, l, h),
+  }))
+}
+
 export function strutturaDaXml(doc: unknown): StrutturaLetta {
   const radice = ogg(doc).FP_TREE
   if (radice === undefined) throw new Error('Non e\' una struttura di FP PRO: manca FP_TREE')
   const t = ogg(radice)
 
-  const albero = lista(t.FP_NODE).map(nodo)
+  const alberoLetto = lista(t.FP_NODE).map(nodo)
   const anteprima = ogg(t.FP_PREVIEW)
   const poligoni = lista(anteprima.FP_PREV_PIECE)
     .map(p => lista(p.FP_VERTEX).flatMap(v => [tondo(num(v.x) ?? 0), tondo(num(v.y) ?? 0)]))
     .filter(p => p.length >= 6)
 
   // Misure nominali: variabili L/H del modello del telaio, altrimenti ingombro dell'anteprima.
-  const modello = albero.flatMap(n => n.prm).find(p => p.variabili.L !== undefined && p.variabili.H !== undefined)
+  const modello = alberoLetto.flatMap(n => n.prm).find(p => p.variabili.L !== undefined && p.variabili.H !== undefined)
   const percorso = lista(anteprima.FP_PATH_VERTEX).map(v => [num(v.x) ?? 0, num(v.y) ?? 0])
   const misure = modello
     ? { l: modello.variabili.L, h: modello.variabili.H }
     : ingombro(percorso.length > 0 ? [percorso.flat()] : poligoni)
+
+  const albero = misure ? posizioniDaOrigine(alberoLetto, misure.l, misure.h) : alberoLetto
 
   const t0 = ogg(anteprima.FP_TIMES)
   const tempi: TempiStruttura = {

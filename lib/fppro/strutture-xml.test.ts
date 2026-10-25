@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { XMLParser } from 'fast-xml-parser'
-import { OPZIONI_XML, strutturaDaXml, type NodoStruttura } from './strutture-xml'
+import { OPZIONI_XML, posizioniDaOrigine, strutturaDaXml, type NodoStruttura } from './strutture-xml'
 
 const leggi = (nome: string) => {
   const byte = readFileSync(join(__dirname, '__fixtures__', nome))
@@ -141,5 +141,22 @@ describe('distribuzione a passo', () => {
       '</FP_NODE></FP_TREE>',
     ))
     expect(s.albero[0].accessori.map(a => [a.dimDistribuzione, a.formulaDistribuzione])).toEqual([[5, 'L/2'], [0, null]])
+  })
+})
+
+describe('posizioniDaOrigine', () => {
+  const nodo = (tipo: number, x: number | null, y: number | null, figli: NodoStruttura[] = []): NodoStruttura => ({
+    tipo, codice: tipo, elementi: 1, x, y, prm: [], macro: null, ante: [], ird: [], pezzi: [], accessori: [], kit: [], figli,
+  })
+  // 06-ALPHAEXTREMEMIN-F1A+W: traverso a -500 su 2300 = asse a 1800 (poligono 1775-1825)
+  const albero = [nodo(8600, 400, 697.5, [nodo(8070, 400, -500, [nodo(8610, 400, 697.5), nodo(8610, 600, 2037.5)]), nodo(8060, -1300, 50)])]
+  const [telaio] = posizioniDaOrigine(albero, 2600, 2300)
+  it('y negativa = dall\'alto, x negativa = da destra', () => {
+    expect(telaio.figli[0].y).toBe(1800)
+    expect(telaio.figli[1].x).toBe(1300)
+  })
+  it('le positive restano, anche nei figli', () => {
+    expect(telaio.y).toBe(697.5)
+    expect(telaio.figli[0].figli.map(f => f.y)).toEqual([697.5, 2037.5])
   })
 })

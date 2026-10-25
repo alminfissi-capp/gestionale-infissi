@@ -1,6 +1,8 @@
 // Simboli di apertura nel disegno della voce, come in FP PRO (vista interna): triangolo
 // tratteggiato con la punta sul lato della maniglia, triangolo della ribalta con la punta in
 // alto, maniglia sull'anta principale, cerniere sul lato opposto, frecce per gli scorrevoli.
+// Vasistas: cerniere in basso, maniglia in alto al centro, punta del triangolo in alto;
+// a sporgere: l'opposto (cerniere in alto, maniglia in basso, punta in basso).
 // Le ante e le loro posizioni vengono dalla stessa geometria del calcolo.
 import { LARGHEZZE_PREDEFINITE, pezziECampi, type AntaGeometria } from './calcolo/geometria'
 import type { NodoStruttura } from './strutture-xml'
@@ -38,6 +40,27 @@ export function simboliApertura(
         const verso = mezzo <= centro ? 1 : -1
         const ym = y((a.zona.y0 + a.zona.y1) / 2)
         out.push({ tipo: 'scorrimento', x1: tondo(mezzo - verso * lungo / 2), y1: ym, x2: tondo(mezzo + verso * lungo / 2), y2: ym })
+      }
+      continue
+    }
+    if (gruppo[0].apertura !== 'battente') {
+      // Cerniere orizzontali: ogni anta ha la sua maniglia, la mano non conta.
+      const inBasso = gruppo[0].apertura === 'vasistas'
+      for (const a of gruppo) {
+        const z = { x0: a.zona.x0 + bordo, x1: a.zona.x1 - bordo, y0: a.zona.y0 + bordo, y1: a.zona.y1 - bordo }
+        if (z.x1 <= z.x0 || z.y1 <= z.y0) continue
+        const yc = inBasso ? z.y0 : z.y1
+        const yp = inBasso ? z.y1 : z.y0
+        const xm = (z.x0 + z.x1) / 2
+        out.push({ tipo: 'apertura', x1: tondo(z.x0), y1: y(yc), x2: tondo(xm), y2: y(yp) })
+        out.push({ tipo: 'apertura', x1: tondo(z.x1), y1: y(yc), x2: tondo(xm), y2: y(yp) })
+        // Cerniera = rettangolo coricato: alto CERNIERA.w, lungo CERNIERA.h
+        const yCerniera = inBasso ? a.zona.y0 + 2 + CERNIERA.w : a.zona.y1 - 2
+        for (const x of [a.zona.x0 + CERNIERA.dalBordo - CERNIERA.h, a.zona.x1 - CERNIERA.dalBordo]) {
+          out.push({ tipo: 'cerniera', x: tondo(x), y: y(yCerniera), w: CERNIERA.h, h: CERNIERA.w })
+        }
+        const yManiglia = inBasso ? a.zona.y1 - MANIGLIA.dal : a.zona.y0 + MANIGLIA.dal + MANIGLIA.w
+        out.push({ tipo: 'maniglia', x: tondo((a.zona.x0 + a.zona.x1) / 2 - MANIGLIA.h / 2), y: y(yManiglia), w: MANIGLIA.h, h: MANIGLIA.w })
       }
       continue
     }

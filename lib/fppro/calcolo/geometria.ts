@@ -3,7 +3,7 @@
 // Lunghezze sui bordi esterni della zona occupata (taglio a 45°): FP PRO aggiunge a volte
 // qualche centimetro per le alette dei profili, che raramente cambia il numero di barre.
 import type { SezioneProfilo } from '../dxf-sezione'
-import type { NodoStruttura, PezzoStruttura } from '../strutture-xml'
+import { aperturaAnta, type AperturaAnta, type NodoStruttura, type PezzoStruttura } from '../strutture-xml'
 
 export interface PezzoCalcolo { dxf: string; tipo: number; lunghezza: number }
 export interface CampoCalcolo {
@@ -76,6 +76,8 @@ export interface AntaGeometria {
   ante: number
   /** Anta principale per FP PRO (MainSashIndex) */
   principale: number
+  /** Cerniere di lato (battente) o orizzontali (vasistas in basso, a sporgere in alto) */
+  apertura: AperturaAnta
   zona: { x0: number; x1: number; y0: number; y1: number }
 }
 
@@ -163,7 +165,8 @@ export function pezziECampi(
         x += w - sormonto
       }
       const principale = Number(n.macro?.MainSashIndex ?? 0)
-      ante.forEach((zona, indice) => anteTrovate.push({ nodo: n.codice, tipo: n.tipo, indice, ante: k, principale: Number.isFinite(principale) ? principale : 0, zona }))
+      const apertura = n.tipo === 8610 ? aperturaAnta(n) : 'battente'
+      ante.forEach((zona, indice) => anteTrovate.push({ nodo: n.codice, tipo: n.tipo, indice, ante: k, principale: Number.isFinite(principale) ? principale : 0, apertura, zona }))
       for (let i = 0; i < k; i++) {
         profili.filter(p => !RIPORTI.has(p.tipo) && p.indice === i)
           .forEach((p, j) => aggiungi(p.dxf, p.tipo, j % 2 === 0 ? alt(ante[i]) : larg(ante[i])))

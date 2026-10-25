@@ -1,6 +1,6 @@
 // Analisi di una struttura di FP PRO per il rilievo in cantiere (solo app).
 import type { Lato, RifFp, VoceFpDati } from '@/types/rilievo-fp'
-import type { AccessorioStruttura, NodoStruttura } from './strutture-xml'
+import { aperturaAnta, type AccessorioStruttura, type NodoStruttura } from './strutture-xml'
 import { chiaveAccessorio } from './calcolo/accessori'
 
 const LATI_TELAIO: Lato[] = ['sinistra', 'alto', 'destra', 'basso']
@@ -115,7 +115,8 @@ export function kitAlternativiDoppi(
 }
 
 export function haAnteBattenti(albero: NodoStruttura[]): boolean {
-  return tutti(albero).some(n => n.tipo === 8610)
+  // Vasistas e a sporgere non hanno mano: le cerniere sono orizzontali.
+  return tutti(albero).some(n => n.tipo === 8610 && aperturaAnta(n) === 'battente')
 }
 
 /** Profili del telaio esterno, nell'ordine in cui FP PRO li salva: sinistra, alto, destra, basso. */
