@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Calculator, ChevronLeft, Copy, Plus, Printer, Trash2 } from 'lucide-react'
+import { Calculator, ChevronLeft, Copy, GripVertical, Plus, Printer, Trash2 } from 'lucide-react'
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import AllegatiVoce from '@/components/rilievo/AllegatiVoce'
 import { db } from '@/lib/db'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import { eliminaRilievoLocale, eliminaVoceLocale, salvaRilievoLocale } from '@/lib/rilievo-fp-locale'
-import type { RilievoFp } from '@/types/rilievo-fp'
+import { eliminaRilievoLocale, eliminaVoceLocale, riordinaVociLocale, salvaRilievoLocale } from '@/lib/rilievo-fp-locale'
+import type { RilievoFp, StrutturaLocale, VoceLocale } from '@/types/rilievo-fp'
 import SchedaVoceRiepilogo from './SchedaVoceRiepilogo'
 import { nomeCliente } from './ElencoRilievi'
 
@@ -48,6 +51,43 @@ function DatiRilievo({ rilievo }: { rilievo: RilievoFp }) {
   )
 }
 
+/** Una voce dell'elenco: a destra, in colonna, Elimina, Copia e la maniglia per trascinarla. */
+function RigaVoce({ v, numero, struttura, catalogoVuoto, isOnline, onVoce, onCopia }: {
+  v: VoceLocale; numero: number; struttura: StrutturaLocale | undefined; catalogoVuoto: boolean; isOnline: boolean
+  onVoce: (voceId: string) => void; onCopia: (voceId: string) => void
+}) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: v.id })
+  const s = struttura
+  return (
+    <li ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} {...attributes}
+      className={`space-y-1 ${isDragging ? 'relative z-10 opacity-70' : ''}`}>
+      <div className="flex items-start gap-1">
+        {/* Bordo che si accende al passaggio: cliccando la voce si riapre */}
+        <button type="button" onClick={() => onVoce(v.id)} aria-label={`Apri ${v.posizione || 'voce'}`}
+          className="min-w-0 flex-1 rounded text-left transition-shadow hover:shadow-[0_0_0_2px_rgba(14,143,156,0.45)] focus-visible:shadow-[0_0_0_2px_rgba(14,143,156,0.7)] focus-visible:outline-none">
+          <SchedaVoceRiepilogo voce={v} struttura={s ?? null} prezzo={null} numero={numero} />
+        </button>
+        <div className="flex flex-col">
+          <button type="button" className="p-2" aria-label="Elimina voce" title="Elimina" onClick={() => { if (confirm('Eliminare questa voce?')) void eliminaVoceLocale(v.id) }}>
+            <Trash2 className="size-4 text-muted-foreground" />
+          </button>
+          <button type="button" className="p-2" aria-label="Copia voce" title="Copia" onClick={() => onCopia(v.id)}>
+            <Copy className="size-4 text-muted-foreground" />
+          </button>
+          <button type="button" ref={setActivatorNodeRef} {...listeners} aria-label="Trascina per spostare" title="Trascina per spostare"
+            className="cursor-grab touch-none p-2 active:cursor-grabbing">
+            <GripVertical className="size-4 text-muted-foreground" />
+          </button>
+        </div>
+      </div>
+      {!s && <p className="text-xs text-amber-700">{catalogoVuoto ? 'Catalogo FP PRO non ancora scaricato' : 'Struttura non più in FP PRO'}</p>}
+      {s && !s.presente && <p className="text-xs text-amber-700">Struttura non più in FP PRO</p>}
+      {v.daInviare === 1 && <p className="text-xs text-red-700">da inviare</p>}
+      {isOnline && v.daInviare === 0 && <div className="mt-2"><AllegatiVoce voceId={v.id} /></div>}
+    </li>
+  )
+}
+
 interface Props {
   id: string
   onIndietro: () => void
@@ -66,6 +106,17 @@ export default function SchedaRilievo({ id, onIndietro, onVoce, onCopia, onRiepi
     return new Map(righe.filter(s => !!s).map(s => [s!.id, s!]))
   }, [voci])
   const catalogoVuoto = useLiveQuery(async () => (await db.fpStrutture.count()) === 0, [], false)
+  const sensori = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+  )
+  const spostaVoce = ({ active, over }: DragEndEvent) => {
+    if (!voci || !over || active.id === over.id) return
+    const da = voci.findIndex(v => v.id === active.id)
+    const a = voci.findIndex(v => v.id === over.id)
+    if (da < 0 || a < 0) return
+    void riordinaVociLocale(id, arrayMove(voci, da, a).map(v => v.id))
+  }
 
   if (!rilievo) return <p className="text-sm text-muted-foreground">Rilievo non trovato.</p>
 
@@ -82,30 +133,16 @@ export default function SchedaRilievo({ id, onIndietro, onVoce, onCopia, onRiepi
       <DatiRilievo key={rilievo.id} rilievo={rilievo} />
       <NoteRilievo key={rilievo.id} rilievo={rilievo} />
 
-      <ul className="space-y-2">
-        {(voci ?? []).map((v, i) => {
-          const s = strutture?.get(v.fp.strutturaId)
-          return (
-            <li key={v.id} className="space-y-1">
-              <div className="flex items-start gap-1">
-                <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onVoce(v.id)} aria-label={`Apri ${v.posizione || 'voce'}`}>
-                  <SchedaVoceRiepilogo voce={v} struttura={s ?? null} prezzo={null} numero={i + 1} />
-                </button>
-                <button type="button" className="p-2" aria-label="Copia voce" title="Copia" onClick={() => onCopia(v.id)}>
-                  <Copy className="size-4 text-muted-foreground" />
-                </button>
-                <button type="button" className="p-2" aria-label="Elimina voce" onClick={() => { if (confirm('Eliminare questa voce?')) void eliminaVoceLocale(v.id) }}>
-                  <Trash2 className="size-4 text-muted-foreground" />
-                </button>
-              </div>
-              {!s && <p className="text-xs text-amber-700">{catalogoVuoto ? 'Catalogo FP PRO non ancora scaricato' : 'Struttura non più in FP PRO'}</p>}
-              {s && !s.presente && <p className="text-xs text-amber-700">Struttura non più in FP PRO</p>}
-              {v.daInviare === 1 && <p className="text-xs text-red-700">da inviare</p>}
-              {isOnline && v.daInviare === 0 && <div className="mt-2"><AllegatiVoce voceId={v.id} /></div>}
-            </li>
-          )
-        })}
-      </ul>
+      <DndContext sensors={sensori} collisionDetection={closestCenter} onDragEnd={spostaVoce}>
+        <SortableContext items={(voci ?? []).map(v => v.id)} strategy={verticalListSortingStrategy}>
+          <ul className="space-y-2">
+            {(voci ?? []).map((v, i) => (
+              <RigaVoce key={v.id} v={v} numero={i + 1} struttura={strutture?.get(v.fp.strutturaId)} catalogoVuoto={catalogoVuoto}
+                isOnline={isOnline} onVoce={onVoce} onCopia={onCopia} />
+            ))}
+          </ul>
+        </SortableContext>
+      </DndContext>
       <Button className="h-12 w-full" onClick={() => onVoce(null)}><Plus className="mr-1 size-4" />Aggiungi voce</Button>
       {isOnline && (voci ?? []).length > 0 && (
         (voci ?? []).some(v => v.daInviare === 1) || rilievo.daInviare === 1

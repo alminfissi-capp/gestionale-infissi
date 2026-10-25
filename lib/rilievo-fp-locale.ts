@@ -26,6 +26,19 @@ export async function salvaVoceLocale(v: VoceFp): Promise<void> {
   })
 }
 
+/** Nuovo ordine delle voci (ids nell'ordine voluto): si inviano solo quelle che cambiano posto. */
+export async function riordinaVociLocale(rilievoId: string, ids: string[]): Promise<void> {
+  await db.transaction('rw', db.vociFp, db.rilieviFp, async () => {
+    const ora = adesso()
+    const voci = await db.vociFp.bulkGet(ids)
+    const cambiate = voci.flatMap((v, i) => v && v.ordine !== i ? [{ ...v, ordine: i, aggiornatoAt: ora, daInviare: 1 as const }] : [])
+    if (cambiate.length === 0) return
+    await db.vociFp.bulkPut(cambiate)
+    const r = await db.rilieviFp.get(rilievoId)
+    if (r && !r.daInviare) await db.rilieviFp.update(rilievoId, { daInviare: 1 })
+  })
+}
+
 export async function eliminaVoceLocale(id: string): Promise<void> {
   await db.transaction('rw', db.vociFp, db.eliminatiFp, async () => {
     await db.vociFp.delete(id)
