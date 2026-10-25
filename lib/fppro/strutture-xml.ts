@@ -63,6 +63,11 @@ export interface KitStruttura {
   /** Per i kit opzionali: quello scelto nella struttura */
   confermato: boolean
   accessori: AccessorioStruttura[]
+  /**
+   * Gruppo di alternative di FP PRO (gruppiopzkit, es. "SCELTA CERNIERA 2 A/R"): nello stesso
+   * nodo se ne sceglie UNO. Lo aggiunge il server all'albero per il telefono (fp_kit.raggruppamentoid).
+   */
+  gruppo?: number | null
 }
 
 export interface NodoStruttura {

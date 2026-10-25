@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { XMLParser } from 'fast-xml-parser'
 import { OPZIONI_XML, strutturaDaXml, type NodoStruttura } from './strutture-xml'
 import {
-  accessoriOpzionali, accessoriOpzionaliScelti, alberoLeggero, campiRiempimento, coloriAccessori, haRibalta, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
+  accessoriOpzionali, accessoriOpzionaliScelti, alberoLeggero, campiRiempimento, kitAlternativiDoppi, sceltaKit, coloriAccessori, haRibalta, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
 } from './rilievo-fp'
 
 const leggi = (nome: string) => strutturaDaXml(new XMLParser(OPZIONI_XML).parse(
@@ -154,5 +154,35 @@ describe('accessori opzionali (es. serratura dello scorrevole)', () => {
       .toEqual(['ACP 8020M', 'ACP 50552'])
     expect(accessoriOpzionaliScelti(albero, { kit: { '10:0': false }, accessori: { '10:0:ACP 8020M': true } }).map(a => a.codice))
       .toEqual(['RB304'])
+  })
+})
+
+describe('kit alternativi (caso Agrusa: 2AR-SORMONTO e 2AR-SCOMPARSA insieme)', () => {
+  const kit = (codice: string, gruppo: number | null, confermato = false) =>
+    ({ codice, descrizione: codice, serie: '', opzionale: true, confermato, accessori: [], gruppo })
+  const albero: NodoStruttura[] = [{
+    tipo: 8610, codice: 2, elementi: 2, x: null, y: null, prm: [], macro: null, ante: [], ird: [], pezzi: [], accessori: [], figli: [],
+    kit: [kit('2AR COMPLANARE', 74, true), kit('2AR-SCOMPARSA', 74), kit('2AR-SORMONTO', 74), kit('EXENS', 3, true), kit('MARTELLINA', 3), kit('SOLO', 99)],
+  }]
+
+  it('stesso gruppo nel nodo = alternative; gruppo con un solo kit = casella', () => {
+    const k = kitOpzionali(albero)
+    expect(k.map(x => x.alternative)).toEqual(['2:g74', '2:g74', '2:g74', '2:g3', '2:g3', null])
+  })
+  it('scegliendo un kit si tolgono le sue alternative, non gli altri gruppi', () => {
+    const k = kitOpzionali(albero)
+    expect(sceltaKit(k, { '2:0': true, '2:3': true }, '2:2', true))
+      .toEqual({ '2:0': false, '2:1': false, '2:2': true, '2:3': true })
+  })
+  it('doppi: due alternative spuntate insieme (anche con il predefinito non toccato)', () => {
+    expect(kitAlternativiDoppi(albero, { '2:0': false, '2:1': true, '2:2': true, '2:4': true, '2:3': false }, () => null))
+      .toEqual([['2AR-SCOMPARSA', '2AR-SORMONTO']])
+    expect(kitAlternativiDoppi(albero, { '2:2': true }, () => null)).toEqual([['2AR COMPLANARE', '2AR-SORMONTO']])
+    expect(kitAlternativiDoppi(albero, { '2:0': false, '2:2': true }, () => null)).toEqual([])
+  })
+  it('albero dal database senza gruppo: lo prende da gruppoDi', () => {
+    const senza = [{ ...albero[0], kit: albero[0].kit.map(x => ({ ...x, gruppo: undefined })) }]
+    const gruppi: Record<string, number> = { '2AR-SCOMPARSA': 74, '2AR-SORMONTO': 74, '2AR COMPLANARE': 74 }
+    expect(kitAlternativiDoppi(senza, { '2:0': false, '2:1': true, '2:2': true }, k => gruppi[k])).toEqual([['2AR-SCOMPARSA', '2AR-SORMONTO']])
   })
 })

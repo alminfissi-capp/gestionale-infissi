@@ -61,14 +61,55 @@ export interface KitOpzionale {
   descrizione: string
   /** Scelto nella struttura di FP PRO */
   predefinito: boolean
+  /**
+   * Chiave delle alternative (nodo + gruppo di FP PRO) se nello stesso nodo ci sono altri kit
+   * dello stesso gruppo: se ne sceglie uno solo. null = kit indipendente (casella).
+   */
+  alternative: string | null
 }
 
 export function kitOpzionali(albero: NodoStruttura[]): KitOpzionale[] {
   const out: KitOpzionale[] = []
   for (const n of tutti(albero)) {
+    const perGruppo = new Map<number, number>()
+    n.kit.forEach(k => { if (k.opzionale && k.gruppo) perGruppo.set(k.gruppo, (perGruppo.get(k.gruppo) ?? 0) + 1) })
     n.kit.forEach((k, i) => {
-      if (k.opzionale) out.push({ chiave: `${n.codice}:${i}`, codice: k.codice, descrizione: k.descrizione, predefinito: k.confermato })
+      if (!k.opzionale) return
+      const alternative = k.gruppo && (perGruppo.get(k.gruppo) ?? 0) > 1 ? `${n.codice}:g${k.gruppo}` : null
+      out.push({ chiave: `${n.codice}:${i}`, codice: k.codice, descrizione: k.descrizione, predefinito: k.confermato, alternative })
     })
+  }
+  return out
+}
+
+/** Scelta di un kit: se ha alternative, quelle dello stesso gruppo si tolgono (come in FP PRO). */
+export function sceltaKit(kit: KitOpzionale[], scelte: Record<string, boolean>, chiave: string, scelto: boolean): Record<string, boolean> {
+  const k = kit.find(x => x.chiave === chiave)
+  const out = { ...scelte, [chiave]: scelto }
+  if (k?.alternative && scelto) {
+    for (const altro of kit) if (altro.alternative === k.alternative && altro.chiave !== chiave) out[altro.chiave] = false
+  }
+  return out
+}
+
+/**
+ * Kit alternativi scelti insieme nella stessa voce (es. "2AR-SORMONTO" e "2AR-SCOMPARSA"):
+ * FP PRO ne accetta uno, il calcolo li conterebbe tutti. `gruppoDi` = gruppo di FP PRO del kit.
+ */
+export function kitAlternativiDoppi(
+  albero: NodoStruttura[],
+  scelte: Record<string, boolean>,
+  gruppoDi: (kit: string) => number | null | undefined,
+): string[][] {
+  const out: string[][] = []
+  for (const n of tutti(albero)) {
+    const perGruppo = new Map<number, string[]>()
+    n.kit.forEach((k, i) => {
+      const scelto = !k.opzionale || (scelte[`${n.codice}:${i}`] ?? k.confermato)
+      const g = k.gruppo ?? gruppoDi(k.codice)
+      if (k.opzionale && scelto && g) perGruppo.set(g, [...(perGruppo.get(g) ?? []), k.codice])
+    })
+    for (const nomi of perGruppo.values()) if (nomi.length > 1) out.push(nomi)
   }
   return out
 }
@@ -129,12 +170,17 @@ export function problemiVoce(v: VoceFpDati, divisioni: Divisione[]): string[] {
 export function alberoLeggero(
   albero: NodoStruttura[],
   righeCatalogo: (kit: string) => AccessorioStruttura[] = () => [],
+  gruppoKit: (kit: string) => number | null = () => null,
 ): NodoStruttura[] {
   return albero.map(n => ({
     ...n,
     accessori: n.accessori.filter(a => a.opzionale),
-    kit: n.kit.map(k => ({ ...k, accessori: (k.accessori.length > 0 ? k.accessori : righeCatalogo(k.codice)).filter(a => a.opzionale) })),
-    figli: alberoLeggero(n.figli, righeCatalogo),
+    kit: n.kit.map(k => ({
+      ...k,
+      accessori: (k.accessori.length > 0 ? k.accessori : righeCatalogo(k.codice)).filter(a => a.opzionale),
+      gruppo: gruppoKit(k.codice),
+    })),
+    figli: alberoLeggero(n.figli, righeCatalogo, gruppoKit),
   }))
 }
 
