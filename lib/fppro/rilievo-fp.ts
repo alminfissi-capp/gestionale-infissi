@@ -167,20 +167,49 @@ export function problemiVoce(v: VoceFpDati, divisioni: Divisione[]): string[] {
  * servono. I costi (fase 4) leggono l'albero completo dal database. Un kit senza righe nello
  * STR (FP PRO scrive solo quelle del kit confermato) prende le sue dal catalogo dei kit.
  */
-export function alberoLeggero(
-  albero: NodoStruttura[],
-  righeCatalogo: (kit: string) => AccessorioStruttura[] = () => [],
-  gruppoKit: (kit: string) => number | null = () => null,
-): NodoStruttura[] {
+export interface GruppoFp { id: number; tipo: number | null; nome: string | null }
+
+/** Dati del catalogo che il server aggiunge all'albero per il telefono (tutti facoltativi). */
+export interface ArricchimentoAlbero {
+  /** Righe del kit dal catalogo (per i kit senza righe nello STR) */
+  righeCatalogo?: (kit: string) => AccessorioStruttura[]
+  /** Gruppo di alternative del kit */
+  gruppoKit?: (kit: string) => GruppoFp | null
+  /** Gruppo di un accessorio facoltativo dentro un kit */
+  gruppoAccessorio?: (kit: string, codice: string) => GruppoFp | null
+  /** L'accessorio ha un prezzo per colore accessori */
+  aColore?: (codice: string) => boolean
+}
+
+/**
+ * Albero per il telefono: solo gli accessori OPZIONALI (sciolti e dentro i kit), che in
+ * cantiere si scelgono; gli altri sono quasi tutto il peso delle strutture e al rilievo non
+ * servono. I costi (fase 4) leggono l'albero completo dal database. Un kit senza righe nello
+ * STR (FP PRO scrive solo quelle del kit confermato) prende le sue dal catalogo dei kit.
+ * Il server aggiunge gruppi di alternative e codici degli accessori a colore (opzioni semplici).
+ */
+export function alberoLeggero(albero: NodoStruttura[], a: ArricchimentoAlbero = {}): NodoStruttura[] {
+  const aColore = (righe: AccessorioStruttura[]) => [...new Set(righe.filter(r => a.aColore?.(r.codice)).map(r => r.codice))]
   return albero.map(n => ({
     ...n,
-    accessori: n.accessori.filter(a => a.opzionale),
-    kit: n.kit.map(k => ({
-      ...k,
-      accessori: (k.accessori.length > 0 ? k.accessori : righeCatalogo(k.codice)).filter(a => a.opzionale),
-      gruppo: gruppoKit(k.codice),
-    })),
-    figli: alberoLeggero(n.figli, righeCatalogo, gruppoKit),
+    accessori: n.accessori.filter(x => x.opzionale),
+    codiciColore: aColore(n.accessori),
+    kit: n.kit.map(k => {
+      const righe = k.accessori.length > 0 ? k.accessori : (a.righeCatalogo?.(k.codice) ?? [])
+      const g = a.gruppoKit?.(k.codice) ?? null
+      return {
+        ...k,
+        accessori: righe.filter(x => x.opzionale).map(x => {
+          const ga = a.gruppoAccessorio?.(k.codice, x.codice) ?? null
+          return ga ? { ...x, gruppo: ga.id, gruppoTipo: ga.tipo, gruppoNome: ga.nome } : x
+        }),
+        gruppo: g?.id ?? null,
+        gruppoTipo: g?.tipo ?? null,
+        gruppoNome: g?.nome ?? null,
+        codiciColore: aColore(righe),
+      }
+    }),
+    figli: alberoLeggero(n.figli, a),
   }))
 }
 
@@ -191,6 +220,10 @@ export interface AccessorioOpzionale {
   descrizione: string
   /** Scelto se nella voce non si tocca (come lo conta FP PRO) */
   predefinito: boolean
+  /** Gruppo di alternative di FP PRO (accessori dello stesso gruppo = una domanda) */
+  gruppo?: number | null
+  gruppoTipo?: number | null
+  gruppoNome?: string | null
 }
 
 export interface GruppoAccessoriOpzionali {
@@ -211,7 +244,12 @@ export function accessoriOpzionali(albero: NodoStruttura[]): GruppoAccessoriOpzi
     for (const a of righe.filter(x => x.opzionale)) {
       const prima = perCodice.get(a.codice)
       if (prima) prima.predefinito ||= a.confermato
-      else perCodice.set(a.codice, { chiave: chiave(a.codice), codice: a.codice, descrizione: a.descrizione, predefinito: a.confermato })
+      else {
+        perCodice.set(a.codice, {
+          chiave: chiave(a.codice), codice: a.codice, descrizione: a.descrizione, predefinito: a.confermato,
+          gruppo: a.gruppo ?? null, gruppoTipo: a.gruppoTipo ?? null, gruppoNome: a.gruppoNome ?? null,
+        })
+      }
     }
     return [...perCodice.values()]
   }

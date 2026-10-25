@@ -1,3 +1,4 @@
+import type { AccessorioAColore } from '@/lib/fppro/opzioni-voce'
 import Dexie, { type EntityTable } from 'dexie'
 import type { Cliente } from '@/types/cliente'
 import type { CategoriaConListini } from '@/types/listino'
@@ -84,6 +85,7 @@ class GestionaleDB extends Dexie {
   fpColori!: EntityTable<ColoreLocale, 'fp_id'>
   fpVetri!: EntityTable<VetroLocale, 'fp_id'>
   fpPannelli!: EntityTable<PannelloLocale, 'fp_id'>
+  fpAccessoriColori!: EntityTable<AccessorioAColore, 'codice'>
   fpTelai!: EntityTable<TelaioLocale, 'fp_id'>
   fpSezioni!: EntityTable<SezioneLocale, 'fp_id'>
   fpSerie!: EntityTable<SerieLocale, 'fp_id'>
@@ -297,6 +299,38 @@ class GestionaleDB extends Dexie {
       fpColori: 'fp_id, descrizione',
       fpVetri: 'fp_id, codice',
       fpPannelli: 'fp_id, codice',
+      fpTelai: 'fp_id, serie_fp_id, codice',
+      fpSezioni: 'fp_id, codice',
+      fpSerie: 'fp_id, nome',
+      fpPreferenze: 'id, tipo',
+      fpMeta: 'chiave',
+      rilieviFp: 'id, aggiornatoAt, daInviare',
+      vociFp: 'id, rilievoId, aggiornatoAt, daInviare',
+      eliminatiFp: 'id',
+      rilieviGrafici: 'id, aggiornatoAt, daInviare',
+      eliminatiGrafici: 'id',
+    }).upgrade(async tx => {
+      await tx.table('fpMeta').delete('cursore:fp_strutture')
+    })
+    // Opzioni semplici: strutture con gruppi, nomi delle domande e codici a colore (si riscaricano)
+    // + accessori con prezzo per colore.
+    this.version(12).stores({
+      clienti: 'id, cognome, nome',
+      listiniData: 'id, nome',
+      pendingPreventivi: '++tempId, createdAt',
+      rilievoSessione: 'id',
+      vanoCanvas: 'vanoId',
+      bozzeWizard: 'id, updatedAt',
+      commesse: 'id, data_conferma, cliente_nome',
+      pendingCommesse: '++tempId, createdAt',
+      pendingAcconti: '++tempId, commessaId, createdAt',
+      condivisioni: '++id, createdAt',
+      fpStrutture: 'id, *serie, cartella, immagine',
+      fpImmagini: 'path',
+      fpColori: 'fp_id, descrizione',
+      fpVetri: 'fp_id, codice',
+      fpPannelli: 'fp_id, codice',
+      fpAccessoriColori: 'codice',
       fpTelai: 'fp_id, serie_fp_id, codice',
       fpSezioni: 'fp_id, codice',
       fpSerie: 'fp_id, nome',

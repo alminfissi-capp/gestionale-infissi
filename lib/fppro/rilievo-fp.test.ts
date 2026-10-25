@@ -134,7 +134,7 @@ describe('accessori opzionali (es. serratura dello scorrevole)', () => {
   })]
 
   it('per kit, senza gli obbligatori, un codice ripetuto = una scelta (predefinito se uno e\' confermato)', () => {
-    expect(accessoriOpzionali(albero)).toEqual([
+    expect(accessoriOpzionali(albero)).toMatchObject([
       { titolo: 'Accessori della struttura', kit: null, accessori: [{ chiave: '10:a:RB304', codice: 'RB304', descrizione: 'RB304', predefinito: true }] },
       { titolo: 'Martellina', kit: '10:0', accessori: [
         { chiave: '10:0:ACP 8020M', codice: 'ACP 8020M', descrizione: 'ACP 8020M', predefinito: false },
@@ -144,7 +144,7 @@ describe('accessori opzionali (es. serratura dello scorrevole)', () => {
   })
 
   it('kit senza righe nello STR: al telefono arrivano gli opzionali del catalogo', () => {
-    const leggero = alberoLeggero(albero, kit => (kit === 'CREM-CREM' ? [acc('ACP 8011', true, false), acc('ACP 8005', false, true)] : []))
+    const leggero = alberoLeggero(albero, { righeCatalogo: kit => (kit === 'CREM-CREM' ? [acc('ACP 8011', true, false), acc('ACP 8005', false, true)] : []) })
     expect(leggero[0].kit[1].accessori.map(a => a.codice)).toEqual(['ACP 8011'])
     expect(leggero[0].kit[0].accessori.map(a => a.codice)).toEqual(['ACP 8020M', 'ACP 50552', 'ACP 50552'])
   })

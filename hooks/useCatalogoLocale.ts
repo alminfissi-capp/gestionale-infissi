@@ -4,7 +4,7 @@
 // riprende da dove era rimasta se interrotta.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { db } from '@/lib/db'
-import { firmeImmagini, getPreferenzeFp, scaricaCatalogo } from '@/actions/rilievo-fp'
+import { firmeImmagini, getAccessoriAColoreFp, getPreferenzeFp, scaricaCatalogo } from '@/actions/rilievo-fp'
 import { posizioneSicura } from '@/lib/fppro/sync-rilievi'
 import type {
   ColoreLocale, PannelloLocale, PosizioneFp, SerieLocale, SezioneLocale, StrutturaLocale, TabellaCatalogoLocale, TelaioLocale, VetroLocale,
@@ -85,6 +85,15 @@ export function useCatalogoLocale() {
         await db.transaction('rw', db.fpPreferenze, async () => {
           await db.fpPreferenze.clear()
           await db.fpPreferenze.bulkPut(preferenze)
+        })
+      }
+
+      // Accessori a colore: per mostrare nella voce solo i colori accessori che esistono.
+      const aColore = await getAccessoriAColoreFp()
+      if (!('errore' in aColore)) {
+        await db.transaction('rw', db.fpAccessoriColori, async () => {
+          await db.fpAccessoriColori.clear()
+          await db.fpAccessoriColori.bulkPut(aColore)
         })
       }
 

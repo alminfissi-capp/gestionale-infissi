@@ -13,10 +13,13 @@ import { salvaVoceLocale } from '@/lib/rilievo-fp-locale'
 import { getSerieAccessoriFp, type SerieAccessoriFp } from '@/actions/rilievo-fp'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import DialogAccessorioFp from './DialogAccessorioFp'
+import OpzioniVoce from './OpzioniVoce'
+import {
+  accessoriScoperti, codiciAColore, coperturaColori, riallineaMano, schemaOpzioni, type AccessorioAColore,
+} from '@/lib/fppro/opzioni-voce'
 import { cambiaPreferenzaFp } from '@/lib/preferenze-fp'
 import {
-  accessoriOpzionali, campiRiempimento, kitAlternativiDoppi, sceltaKit, coloriAccessori, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
-  type GruppoAccessoriOpzionali,
+  campiRiempimento, coloriAccessori, divisioniStruttura, haAnteBattenti, nuovaVoceFp, problemiVoce, telaiStruttura,
 } from '@/lib/fppro/rilievo-fp'
 import { profiliPer, UTILIZZI_ANTA, UTILIZZO_TELAIO } from '@/lib/fppro/profili-voce'
 import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
@@ -74,23 +77,6 @@ function Pannello({ titolo, children, aperto = true }: { titolo: string; childre
  * centro il disegno con le note del telaio sui 4 lati, a destra i pannelli delle scelte.
  * Gli elenchi sono menu a tendina che si chiudono dopo la scelta (SceltaFp).
  */
-/** Accessori opzionali di un kit (es. serratura, martellina): spunta = si conta nel calcolo. */
-function AccessoriKit({ gruppo, scelte, onCambia }: {
-  gruppo: GruppoAccessoriOpzionali; scelte: Record<string, boolean> | undefined; onCambia: (scelte: Record<string, boolean>) => void
-}) {
-  return (
-    <div className="ml-6 space-y-1 border-l pl-2">
-      {gruppo.accessori.map(a => (
-        <label key={a.chiave} className="flex items-start gap-2 text-xs">
-          <input type="checkbox" className="mt-0.5 size-3.5" checked={scelte?.[a.chiave] ?? a.predefinito}
-            onChange={e => onCambia({ ...(scelte ?? {}), [a.chiave]: e.target.checked })} />
-          <span><span className="block">{a.descrizione || a.codice}</span><span className="block text-muted-foreground">{a.codice}</span></span>
-        </label>
-      ))}
-    </div>
-  )
-}
-
 export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFine }: Props) {
   const esistente = useLiveQuery(() => (voceId ? db.vociFp.get(voceId) : undefined), [voceId])
   // Copia: stesse scelte della voce d'origine, id nuovo e in fondo all'elenco. Non e' ancora
@@ -133,6 +119,12 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
     return [...new Set(v.map(x => x.fp.serie))].slice(0, 5)
   }, [], [] as string[])
   const colori = useLiveQuery(() => db.fpColori.filter(c => c.presente).toArray(), [], [])
+  // Accessori a colore dei kit attivi: i colori accessori proposti sono solo quelli che li hanno.
+  const codiciColore = useMemo(() => (struttura && voce ? codiciAColore(struttura.albero, voce.fp.kit) : []), [struttura, voce])
+  const mappaColori = useLiveQuery(async () => {
+    const righe = await db.fpAccessoriColori.bulkGet(codiciColore)
+    return new Map(righe.filter((r): r is AccessorioAColore => !!r).map(r => [r.codice, r]))
+  }, [codiciColore], new Map<string, AccessorioAColore>())
   const vetri = useLiveQuery(() => db.fpVetri.filter(v => v.presente).toArray(), [], [])
   const pannelli = useLiveQuery(() => db.fpPannelli.filter(p => p.presente).toArray(), [], [])
   // Campi in cui si sta scegliendo l'altro tipo di riempimento (prima di aver scelto il codice).
@@ -163,10 +155,7 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
 
   const divisioni = useMemo(() => (struttura ? divisioniStruttura(struttura.albero) : []), [struttura])
   const campi = useMemo(() => (struttura ? campiRiempimento(struttura.albero) : []), [struttura])
-  const kit = useMemo(() => (struttura ? kitOpzionali(struttura.albero) : []), [struttura])
-  const opzionali = useMemo(() => (struttura ? accessoriOpzionali(struttura.albero) : []), [struttura])
-  // Voci salvate prima della scelta unica: due kit alternativi spuntati insieme.
-  const kitDoppi = struttura && voce ? kitAlternativiDoppi(struttura.albero, voce.fp.kit, () => null) : []
+  const schema = useMemo(() => schemaOpzioni(struttura ? struttura.albero : []), [struttura])
   const telaiDefault = useMemo(() => (struttura ? telaiStruttura(struttura.albero) : {}), [struttura])
 
   const pref = (tipo: 'colore' | 'vetro') => new Set(preferenze.filter(p => p.tipo === tipo).map(p => String(p.rif)))
@@ -174,6 +163,13 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
     profiliPer(profiliSerie, serieFp?.fp_id, utilizzi).map(p => ({
       id: p.codice, testo: p.codice, sotto: p.descrizione, miniatura: miniature.get(p.codice.toUpperCase()) ?? null,
     }))
+  // Colori accessori: solo quelli con un prezzo per gli accessori a colore della voce, i piu' coprenti per primi.
+  const codiciNoti = codiciColore.filter(c => mappaColori.has(c))
+  const copertura = coperturaColori(codiciNoti, mappaColori)
+  const vociColoriAcc: VoceScelta[] = colori
+    .filter(c => c.per_accessori === true && (copertura.get(c.fp_id) ?? 0) > 0)
+    .sort((a, b) => (copertura.get(b.fp_id) ?? 0) - (copertura.get(a.fp_id) ?? 0))
+    .map(c => ({ id: String(c.fp_id), testo: c.descrizione, sotto: `copre ${copertura.get(c.fp_id)} di ${codiciNoti.length} accessori a colore` }))
   const vociColori = (perAccessori: boolean): VoceScelta[] => colori
     .filter(c => (perAccessori ? c.per_accessori === true : c.per_profili !== false))
     .map(c => ({ id: String(c.fp_id), testo: c.descrizione }))
@@ -335,7 +331,9 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
               </div>
             ))}
             {/* Come FP PRO: elenco in ordine; per ogni accessorio vale il primo colore in cui esiste. */}
-            <div className="space-y-1">
+            {codiciNoti.length === 0 && coloriAcc.length === 0
+              ? <p className="text-xs text-muted-foreground">Accessori: prezzo unico, il colore non cambia il prezzo.</p>
+              : <div className="space-y-1">
               <Label className="text-xs">Accessori <span className="text-muted-foreground">(in ordine: vale il primo che l&apos;accessorio ha)</span></Label>
               {coloriAcc.map((c, i) => (
                 <div key={c.fpId} className="flex items-center gap-1 rounded border px-2 py-1 text-sm">
@@ -347,13 +345,18 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
                 </div>
               ))}
               <SceltaFp
-                voci={vociColori(true).filter(x => !coloriAcc.some(c => String(c.fpId) === x.id))}
+                voci={vociColoriAcc.filter(x => !coloriAcc.some(c => String(c.fpId) === x.id))}
                 valore={null}
                 segnaposto="Cerca colore accessori (es. 9010)"
                 etichettaNessuno={coloriAcc.length ? 'Aggiungi un altro colore…' : 'Non indicato: aggiungi un colore…'}
                 onScegli={x => { const c = rif(x); if (c) impostaColoriAcc([...coloriAcc, c]) }}
               />
-            </div>
+              {coloriAcc.length > 0 && accessoriScoperti(codiciNoti, coloriAcc.map(c => c.fpId), mappaColori).map(a => (
+                <p key={a.codice} className="text-xs text-amber-700">
+                  {a.codice}: non esiste nei colori scelti{a.generale ? ' (si usera\' il prezzo generale)' : ': aggiungi un colore che lo ha'}
+                </p>
+              ))}
+            </div>}
           </Pannello>
 
           <Pannello titolo="Vetri e pannelli">
@@ -425,37 +428,8 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
             {campi.length > 0 && pannelli.length === 0 && <p className="text-xs text-muted-foreground">Elenco pannelli non ancora nel telefono: aggiorna il catalogo con la rete.</p>}
           </Pannello>
 
-          <Pannello titolo="Accessori">
-              {kitDoppi.map(nomi => (
-                <p key={nomi.join('+')} className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
-                  Kit alternativi scelti insieme: {nomi.join(' + ')}. FP PRO ne vuole uno solo: scegline uno.
-                </p>
-              ))}
-              {kit.map((k, i) => {
-                // Riga di separazione tra un gruppo di alternative e il successivo.
-                const nuovoGruppo = i > 0 && k.alternative !== kit[i - 1].alternative
-                const scelto = v.kit[k.chiave] ?? k.predefinito
-                return (
-                  <div key={k.chiave} className={`space-y-1 ${nuovoGruppo ? 'border-t pt-2' : ''}`}>
-                    <label className="flex items-start gap-2 text-sm">
-                      {/* Kit alternativi (stesso gruppo di FP PRO nel nodo): se ne sceglie uno, come in FP PRO */}
-                      <input type={k.alternative ? 'radio' : 'checkbox'} className="mt-0.5 size-4" checked={scelto}
-                        onChange={e => aggiorna({ kit: sceltaKit(kit, v.kit, k.chiave, k.alternative ? true : e.target.checked) })} />
-                      <span><span className="block">{k.descrizione || k.codice}</span><span className="block text-xs text-muted-foreground">{k.codice}</span></span>
-                    </label>
-                    {scelto && opzionali.filter(g => g.kit === k.chiave).map((g, i) => (
-                      <AccessoriKit key={i} gruppo={g} scelte={v.accessori} onCambia={accessori => aggiorna({ accessori })} />
-                    ))}
-                  </div>
-                )
-              })}
-              {/* Kit obbligatori e accessori sciolti con opzioni (es. rapid block del telaio) */}
-              {opzionali.filter(g => g.kit === null).map((g, i) => (
-                <div key={i} className="space-y-1">
-                  <p className="text-sm">{g.titolo}</p>
-                  <AccessoriKit gruppo={g} scelte={v.accessori} onCambia={accessori => aggiorna({ accessori })} />
-                </div>
-              ))}
+          <Pannello titolo="Opzioni">
+              <OpzioniVoce albero={struttura.albero} schema={schema} v={v} onCambia={patch => aggiorna(patch)} />
               {/* Accessori presi dal catalogo a mano (es. MEDISYSTEM: maniglione FIMET, motore vasistas) */}
               <div className="space-y-1 border-t pt-2">
                 <p className="text-sm">Accessori aggiunti</p>
@@ -605,7 +579,7 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
                 <Label className="text-xs">Mano di apertura (anta principale)</Label>
                 <div className="flex gap-2">
                   {([['sx', 'Sinistra'], ['dx', 'Destra'], [null, 'Non indicata']] as const).map(([valore, testo]) => (
-                    <Button key={testo} type="button" size="sm" variant={v.mano === valore ? 'default' : 'outline'} className="flex-1" onClick={() => aggiorna({ mano: valore })}>{testo}</Button>
+                    <Button key={testo} type="button" size="sm" variant={v.mano === valore ? 'default' : 'outline'} className="flex-1" onClick={() => aggiorna({ mano: valore, kit: riallineaMano(schema, v.kit, valore) })}>{testo}</Button>
                   ))}
                 </div>
               </div>

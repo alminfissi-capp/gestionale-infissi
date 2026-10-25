@@ -350,6 +350,15 @@ export const TABELLE_SYNC: TabellaSync[] = [
       dati: compatta(r),
     }),
   },
+  {
+    // Gruppi di alternative dei kit e degli accessori facoltativi (fp_kit.dati.raggruppamentoid,
+    // fp_kit_righe.dati.gruppoid): nome della domanda e tipo (0 scegli uno, 1 facoltativo, 2 piu' di uno).
+    mysql: 'gruppiopzkit',
+    supabase: 'fp_kit_gruppi',
+    sql: 'select * from gruppiopzkit order by pkid',
+    colonne: ['pkid', 'descrizione', 'grptype'],
+    mappa: r => ({ fp_id: id(r.pkid), descrizione: testo(r.descrizione), tipo: numero(r.grptype), dati: compatta(r) }),
+  },
 ]
 
 /**

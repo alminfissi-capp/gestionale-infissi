@@ -38,12 +38,12 @@ describe('conversioni', () => {
 })
 
 describe('mappature', () => {
-  it('ci sono le 16 tabelle, nell\'ordine giusto', () => {
+  it('ci sono le 17 tabelle, nell\'ordine giusto', () => {
     expect(TABELLE_SYNC.map(t => t.supabase)).toEqual([
       'fp_serie', 'fp_profili', 'fp_profili_costi', 'fp_colori', 'fp_accessori',
       'fp_accessori_costi', 'fp_vetri', 'fp_kit', 'fp_kit_righe',
       'fp_config_prev', 'fp_barre', 'fp_pannelli', 'fp_profili_componenti', 'fp_scarti',
-      'fp_kit_righe_serie', 'fp_accessori_collegati',
+      'fp_kit_righe_serie', 'fp_accessori_collegati', 'fp_kit_gruppi',
     ])
   })
 
