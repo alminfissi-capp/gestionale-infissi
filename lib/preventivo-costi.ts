@@ -13,7 +13,27 @@ export type ArticoloCosti = Pick<
   | 'costo_posa'
   | 'config_su_misura'
   | 'config_scorrevole'
->
+> & {
+  /** Righe da un rilievo FP PRO: il calcolo intero (DettaglioPreventivo, stampa) */
+  config_fppro?: ArticoloPreventivoRow['config_fppro']
+  /** ...oppure solo il suo prezzo, letto con `prezzo_fp:config_fppro->calcolo->prezzo` (letture leggere) */
+  prezzo_fp?: unknown
+}
+
+/**
+ * Righe nate dal calcolo di un rilievo FP PRO: spese generali, provvigione e spese varie sono
+ * costi (stanno nel prezzo come le spese varie del su misura); senza contarle finirebbero
+ * nell'utile, che deve restare quello del rilievo (% sul costo industriale).
+ */
+function speseFp(a: ArticoloCosti): number | null {
+  const calcolo = a.config_fppro?.calcolo as { prezzo?: unknown } | undefined
+  const p = (a.prezzo_fp ?? calcolo?.prezzo) as Record<string, unknown> | null | undefined
+  if (!p || typeof p !== 'object') return null
+  const n = (k: string) => (typeof p[k] === 'number' && Number.isFinite(p[k]) ? (p[k] as number) : null)
+  const [puro, industriale, provvigione, speseVarie] = [n('costoPuro'), n('costoIndustriale'), n('provvigione'), n('speseVarie')]
+  if (puro === null || industriale === null || provvigione === null || speseVarie === null) return null
+  return Math.round((industriale - puro + provvigione + speseVarie) * 100) / 100
+}
 
 // Costo materiali (acq), posa e spese varie per UNITÀ di un articolo.
 // Per su_misura/scorrevole usa la config come fonte attendibile (funziona anche
@@ -34,13 +54,13 @@ export function costiArticolo(a: ArticoloCosti): { acq: number; posa: number; sp
       posa: a.config_scorrevole.posa ?? a.costo_posa,
       spese: 0,
     }
-  return { acq: a.costo_acquisto_unitario, posa: a.costo_posa, spese: 0 }
+  return { acq: a.costo_acquisto_unitario, posa: a.costo_posa, spese: (a.tipo === 'libera' ? speseFp(a) : null) ?? 0 }
 }
 
 export type CostiPreventivo = {
   materiali: number   // Σ acq × quantità
   posa: number        // Σ posa × quantità
-  spese: number       // Σ spese varie × quantità (solo articoli su misura)
+  spese: number       // Σ spese varie × quantità (articoli su misura; righe FP PRO: spese generali + provvigione + spese varie)
   costoTotale: number // materiali + posa + spese + spese trasporto
   utile: number       // totaleArticoli − costoTotale
 }
