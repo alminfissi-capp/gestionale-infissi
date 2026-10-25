@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { XMLParser } from 'fast-xml-parser'
-import { OPZIONI_XML, strutturaDaXml } from './strutture-xml'
+import { OPZIONI_XML, aperturaAnta, strutturaDaXml } from './strutture-xml'
+import { haAnteBattenti } from './rilievo-fp'
 import { simboliApertura, type Simbolo } from './simboli-apertura'
 import type { NodoStruttura } from './strutture-xml'
 
@@ -74,5 +75,55 @@ describe('simboliApertura: scorrevole', () => {
     const s = simboliApertura(mono.albero, { L: 2600, H: 2600, L0: mono.lNominale ?? 2600, H0: mono.hNominale ?? 2600, quote: {} }, { mano: null, ribalta: false })
     expect(di(s, 'scorrimento').length).toBeGreaterThan(0)
     expect(di(s, 'cerniera')).toHaveLength(0)
+  })
+})
+
+// Vasistas come in FP PRO: _HTYPE 5 (o 4) nei parametri dell'anta; OpeningType 2 = a sporgere.
+const comeVasistas = (albero: NodoStruttura[], htype: number, opening: string): NodoStruttura[] => albero.map(n => ({
+  ...n,
+  prm: n.tipo === 8610 ? [{ nome: 'B1-01', variabili: { _HTYPE: htype } }, ...n.prm.filter(p => p.variabili._HTYPE === undefined)] : n.prm,
+  macro: n.tipo === 8610 ? { ...(n.macro ?? {}), OpeningType: opening } : n.macro,
+  figli: comeVasistas(n.figli, htype, opening),
+}))
+
+describe('simboliApertura: vasistas e a sporgere', () => {
+  const una = conMacro(ekos.albero, 0, 1)
+  const centroY = (s: Simbolo) => (s.tipo === 'maniglia' || s.tipo === 'cerniera' ? s.y + s.h / 2 : 0)
+
+  it('aperturaAnta legge _HTYPE e OpeningType', () => {
+    expect(aperturaAnta({ prm: [{ nome: 'B1-01', variabili: { _HTYPE: 3 } }], macro: { OpeningType: '1' } })).toBe('battente')
+    expect(aperturaAnta({ prm: [{ nome: 'B1-01', variabili: { _HTYPE: 5 } }], macro: { OpeningType: '1' } })).toBe('vasistas')
+    expect(aperturaAnta({ prm: [{ nome: 'B1-01', variabili: { _HTYPE: 4 } }], macro: { OpeningType: '1' } })).toBe('vasistas')
+    expect(aperturaAnta({ prm: [{ nome: 'B1-01', variabili: { _HTYPE: 5 } }], macro: { OpeningType: '2' } })).toBe('sporgere')
+    expect(aperturaAnta({ prm: [], macro: null })).toBe('battente')
+  })
+
+  for (const mano of ['sx', 'dx', null] as const) {
+    it(`vasistas (mano ${mano}): cerniere in basso, maniglia in alto al centro, punta in alto`, () => {
+      const s = simboliApertura(comeVasistas(una, 5, '1'), misure, { mano, ribalta: true })
+      const c = di(s, 'cerniera')
+      expect(c).toHaveLength(2)
+      expect(c.every(x => x.tipo === 'cerniera' && centroY(x) > 1400 && x.w > x.h)).toBe(true)
+      const m = di(s, 'maniglia')
+      expect(m).toHaveLength(1)
+      expect(centroY(m[0])).toBeLessThan(100)
+      expect(Math.abs(centroX(m[0]) - 650)).toBeLessThan(20)
+      const a = di(s, 'apertura')
+      expect(a).toHaveLength(2)
+      expect(a.every(l => l.tipo === 'apertura' && l.y2 < l.y1 && Math.abs(l.x2 - 650) < 20)).toBe(true)
+      expect(di(s, 'ribalta')).toHaveLength(0)
+    })
+  }
+
+  it('a sporgere: cerniere in alto, maniglia in basso, punta in basso', () => {
+    const s = simboliApertura(comeVasistas(una, 5, '2'), misure, { mano: null, ribalta: false })
+    expect(di(s, 'cerniera').every(x => centroY(x) < 100)).toBe(true)
+    expect(centroY(di(s, 'maniglia')[0])).toBeGreaterThan(1400)
+    expect(di(s, 'apertura').every(l => l.tipo === 'apertura' && l.y2 > l.y1)).toBe(true)
+  })
+
+  it('niente scelta della mano per una finestra solo vasistas', () => {
+    expect(haAnteBattenti(comeVasistas(una, 5, '1'))).toBe(false)
+    expect(haAnteBattenti(una)).toBe(true)
   })
 })

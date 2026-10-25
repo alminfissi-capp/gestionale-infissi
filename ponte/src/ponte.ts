@@ -8,7 +8,7 @@ import { apriDbSolaLettura, type DbLettura } from './mysql-sola-lettura.ts'
 import { impostaLog, log } from './log.ts'
 import { sincronizza } from './sincronizza.ts'
 
-const VERSIONE = '1.7.0'
+const VERSIONE = '1.8.0'
 const GIRO_MS = 30_000
 // La prima sync delle strutture (4.661 file) e' lunga: oltre 60 minuti e' appesa.
 const SYNC_MAX_MS = 60 * 60 * 1000

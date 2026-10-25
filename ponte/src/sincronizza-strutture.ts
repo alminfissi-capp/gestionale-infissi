@@ -15,8 +15,8 @@ import { log } from './log.ts'
 const PAGINA = 1000
 const BLOCCO_RIGHE = 25
 const BUCKET = 'fp-strutture'
-/** Si alza quando la lettura dei file cambia (2 = ore della struttura, 3 = opzioni senza Confirmed non scelte, 4 = distribuzione a passo): il ponte rilegge tutto una volta. */
-export const VERSIONE_LETTURA = 4
+/** Si alza quando la lettura dei file cambia (2 = ore della struttura, 3 = opzioni senza Confirmed non scelte, 4 = distribuzione a passo, 5 = posizioni negative dal lato opposto): il ponte rilegge tutto una volta. */
+export const VERSIONE_LETTURA = 5
 
 interface Esistente {
   id: string
