@@ -187,7 +187,7 @@ export default async function StatisticheCommessePage() {
       // questione di tempo, e senza paginazione i costi stimati calerebbero da soli.
       selectAll((da, a) => supabase
         .from('articoli_preventivo')
-        .select('preventivo_id, tipo, quantita, costo_acquisto_unitario, costo_posa, config_su_misura, config_scorrevole')
+        .select('preventivo_id, tipo, quantita, costo_acquisto_unitario, costo_posa, config_su_misura, config_scorrevole, prezzo_fp:config_fppro->calcolo->prezzo')
         .in('preventivo_id', tuttiPrevIds)
         .order('id').range(da, a)),
     ])

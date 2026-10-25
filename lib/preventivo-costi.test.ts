@@ -91,3 +91,24 @@ describe('calcolaCostiPreventivo', () => {
     expect(r.utile).toBe(300)
   })
 })
+
+describe('righe da un rilievo FP PRO', () => {
+  // Prima voce del rilievo Vutano: materiali 367,80 + lavoro 140, utile 35% sul costo industriale
+  const prezzo = { costoLavoro: 140, costoPuro: 507.8, costoIndustriale: 523.04, utile: 183.06, provvigione: 7.13, speseVarie: 28.53, imponibile: 741.76 }
+  const riga = (over: Partial<ArticoloCosti> = {}): ArticoloCosti => ({
+    tipo: 'libera', quantita: 2, costo_acquisto_unitario: 367.8, costo_posa: 140, config_su_misura: null, config_scorrevole: null,
+    config_fppro: { calcolo: { prezzo } }, ...over,
+  })
+  it('spese generali + provvigione + spese varie sono costi', () => {
+    expect(costiArticolo(riga()).spese).toBeCloseTo(15.24 + 7.13 + 28.53, 2)
+  })
+  it('l\'utile del preventivo torna quello del rilievo', () => {
+    expect(calcolaCostiPreventivo([riga()], 741.76 * 2, 0).utile).toBeCloseTo(183.06 * 2, 2)
+  })
+  it('anche con il solo prezzo letto in modo leggero', () => {
+    expect(costiArticolo(riga({ config_fppro: undefined, prezzo_fp: prezzo })).spese).toBeCloseTo(50.9, 2)
+  })
+  it('voce libera normale: nessuna spesa', () => {
+    expect(costiArticolo(riga({ config_fppro: null })).spese).toBe(0)
+  })
+})
