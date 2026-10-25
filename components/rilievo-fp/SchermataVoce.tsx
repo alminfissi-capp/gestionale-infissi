@@ -15,7 +15,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import DialogAccessorioFp from './DialogAccessorioFp'
 import { cambiaPreferenzaFp } from '@/lib/preferenze-fp'
 import {
-  accessoriOpzionali, campiRiempimento, coloriAccessori, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
+  accessoriOpzionali, campiRiempimento, kitAlternativiDoppi, sceltaKit, coloriAccessori, divisioniStruttura, haAnteBattenti, kitOpzionali, nuovaVoceFp, problemiVoce, telaiStruttura,
   type GruppoAccessoriOpzionali,
 } from '@/lib/fppro/rilievo-fp'
 import { profiliPer, UTILIZZI_ANTA, UTILIZZO_TELAIO } from '@/lib/fppro/profili-voce'
@@ -165,6 +165,8 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
   const campi = useMemo(() => (struttura ? campiRiempimento(struttura.albero) : []), [struttura])
   const kit = useMemo(() => (struttura ? kitOpzionali(struttura.albero) : []), [struttura])
   const opzionali = useMemo(() => (struttura ? accessoriOpzionali(struttura.albero) : []), [struttura])
+  // Voci salvate prima della scelta unica: due kit alternativi spuntati insieme.
+  const kitDoppi = struttura && voce ? kitAlternativiDoppi(struttura.albero, voce.fp.kit, () => null) : []
   const telaiDefault = useMemo(() => (struttura ? telaiStruttura(struttura.albero) : {}), [struttura])
 
   const pref = (tipo: 'colore' | 'vetro') => new Set(preferenze.filter(p => p.tipo === tipo).map(p => String(p.rif)))
@@ -424,13 +426,21 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
           </Pannello>
 
           <Pannello titolo="Accessori">
-              {kit.map(k => {
+              {kitDoppi.map(nomi => (
+                <p key={nomi.join('+')} className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+                  Kit alternativi scelti insieme: {nomi.join(' + ')}. FP PRO ne vuole uno solo: scegline uno.
+                </p>
+              ))}
+              {kit.map((k, i) => {
+                // Riga di separazione tra un gruppo di alternative e il successivo.
+                const nuovoGruppo = i > 0 && k.alternative !== kit[i - 1].alternative
                 const scelto = v.kit[k.chiave] ?? k.predefinito
                 return (
-                  <div key={k.chiave} className="space-y-1">
+                  <div key={k.chiave} className={`space-y-1 ${nuovoGruppo ? 'border-t pt-2' : ''}`}>
                     <label className="flex items-start gap-2 text-sm">
-                      <input type="checkbox" className="mt-0.5 size-4" checked={scelto}
-                        onChange={e => aggiorna({ kit: { ...v.kit, [k.chiave]: e.target.checked } })} />
+                      {/* Kit alternativi (stesso gruppo di FP PRO nel nodo): se ne sceglie uno, come in FP PRO */}
+                      <input type={k.alternative ? 'radio' : 'checkbox'} className="mt-0.5 size-4" checked={scelto}
+                        onChange={e => aggiorna({ kit: sceltaKit(kit, v.kit, k.chiave, k.alternative ? true : e.target.checked) })} />
                       <span><span className="block">{k.descrizione || k.codice}</span><span className="block text-xs text-muted-foreground">{k.codice}</span></span>
                     </label>
                     {scelto && opzionali.filter(g => g.kit === k.chiave).map((g, i) => (

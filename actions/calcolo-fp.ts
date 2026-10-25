@@ -18,7 +18,7 @@ import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
 import { createPreventivo } from '@/actions/preventivi'
 import type { PreventivoInput } from '@/types/preventivo'
 import type { RifFp, VoceFpDati } from '@/types/rilievo-fp'
-import { coloriAccessori } from '@/lib/fppro/rilievo-fp'
+import { coloriAccessori, kitAlternativiDoppi } from '@/lib/fppro/rilievo-fp'
 import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
@@ -182,7 +182,8 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
     const idProfili = profili.map(p => p.fp_id)
     const codiciTutti = profili.map(p => p.codice)
 
-    const kitRighe = await inLista<{ fp_id: number; nome: string }>(supabase, orgId, 'fp_kit', 'fp_id, nome', 'nome', [...kit])
+    const kitRighe = await inLista<{ fp_id: number; nome: string; dati: Record<string, unknown> | null }>(supabase, orgId, 'fp_kit', 'fp_id, nome, dati', 'nome', [...kit])
+    const gruppoKit = new Map(kitRighe.map(k => [k.nome, Number(k.dati?.raggruppamentoid ?? 0) || null]))
     const righeKit = await inLista<RigaKitCatalogo & { kit_fp_id: number }>(supabase, orgId, 'fp_kit_righe',
       'fp_id, kit_fp_id, codice, tipo, quantita, opzionale, dim_rif, lim_inf, lim_sup, passo, formula_r, formula_dist, dati', 'kit_fp_id', kitRighe.map(k => k.fp_id))
     const serieRighe = await inLista<{ riga_fp_id: number; serie: string }>(supabase, orgId, 'fp_kit_righe_serie', 'fp_id, riga_fp_id, serie', 'riga_fp_id', righeKit.map(r => r.fp_id))
@@ -266,6 +267,9 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       // I pezzi servivano solo al fattore: non si salvano.
       const calcolo = calcolaVoce({ ...input, fattoreBarre: fattore }, listino, regole)
       delete calcolo.tagli
+      for (const doppi of kitAlternativiDoppi(s.albero, v.fp.kit ?? {}, k => gruppoKit.get(k))) {
+        calcolo.avvisi.push(`Kit alternativi scelti insieme (FP PRO ne vuole uno): ${doppi.join(' + ')}. Togline uno nella voce`)
+      }
       if (!s.tempi) calcolo.avvisi.push('Ore della struttura non lette: sincronizza FP PRO')
       calcolate.push({
         voceId: v.id, posizione: v.voce ?? '', quantita: v.quantita || 1, descrizione: `${v.fp.nome} ${v.fp.larghezza}x${v.fp.altezza}`,
