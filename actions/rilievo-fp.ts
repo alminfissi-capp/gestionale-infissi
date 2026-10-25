@@ -3,9 +3,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
 import { selectAll } from '@/lib/supabase/paginate'
-import { alberoLeggero } from '@/lib/fppro/rilievo-fp'
+import { alberoLeggero, type ArricchimentoAlbero, type GruppoFp } from '@/lib/fppro/rilievo-fp'
+import { chiaveKit, gruppoDaDati, kitPerNome } from '@/lib/fppro/kit-catalogo'
+import type { AccessorioAColore } from '@/lib/fppro/opzioni-voce'
 import { accessoriDaCatalogo, type RigaKitCatalogo } from '@/lib/fppro/calcolo/accessori'
-import type { AccessorioStruttura, NodoStruttura } from '@/lib/fppro/strutture-xml'
+import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
 import type {
   EliminatoFp, PosizioneFp, PreferenzaFp, RilievoFp, TabellaCatalogoLocale, VoceFp, VoceFpDati,
 } from '@/types/rilievo-fp'
@@ -32,53 +34,80 @@ const blocchi = <T,>(righe: T[], n: number): T[][] => {
 type ClientSupabase = Awaited<ReturnType<typeof createClient>>
 
 /**
- * Accessori opzionali del catalogo dei kit (fp_kit_righe) per i kit che nello STR non hanno
- * righe: FP PRO scrive solo quelle del kit confermato, ma in cantiere si scelgono anche negli
- * altri (es. la serratura nella cremonese dello scorrevole). Righe limitate ad altre serie escluse.
+ * Dati del catalogo per l'albero del telefono (opzioni semplici della voce):
+ * - righe dal catalogo per i kit senza righe nello STR (FP PRO scrive solo quelle del kit
+ *   confermato), limitate alle serie della struttura;
+ * - gruppo di alternative dei kit e degli accessori facoltativi, con nome e tipo (fp_kit_gruppi);
+ * - quali accessori hanno un prezzo per colore (fp_accessori_a_colore).
+ * I kit si cercano per nome senza maiuscole (kitPerNome).
  */
-async function opzionaliDeiKit(supabase: ClientSupabase, orgId: string, alberi: NodoStruttura[][]) {
+async function arricchimentoAlberi(supabase: ClientSupabase, orgId: string, alberi: NodoStruttura[][]): Promise<(serie: string[]) => ArricchimentoAlbero> {
   const tutti = (nodi: NodoStruttura[]): NodoStruttura[] => nodi.flatMap(n => [n, ...tutti(n.figli)])
-  // Gruppo di alternative per TUTTI i kit; righe dal catalogo solo per quelli senza righe nello STR.
-  const nomi = [...new Set(alberi.flatMap(a => tutti(a).flatMap(n => n.kit.map(k => k.codice))))]
-  const senzaRighe = new Set(alberi.flatMap(a => tutti(a).flatMap(n => n.kit.filter(k => k.accessori.length === 0).map(k => k.codice))))
+  const nodi = alberi.flatMap(tutti)
+  const nomi = new Set(nodi.flatMap(n => n.kit.map(k => chiaveKit(k.codice))))
+
+  const tuttiKit = await selectAll<{ fp_id: number; nome: string; gruppo: string | null }>((da, a) =>
+    supabase.from('fp_kit').select('fp_id, nome, gruppo:dati->>raggruppamentoid').eq('organization_id', orgId).eq('presente', true)
+      .order('fp_id').range(da, a) as unknown as PromiseLike<{ data: { fp_id: number; nome: string; gruppo: string | null }[] | null; error: { message: string } | null }>)
+  const perNome = kitPerNome(tuttiKit.filter(k => nomi.has(chiaveKit(k.nome))).map(k => ({ ...k, gruppo: gruppoDaDati({ raggruppamentoid: k.gruppo }) })))
+  const gruppiFp = await selectAll<{ fp_id: number; descrizione: string | null; tipo: number | null }>((da, a) =>
+    supabase.from('fp_kit_gruppi').select('fp_id, descrizione, tipo').eq('organization_id', orgId).eq('presente', true)
+      .order('fp_id').range(da, a) as unknown as PromiseLike<{ data: { fp_id: number; descrizione: string | null; tipo: number | null }[] | null; error: { message: string } | null }>)
+  const gruppo = new Map(gruppiFp.map(g => [g.fp_id, { id: g.fp_id, tipo: g.tipo, nome: g.descrizione }]))
+  const gruppoDa = (id: number | null | undefined): GruppoFp | null => (id ? gruppo.get(id) ?? { id, tipo: null, nome: null } : null)
+
+  // Righe dei kit (tutte: servono anche i codici a colore e i gruppi degli accessori dello STR).
+  // Di dati solo i campi usati: fp_kit_righe.dati e' la meta' del peso del catalogo.
+  const nomeDiId = new Map([...perNome.entries()].map(([nome, k]) => [k.fp_id, nome]))
   const perKit = new Map<string, (RigaKitCatalogo & { serie: string[] | null })[]>()
-  const gruppi = new Map<string, number>()
-  for (const nomiBlocco of blocchi(nomi, BLOCCO_ID)) {
-    const { data: kit, error } = await supabase.from('fp_kit').select('fp_id, nome, gruppo:dati->>raggruppamentoid')
-      .eq('organization_id', orgId).eq('presente', true).in('nome', nomiBlocco)
+  for (const idBlocco of blocchi([...nomeDiId.keys()], BLOCCO_ID)) {
+    type Riga = Omit<RigaKitCatalogo, 'dati'> & { kit_fp_id: number; gruppoid: string | null; descr: string | null; dim_calc: string | null; dimrifdist: string | null }
+    const righe = await selectAll<Riga>((da, a) => supabase.from('fp_kit_righe')
+      .select('fp_id, kit_fp_id, codice, tipo, quantita, opzionale, dim_rif, lim_inf, lim_sup, passo, formula_r, formula_dist, gruppoid:dati->>gruppoid, descr:dati->>descr, dim_calc:dati->>dim_calc, dimrifdist:dati->>dimrifdist')
+      .eq('organization_id', orgId).eq('presente', true).in('kit_fp_id', idBlocco).order('fp_id').range(da, a) as unknown as PromiseLike<{ data: Riga[] | null; error: { message: string } | null }>)
+    const serie = new Map<number, string[]>()
+    for (const rb of blocchi(righe.map(r => r.fp_id), BLOCCO_ID)) {
+      const { data: s, error: e3 } = await supabase.from('fp_kit_righe_serie').select('riga_fp_id, serie')
+        .eq('organization_id', orgId).eq('presente', true).in('riga_fp_id', rb)
+      if (e3) throw new Error(e3.message)
+      for (const x of s ?? []) serie.set(x.riga_fp_id as number, [...(serie.get(x.riga_fp_id as number) ?? []), x.serie as string])
+    }
+    for (const r of righe) {
+      const nome = nomeDiId.get(r.kit_fp_id)
+      if (!nome) continue
+      const { gruppoid, descr, dim_calc, dimrifdist, ...resto } = r
+      const riga = { ...resto, dati: { gruppoid, descr, dim_calc, dimrifdist }, serie: serie.get(r.fp_id) ?? null }
+      perKit.set(nome, [...(perKit.get(nome) ?? []), riga])
+    }
+  }
+
+  // Accessori a colore tra quelli citati (STR e catalogo).
+  const codici = new Set<string>()
+  for (const n of nodi) {
+    n.accessori.forEach(x => codici.add(x.codice))
+    n.kit.forEach(k => k.accessori.forEach(x => codici.add(x.codice)))
+  }
+  for (const righe of perKit.values()) righe.forEach(r => codici.add(r.codice))
+  const aColore = new Set<string>()
+  for (const blocco of blocchi([...codici], BLOCCO_ID)) {
+    const { data, error } = await supabase.from('fp_accessori_a_colore').select('codice').eq('organization_id', orgId).in('codice', blocco)
     if (error) throw new Error(error.message)
-    for (const k of kit ?? []) {
-      const g = Number(k.gruppo ?? 0)
-      if (g > 0) gruppi.set(k.nome as string, g)
-    }
-    const nomeDi = new Map((kit ?? []).filter(k => senzaRighe.has(k.nome as string)).map(k => [k.fp_id as number, k.nome as string]))
-    for (const idBlocco of blocchi([...nomeDi.keys()], BLOCCO_ID)) {
-      const { data: righe, error: e2 } = await supabase.from('fp_kit_righe')
-        .select('fp_id, kit_fp_id, codice, tipo, quantita, opzionale, dim_rif, lim_inf, lim_sup, passo, formula_r, formula_dist, dati')
-        .eq('organization_id', orgId).eq('presente', true).eq('opzionale', true).in('kit_fp_id', idBlocco)
-      if (e2) throw new Error(e2.message)
-      const opzionali = (righe ?? []) as (RigaKitCatalogo & { kit_fp_id: number })[]
-      const serie = new Map<number, string[]>()
-      for (const rb of blocchi(opzionali.map(r => r.fp_id), BLOCCO_ID)) {
-        const { data: s, error: e3 } = await supabase.from('fp_kit_righe_serie').select('riga_fp_id, serie')
-          .eq('organization_id', orgId).eq('presente', true).in('riga_fp_id', rb)
-        if (e3) throw new Error(e3.message)
-        for (const x of s ?? []) serie.set(x.riga_fp_id as number, [...(serie.get(x.riga_fp_id as number) ?? []), x.serie as string])
-      }
-      for (const r of opzionali) {
-        const nome = nomeDi.get(r.kit_fp_id)
-        if (!nome) continue
-        perKit.set(nome, [...(perKit.get(nome) ?? []), { ...r, serie: serie.get(r.fp_id) ?? null }])
-      }
+    for (const x of data ?? []) aColore.add(x.codice as string)
+  }
+
+  const gruppoRiga = new Map<string, number>()
+  for (const [nome, righe] of perKit) {
+    for (const r of righe) {
+      const g = Number(r.dati?.gruppoid ?? 0)
+      if (g > 0 && !gruppoRiga.has(`${nome}\u0000${r.codice}`)) gruppoRiga.set(`${nome}\u0000${r.codice}`, g)
     }
   }
-  return {
-    righe: (kit: string, serieStruttura: string[]): AccessorioStruttura[] => {
-      const righe = (perKit.get(kit) ?? []).filter(r => r.serie === null || r.serie.some(x => serieStruttura.includes(x)))
-      return accessoriDaCatalogo(righe)
-    },
-    gruppo: (kit: string): number | null => gruppi.get(kit) ?? null,
-  }
+  return (serieStruttura: string[]) => ({
+    righeCatalogo: kit => accessoriDaCatalogo((perKit.get(chiaveKit(kit)) ?? []).filter(r => r.serie === null || r.serie.some(x => serieStruttura.includes(x)))),
+    gruppoKit: kit => gruppoDa(perNome.get(chiaveKit(kit))?.gruppo),
+    gruppoAccessorio: (kit, codice) => gruppoDa(gruppoRiga.get(`${chiaveKit(kit)}\u0000${codice}`)),
+    aColore: codice => aColore.has(codice),
+  })
 }
 
 /**
@@ -119,9 +148,9 @@ export async function scaricaCatalogo(
     const { data, error } = await query.order('segno_server').order(chiave).limit(dimensionePagina(tabella))
     if (error) return { errore: error.message }
     const grezze = (data ?? []) as unknown as (Record<string, unknown> & { segno_server: string })[]
-    const catalogo = tabella === 'fp_strutture' ? await opzionaliDeiKit(supabase, orgId, grezze.map(r => r.albero as NodoStruttura[])) : null
+    const arricchisci = tabella === 'fp_strutture' ? await arricchimentoAlberi(supabase, orgId, grezze.map(r => r.albero as NodoStruttura[])) : null
     const righe = tabella === 'fp_strutture'
-      ? grezze.map(r => ({ ...r, albero: alberoLeggero(r.albero as NodoStruttura[], kit => catalogo!.righe(kit, r.serie as string[]), catalogo!.gruppo) }))
+      ? grezze.map(r => ({ ...r, albero: alberoLeggero(r.albero as NodoStruttura[], arricchisci!(r.serie as string[])) }))
       : tabella === 'fp_telai'
         // Al telefono non serve tutto `dati`: solo gli utilizzi del profilo.
         ? grezze.map(({ dati, ...r }) => ({ ...r, utilizzi: utilizziProfilo(dati as Record<string, unknown> | null) }))
@@ -327,5 +356,21 @@ export async function cercaAccessoriFp(f: { marca?: string | null; serie?: strin
     return (data ?? []) as AccessorioCatalogoFp[]
   } catch (e) {
     return { errore: messaggio(e, 'Ricerca accessori non riuscita') }
+  }
+}
+
+/**
+ * Accessori con un prezzo per colore accessori (vista fp_accessori_a_colore), per il telefono:
+ * nella voce si mostrano solo i colori che esistono per gli accessori di quel serramento.
+ * ~5.500 righe piccole: si scaricano intere a ogni aggiornamento del catalogo.
+ */
+export async function getAccessoriAColoreFp(): Promise<AccessorioAColore[] | { errore: string }> {
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+    return await selectAll<AccessorioAColore>((da, a) => supabase.from('fp_accessori_a_colore').select('codice, colori, generale')
+      .eq('organization_id', orgId).order('codice').range(da, a) as unknown as PromiseLike<{ data: AccessorioAColore[] | null; error: { message: string } | null }>)
+  } catch (e) {
+    return { errore: messaggio(e, 'Colori degli accessori non disponibili') }
   }
 }

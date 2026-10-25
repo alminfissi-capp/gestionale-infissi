@@ -19,6 +19,7 @@ import { createPreventivo } from '@/actions/preventivi'
 import type { PreventivoInput } from '@/types/preventivo'
 import type { RifFp, VoceFpDati } from '@/types/rilievo-fp'
 import { coloriAccessori, kitAlternativiDoppi } from '@/lib/fppro/rilievo-fp'
+import { chiaveKit, gruppoDaDati, kitPerNome } from '@/lib/fppro/kit-catalogo'
 import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
@@ -182,8 +183,14 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
     const idProfili = profili.map(p => p.fp_id)
     const codiciTutti = profili.map(p => p.codice)
 
-    const kitRighe = await inLista<{ fp_id: number; nome: string; dati: Record<string, unknown> | null }>(supabase, orgId, 'fp_kit', 'fp_id, nome, dati', 'nome', [...kit])
-    const gruppoKit = new Map(kitRighe.map(k => [k.nome, Number(k.dati?.raggruppamentoid ?? 0) || null]))
+    // Kit per nome senza maiuscole (STR "F2-DK-DX", catalogo "F2-dk-dx"): si legge l'elenco (~1.000) e si abbina qui.
+    const nomiKit = new Set([...kit].map(chiaveKit))
+    const tuttiKit = await selectAll<{ fp_id: number; nome: string; gruppo: string | null }>((da, a) =>
+      supabase.from('fp_kit').select('fp_id, nome, gruppo:dati->>raggruppamentoid').eq('organization_id', orgId).eq('presente', true)
+        .order('fp_id').range(da, a) as unknown as PromiseLike<{ data: { fp_id: number; nome: string; gruppo: string | null }[] | null; error: { message: string } | null }>)
+    const kitRighe = [...kitPerNome(tuttiKit.filter(k => nomiKit.has(chiaveKit(k.nome)))
+      .map(k => ({ ...k, gruppo: gruppoDaDati({ raggruppamentoid: k.gruppo }) }))).values()]
+    const gruppoKit = new Map(kitRighe.map(k => [chiaveKit(k.nome), k.gruppo]))
     const righeKit = await inLista<RigaKitCatalogo & { kit_fp_id: number }>(supabase, orgId, 'fp_kit_righe',
       'fp_id, kit_fp_id, codice, tipo, quantita, opzionale, dim_rif, lim_inf, lim_sup, passo, formula_r, formula_dist, dati', 'kit_fp_id', kitRighe.map(k => k.fp_id))
     const serieRighe = await inLista<{ riga_fp_id: number; serie: string }>(supabase, orgId, 'fp_kit_righe_serie', 'fp_id, riga_fp_id, serie', 'riga_fp_id', righeKit.map(r => r.fp_id))
@@ -267,7 +274,7 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       // I pezzi servivano solo al fattore: non si salvano.
       const calcolo = calcolaVoce({ ...input, fattoreBarre: fattore }, listino, regole)
       delete calcolo.tagli
-      for (const doppi of kitAlternativiDoppi(s.albero, v.fp.kit ?? {}, k => gruppoKit.get(k))) {
+      for (const doppi of kitAlternativiDoppi(s.albero, v.fp.kit ?? {}, k => gruppoKit.get(chiaveKit(k)))) {
         calcolo.avvisi.push(`Kit alternativi scelti insieme (FP PRO ne vuole uno): ${doppi.join(' + ')}. Togline uno nella voce`)
       }
       if (!s.tempi) calcolo.avvisi.push('Ore della struttura non lette: sincronizza FP PRO')

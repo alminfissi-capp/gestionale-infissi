@@ -8,6 +8,7 @@
 // - un kit scelto senza righe nello STR (FP PRO scrive solo quelle del kit confermato) prende le
 //   righe dal catalogo dei kit; tra le alternative di uno stesso gruppo vale la prima.
 import type { AccessorioStruttura, NodoStruttura } from '../strutture-xml'
+import { chiaveKit } from '../kit-catalogo'
 
 /**
  * Chiave della scelta di un accessorio opzionale nella voce (VoceFpDati.accessori): nodo,
@@ -92,6 +93,7 @@ export function accessoriDaCatalogo(righe: RigaKitCatalogo[]): AccessorioStruttu
       formulaDistribuzione: r.formula_dist || null,
       opzionale: r.opzionale,
       confermato,
+      gruppo: gruppo > 0 ? gruppo : null,
     }
   })
 }
@@ -106,10 +108,11 @@ export function regoleDaElenchi(
   collegati: { principale: string; collegato: string; quantita: number; serie: string }[],
   catalogoKit: Record<string, RigaKitCatalogo[]> = {},
 ): RegoleAccessori {
-  const catalogo = new Map(Object.entries(catalogoKit).map(([kit, righe]) => [kit, accessoriDaCatalogo(righe)]))
+  // Kit per nome senza maiuscole: lo STR e il catalogo non le scrivono sempre uguali.
+  const catalogo = new Map(Object.entries(catalogoKit).map(([kit, righe]) => [chiaveKit(kit), accessoriDaCatalogo(righe)]))
   const perRiga = new Map<string, string[] | null>()
   for (const r of righeKit) {
-    const chiave = `${r.kit}\u0000${r.codice}`
+    const chiave = `${chiaveKit(r.kit)}\u0000${r.codice}`
     const prima = perRiga.get(chiave)
     // Stesso codice su piu' righe: vale l'unione; una riga senza limiti vale per tutte.
     if (prima === null || r.serie === null) perRiga.set(chiave, null)
@@ -124,11 +127,11 @@ export function regoleDaElenchi(
   return {
     serieStruttura,
     serieRigaKit: (kit, codice) => {
-      const s = perRiga.get(`${kit}\u0000${codice}`)
+      const s = perRiga.get(`${chiaveKit(kit)}\u0000${codice}`)
       return s === undefined ? null : s
     },
     collegati: codice => perPrincipale.get(codice) ?? [],
-    righeCatalogo: kit => catalogo.get(kit) ?? [],
+    righeCatalogo: kit => catalogo.get(chiaveKit(kit)) ?? [],
   }
 }
 

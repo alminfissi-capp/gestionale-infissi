@@ -53,6 +53,10 @@ export interface AccessorioStruttura {
   formulaDistribuzione: string | null
   opzionale: boolean
   confermato: boolean
+  /** Gruppo di alternative di FP PRO dell'accessorio facoltativo (gruppoid) e suo tipo/nome: li mette il server per il telefono */
+  gruppo?: number | null
+  gruppoTipo?: number | null
+  gruppoNome?: string | null
 }
 
 export interface KitStruttura {
@@ -68,6 +72,11 @@ export interface KitStruttura {
    * nodo se ne sceglie UNO. Lo aggiunge il server all'albero per il telefono (fp_kit.raggruppamentoid).
    */
   gruppo?: number | null
+  /** Tipo del gruppo (0 scegli uno, 1 facoltativo, 2 piu' di uno) e nome della domanda (gruppiopzkit) */
+  gruppoTipo?: number | null
+  gruppoNome?: string | null
+  /** Codici degli accessori del kit che hanno un prezzo per colore accessori (per il filtro dei colori) */
+  codiciColore?: string[]
 }
 
 export interface NodoStruttura {
@@ -85,6 +94,8 @@ export interface NodoStruttura {
   accessori: AccessorioStruttura[]
   kit: KitStruttura[]
   figli: NodoStruttura[]
+  /** Codici degli accessori sciolti del nodo con un prezzo per colore (li mette il server per il telefono) */
+  codiciColore?: string[]
 }
 
 /** Ore di lavoro della struttura (FP_TIMES), come le usa il preventivo di FP PRO */
