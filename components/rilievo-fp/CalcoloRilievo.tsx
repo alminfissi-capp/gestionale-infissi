@@ -17,6 +17,7 @@ import {
 import type { CorrezioniVoce, OreVoce, PercentualiCalcolo } from '@/lib/fppro/calcolo/tipi'
 import { campiMinuti, minutiDaOre, oreDaMinuti } from '@/lib/fppro/calcolo/correzioni'
 import { nomeCliente } from './ElencoRilievi'
+import RiepilogoCosti from './RiepilogoCosti'
 
 const ORE: { chiave: keyof OreVoce; etichetta: string }[] = [
   { chiave: 'taglio', etichetta: 'Taglio' },
@@ -209,6 +210,7 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
   const [superato, setSuperato] = useState<string | null>(dati.superato)
   const [percentuali, setPercentuali] = useState<PercentualiCalcolo>(dati.percentualiRilievo)
   const [finestraPercentuali, setFinestraPercentuali] = useState(false)
+  const [vista, setVista] = useState<'voci' | 'costi'>('voci')
   const profiloScelto = dati.profili.find(p => p.fpId === configId)
   // Valori comuni effettivi: quelli del rilievo, altrimenti quelli del profilo scelto.
   const comuni: PercentualiCalcolo = { ...(profiloScelto?.percentuali ?? {}), ...percentuali }
@@ -319,6 +321,13 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
             Profilo {calcolo.nomeProfilo} · calcolato il {new Date(calcolo.calcolatoAt).toLocaleString('it-IT')}.
             Stima: i materiali esatti per la produzione li calcola FP PRO.
           </p>
+          <div className="flex gap-1 rounded-md border p-1 w-fit">
+            {([['voci', 'Voci'], ['costi', 'Riepilogo costi']] as const).map(([k, testo]) => (
+              <Button key={k} type="button" size="sm" variant={vista === k ? 'default' : 'ghost'} onClick={() => setVista(k)}>{testo}</Button>
+            ))}
+          </div>
+          {vista === 'costi' && <RiepilogoCosti calcolo={calcolo} />}
+          {vista === 'voci' && <>
           <div className="overflow-x-auto rounded-md border">
             <table className="w-full min-w-[720px] text-sm">
               <thead className="bg-muted/50 text-left text-xs">
@@ -374,6 +383,7 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
               Voci non calcolate: {calcolo.saltate.map(s => `${s.posizione || 'voce'} (${s.motivo})`).join(', ')}
             </div>
           )}
+          </>}
           <div className="flex flex-wrap items-center gap-2">
             <Button className="h-11" onClick={trasferisci} disabled={inCorso !== null || calcolo.voci.length === 0 || profiloCambiato || superato !== null}>
               {inCorso === 'trasferimento' && <Loader2 className="mr-2 size-4 animate-spin" />}Trasferisci in Preventivi

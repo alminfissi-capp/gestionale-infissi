@@ -20,6 +20,8 @@ import type { PreventivoInput } from '@/types/preventivo'
 import type { RifFp, VoceFpDati } from '@/types/rilievo-fp'
 import { coloriAccessori, kitAlternativiDoppi } from '@/lib/fppro/rilievo-fp'
 import { chiaveKit, gruppoDaDati, kitPerNome } from '@/lib/fppro/kit-catalogo'
+import { svgVoce, type StrutturaDisegno } from '@/lib/fppro/svg-voce'
+import sharp from 'sharp'
 import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
@@ -45,6 +47,8 @@ export interface CalcoloRilievo {
   saltate: { voceId: string; posizione: string; motivo: string }[]
   totaleImponibile: number
   calcolatoAt: string
+  /** Barre intere per profilo su tutto il rilievo (ottimizzazione come FP PRO). Assente nei calcoli vecchi. */
+  barre?: { codice: string; barre: number }[]
 }
 
 const messaggio = (e: unknown, riserva: string) => (e instanceof Error ? e.message : riserva)
@@ -265,7 +269,7 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       daCalcolare.push({ v, s, input, listino: listinoPer(colore, coloriAccessori(v.fp)), regole })
     }
     // Come FP PRO: le barre si ottimizzano su tutta la commessa e si ripartiscono sui pezzi.
-    const { fattore } = fattoreBarreCommessa(daCalcolare.map(d => ({
+    const { fattore, barre } = fattoreBarreCommessa(daCalcolare.map(d => ({
       quantita: d.v.quantita || 1, tagli: calcolaVoce(d.input, d.listino, d.regole).tagli ?? [],
     })))
 
@@ -288,6 +292,7 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       configPrevFpId, nomeProfilo: String(config.nome ?? ''), voci: calcolate, saltate,
       totaleImponibile: calcolate.reduce((t, v) => t + v.calcolo.prezzo.imponibile * v.quantita, 0),
       calcolatoAt: new Date().toISOString(),
+      barre,
     }
     const { error: eSalva } = await supabase.from('rilievi_veloci')
       .update({ config_prev_fp_id: configPrevFpId, calcolo: risultato }).eq('organization_id', orgId).eq('id', rilievoId)
@@ -392,7 +397,29 @@ export async function trasferisciInPreventivi(rilievoId: string): Promise<{ prev
     if (superato) return { errore: superato }
     const fpPerVoce = new Map((voci ?? []).map(v => [v.id as string, v.fp as VoceFpDati]))
 
-    // Immagine della struttura copiata tra gli allegati dei preventivi (come l'import dal PDF).
+    // Immagine = disegno della voce come nel rilievo (misure vere, traversi alle quote, aperture,
+    // pannelli); se non si riesce a disegnare, la miniatura di FP PRO come prima.
+    const idStrutture = [...new Set(calcolo.voci.map(v => v.strutturaId))]
+    const strutture = new Map((await inLista<StrutturaDisegno & { id: string }>(supabase, orgId, 'fp_strutture',
+      'id, albero, poligoni, l_nominale, h_nominale', 'id', idStrutture, 'id')).map(x => [x.id, x]))
+    const disegnoPng = async (v: VoceCalcolata, fp: VoceFpDati | undefined): Promise<string | null> => {
+      const s = strutture.get(v.strutturaId)
+      if (!s || !fp) return null
+      try {
+        const svg = svgVoce(s, { ...fp, larghezza: v.larghezza, altezza: v.altezza })
+        if (!svg) return null
+        const png = await sharp(Buffer.from(svg)).flatten({ background: '#ffffff' }).png().toBuffer()
+        const destinazione = `${orgId}/fppro/${crypto.randomUUID()}.png`
+        const { error: eSu } = await supabase.storage.from('preventivi-allegati').upload(destinazione, png, { contentType: 'image/png' })
+        if (eSu) throw new Error(eSu.message)
+        return supabase.storage.from('preventivi-allegati').getPublicUrl(destinazione).data.publicUrl
+      } catch (e) {
+        console.warn('[trasferisciInPreventivi] disegno non creato:', messaggio(e, ''))
+        return null
+      }
+    }
+
+    // Miniatura della struttura copiata tra gli allegati dei preventivi (come l'import dal PDF).
     const immagini = new Map<string, string | null>()
     const copiaImmagine = async (path: string | null): Promise<string | null> => {
       if (!path) return null
@@ -432,7 +459,7 @@ export async function trasferisciInPreventivi(rilievoId: string): Promise<{ prev
         accessori_griglia: null, tipologia: `${v.struttura} ${v.larghezza}x${v.altezza}`, categoria_nome: null,
         larghezza_mm: null, altezza_mm: null, larghezza_listino_mm: null, altezza_listino_mm: null, misura_arrotondata: false,
         finitura_nome: null, finitura_aumento: 0, finitura_aumento_euro: 0, note: note || null,
-        immagine_url: await copiaImmagine(v.immagine), quantita: v.quantita, prezzo_base: null, prezzo_unitario: pu,
+        immagine_url: (await disegnoPng(v, fp)) ?? await copiaImmagine(v.immagine), quantita: v.quantita, prezzo_base: null, prezzo_unitario: pu,
         sconto_articolo: 0, prezzo_totale_riga: pu * v.quantita,
         costo_acquisto_unitario: Math.round(v.calcolo.materiali * 100) / 100,
         costo_posa: Math.round(v.calcolo.prezzo.costoLavoro * 100) / 100,

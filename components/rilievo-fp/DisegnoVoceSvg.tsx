@@ -1,52 +1,22 @@
 'use client'
 
 import { useId, useMemo } from 'react'
-import { disegnoVoce } from '@/lib/fppro/disegno-voce'
-import { haRibalta } from '@/lib/fppro/rilievo-fp'
-import { simboliApertura } from '@/lib/fppro/simboli-apertura'
-import { campiDisegno } from '@/lib/fppro/disegno-voce'
-import type { StrutturaLocale, VoceFpDati } from '@/types/rilievo-fp'
+import { BLU, PANNELLO, VETRO, elementiDisegno, type StrutturaDisegno, type VoceDisegno } from '@/lib/fppro/svg-voce'
 
 interface Props {
-  struttura: Pick<StrutturaLocale, 'albero' | 'poligoni' | 'l_nominale' | 'h_nominale'>
-  voce: Pick<VoceFpDati, 'larghezza' | 'altezza' | 'quote'> & Partial<Pick<VoceFpDati, 'mano' | 'kit' | 'vetri' | 'pannelli'>>
+  struttura: StrutturaDisegno
+  voce: VoceDisegno
   className?: string
 }
 
-const BLU = '#1e3a8a'
-/** Pannello: pieno chiaro con tratteggio, per distinguerlo dal vetro azzurro */
-const PANNELLO = '#e7e5e4'
-
 /** Disegno della voce: profili della struttura alle misure del rilievo e simboli di apertura. */
 export default function DisegnoVoceSvg({ struttura, voce, className }: Props) {
-  const d = disegnoVoce(struttura, voce)
   // Molti disegni nella stessa pagina (riepilogo): ogni freccia ha il suo id.
   const idFreccia = `freccia-${useId().replace(/:/g, '')}`
-  const simboli = useMemo(() => {
-    if (!d) return []
-    try {
-      return simboliApertura(
-        struttura.albero,
-        { L: d.larghezza, H: d.altezza, L0: struttura.l_nominale ?? d.larghezza, H0: struttura.h_nominale ?? d.altezza, quote: voce.quote ?? {} },
-        { mano: voce.mano ?? null, ribalta: haRibalta(struttura.albero, voce.kit ?? {}) },
-      )
-    } catch {
-      // I simboli sono un di piu': una struttura strana non deve togliere il disegno.
-      return []
-    }
-  }, [d, struttura.albero, struttura.l_nominale, struttura.h_nominale, voce.quote, voce.mano, voce.kit])
-
-  // Riempimenti che sono pannelli (della struttura o scelti nella voce): colore del pannello.
-  const pannelli = useMemo(() => {
-    if (!d) return []
-    try {
-      return campiDisegno(struttura.albero,
-        { L: d.larghezza, H: d.altezza, L0: struttura.l_nominale ?? d.larghezza, H0: struttura.h_nominale ?? d.altezza, quote: voce.quote ?? {} },
-        { vetri: voce.vetri, pannelli: voce.pannelli }).filter(c => c.tipo === 'pannello')
-    } catch {
-      return []
-    }
-  }, [d, struttura.albero, struttura.l_nominale, struttura.h_nominale, voce.quote, voce.vetri, voce.pannelli])
+  const e = useMemo(() => elementiDisegno(struttura, voce), [struttura, voce])
+  const d = e?.d ?? null
+  const simboli = e?.simboli ?? []
+  const pannelli = e?.pannelli ?? []
   const idTratteggio = `${idFreccia}-pannello`
 
   if (!d) return <div className={`grid place-items-center text-xs text-muted-foreground ${className ?? ''}`}>Disegno non disponibile</div>
@@ -61,7 +31,7 @@ export default function DisegnoVoceSvg({ struttura, voce, className }: Props) {
           <line x1="0" y1="0" x2="0" y2="40" stroke="#a8a29e" strokeWidth={1} vectorEffect="non-scaling-stroke" />
         </pattern>
       </defs>
-      <rect x={0} y={0} width={d.larghezza} height={d.altezza} fill="#bfdbfe" />
+      <rect x={0} y={0} width={d.larghezza} height={d.altezza} fill={VETRO} />
       {pannelli.map(c => (
         <rect key={c.codiceNodo} x={c.x} y={c.y} width={c.w} height={c.h} fill={`url(#${idTratteggio})`} />
       ))}
