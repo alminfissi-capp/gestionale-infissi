@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { preventivoCorrisponde } from '@/lib/ricerca-clienti'
+import { leggiRicercaPreventivi, salvaRicercaPreventivi } from '@/lib/ricerca-preventivi-ricordata'
 import type { Preventivo, StatoPreventivo } from '@/types/preventivo'
 
 const STATO_CONFIG: Record<
@@ -69,7 +70,11 @@ export default function TabellaPreventivi({ preventivi, commessePerPreventivo = 
   const router = useRouter()
   const { canEdit } = usePermissions()
   const editEnabled = canEdit('preventivi')
-  const [search, setSearch] = useState('')
+  const [search, setSearchStato] = useState(leggiRicercaPreventivi)
+  const setSearch = (testo: string) => {
+    setSearchStato(testo)
+    salvaRicercaPreventivi(testo)
+  }
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)

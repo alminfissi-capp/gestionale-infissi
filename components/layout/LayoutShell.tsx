@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic'
 import Sidebar from './Sidebar'
 import { PermissionsProvider } from '@/contexts/PermissionsContext'
 import type { PermessiUtente } from '@/types/permessi'
+import { dimenticaRicercaPreventivi } from '@/lib/ricerca-preventivi-ricordata'
 
 const DataSync = dynamic(() => import('@/components/pwa/DataSync'), { ssr: false })
 const OfflineIndicator = dynamic(() => import('@/components/pwa/OfflineIndicator'), { ssr: false })
@@ -34,6 +35,11 @@ export default function LayoutShell({ children, logoUrl, denominazione, permessi
     setRottaPrecedente(pathname)
     setMobileOpen(false)
   }
+
+  // La ricerca dei preventivi resta finche' si gira dentro /preventivi (elenco e dettagli).
+  useEffect(() => {
+    if (!pathname.startsWith('/preventivi')) dimenticaRicercaPreventivi()
+  }, [pathname])
 
   // Espone la larghezza della sidebar a :root così i dialog in portale
   // (fuori da questo albero) possono posizionarsi accanto al menu.
