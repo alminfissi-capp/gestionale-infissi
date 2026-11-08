@@ -173,8 +173,11 @@ export function quoteForma(punti: PuntoForma[]): QuotaForma[] {
     for (const h of altezzeAngoli(punti)) {
       out.push({ id: `A${h}`, tipo: 'angolo', lato: null, direzione: 'y', valore: h, modificabile: true, posizione: { x: box.minX - 2 * off, y: h } })
     }
-    out.push({ id: 'TL', tipo: 'totale', lato: null, direzione: 'x', valore: Math.round(box.maxX - box.minX), modificabile: true, posizione: { x: (box.minX + box.maxX) / 2, y: box.minH - 2 * off } })
-    out.push({ id: 'TH', tipo: 'totale', lato: null, direzione: 'y', valore: Math.round(box.maxH - box.minH), modificabile: true, posizione: { x: box.maxX + 2 * off, y: (box.minH + box.maxH) / 2 } })
+    // Il totale solo se nessun lato copre gia' tutta la larghezza / altezza (niente doppioni)
+    const copre = (d: 'x' | 'y', tot: number) => lati.some(l => l.direzione === d && Math.abs(l.valore - tot) < TOLL)
+    const W = box.maxX - box.minX, Ht = box.maxH - box.minH
+    if (!copre('x', W)) out.push({ id: 'TL', tipo: 'totale', lato: null, direzione: 'x', valore: Math.round(W), modificabile: true, posizione: { x: (box.minX + box.maxX) / 2, y: box.minH - 2 * off } })
+    if (!copre('y', Ht)) out.push({ id: 'TH', tipo: 'totale', lato: null, direzione: 'y', valore: Math.round(Ht), modificabile: true, posizione: { x: box.maxX + 2 * off, y: (box.minH + box.maxH) / 2 } })
   }
   return out
 }

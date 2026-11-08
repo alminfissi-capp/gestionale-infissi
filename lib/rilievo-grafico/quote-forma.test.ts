@@ -62,7 +62,7 @@ describe('forme con piu\' di 4 lati', () => {
 
   it('casetta: totali e altezza delle gronde', () => {
     expect(casetta).toHaveLength(5)
-    expect(valori(casetta)).toMatchObject({ TL: 1500, TH: 1800, A1200: 1200 })
+    expect(valori(casetta)).toMatchObject({ L0: 1500, TH: 1800, A1200: 1200 })
   })
 
   it('casetta: altezza totale = colmo, i muri restano verticali e alti 1200', () => {
@@ -142,5 +142,14 @@ describe('misura scritta nella casellina', () => {
     expect(leggiMisura('-150')).toBe(-150)
     expect(leggiMisura('')).toBeNull()
     expect(leggiMisura('abc')).toBeNull()
+  })
+})
+
+describe('quote totali senza doppioni', () => {
+  it('casetta: la base copre tutta la larghezza, quindi niente larghezza totale; l\'altezza totale c\'e\'', () => {
+    const casetta = formaInPunti({ tipo: 'modello', modello: 'MODEL-02', misure: { L: 1500, H1: 1200, H2: 1800 } })
+    const ids = quoteForma(casetta).map(q => q.id)
+    expect(ids).not.toContain('TL')
+    expect(ids).toContain('TH')
   })
 })

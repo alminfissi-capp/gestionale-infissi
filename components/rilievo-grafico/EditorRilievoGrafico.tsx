@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Check, Loader2, PenLine, Redo2, Undo2 } from 'lucide-react'
+import { Check, Loader2, PanelRightClose, PanelRightOpen, PenLine, Redo2, Shapes, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import PulsanteIndietro from '@/components/layout/PulsanteIndietro'
 import { db } from '@/lib/db'
-import type { DisegnoGrafico, Forma, RilievoGrafico, Zona } from '@/types/rilievo-grafico'
+import type { DisegnoGrafico, RilievoGrafico, Zona } from '@/types/rilievo-grafico'
 import { calcolaDisegno, nomeRuolo } from '@/lib/rilievo-grafico/geometria'
 import { interpretaTraccia } from '@/lib/rilievo-grafico/traccia'
 import { dividi, scriviQuotaTaglio } from '@/lib/rilievo-grafico/modifiche'
@@ -19,7 +19,7 @@ import { mancanti, potaAssegnazioni } from '@/lib/rilievo-grafico/ruoli'
 import DisegnoSvg from './DisegnoSvg'
 import CasellaQuota, { type Ancora } from './CasellaQuota'
 import MenuLato from './MenuLato'
-import PannelloForma from './PannelloForma'
+import SceltaForme from './SceltaForme'
 import PannelloStruttura, { type SelezioneStruttura } from './PannelloStruttura'
 import PannelloProfili from './PannelloProfili'
 import { aggiornaDalServer, salvaRilievo } from './archivio'
@@ -54,6 +54,8 @@ async function salvaOra(x: RilievoGrafico) {
   await salvaRilievo({ ...x, disegno: { ...x.disegno, ...pulite } })
 }
 
+const CHIAVE_PANNELLO = 'rilievo-grafico:pannello'
+
 type Scheda = 'struttura' | 'profili'
 /** Casellina o menù aperti sul disegno */
 type Aperta =
@@ -74,7 +76,15 @@ function Editor({ iniziale }: { iniziale: RilievoGrafico }) {
   const [selP, setSelP] = useState<Set<string>>(new Set())
   const [stato, setStato] = useState<Stato>('salvato')
   const [aperta, setAperta] = useState<Aperta | null>(null)
-  const ultimaForma = useRef(0)
+  const [scegliForma, setScegliForma] = useState(false)
+  // Pannello laterale apribile e richiudibile: il dispositivo si ricorda com'era
+  const [pannelloAperto, setPannelloAperto] = useState(() => {
+    try { return localStorage.getItem(CHIAVE_PANNELLO) !== 'chiuso' } catch { return true }
+  })
+  const cambiaPannello = (v: boolean) => {
+    setPannelloAperto(v)
+    try { localStorage.setItem(CHIAVE_PANNELLO, v ? 'aperto' : 'chiuso') } catch { /* niente memoria nel dispositivo: pazienza */ }
+  }
   const daSalvare = useRef<RilievoGrafico | null>(null)
 
   const calc = useMemo(() => calcolaDisegno(r.disegno), [r.disegno])
@@ -122,13 +132,6 @@ function Editor({ iniziale }: { iniziale: RilievoGrafico }) {
   const cambiaRadice = (radice: Zona, nuovaSel?: SelezioneStruttura) => {
     cambiaDisegno({ ...r.disegno, radice })
     if (nuovaSel !== undefined) setSelS(nuovaSel)
-  }
-  const cambiaForma = (forma: Forma) => {
-    const ora = Date.now()
-    // Scrivere una misura cifra per cifra = un solo passo di "annulla"
-    const unisci = ora - ultimaForma.current < 1500
-    ultimaForma.current = ora
-    cambiaDisegno({ ...r.disegno, forma }, unisci)
   }
   /** Applica una nuova forma a punti: un passo di Annulla per ogni conferma */
   const nuovaForma = (p: ReturnType<typeof applicaQuota>) => {
@@ -205,16 +208,23 @@ function Editor({ iniziale }: { iniziale: RilievoGrafico }) {
         </Button>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className={`grid gap-3 ${pannelloAperto ? 'lg:grid-cols-[minmax(0,1fr)_24rem]' : ''}`}>
         <div className="space-y-2">
-          {scheda === 'struttura' && (
-            <div className="flex flex-wrap items-center gap-1">
-              <Button size="sm" variant="outline" className="gap-1" disabled={storia.indietro.length === 0} onClick={annulla}><Undo2 className="size-4" />Annulla</Button>
-              <Button size="sm" variant="outline" className="gap-1" disabled={storia.avanti.length === 0} onClick={ripeti}><Redo2 className="size-4" />Ripeti</Button>
-              <Button size="sm" variant={traccia ? 'default' : 'outline'} className="gap-1" onClick={() => setTraccia(t => !t)}><PenLine className="size-4" />Traccia{traccia ? ' (attivo)' : ''}</Button>
-              {traccia && <span className="text-xs text-muted-foreground">Disegna una riga da un lato all&apos;altro di una zona</span>}
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-1">
+            {scheda === 'struttura' && (
+              <>
+                <Button size="sm" variant="outline" className="gap-1" disabled={storia.indietro.length === 0} onClick={annulla}><Undo2 className="size-4" />Annulla</Button>
+                <Button size="sm" variant="outline" className="gap-1" disabled={storia.avanti.length === 0} onClick={ripeti}><Redo2 className="size-4" />Ripeti</Button>
+                <Button size="sm" variant="outline" className="gap-1" onClick={() => { setAperta(null); setScegliForma(true) }}><Shapes className="size-4" />Forme</Button>
+                <Button size="sm" variant={traccia ? 'default' : 'outline'} className="gap-1" onClick={() => setTraccia(t => !t)}><PenLine className="size-4" />Traccia{traccia ? ' (attivo)' : ''}</Button>
+              </>
+            )}
+            <Button size="sm" variant={pannelloAperto ? 'secondary' : 'outline'} className="ml-auto gap-1" onClick={() => cambiaPannello(!pannelloAperto)}>
+              {pannelloAperto ? <PanelRightClose className="size-4" /> : <PanelRightOpen className="size-4" />}
+              {pannelloAperto ? 'Chiudi pannello' : 'Apri pannello'}
+            </Button>
+            {scheda === 'struttura' && traccia && <span className="w-full text-xs text-muted-foreground">Disegna una riga da un lato all&apos;altro di una zona</span>}
+          </div>
           <div className="relative rounded-lg border bg-white p-2">
             <DisegnoSvg
               calc={calc}
@@ -253,20 +263,17 @@ function Editor({ iniziale }: { iniziale: RilievoGrafico }) {
           </div>
         </div>
 
-        <div className="space-y-4 rounded-lg border p-3">
-          {scheda === 'struttura' ? (
-            // Con una zona o un pezzo selezionato i suoi comandi vengono prima (sul telefono sono sotto il disegno)
-            <div className={`flex gap-4 ${selS ? 'flex-col' : 'flex-col-reverse'}`}>
+        {pannelloAperto && (
+          <div className="space-y-4 rounded-lg border p-3">
+            {scheda === 'struttura' ? (
               <PannelloStruttura calc={calc} radice={r.disegno.radice} selezione={selS} onRadice={cambiaRadice} />
-              <div className={selS ? 'border-t pt-3' : 'border-b pb-3'}>
-                <PannelloForma forma={r.disegno.forma} onCambia={cambiaForma} />
-              </div>
-            </div>
-          ) : (
-            <PannelloProfili calc={calc} disegno={r.disegno} selezione={selP} onSelezione={setSelP} onDisegno={d => cambiaDisegno(d)} />
-          )}
-        </div>
+            ) : (
+              <PannelloProfili calc={calc} disegno={r.disegno} selezione={selP} onSelezione={setSelP} onDisegno={d => cambiaDisegno(d)} />
+            )}
+          </div>
+        )}
       </div>
+      <SceltaForme aperta={scegliForma} onChiudi={() => setScegliForma(false)} onScegli={p => nuovaForma(p)} larghezza={calc.larghezza} altezza={calc.altezza} />
 
       {scheda === 'profili' && (
         <div className="overflow-x-auto rounded-lg border">
