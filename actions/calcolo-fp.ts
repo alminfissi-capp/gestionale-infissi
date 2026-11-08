@@ -484,7 +484,8 @@ export async function trasferisciInPreventivi(rilievoId: string): Promise<{ prev
       clienteId = clienteDelRilievo(cliente, clienti)
     }
     // Il legame con l'anagrafica va in cliente_id, non nella fotografia del cliente.
-    const clienteSnapshot = { ...cliente, cf_piva: null }
+    // Indirizzo in campi, CF/P.IVA e SDI arrivano dal modulo cliente (rilievi dal 2026-11-08)
+    const clienteSnapshot = { ...cliente, cf_piva: cliente.cf_piva ?? null }
     delete clienteSnapshot.clienteId
     const { id } = await createPreventivo({
       clienteId,

@@ -12,4 +12,13 @@ export interface ClienteSnapshotRilievo {
   cantiere: string | null
   /** Scheda dell'anagrafica scelta in cantiere: il trasferimento in Preventivi usa questa */
   clienteId?: string | null
+  // Campi del modulo cliente dei preventivi (rilievi dal 2026-11-08; assenti nei vecchi)
+  via?: string | null
+  civico?: string | null
+  cap?: string | null
+  citta?: string | null
+  provincia?: string | null
+  nazione?: string | null
+  codice_sdi?: string | null
+  cf_piva?: string | null
 }

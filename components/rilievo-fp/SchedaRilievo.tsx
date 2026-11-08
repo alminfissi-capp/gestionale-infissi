@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Calculator, ChevronLeft, Copy, GripVertical, Layers, PenLine, Plus, Printer, Trash2 } from 'lucide-react'
+import { Calculator, ChevronLeft, Copy, GripVertical, Layers, PenLine, Plus, Printer, Trash2, UserRound } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -16,6 +16,7 @@ import { eliminaRilievoLocale, eliminaVoceLocale, riordinaVociLocale, salvaRilie
 import type { RilievoFp, StrutturaLocale, VoceFpDati, VoceLocale } from '@/types/rilievo-fp'
 import { copiaVoceDisegnata, eVoceDisegnata, eVoceFp, nuovaVoceDisegnata } from '@/lib/rilievo-unico'
 import RigaVoceDisegnata from './RigaVoceDisegnata'
+import ClienteRilievo from './ClienteRilievo'
 import SchedaVoceRiepilogo from './SchedaVoceRiepilogo'
 import { nomeCliente } from './ElencoRilievi'
 
@@ -103,6 +104,7 @@ interface Props {
 
 export default function SchedaRilievo({ id, onIndietro, onVoce, onCopia, onRiepilogo, onDisegno }: Props) {
   const [sceltaTipo, setSceltaTipo] = useState(false)
+  const [cambiaCliente, setCambiaCliente] = useState(false)
   const { isOnline } = useOnlineStatus()
   const rilievo = useLiveQuery(() => db.rilieviFp.get(id), [id])
   const voci = useLiveQuery(() => db.vociFp.where('rilievoId').equals(id).sortBy('ordine'), [id])
@@ -149,11 +151,19 @@ export default function SchedaRilievo({ id, onIndietro, onVoce, onCopia, onRiepi
         <Button variant="ghost" size="sm" onClick={onIndietro}><ChevronLeft className="mr-1 size-4" />Rilievi</Button>
         {(voci ?? []).length > 0 && <Button variant="outline" size="sm" className="gap-1.5" onClick={onRiepilogo}><Printer className="size-4" />Stampa / PDF</Button>}
       </div>
-      <div>
-        <h1 className="text-lg font-semibold">{nomeCliente(rilievo.cliente) || 'Senza nome'}</h1>
-        {rilievo.cliente.indirizzo && <p className="text-sm text-muted-foreground">{rilievo.cliente.indirizzo}</p>}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold">{nomeCliente(rilievo.cliente) || 'Senza nome'}</h1>
+          {rilievo.cliente.indirizzo && <p className="text-sm text-muted-foreground">{rilievo.cliente.indirizzo}</p>}
+        </div>
+        <Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => setCambiaCliente(true)}><UserRound className="size-4" />Cliente</Button>
       </div>
-      <DatiRilievo key={rilievo.id} rilievo={rilievo} />
+      {cambiaCliente && (
+        <ClienteRilievo aperto iniziale={rilievo.cliente} titolo="Cliente del rilievo" conferma="Salva"
+          onChiudi={() => setCambiaCliente(false)}
+          onConferma={async c => { await salvaRilievoLocale({ ...rilievo, cliente: c }); setCambiaCliente(false) }} />
+      )}
+      <DatiRilievo key={`${rilievo.id}-${rilievo.cliente.cantiere ?? ''}`} rilievo={rilievo} />
       <NoteRilievo key={rilievo.id} rilievo={rilievo} />
 
       <DndContext sensors={sensori} collisionDetection={closestCenter} onDragEnd={spostaVoce}>
