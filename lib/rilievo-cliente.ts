@@ -1,4 +1,5 @@
 import type { ClienteSnapshot } from '@/types/preventivo'
+import { clienteEsistente } from '@/lib/fppro/calcolo/trasferimento'
 import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
 
 // Cliente nuovo scritto in cantiere: dal testo cercato si propongono nome e cognome
@@ -40,4 +41,17 @@ export function snapshotDalModulo(s: ClienteSnapshot, clienteId: string | null):
 export function clienteDaRegistrare(s: ClienteSnapshotRilievo, online: boolean): boolean {
   if (!online || s.clienteId) return false
   return s.tipo === 'azienda' ? !!n(s.ragione_sociale) : !!(n(s.nome) || n(s.cognome))
+}
+
+/**
+ * Cosa fare in anagrafica alla conferma del modulo: collegare la scheda che c'e' gia' (stesso
+ * nome, o stesso nome e telefono se gli omonimi sono piu' d'uno), crearne una nuova, oppure
+ * niente (senza rete o gia' collegato). Mai una seconda scheda dello stesso cliente.
+ */
+export function azioneCliente<T extends { id: string; tipo: 'privato' | 'azienda' | null; ragione_sociale: string | null; nome: string | null; cognome: string | null; telefono: string | null }>(
+  s: ClienteSnapshotRilievo, clienti: T[], online: boolean,
+): { collega: string } | 'crea' | null {
+  if (!clienteDaRegistrare(s, online)) return null
+  const id = clienteEsistente(s, clienti)
+  return id ? { collega: id } : 'crea'
 }

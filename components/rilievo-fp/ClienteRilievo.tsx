@@ -9,7 +9,7 @@ import StepCliente from '@/components/preventivi/StepCliente'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { db } from '@/lib/db'
-import { clienteDaRegistrare, snapshotDalModulo, snapshotPerModulo } from '@/lib/rilievo-cliente'
+import { azioneCliente, snapshotDalModulo, snapshotPerModulo } from '@/lib/rilievo-cliente'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import type { ClienteSnapshot } from '@/types/preventivo'
 import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
@@ -44,7 +44,12 @@ export default function ClienteRilievo({ aperto, iniziale, titolo, conferma, onC
     if (!haNome) { toast.error(c.tipo === 'azienda' ? 'Scrivi la ragione sociale' : 'Scrivi almeno nome o cognome'); return }
     setSalvando(true)
     try {
-      if (clienteDaRegistrare(c, isOnline)) {
+      const azione = azioneCliente(c, clienti, isOnline)
+      if (azione && azione !== 'crea') {
+        // Gia' in anagrafica (scritto a mano invece di sceglierlo): si collega, niente doppione.
+        c = { ...c, clienteId: azione.collega }
+        toast.info('Cliente già in anagrafica: collegato alla sua scheda')
+      } else if (azione === 'crea') {
         try {
           const { id } = await createCliente({
             tipo: c.tipo, ragione_sociale: c.ragione_sociale, nome: c.nome, cognome: c.cognome, telefono: c.telefono, email: c.email,

@@ -534,8 +534,9 @@ export async function getDatiCalcoloRilievo(rilievoId: string): Promise<DatiPagi
     if (!rilievo) return { errore: 'Rilievo non trovato' }
     const profili = await getProfiliCalcoloFp()
     if ('errore' in profili) return profili
+    // Anche le voci disegnate: sono tra le "saltate" del calcolo, senza di loro sembrerebbero eliminate.
     const { data: voci } = await supabase.from('rilievo_veloce_voci').select('id, updated_at, correzioni_fp, correzioni_fp_at')
-      .eq('organization_id', orgId).eq('rilievo_id', rilievoId).not('fp', 'is', null)
+      .eq('organization_id', orgId).eq('rilievo_id', rilievoId).or('fp.not.is.null,grafico.not.is.null')
     const correzioni: Record<string, CorrezioniVoce> = {}
     for (const v of voci ?? []) if (v.correzioni_fp) correzioni[v.id as string] = v.correzioni_fp as CorrezioniVoce
     const calcolo = (rilievo.calcolo as CalcoloRilievo | null) ?? null

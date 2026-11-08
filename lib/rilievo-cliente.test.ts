@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clienteDaRegistrare, separaNome, snapshotDalModulo, snapshotPerModulo } from './rilievo-cliente'
+import { azioneCliente, clienteDaRegistrare, separaNome, snapshotDalModulo, snapshotPerModulo } from './rilievo-cliente'
 import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
 
 describe('separaNome (cliente nuovo scritto in cantiere)', () => {
@@ -43,5 +43,18 @@ describe('cliente del rilievo e modulo dei preventivi', () => {
     expect(clienteDaRegistrare(privato, true)).toBe(false)
     expect(clienteDaRegistrare({ ...privato, clienteId: null, nome: null, cognome: null }, true)).toBe(false)
     expect(clienteDaRegistrare({ ...azienda }, true)).toBe(true)
+  })
+})
+
+describe('azioneCliente: niente doppioni in anagrafica', () => {
+  const scritto: ClienteSnapshotRilievo = { tipo: 'privato', ragione_sociale: null, nome: 'Anna', cognome: 'De Luca', telefono: null, email: null, indirizzo: null, cantiere: null, clienteId: null }
+  const anagrafica = [{ id: 'c9', tipo: 'privato' as const, ragione_sociale: null, nome: 'Anna', cognome: 'De Luca', telefono: '333 1234567' }]
+  it('scritto a mano ma gia in anagrafica: si collega, non si crea', () =>
+    expect(azioneCliente(scritto, anagrafica, true)).toEqual({ collega: 'c9' }))
+  it('nuovo davvero: si crea', () =>
+    expect(azioneCliente({ ...scritto, nome: 'Bruno' }, anagrafica, true)).toBe('crea'))
+  it('senza rete o gia collegato: niente', () => {
+    expect(azioneCliente(scritto, anagrafica, false)).toBeNull()
+    expect(azioneCliente({ ...scritto, clienteId: 'c9' }, anagrafica, true)).toBeNull()
   })
 })
