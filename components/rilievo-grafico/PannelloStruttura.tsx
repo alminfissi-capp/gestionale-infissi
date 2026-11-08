@@ -81,7 +81,6 @@ export default function PannelloStruttura({ calc, radice, selezione, onRadice }:
   const [colonne, setColonne] = useState('3')
   const [righe, setRighe] = useState('2')
   const [passanti, setPassanti] = useState<Verso>('montante')
-  const [quotaTesto, setQuotaTesto] = useState<string | null>(null)
 
   if (!selezione) {
     return (
@@ -157,7 +156,7 @@ export default function PannelloStruttura({ calc, radice, selezione, onRadice }:
   const p = calc.pezzi.find(x => x.id === selezione.id)
   if (!p) return null
   if (p.ruolo === 'telaio') {
-    return <p className="text-sm"><b>{p.nome}</b> — la forma del telaio si cambia nel riquadro <b>Forma esterna</b>.</p>
+    return <p className="text-sm"><b>{p.nome}</b> — tocca le quote sul disegno per cambiare le misure; tocca il lato per farne un arco.</p>
   }
 
   if (p.ruolo === 'montante' || p.ruolo === 'traverso') {
@@ -172,13 +171,7 @@ export default function PannelloStruttura({ calc, radice, selezione, onRadice }:
     // Posizioni attuali dall'inizio della zona: per passare da "uguali" a quote
     const attuali = quote.map(q => (q.da === 'inizio' ? q.valore : fine - inizio - q.valore))
     const da = div.posizione.modo === 'quote' ? div.posizione.da : 'inizio'
-    const valore = quote[indice]?.valore ?? 0
     const [nomeInizio, nomeFine] = p.ruolo === 'montante' ? ['da sinistra', 'da destra'] : ['dal basso', "dall'alto"]
-    const scriviQuota = (v: number) => {
-      const nuove = attuali.map(x => (da === 'inizio' ? x : fine - inizio - x))
-      nuove[indice] = v
-      onRadice(impostaPosizione(radice, div.id, { modo: 'quote', da, quote: nuove }), selezione)
-    }
     return (
       <div className="space-y-3">
         <p className="text-sm font-semibold">{p.nome} <span className="font-normal text-muted-foreground">· lungo {Math.round(p.lunghezza)} mm all&apos;asse</span></p>
@@ -197,14 +190,7 @@ export default function PannelloStruttura({ calc, radice, selezione, onRadice }:
               {nomeFine}
             </Button>
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            Quota {da === 'inizio' ? nomeInizio : nomeFine}
-            <Input key={`${p.id}-${da}`} className="h-8 w-24 text-right" inputMode="decimal"
-              value={quotaTesto ?? String(valore)}
-              onChange={e => { setQuotaTesto(e.target.value); const n = numero(e.target.value); if (n && n > 0 && n < fine - inizio) scriviQuota(n) }}
-              onBlur={() => setQuotaTesto(null)} />
-            mm
-          </label>
+          <p className="text-xs text-muted-foreground">Per cambiare la misura tocca la sua quota sul disegno.</p>
         </Gruppo>
         <div className="flex flex-wrap gap-1">
           <Button size="sm" variant="outline" className="gap-1" onClick={() => onRadice(eliminaTaglio(radice, div.id, indice, attuali.map(x => (da === 'inizio' ? x : fine - inizio - x))), null)}>

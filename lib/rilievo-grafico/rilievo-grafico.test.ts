@@ -3,7 +3,7 @@ import { eseguiModello, valuta } from './prm'
 import { MODELLI } from './modelli'
 import { contornoForma, formaInPunti, ingombro, latiDaPunti, misureModello, poligonoContorno } from './forma'
 import { calcolaDisegno, posizioniTagli, taglia, zonaNelPunto } from './geometria'
-import { aggiornaAnta, dividi, eliminaElemento, eliminaTaglio, griglia, mettiAnta, riempi, trovaZona, zoneFinali } from './modifiche'
+import { aggiornaAnta, dividi, eliminaElemento, eliminaTaglio, griglia, mettiAnta, riempi, scriviQuotaTaglio, trovaZona, zoneFinali } from './modifiche'
 import { mancanti, potaAssegnazioni, profiliAdatti, UTILIZZI_RUOLO } from './ruoli'
 import { interpretaTraccia } from './traccia'
 import type { Forma, Zona } from '@/types/rilievo-grafico'
@@ -261,5 +261,19 @@ describe('forma a punti dai modelli', () => {
     for (const p of oblo) expect(p.freccia).toBeCloseTo(450, 0)
     const mezza = formaInPunti(mod('MODEL-53'))
     expect(mezza.filter(p => p.freccia)).toHaveLength(1)
+  })
+})
+
+describe('quota di montanti e traversi', () => {
+  it('scritta sul disegno sposta il montante; fuori dalla zona non si applica', () => {
+    const radice = dividi(vetro('r'), 'r', 'montante', { modo: 'uguali' }, 2)
+    const forma = rett(1200, 1400)
+    const calc = calcolaDisegno({ forma, radice })
+    const div = radice.contenuto.tipo === 'divisione' ? radice.contenuto.id : ''
+    const nuova = scriviQuotaTaglio(radice, calc, `${div}#0`, 400)
+    expect(nuova).not.toBeNull()
+    expect(calcolaDisegno({ forma, radice: nuova! }).quote[0]).toMatchObject({ valore: 400, da: 'inizio' })
+    expect(scriviQuotaTaglio(radice, calc, `${div}#0`, 1300)).toBeNull()
+    expect(scriviQuotaTaglio(radice, calc, `${div}#0`, 0)).toBeNull()
   })
 })

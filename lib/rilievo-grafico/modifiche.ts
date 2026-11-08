@@ -1,6 +1,8 @@
 // Modifiche all'albero delle zone: ogni funzione restituisce un albero nuovo (annulla e
 // ripeti tengono le copie). Nessun profilo viene scelto qui: solo la struttura.
 import type { Apertura, Contenuto, Materiale, PosizioneTagli, Verso, Zona } from '@/types/rilievo-grafico'
+import type { DisegnoCalcolato } from './geometria'
+import { ingombro } from './forma'
 
 export const nuovoId = (): string =>
   (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`).replace(/-/g, '').slice(0, 10)
@@ -160,3 +162,27 @@ export function zoneFinali(z: Zona): string[] {
 }
 
 export const radiceIniziale = (): Zona => ({ id: nuovoId(), contenuto: { tipo: 'riempimento', materiale: 'vetro' } })
+
+/**
+ * Scrive la quota di un montante o traverso (id del taglio `${divisione}#${i}`), misurata dal
+ * lato da cui e' gia' quotata (da sinistra / dal basso se era "a parti uguali"). null se la
+ * misura non sta dentro la zona.
+ */
+export function scriviQuotaTaglio(radice: Zona, calc: DisegnoCalcolato, idTaglio: string, valore: number): Zona | null {
+  const [divisione, i] = idTaglio.split('#')
+  const indice = Number(i)
+  const zona = zonaDiElemento(radice, divisione)
+  const zc = zona && calc.zone.find(x => x.id === zona.id)
+  if (!zona || zona.contenuto.tipo !== 'divisione' || !zc || !Number.isFinite(valore)) return null
+  const div = zona.contenuto
+  const b = ingombro(zc.poligono.p)
+  const lungo = div.verso === 'montante' ? b.maxX - b.minX : b.maxY - b.minY
+  if (valore <= 0 || valore >= lungo) return null
+  const quote = calc.quote.filter(q => q.id.startsWith(`${div.id}#`)).sort((a, c) => Number(a.id.split('#')[1]) - Number(c.id.split('#')[1]))
+  if (!quote[indice]) return null
+  const da = div.posizione.modo === 'quote' ? div.posizione.da : 'inizio'
+  // Posizioni attuali misurate dal lato scelto
+  const nuove = quote.map(q => (q.da === da ? q.valore : lungo - q.valore))
+  nuove[indice] = valore
+  return impostaPosizione(radice, div.id, { modo: 'quote', da, quote: nuove })
+}
