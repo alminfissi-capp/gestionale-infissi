@@ -3,7 +3,8 @@
 // (vertici + freccia, vedi formaInPunti); ogni modifica restituisce i punti nuovi oppure
 // null se la forma non torna.
 import type { PuntoForma, Pt } from '@/types/rilievo-grafico'
-import { normalizzaPunti } from './forma'
+import { ampiezzaArco, latiDaPunti, normalizzaPunti } from './forma'
+import type { LatoContorno } from './prm'
 
 export type TipoQuotaForma = 'lato' | 'scarto' | 'angolo' | 'totale' | 'freccia' | 'altezza_arco' | 'raggio'
 
@@ -108,8 +109,31 @@ export function formaValida(p: PuntoForma[]): boolean {
   return true
 }
 
+/** Punto piu' esterno dell'arco lungo l'asse `k`, verso `segno` (+1 = verso il massimo) */
+function estremoArco(l: Extract<LatoContorno, { tipo: 'arco' }>, k: 'x' | 'y', segno: 1 | -1): number {
+  const r = Math.hypot(l.da.x - l.centro.x, l.da.y - l.centro.y)
+  const estremi = segno > 0 ? Math.max(l.da[k], l.a[k]) : Math.min(l.da[k], l.a[k])
+  // Angolo del punto del cerchio piu' esterno: e' sull'arco?
+  const t = k === 'x' ? (segno > 0 ? 0 : Math.PI) : (segno > 0 ? Math.PI / 2 : -Math.PI / 2)
+  const a1 = Math.atan2(l.da.y - l.centro.y, l.da.x - l.centro.x)
+  let delta = l.orario ? a1 - t : t - a1
+  while (delta < 0) delta += 2 * Math.PI
+  while (delta >= 2 * Math.PI) delta -= 2 * Math.PI
+  if (delta > ampiezzaArco(l) + 1e-9) return estremi
+  return l.centro[k] + segno * r
+}
+
+/** Altezza totale (lato orizzontale) o larghezza totale (verticale) fino alla gobba dell'arco */
+function altezzaArco(l: Lato, arco: Extract<LatoContorno, { tipo: 'arco' }>, box: ReturnType<typeof ingombroPunti>): number {
+  const dx = l.b.x - l.a.x, dy = l.b.h - l.a.h
+  // Esterno a destra di chi percorre (contorno antiorario)
+  if (l.direzione === 'x') return -dx > 0 ? estremoArco(arco, 'y', 1) - box.minH : box.maxH - estremoArco(arco, 'y', -1)
+  return dy > 0 ? estremoArco(arco, 'x', 1) - box.minX : box.maxX - estremoArco(arco, 'x', -1)
+}
+
 export function quoteForma(punti: PuntoForma[]): QuotaForma[] {
   const lati = latiDi(punti)
+  const contorno = latiDaPunti(punti)
   const box = ingombroPunti(punti)
   const off = Math.max(box.maxX - box.minX, box.maxH - box.minH) * 0.07
   const out: QuotaForma[] = []
@@ -118,7 +142,21 @@ export function quoteForma(punti: PuntoForma[]): QuotaForma[] {
     const dx = l.b.x - l.a.x, dy = l.b.h - l.a.h, len = Math.hypot(dx, dy) || 1
     const nx = dy / len, ny = -dx / len
     const m = { x: (l.a.x + l.b.x) / 2, y: (l.a.h + l.b.h) / 2 }
-    out.push({ id: `L${l.i}`, tipo: 'lato', lato: l.i, direzione: l.direzione, valore: Math.round(l.valore), modificabile: true, posizione: { x: m.x + nx * off, y: m.y + ny * off } })
+    const f = l.a.freccia ?? 0
+    const arco = contorno[l.i]
+    const fuori = off + Math.max(f, 0)
+    out.push({ id: `L${l.i}`, tipo: 'lato', lato: l.i, direzione: l.direzione, valore: Math.round(l.valore), modificabile: true, posizione: { x: m.x + nx * fuori, y: m.y + ny * fuori } })
+    if (f && arco?.tipo === 'arco') {
+      const r = (len * len / 4 + f * f) / (2 * Math.abs(f))
+      const cima = { x: m.x + nx * f, y: m.y + ny * f }
+      out.push({ id: `F${l.i}`, tipo: 'freccia', lato: l.i, direzione: l.direzione === 'x' ? 'y' : 'x', valore: Math.round(f), modificabile: true, posizione: { x: cima.x - nx * off * 0.8, y: cima.y - ny * off * 0.8 } })
+      if (f > 0) {
+        const at = altezzaArco(l, arco, box)
+        const pos = l.direzione === 'x' ? { x: box.maxX + 2 * off, y: m.y + ny * f / 2 } : { x: m.x + nx * f / 2, y: box.maxH + 2 * off }
+        out.push({ id: `AT${l.i}`, tipo: 'altezza_arco', lato: l.i, direzione: l.direzione === 'x' ? 'y' : 'x', valore: Math.round(at), modificabile: true, posizione: pos })
+      }
+      out.push({ id: `R${l.i}`, tipo: 'raggio', lato: l.i, direzione: l.direzione, valore: Math.round(r), modificabile: false, posizione: { x: cima.x - nx * off * 1.8, y: cima.y - ny * off * 1.8 } })
+    }
     const [sa, sb] = scarti(l, box)
     if (centrato(lati, l.i) && (sa > TOLL || sb > TOLL)) {
       const k = asseDi(l.direzione)
@@ -142,6 +180,17 @@ export function quoteForma(punti: PuntoForma[]): QuotaForma[] {
 }
 
 const copia = (p: PuntoForma[]) => p.map(q => ({ ...q }))
+
+/** Il lato `lato` diventa un arco con questa freccia (0 = di nuovo dritto) */
+export function impostaArco(punti: PuntoForma[], lato: number, freccia: number): PuntoForma[] | null {
+  if (!Number.isFinite(freccia) || lato < 0 || lato >= punti.length) return null
+  const p = copia(punti)
+  if (Math.abs(freccia) < 0.5) delete p[lato].freccia
+  else p[lato].freccia = freccia
+  if (!formaValida(p)) return null
+  const out = normalizzaPunti(p)
+  return out.length === p.length ? out : null
+}
 
 /** Applica la misura scritta nella quota `id`. null = misura impossibile */
 export function applicaQuota(punti: PuntoForma[], id: string, valore: number): PuntoForma[] | null {
@@ -180,6 +229,13 @@ export function applicaQuota(punti: PuntoForma[], id: string, valore: number): P
     const h = Number(m[1])
     if (!altezzeAngoli(punti).includes(h) || valore <= 0) return null
     muovi(punti, p, punti.flatMap((q, j) => (Math.round(q.h) === h ? [j] : [])), 'h', valore - h)
+  } else if ((m = id.match(/^F(\d+)$/))) {
+    return impostaArco(punti, Number(m[1]), valore)
+  } else if ((m = id.match(/^AT(\d+)$/))) {
+    const q = quoteForma(punti).find(x => x.id === id)
+    const i = Number(m[1])
+    if (!q || valore <= 0) return null
+    return impostaArco(punti, i, (punti[i].freccia ?? 0) + (valore - q.valore))
   } else if (id === 'TL' || id === 'TH') {
     if (n <= 4 || valore <= 0) return null
     const box = ingombroPunti(punti)

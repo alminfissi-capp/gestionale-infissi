@@ -55,7 +55,7 @@ const sposta = (p: Pt, dx: number, dy: number): Pt => ({ x: p.x + dx, y: p.y + d
  * Pulisce un contorno: toglie i lati nulli, lo chiude, lo gira in senso antiorario e lo
  * porta con il minimo di x e y in 0,0.
  */
-export function normalizzaContorno(lati: LatoContorno[]): LatoContorno[] {
+export function normalizzaContorno(lati: LatoContorno[], ruota = true): LatoContorno[] {
   let l = lati.filter(x => !uguali(x.da, x.a) || x.tipo === 'arco')
   if (l.length === 0) return []
   const primo = l[0].da, ultimo = l[l.length - 1].a
@@ -64,8 +64,9 @@ export function normalizzaContorno(lati: LatoContorno[]): LatoContorno[] {
   const pts = l.flatMap(puntiLato)
   const dx = -Math.min(...pts.map(p => p.x)), dy = -Math.min(...pts.map(p => p.y))
   // Si parte dal lato che comincia piu' in basso a sinistra: i numeri dei lati restano
-  // gli stessi anche se il modello parte da un altro punto.
-  const indice = l.reduce((m, x, i) => {
+  // gli stessi anche se il modello parte da un altro punto. La forma a punti invece tiene
+  // il suo ordine: i lati (e i pezzi telaio T0, T1...) non si rinumerano cambiando le misure.
+  const indice = !ruota ? 0 : l.reduce((m, x, i) => {
     const a = l[m].da, b = x.da
     return b.y < a.y - 1e-3 || (Math.abs(b.y - a.y) < 1e-3 && b.x < a.x) ? i : m
   }, 0)
@@ -114,7 +115,7 @@ export function misureModello(id: string, misure: Record<string, number> = {}): 
 /** Contorno della forma, pulito (vedi normalizzaContorno). Vuoto se la forma non torna */
 export function contornoForma(forma: Forma): LatoContorno[] {
   try {
-    if (forma.tipo === 'punti') return normalizzaContorno(latiDaPunti(forma.punti))
+    if (forma.tipo === 'punti') return normalizzaContorno(latiDaPunti(forma.punti), false)
     const m = modelloPerId(forma.modello) ?? MODELLI[0]
     const lati = eseguiModello(m.script, forma.misure).lati
     const ok = lati.every(l => [l.da, l.a, ...(l.tipo === 'arco' ? [l.centro] : [])].every(p => Number.isFinite(p.x) && Number.isFinite(p.y)))

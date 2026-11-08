@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PuntoForma } from '@/types/rilievo-grafico'
-import { applicaQuota, formaValida, quoteForma } from './quote-forma'
+import { applicaQuota, formaValida, impostaArco, quoteForma } from './quote-forma'
 import { formaInPunti } from './forma'
 
 const R: PuntoForma[] = [{ x: 0, h: 0 }, { x: 1200, h: 0 }, { x: 1200, h: 1400 }, { x: 0, h: 1400 }]
@@ -105,3 +105,31 @@ function colmoDelLato(p: PuntoForma[], i: number) {
   const max = Math.max(...p.map(q => q.h))
   return p[i].h === max || p[(i + 1) % p.length].h === max
 }
+
+describe('archi', () => {
+  it('freccia 150 su 1200: altezza totale 1550 e raggio 1275', () => {
+    const p = impostaArco(R, 2, 150)
+    expect(valori(p)).toMatchObject({ L2: 1200, F2: 150, AT2: 1550, R2: 1275 })
+    expect(quoteForma(p!).find(q => q.id === 'R2')?.modificabile).toBe(false)
+  })
+
+  it('scrivendo l\'altezza totale si ricalcola la freccia', () => {
+    const p = passo(impostaArco(R, 2, 150), 'AT2', 1600)
+    expect(valori(p)).toMatchObject({ F2: 200, AT2: 1600 })
+  })
+
+  it('cambiando un muro dopo l\'arco la freccia resta e i lati non si rinumerano', () => {
+    const p = passo(passo(impostaArco(R, 2, 150), 'AT2', 1600), 'L1', 1300)
+    expect(valori(p)).toMatchObject({ L0: 1200, L1: 1300, L3: 1400, F2: 200 })
+  })
+
+  it('Dritto toglie l\'arco', () => {
+    const p = impostaArco(impostaArco(R, 2, 150)!, 2, 0)
+    expect(p).toEqual(R)
+    expect(Object.keys(valori(p))).toEqual(['L0', 'L1', 'L2', 'L3'])
+  })
+
+  it('il raggio non si scrive', () => {
+    expect(passo(impostaArco(R, 2, 150), 'R2', 500)).toBeNull()
+  })
+})
