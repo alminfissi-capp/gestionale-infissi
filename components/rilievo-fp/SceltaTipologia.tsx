@@ -1,5 +1,6 @@
 'use client'
 
+import { eVoceFp } from '@/lib/rilievo-unico'
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ChevronLeft, Folder, Star } from 'lucide-react'
@@ -22,7 +23,7 @@ export default function SceltaTipologia({ serie, onScegli }: Props) {
   const preferite = useLiveQuery(async () => new Set((await db.fpPreferenze.where('tipo').equals('struttura').toArray()).map(p => p.rif)), [], new Set<string>())
   const recenti = useLiveQuery(async () => {
     const voci = await db.vociFp.orderBy('aggiornatoAt').reverse().limit(200).toArray()
-    return [...new Set(voci.filter(v => v.fp.serie === serie).map(v => v.fp.strutturaId))].slice(0, 6)
+    return [...new Set(voci.filter(eVoceFp).filter(v => v.fp.serie === serie).map(v => v.fp.strutturaId))].slice(0, 6)
   }, [serie], [] as string[])
   const [cartella, setCartella] = useState('')
   const [testo, setTesto] = useState('')

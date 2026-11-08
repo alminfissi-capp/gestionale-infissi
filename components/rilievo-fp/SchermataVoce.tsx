@@ -1,5 +1,6 @@
 'use client'
 
+import { eVoceFp } from '@/lib/rilievo-unico'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { toast } from 'sonner'
@@ -26,7 +27,7 @@ import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
 import DisegnoConNote from './DisegnoConNote'
 import SceltaFp, { type VoceScelta } from './SceltaFp'
 import SceltaTipologia from './SceltaTipologia'
-import type { AnteprimaProfilo, FaseLavoro, Lato, RifFp, StrutturaLocale, TelaioLocale, VoceFp, VoceFpDati } from '@/types/rilievo-fp'
+import type { AnteprimaProfilo, FaseLavoro, Lato, RifFp, StrutturaLocale, TelaioLocale, VoceFpDati, VoceFpVera } from '@/types/rilievo-fp'
 
 interface Props {
   rilievoId: string
@@ -78,22 +79,23 @@ function Pannello({ titolo, children, aperto = true }: { titolo: string; childre
  * Gli elenchi sono menu a tendina che si chiudono dopo la scelta (SceltaFp).
  */
 export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFine }: Props) {
-  const esistente = useLiveQuery(() => (voceId ? db.vociFp.get(voceId) : undefined), [voceId])
+  // Solo voci FP PRO: le voci disegnate hanno il loro editor
+  const esistente = useLiveQuery(async () => { if (!voceId) return undefined; const v = await db.vociFp.get(voceId); return v && eVoceFp(v) ? v : undefined }, [voceId])
   // Copia: stesse scelte della voce d'origine, id nuovo e in fondo all'elenco. Non e' ancora
   // nel telefono finche' non si preme Salva (o la si modifica e si esce, come le altre voci).
   const [idCopia] = useState(() => crypto.randomUUID())
   const copia = useLiveQuery(async () => {
     if (!copiaDa || voceId) return undefined
     const origine = await db.vociFp.get(copiaDa)
-    if (!origine) return undefined
+    if (!origine || !eVoceFp(origine)) return undefined
     const ordine = await db.vociFp.where('rilievoId').equals(rilievoId).count()
     const { daInviare, ...dati } = origine
     void daInviare
-    const nuova: VoceFp = { ...dati, id: idCopia, ordine, aggiornatoAt: new Date().toISOString() }
+    const nuova: VoceFpVera = { ...dati, id: idCopia, ordine, aggiornatoAt: new Date().toISOString() }
     return nuova
   }, [copiaDa, voceId, rilievoId, idCopia])
   const [copiaSalvata, setCopiaSalvata] = useState(false)
-  const [bozza, setBozza] = useState<VoceFp | null>(null)
+  const [bozza, setBozza] = useState<VoceFpVera | null>(null)
   // true = ci sono modifiche non ancora salvate nel telefono
   const [sporca, setSporca] = useState(false)
   const voce = bozza ?? esistente ?? copia ?? null
@@ -109,14 +111,14 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
   const catalogoVuoto = useLiveQuery(async () => (await db.fpStrutture.count()) === 0, [], false)
 
   // Uscendo con il tasto indietro del telefono le modifiche non vanno perse.
-  const daSalvare = useRef<VoceFp | null>(null)
+  const daSalvare = useRef<VoceFpVera | null>(null)
   useEffect(() => { daSalvare.current = sporca ? bozza : null }, [bozza, sporca])
   useEffect(() => () => { if (daSalvare.current) void salvaVoceLocale(daSalvare.current) }, [])
 
   const elencoSerie = useLiveQuery(() => db.fpSerie.orderBy('nome').filter(s => s.presente).toArray(), [], [])
   const serieRecenti = useLiveQuery(async () => {
     const v = await db.vociFp.orderBy('aggiornatoAt').reverse().limit(100).toArray()
-    return [...new Set(v.map(x => x.fp.serie))].slice(0, 5)
+    return [...new Set(v.filter(eVoceFp).map(x => x.fp.serie))].slice(0, 5)
   }, [], [] as string[])
   const colori = useLiveQuery(() => db.fpColori.filter(c => c.presente).toArray(), [], [])
   // Accessori a colore dei kit attivi: i colori accessori proposti sono solo quelli che li hanno.
@@ -179,7 +181,7 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
     .sort((a, b) => Number(serieRecenti.includes(b.nome)) - Number(serieRecenti.includes(a.nome)))
     .map(s => ({ id: s.nome, testo: s.nome, sotto: [s.descrizione, serieRecenti.includes(s.nome) ? 'recente' : null].filter(Boolean).join(' · ') }))
 
-  const aggiorna = (patch: Partial<VoceFpDati>, altro: Partial<VoceFp> = {}) => {
+  const aggiorna = (patch: Partial<VoceFpDati>, altro: Partial<VoceFpVera> = {}) => {
     if (!voce) return
     setBozza({ ...voce, ...altro, fp: { ...voce.fp, ...patch } })
     setSporca(true)
@@ -204,7 +206,7 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
   // misure, riferimento, quantita', note e note del telaio).
   const sceltaStruttura = async (s: StrutturaLocale) => {
     const ordine = await db.vociFp.where('rilievoId').equals(rilievoId).count()
-    const nuova: VoceFp = {
+    const nuova: VoceFpVera = {
       id: voce?.id ?? crypto.randomUUID(),
       rilievoId,
       ordine: voce?.ordine ?? ordine,

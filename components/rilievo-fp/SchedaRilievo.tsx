@@ -13,7 +13,8 @@ import AllegatiVoce from '@/components/rilievo/AllegatiVoce'
 import { db } from '@/lib/db'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { eliminaRilievoLocale, eliminaVoceLocale, riordinaVociLocale, salvaRilievoLocale } from '@/lib/rilievo-fp-locale'
-import type { RilievoFp, StrutturaLocale, VoceLocale } from '@/types/rilievo-fp'
+import type { RilievoFp, StrutturaLocale, VoceFpDati, VoceLocale } from '@/types/rilievo-fp'
+import { eVoceFp } from '@/lib/rilievo-unico'
 import SchedaVoceRiepilogo from './SchedaVoceRiepilogo'
 import { nomeCliente } from './ElencoRilievi'
 
@@ -53,7 +54,7 @@ function DatiRilievo({ rilievo }: { rilievo: RilievoFp }) {
 
 /** Una voce dell'elenco: a destra, in colonna, Elimina, Copia e la maniglia per trascinarla. */
 function RigaVoce({ v, numero, struttura, catalogoVuoto, isOnline, onVoce, onCopia }: {
-  v: VoceLocale; numero: number; struttura: StrutturaLocale | undefined; catalogoVuoto: boolean; isOnline: boolean
+  v: VoceLocale & { fp: VoceFpDati }; numero: number; struttura: StrutturaLocale | undefined; catalogoVuoto: boolean; isOnline: boolean
   onVoce: (voceId: string) => void; onCopia: (voceId: string) => void
 }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: v.id })
@@ -102,7 +103,7 @@ export default function SchedaRilievo({ id, onIndietro, onVoce, onCopia, onRiepi
   const rilievo = useLiveQuery(() => db.rilieviFp.get(id), [id])
   const voci = useLiveQuery(() => db.vociFp.where('rilievoId').equals(id).sortBy('ordine'), [id])
   const strutture = useLiveQuery(async () => {
-    const righe = await db.fpStrutture.bulkGet((voci ?? []).map(v => v.fp.strutturaId))
+    const righe = await db.fpStrutture.bulkGet((voci ?? []).filter(eVoceFp).map(v => v.fp.strutturaId))
     return new Map(righe.filter(s => !!s).map(s => [s!.id, s!]))
   }, [voci])
   const catalogoVuoto = useLiveQuery(async () => (await db.fpStrutture.count()) === 0, [], false)
@@ -136,9 +137,11 @@ export default function SchedaRilievo({ id, onIndietro, onVoce, onCopia, onRiepi
       <DndContext sensors={sensori} collisionDetection={closestCenter} onDragEnd={spostaVoce}>
         <SortableContext items={(voci ?? []).map(v => v.id)} strategy={verticalListSortingStrategy}>
           <ul className="space-y-2">
-            {(voci ?? []).map((v, i) => (
+            {(voci ?? []).map((v, i) => eVoceFp(v) ? (
               <RigaVoce key={v.id} v={v} numero={i + 1} struttura={strutture?.get(v.fp.strutturaId)} catalogoVuoto={catalogoVuoto}
                 isOnline={isOnline} onVoce={onVoce} onCopia={onCopia} />
+            ) : (
+              <li key={v.id} className="rounded border p-3 text-sm text-muted-foreground">Voce disegnata {i + 1}</li>
             ))}
           </ul>
         </SortableContext>

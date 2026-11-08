@@ -3,10 +3,10 @@
 import { formatEuro } from '@/lib/pricing'
 import { datiRiepilogo, formatMq, type StatoPrezzo } from '@/lib/fppro/riepilogo'
 import DisegnoVoceSvg from './DisegnoVoceSvg'
-import type { StrutturaLocale, VoceFp } from '@/types/rilievo-fp'
+import type { StrutturaLocale, VoceFpVera } from '@/types/rilievo-fp'
 
 interface Props {
-  voce: VoceFp
+  voce: VoceFpVera
   struttura: StrutturaLocale | null
   /** null = prezzi nascosti */
   prezzo: StatoPrezzo | null

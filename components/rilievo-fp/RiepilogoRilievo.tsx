@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { vociDelRiepilogo } from '@/lib/rilievo-unico'
+import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowLeft, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -24,7 +25,8 @@ const PER_PAGINA = 5
 export default function RiepilogoRilievo({ id, onIndietro }: { id: string; onIndietro: () => void }) {
   const { isOnline } = useOnlineStatus()
   const rilievo = useLiveQuery(() => db.rilieviFp.get(id), [id])
-  const voci = useLiveQuery(() => db.vociFp.where('rilievoId').equals(id).sortBy('ordine'), [id])
+  const tutte = useLiveQuery(() => db.vociFp.where('rilievoId').equals(id).sortBy('ordine'), [id])
+  const { fp: voci, disegnate } = useMemo(() => (tutte ? vociDelRiepilogo(tutte) : { fp: null, disegnate: 0 }), [tutte])
   const strutture = useLiveQuery(async () => {
     const righe = await db.fpStrutture.bulkGet((voci ?? []).map(v => v.fp.strutturaId))
     return new Map(righe.filter(s => !!s).map(s => [s!.id, s!]))
@@ -78,6 +80,11 @@ export default function RiepilogoRilievo({ id, onIndietro }: { id: string; onInd
         </label>
         <Button size="sm" className="ml-auto gap-1.5" onClick={() => window.print()}><Printer className="size-4" />Stampa / PDF</Button>
       </div>
+      {disegnate > 0 && (
+        <p className="text-sm text-amber-700 print:hidden">
+          {disegnate === 1 ? '1 voce disegnata non è' : `${disegnate} voci disegnate non sono`} ancora nel riepilogo: arriveranno con il prossimo aggiornamento.
+        </p>
+      )}
 
       {pagine.map((gruppo, p) => (
         <section key={p} className="mx-auto max-w-[190mm] space-y-1.5 bg-white print:max-w-none print:break-after-page print:last:break-after-auto">

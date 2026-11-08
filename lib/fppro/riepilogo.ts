@@ -1,7 +1,7 @@
 // Testi del riepilogo del rilievo (scheda compatta a schermo e stampa A4): una funzione
 // pura per voce, cosi' schermo e carta dicono la stessa cosa.
 import { accessoriOpzionaliScelti, campiRiempimento, coloriAccessori, kitOpzionali } from './rilievo-fp'
-import type { Lato, StrutturaLocale, VoceFp } from '@/types/rilievo-fp'
+import type { Lato, StrutturaLocale, VoceFpVera } from '@/types/rilievo-fp'
 import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
 
 export interface DatiRiepilogo {
@@ -55,7 +55,7 @@ export function nomeFileRilievo(c: ClienteSnapshotRilievo): string {
 const pulito = (s: string | null | undefined): string | null => (s && s.trim() ? s.trim() : null)
 
 export function datiRiepilogo(
-  v: VoceFp,
+  v: VoceFpVera,
   s: Pick<StrutturaLocale, 'albero' | 'nome' | 'descrizione'> | null,
 ): DatiRiepilogo {
   const fp = v.fp

@@ -5,7 +5,7 @@ import { XMLParser } from 'fast-xml-parser'
 import { OPZIONI_XML, strutturaDaXml } from './strutture-xml'
 import { kitOpzionali, nuovaVoceFp } from './rilievo-fp'
 import { datiRiepilogo, formatMq, nomeFileRilievo, statoPrezzo } from './riepilogo'
-import type { VoceFp } from '@/types/rilievo-fp'
+import type { VoceFpDati, VoceFpVera } from '@/types/rilievo-fp'
 
 const leggi = (nome: string) => strutturaDaXml(new XMLParser(OPZIONI_XML).parse(
   new TextDecoder('windows-1252').decode(readFileSync(join(__dirname, '__fixtures__', nome))),
@@ -13,7 +13,7 @@ const leggi = (nome: string) => strutturaDaXml(new XMLParser(OPZIONI_XML).parse(
 const ekos = { ...leggi('ekos-2-ante.str.xml'), id: 'S1', percorso: 'EKOS/F2A.STR', nome: '04B-ES-F2A', descrizione: 'Finestra 2 ante' }
 const al50 = { ...leggi('al50plus-monoblocco.str.xml'), id: 'S2', percorso: 'AL50/MONO.STR', nome: 'MONO', descrizione: null }
 
-const voce = (patch: Partial<VoceFp['fp']> = {}, altro: Partial<VoceFp> = {}): VoceFp => ({
+const voce = (patch: Partial<VoceFpDati> = {}, altro: Partial<VoceFpVera> = {}): VoceFpVera => ({
   id: 'v1', rilievoId: 'r1', ordine: 0, posizione: 'C.da letto', quantita: 2, note: 'davanzale in marmo',
   fp: { ...nuovaVoceFp(ekos, 'Ekos_66th'), larghezza: 1000, altezza: 1240, ...patch },
   aggiornatoAt: '2026-10-18T10:00:00.000Z', ...altro,

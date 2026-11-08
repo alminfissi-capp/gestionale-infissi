@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { disegnoDellaVoce, eVoceDisegnata, eVoceFp } from './rilievo-unico'
+import { disegnoDellaVoce, eVoceDisegnata, eVoceFp, vociDelRiepilogo } from './rilievo-unico'
 import type { VoceFp } from '@/types/rilievo-fp'
 
 const base = { id: 'v', rilievoId: 'r', ordine: 0, posizione: '', quantita: 1, note: '', aggiornatoAt: '2026-11-08T10:00:00Z' }
@@ -29,5 +29,14 @@ describe('disegnoDellaVoce', () => {
     if (!eVoceDisegnata(v)) throw new Error()
     expect(disegnoDellaVoce(v).profili).toEqual(profili)
     expect(disegnoDellaVoce(v).forma).toEqual(grafico.forma)
+  })
+})
+
+describe('vociDelRiepilogo', () => {
+  it('voci FP nel loro ordine, e quante disegnate', () => {
+    const a = { ...fpVoce, id: 'a' }, b = { ...disegnata, id: 'b' }, c = { ...fpVoce, id: 'c' }
+    const r = vociDelRiepilogo([a, b, c])
+    expect(r.fp.map(v => v.id)).toEqual(['a', 'c'])
+    expect(r.disegnate).toBe(1)
   })
 })
