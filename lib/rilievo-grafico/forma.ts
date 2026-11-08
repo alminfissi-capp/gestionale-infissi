@@ -167,7 +167,8 @@ export function formaInPunti(forma: Forma): PuntoForma[] {
   if (lati.length < 2) return forma.tipo === 'punti' ? forma.punti : []
   const grezzi: PuntoForma[] = lati.map(l => ({ x: l.da.x, h: l.da.y, ...(l.tipo === 'arco' ? { freccia: frecciaArco(l) } : {}) }))
   // Si ripassa da latiDaPunti + normalizza: stesso giro e stesso primo lato del contorno
-  return normalizzaContorno(latiDaPunti(grezzi)).map(l => {
+  // Un modello parte dall'angolo in basso a sinistra; una forma a punti tiene il suo ordine
+  return normalizzaContorno(latiDaPunti(grezzi), forma.tipo !== 'punti').map(l => {
     const p: PuntoForma = { x: tondo(l.da.x), h: tondo(l.da.y) }
     if (l.tipo === 'arco') { const f = tondo(frecciaArco(l)); if (Math.abs(f) >= 0.5) p.freccia = f }
     return p

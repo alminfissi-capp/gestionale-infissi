@@ -62,9 +62,15 @@ type Aperta =
   | { tipo: 'forma' | 'taglio'; id: string; valore: number; ancora: Ancora }
   | { tipo: 'lato'; lato: number; ancora: Ancora }
 
-/** I rilievi salvati con un modello passano subito alla forma a punti (si modifica lato per lato) */
-const aPunti = (x: RilievoGrafico): RilievoGrafico =>
-  x.disegno.forma.tipo === 'punti' ? x : { ...x, disegno: { ...x.disegno, forma: { tipo: 'punti', punti: formaInPunti(x.disegno.forma) } } }
+/**
+ * All'apertura la forma passa ai punti puliti (i modelli diventano punti, le forme a punti
+ * salvate prima vengono girate in senso antiorario): da qui punti, quote e pezzi T0, T1...
+ * hanno lo stesso ordine e il menu del lato lavora sul lato toccato.
+ */
+const aPunti = (x: RilievoGrafico): RilievoGrafico => {
+  const punti = formaInPunti(x.disegno.forma)
+  return punti.length < 2 ? x : { ...x, disegno: { ...x.disegno, forma: { tipo: 'punti', punti } } }
+}
 type Stato = 'salvato' | 'da_salvare' | 'salvataggio'
 
 function Editor({ iniziale }: { iniziale: RilievoGrafico }) {
@@ -92,9 +98,15 @@ function Editor({ iniziale }: { iniziale: RilievoGrafico }) {
   const punti = useMemo(() => formaInPunti(r.disegno.forma), [r.disegno.forma])
   const quote = useMemo(() => quoteForma(punti), [punti])
 
-  // Cambiando la grandezza della finestra la casellina non sarebbe piu' al suo posto
+  // Cambiando la larghezza della finestra la casellina non sarebbe piu' al suo posto. Solo la
+  // larghezza: sul telefono la tastiera che si apre cambia l'altezza e non deve chiuderla.
   useEffect(() => {
-    const chiudi = () => setAperta(null)
+    let larghezza = window.innerWidth
+    const chiudi = () => {
+      if (Math.abs(window.innerWidth - larghezza) < 2) return
+      larghezza = window.innerWidth
+      setAperta(null)
+    }
     window.addEventListener('resize', chiudi)
     return () => window.removeEventListener('resize', chiudi)
   }, [])
@@ -249,7 +261,7 @@ function Editor({ iniziale }: { iniziale: RilievoGrafico }) {
               className="h-[55vh] w-full lg:h-[68vh]"
             />
             {aperta && aperta.tipo !== 'lato' && (
-              <CasellaQuota key={`${aperta.tipo}-${aperta.id}`} ancora={aperta.ancora} valore={aperta.valore} onConferma={confermaAperta} onAnnulla={chiudiAperta} />
+              <CasellaQuota key={`${aperta.tipo}-${aperta.id}`} ancora={aperta.ancora} valore={aperta.valore} conSegno={/^F\d+$/.test(aperta.id)} onConferma={confermaAperta} onAnnulla={chiudiAperta} />
             )}
             {aperta?.tipo === 'lato' && (
               <MenuLato

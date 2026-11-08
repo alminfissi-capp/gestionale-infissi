@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { PuntoForma } from '@/types/rilievo-grafico'
 import { applicaQuota, formaValida, impostaArco, quoteForma } from './quote-forma'
 import { formaInPunti } from './forma'
+import { calcolaDisegno } from './geometria'
 import { leggiMisura } from './misura'
 
 const R: PuntoForma[] = [{ x: 0, h: 0 }, { x: 1200, h: 0 }, { x: 1200, h: 1400 }, { x: 0, h: 1400 }]
@@ -151,5 +152,32 @@ describe('quote totali senza doppioni', () => {
     const ids = quoteForma(casetta).map(q => q.id)
     expect(ids).not.toContain('TL')
     expect(ids).toContain('TH')
+  })
+})
+
+describe('i lati non si rinumerano (revisione finale)', () => {
+  const nomiTelaio = (p: PuntoForma[]) => calcolaDisegno({ forma: { tipo: 'punti', punti: p }, radice: { id: 'z', contenuto: { tipo: 'vuoto' } } })
+    .pezzi.filter(x => x.ruolo === 'telaio').map(x => x.nome)
+  it('altezza sinistra centrata: il primo punto resta l\'angolo in basso a sinistra', () => {
+    const p = passo(R, 'L3', 1200)!
+    expect(p[0]).toEqual({ x: 0, h: 100 })
+    expect(nomiTelaio(p).map(n => n.split(' ')[1])).toEqual(['inferiore', 'destro', 'superiore', 'sinistro'])
+  })
+  it('una forma salvata a punti che parte da un altro angolo o gira al contrario: punti e pezzi T hanno lo stesso ordine', () => {
+    const orario = [{ x: 0, h: 1400 }, { x: 1200, h: 1400 }, { x: 1200, h: 0 }, { x: 0, h: 0 }]
+    const p = formaInPunti({ tipo: 'punti', punti: orario })
+    const tel = calcolaDisegno({ forma: { tipo: 'punti', punti: p }, radice: { id: 'z', contenuto: { tipo: 'vuoto' } } }).pezzi.filter(x => x.ruolo === 'telaio')
+    const tel2 = calcolaDisegno({ forma: { tipo: 'punti', punti: orario }, radice: { id: 'z', contenuto: { tipo: 'vuoto' } } }).pezzi.filter(x => x.ruolo === 'telaio')
+    p.forEach((q, i) => expect(tel[i].tratti[0][0]).toEqual({ x: q.x, y: q.h }))
+    expect(tel.map(t => t.tratti)).toEqual(tel2.map(t => t.tratti))
+  })
+})
+
+describe('punto delle migliaia (revisione finale)', () => {
+  it('"1.200" e\' milleduecento, "1.200,5" pure; "12.5" resta dodici e mezzo', () => {
+    expect(leggiMisura('1.200')).toBe(1200)
+    expect(leggiMisura('1.200,5')).toBe(1200.5)
+    expect(leggiMisura('12.5')).toBe(12.5)
+    expect(leggiMisura('-1.200')).toBe(-1200)
   })
 })
