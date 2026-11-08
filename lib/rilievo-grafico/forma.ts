@@ -93,9 +93,11 @@ function arcoDaFreccia(da: Pt, a: Pt, freccia: number, antiorario: boolean): Lat
 }
 
 export function latiDaPunti(punti: PuntoForma[]): LatoContorno[] {
-  if (punti.length < 3) return []
+  // Due punti bastano se almeno un lato e' un arco (mezzaluna, oblo'): il giro e' quello dato
+  const dueConArco = punti.length === 2 && punti.some(q => q.freccia)
+  if (punti.length < 3 && !dueConArco) return []
   const p = punti.map(q => ({ x: q.x, y: q.h }))
-  const antiorario = area(p) > 0
+  const antiorario = dueConArco || area(p) > 0
   return p.map((da, i) => arcoDaFreccia(da, p[(i + 1) % p.length], punti[i].freccia ?? 0, antiorario))
 }
 
@@ -121,6 +123,57 @@ export function contornoForma(forma: Forma): LatoContorno[] {
     return []
   }
 }
+
+/**
+ * Freccia di un lato ad arco in un contorno antiorario: quanto si stacca l'arco dal centro
+ * della corda. Positiva se esce dalla forma (percorso antiorario attorno al centro).
+ */
+export function frecciaArco(l: Extract<LatoContorno, { tipo: 'arco' }>): number {
+  const r = Math.hypot(l.da.x - l.centro.x, l.da.y - l.centro.y)
+  const f = r * (1 - Math.cos(ampiezzaArco(l) / 2))
+  return l.orario ? -f : f
+}
+
+const stessoCerchio = (a: LatoContorno, b: LatoContorno) =>
+  a.tipo === 'arco' && b.tipo === 'arco' && a.orario === b.orario &&
+  Math.hypot(a.centro.x - b.centro.x, a.centro.y - b.centro.y) < 0.5 &&
+  Math.abs(Math.hypot(a.da.x - a.centro.x, a.da.y - a.centro.y) - Math.hypot(b.da.x - b.centro.x, b.da.y - b.centro.y)) < 0.5
+
+/** Archi consecutivi sullo stesso cerchio diventano un lato solo (mai un cerchio chiuso) */
+function unisciArchi(lati: LatoContorno[]): LatoContorno[] {
+  const out: LatoContorno[] = []
+  for (const l of lati) {
+    const u = out[out.length - 1]
+    if (u && u.tipo === 'arco' && stessoCerchio(u, l) && !uguali(u.da, l.a)) out[out.length - 1] = { ...u, a: l.a }
+    else out.push(l)
+  }
+  // L'ultimo e il primo possono essere lo stesso arco spezzato
+  if (out.length > 2) {
+    const u = out[out.length - 1], p = out[0]
+    if (u.tipo === 'arco' && stessoCerchio(u, p) && !uguali(u.da, p.a)) { out.pop(); out[0] = { ...u, a: p.a } }
+  }
+  return out
+}
+
+const tondo = (n: number) => Math.round(n * 10) / 10
+
+/**
+ * Forma come elenco di punti (vertici + freccia del lato che parte da ognuno), nello stesso
+ * ordine dei lati di `contornoForma`: i pezzi telaio T0, T1... restano gli stessi.
+ */
+export function formaInPunti(forma: Forma): PuntoForma[] {
+  const lati = unisciArchi(contornoForma(forma))
+  if (lati.length < 2) return forma.tipo === 'punti' ? forma.punti : []
+  const grezzi: PuntoForma[] = lati.map(l => ({ x: l.da.x, h: l.da.y, ...(l.tipo === 'arco' ? { freccia: frecciaArco(l) } : {}) }))
+  // Si ripassa da latiDaPunti + normalizza: stesso giro e stesso primo lato del contorno
+  return normalizzaContorno(latiDaPunti(grezzi)).map(l => {
+    const p: PuntoForma = { x: tondo(l.da.x), h: tondo(l.da.y) }
+    if (l.tipo === 'arco') { const f = tondo(frecciaArco(l)); if (Math.abs(f) >= 0.5) p.freccia = f }
+    return p
+  })
+}
+
+export const normalizzaPunti = (punti: PuntoForma[]): PuntoForma[] => formaInPunti({ tipo: 'punti', punti })
 
 export function poligonoContorno(lati: LatoContorno[]): Pt[] {
   return lati.flatMap(puntiLato)

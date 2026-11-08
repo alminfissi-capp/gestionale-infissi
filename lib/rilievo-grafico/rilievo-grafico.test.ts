@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { eseguiModello, valuta } from './prm'
 import { MODELLI } from './modelli'
-import { contornoForma, ingombro, latiDaPunti, misureModello, poligonoContorno } from './forma'
+import { contornoForma, formaInPunti, ingombro, latiDaPunti, misureModello, poligonoContorno } from './forma'
 import { calcolaDisegno, posizioniTagli, taglia, zonaNelPunto } from './geometria'
 import { aggiornaAnta, dividi, eliminaElemento, eliminaTaglio, griglia, mettiAnta, riempi, trovaZona, zoneFinali } from './modifiche'
 import { mancanti, potaAssegnazioni, profiliAdatti, UTILIZZI_RUOLO } from './ruoli'
@@ -227,5 +227,39 @@ describe('riga col dito', () => {
   it('un tocco o una riga corta non fanno niente', () => {
     expect(interpretaTraccia(c, [{ x: 500, y: 500 }, { x: 505, y: 503 }])).toBeNull()
     expect(interpretaTraccia(c, riga({ x: 300, y: 400 }, { x: 300, y: 600 }))).toBeNull()
+  })
+})
+
+describe('forma a punti dai modelli', () => {
+  const pt = (forma: Forma) => ({ tipo: 'punti' as const, punti: formaInPunti(forma) })
+  const mod = (modello: string, misure: Record<string, number> = {}): Forma => ({ tipo: 'modello', modello, misure })
+  it('ogni modello convertito ha lo stesso ingombro e la stessa area', () => {
+    for (const m of MODELLI) {
+      const a = poligonoContorno(contornoForma(mod(m.id)))
+      const b = poligonoContorno(contornoForma(pt(mod(m.id))))
+      const ba = ingombro(a), bb = ingombro(b)
+      expect(bb.maxX, m.id).toBeCloseTo(ba.maxX, -0.3)
+      expect(bb.maxY, m.id).toBeCloseTo(ba.maxY, -0.3)
+      expect(Math.abs(area(b) - area(a)) / area(a), m.id).toBeLessThan(0.005)
+    }
+  })
+  it('rettangolo e trapezio: stessi punti e stessi pezzi telaio', () => {
+    expect(formaInPunti(rett(1200, 1400))).toEqual([{ x: 0, h: 0 }, { x: 1200, h: 0 }, { x: 1200, h: 1400 }, { x: 0, h: 1400 }])
+    for (const f of [rett(1200, 1400), mod('MODEL-01', { L: 1770, H1: 1940, H2: 2215 })]) {
+      const prima = calcolaDisegno({ forma: f, radice: vetro() }).pezzi.filter(p => p.ruolo === 'telaio')
+      const dopo = calcolaDisegno({ forma: pt(f), radice: vetro() }).pezzi.filter(p => p.ruolo === 'telaio')
+      expect(dopo.map(p => p.id)).toEqual(['T0', 'T1', 'T2', 'T3'])
+      expect(dopo.map(p => p.tratti)).toEqual(prima.map(p => p.tratti))
+    }
+  })
+  it('gli archi a meta\' diventano un lato solo; l\'oblo\' resta di due', () => {
+    const rib = formaInPunti(mod('MODEL-54', { L: 2500, H1: 2300, H2: 500 }))
+    expect(rib).toHaveLength(4)
+    expect(rib.filter(p => p.freccia).map(p => p.freccia)).toEqual([expect.closeTo(500, 0)])
+    const oblo = formaInPunti(mod('MODEL-52', { D: 900 }))
+    expect(oblo).toHaveLength(2)
+    for (const p of oblo) expect(p.freccia).toBeCloseTo(450, 0)
+    const mezza = formaInPunti(mod('MODEL-53'))
+    expect(mezza.filter(p => p.freccia)).toHaveLength(1)
   })
 })
