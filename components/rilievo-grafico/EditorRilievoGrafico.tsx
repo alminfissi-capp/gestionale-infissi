@@ -12,9 +12,13 @@ import { db } from '@/lib/db'
 import type { DisegnoGrafico, Forma, RilievoGrafico, Zona } from '@/types/rilievo-grafico'
 import { calcolaDisegno, nomeRuolo } from '@/lib/rilievo-grafico/geometria'
 import { interpretaTraccia } from '@/lib/rilievo-grafico/traccia'
-import { dividi } from '@/lib/rilievo-grafico/modifiche'
+import { dividi, scriviQuotaTaglio } from '@/lib/rilievo-grafico/modifiche'
+import { formaInPunti } from '@/lib/rilievo-grafico/forma'
+import { applicaQuota, impostaArco, quoteForma } from '@/lib/rilievo-grafico/quote-forma'
 import { mancanti, potaAssegnazioni } from '@/lib/rilievo-grafico/ruoli'
 import DisegnoSvg from './DisegnoSvg'
+import CasellaQuota, { type Ancora } from './CasellaQuota'
+import MenuLato from './MenuLato'
 import PannelloForma from './PannelloForma'
 import PannelloStruttura, { type SelezioneStruttura } from './PannelloStruttura'
 import PannelloProfili from './PannelloProfili'
@@ -51,21 +55,39 @@ async function salvaOra(x: RilievoGrafico) {
 }
 
 type Scheda = 'struttura' | 'profili'
+/** Casellina o menù aperti sul disegno */
+type Aperta =
+  | { tipo: 'forma' | 'taglio'; id: string; valore: number; ancora: Ancora }
+  | { tipo: 'lato'; lato: number; ancora: Ancora }
+
+/** I rilievi salvati con un modello passano subito alla forma a punti (si modifica lato per lato) */
+const aPunti = (x: RilievoGrafico): RilievoGrafico =>
+  x.disegno.forma.tipo === 'punti' ? x : { ...x, disegno: { ...x.disegno, forma: { tipo: 'punti', punti: formaInPunti(x.disegno.forma) } } }
 type Stato = 'salvato' | 'da_salvare' | 'salvataggio'
 
 function Editor({ iniziale }: { iniziale: RilievoGrafico }) {
-  const [r, setR] = useState(iniziale)
+  const [r, setR] = useState(() => aPunti(iniziale))
   const [storia, setStoria] = useState<{ indietro: DisegnoGrafico[]; avanti: DisegnoGrafico[] }>({ indietro: [], avanti: [] })
   const [scheda, setScheda] = useState<Scheda>('struttura')
   const [traccia, setTraccia] = useState(false)
   const [selS, setSelS] = useState<SelezioneStruttura>(null)
   const [selP, setSelP] = useState<Set<string>>(new Set())
   const [stato, setStato] = useState<Stato>('salvato')
+  const [aperta, setAperta] = useState<Aperta | null>(null)
   const ultimaForma = useRef(0)
   const daSalvare = useRef<RilievoGrafico | null>(null)
 
   const calc = useMemo(() => calcolaDisegno(r.disegno), [r.disegno])
   const conta = mancanti(calc, r.disegno.profili, r.disegno.riempimenti)
+  const punti = useMemo(() => formaInPunti(r.disegno.forma), [r.disegno.forma])
+  const quote = useMemo(() => quoteForma(punti), [punti])
+
+  // Cambiando la grandezza della finestra la casellina non sarebbe piu' al suo posto
+  useEffect(() => {
+    const chiudi = () => setAperta(null)
+    window.addEventListener('resize', chiudi)
+    return () => window.removeEventListener('resize', chiudi)
+  }, [])
 
   // Salvataggio automatico nel dispositivo poco dopo ogni modifica (poi parte verso il server)
   useEffect(() => {
@@ -108,7 +130,28 @@ function Editor({ iniziale }: { iniziale: RilievoGrafico }) {
     ultimaForma.current = ora
     cambiaDisegno({ ...r.disegno, forma }, unisci)
   }
+  /** Applica una nuova forma a punti: un passo di Annulla per ogni conferma */
+  const nuovaForma = (p: ReturnType<typeof applicaQuota>) => {
+    if (!p) return false
+    cambiaDisegno({ ...r.disegno, forma: { tipo: 'punti', punti: p } })
+    return true
+  }
+  const confermaAperta = (n: number): boolean => {
+    if (!aperta || aperta.tipo === 'lato') return false
+    if (aperta.tipo === 'forma') {
+      if (!nuovaForma(applicaQuota(punti, aperta.id, n))) return false
+    } else {
+      const radice = scriviQuotaTaglio(r.disegno.radice, calc, aperta.id, n)
+      if (!radice) return false
+      cambiaRadice(radice, { tipo: 'pezzo', id: aperta.id })
+    }
+    setAperta(null)
+    return true
+  }
+  const chiudiAperta = () => setAperta(null)
+
   const annulla = () => {
+    setAperta(null)
     const prec = storia.indietro[storia.indietro.length - 1]
     if (!prec) return
     setStoria(s => ({ indietro: s.indietro.slice(0, -1), avanti: [r.disegno, ...s.avanti] }))
@@ -116,6 +159,7 @@ function Editor({ iniziale }: { iniziale: RilievoGrafico }) {
     cambia({ ...r, disegno: prec })
   }
   const ripeti = () => {
+    setAperta(null)
     const succ = storia.avanti[0]
     if (!succ) return
     setStoria(s => ({ indietro: [...s.indietro, r.disegno], avanti: s.avanti.slice(1) }))
@@ -154,8 +198,8 @@ function Editor({ iniziale }: { iniziale: RilievoGrafico }) {
       </div>
 
       <div className="flex flex-wrap gap-1 border-b pb-2">
-        <Button size="sm" variant={scheda === 'struttura' ? 'default' : 'outline'} onClick={() => setScheda('struttura')}>1 · Struttura</Button>
-        <Button size="sm" variant={scheda === 'profili' ? 'default' : 'outline'} onClick={() => { setScheda('profili'); setTraccia(false) }}>
+        <Button size="sm" variant={scheda === 'struttura' ? 'default' : 'outline'} onClick={() => { setScheda('struttura'); setAperta(null) }}>1 · Struttura</Button>
+        <Button size="sm" variant={scheda === 'profili' ? 'default' : 'outline'} onClick={() => { setScheda('profili'); setTraccia(false); setAperta(null) }}>
           2 · Profili e vetri
           {(conta.pezzi > 0 || conta.riempimenti > 0) && <span className="ml-1 rounded-full bg-red-100 px-1.5 text-[11px] text-red-700">{conta.pezzi + conta.riempimenti}</span>}
         </Button>
@@ -171,19 +215,41 @@ function Editor({ iniziale }: { iniziale: RilievoGrafico }) {
               {traccia && <span className="text-xs text-muted-foreground">Disegna una riga da un lato all&apos;altro di una zona</span>}
             </div>
           )}
-          <div className="rounded-lg border bg-white p-2">
+          <div className="relative rounded-lg border bg-white p-2">
             <DisegnoSvg
               calc={calc}
               modo={scheda === 'profili' ? 'profili' : traccia ? 'traccia' : 'struttura'}
               selezione={selezioneSvg}
               profili={r.disegno.profili}
               riempimenti={r.disegno.riempimenti}
+              quoteForma={quote}
               onZona={id => (scheda === 'struttura' ? setSelS(s => (s?.id === id ? null : { tipo: 'zona', id })) : tocca(id))}
               onPezzo={id => (scheda === 'struttura' ? setSelS(s => (s?.id === id ? null : { tipo: 'pezzo', id })) : tocca(id))}
-              onQuota={id => setSelS({ tipo: 'pezzo', id })}
+              onQuota={(id, ancora) => {
+                setSelS({ tipo: 'pezzo', id })
+                const q = calc.quote.find(x => x.id === id)
+                if (q) setAperta({ tipo: 'taglio', id, valore: q.valore, ancora })
+              }}
+              onQuotaForma={scheda === 'struttura' ? (id, ancora) => {
+                const q = quote.find(x => x.id === id)
+                if (q) setAperta({ tipo: 'forma', id, valore: q.valore, ancora })
+              } : undefined}
+              onLato={scheda === 'struttura' ? (lato, ancora) => setAperta({ tipo: 'lato', lato, ancora }) : undefined}
               onTraccia={suTraccia}
               className="h-[55vh] w-full lg:h-[68vh]"
             />
+            {aperta && aperta.tipo !== 'lato' && (
+              <CasellaQuota key={`${aperta.tipo}-${aperta.id}`} ancora={aperta.ancora} valore={aperta.valore} onConferma={confermaAperta} onAnnulla={chiudiAperta} />
+            )}
+            {aperta?.tipo === 'lato' && (
+              <MenuLato
+                ancora={aperta.ancora}
+                arco={Boolean(punti[aperta.lato]?.freccia)}
+                onArco={() => setAperta({ tipo: 'forma', id: `F${aperta.lato}`, valore: Math.round(punti[aperta.lato]?.freccia ?? 0), ancora: aperta.ancora })}
+                onDritto={() => { nuovaForma(impostaArco(punti, aperta.lato, 0)); setAperta(null) }}
+                onChiudi={chiudiAperta}
+              />
+            )}
           </div>
         </div>
 

@@ -4,6 +4,8 @@ import { useId, useRef, useState } from 'react'
 import type { Assegnazione, Pt } from '@/types/rilievo-grafico'
 import { pezziInOrdine, type AntaCalcolata, type DisegnoCalcolato, type PezzoCalcolato } from '@/lib/rilievo-grafico/geometria'
 import { ingombro } from '@/lib/rilievo-grafico/forma'
+import type { QuotaForma } from '@/lib/rilievo-grafico/quote-forma'
+import type { Ancora } from './CasellaQuota'
 
 export type ModoDisegno = 'struttura' | 'traccia' | 'profili' | 'miniatura'
 
@@ -14,11 +16,29 @@ interface Props {
   selezione?: ReadonlySet<string>
   profili?: Record<string, Assegnazione>
   riempimenti?: Record<string, Assegnazione>
+  /** Quote della forma esterna (lati, scarti, angoli, archi) */
+  quoteForma?: QuotaForma[]
   onPezzo?: (id: string) => void
   onZona?: (id: string) => void
-  onQuota?: (idTaglio: string) => void
+  onQuota?: (idTaglio: string, ancora: Ancora) => void
+  onQuotaForma?: (id: string, ancora: Ancora) => void
+  /** Tocco su un lato del telaio (indice del lato) */
+  onLato?: (lato: number, ancora: Ancora) => void
   onTraccia?: (punti: Pt[]) => void
   className?: string
+}
+
+/** Centro dell'elemento toccato, in px dal bordo del contenitore del disegno */
+function ancoraDi(el: Element): Ancora {
+  const r = el.getBoundingClientRect()
+  const c = (el.closest('svg')?.parentElement ?? el).getBoundingClientRect()
+  return { x: r.left + r.width / 2 - c.left, y: r.top + r.height / 2 - c.top }
+}
+
+/** Punto toccato, in px dal bordo del contenitore del disegno */
+function ancoraDelTocco(e: React.MouseEvent<Element>): Ancora {
+  const c = (e.currentTarget.closest('svg')?.parentElement ?? e.currentTarget).getBoundingClientRect()
+  return { x: e.clientX - c.left, y: e.clientY - c.top }
 }
 
 const COLORE_RUOLO: Record<PezzoCalcolato['ruolo'], string> = {
@@ -60,7 +80,7 @@ function Simbolo({ a, H, k }: { a: AntaCalcolata; H: number; k: number }) {
   )
 }
 
-export default function DisegnoSvg({ calc, modo, selezione, profili, riempimenti, onPezzo, onZona, onQuota, onTraccia, className }: Props) {
+export default function DisegnoSvg({ calc, modo, selezione, profili, riempimenti, quoteForma, onPezzo, onZona, onQuota, onQuotaForma, onLato, onTraccia, className }: Props) {
   const uid = useId().replace(/:/g, '')
   const svg = useRef<SVGSVGElement>(null)
   const [traccia, setTraccia] = useState<Pt[] | null>(null)
@@ -69,7 +89,8 @@ export default function DisegnoSvg({ calc, modo, selezione, profili, riempimenti
     return <div className={`flex items-center justify-center text-sm text-muted-foreground ${className ?? ''}`}>Forma non valida: controlla le misure</div>
   }
   const mini = modo === 'miniatura'
-  const pad = mini ? Math.max(W, H) * 0.04 : Math.max(W, H) * 0.12
+  // Spazio intorno: le quote della forma stanno fuori dal contorno
+  const pad = mini ? Math.max(W, H) * 0.04 : Math.max(W, H) * (quoteForma?.length ? 0.24 : 0.12)
   const interattivo = !mini
   const sel = selezione ?? new Set<string>()
   const pezzi = pezziInOrdine(calc)
@@ -145,7 +166,11 @@ export default function DisegnoSvg({ calc, modo, selezione, profili, riempimenti
         const bordo = mini ? 0 : Math.max(W, H) * 0.004
         return (
           <g key={p.id} clipPath={`url(#${clip})`}
-            onClick={interattivo && modo !== 'traccia' ? e => { e.stopPropagation(); onPezzo?.(p.id) } : undefined}
+            onClick={interattivo && modo !== 'traccia' ? e => {
+              e.stopPropagation()
+              onPezzo?.(p.id)
+              if (p.ruolo === 'telaio' && onLato) onLato(Number(p.id.slice(1)), ancoraDelTocco(e))
+            } : undefined}
             className={interattivo && modo !== 'traccia' ? 'cursor-pointer' : undefined}>
             {!mini && <title>{p.nome}{profili?.[p.id] ? ` — ${profili[p.id].codice}` : ''}</title>}
             {bordo > 0 && <path d={d} fill="none" stroke={colore === SELEZIONE ? '#9a3412' : '#52525b'} strokeWidth={p.larghezzaTratto} strokeLinecap={cap} />}
@@ -173,13 +198,32 @@ export default function DisegnoSvg({ calc, modo, selezione, profili, riempimenti
       {!mini && modo !== 'profili' && calc.quote.map(q => {
         const x = q.posizione.x, y = H - q.posizione.y
         return (
-          <g key={q.id} onClick={e => { e.stopPropagation(); onQuota?.(q.id) }} className="cursor-pointer">
+          <g key={q.id} onClick={e => { e.stopPropagation(); onQuota?.(q.id, ancoraDi(e.currentTarget)) }} className="cursor-pointer">
             <rect x={x - fs * 1.6} y={y - fs * 0.65} width={fs * 3.2} height={fs * 1.3} rx={fs * 0.2} fill={sel.has(q.id) ? SELEZIONE : '#ffffff'} stroke="#f97316" strokeWidth={1} vectorEffect="non-scaling-stroke" />
             <text x={x} y={y} fontSize={fs * 0.8} textAnchor="middle" dominantBaseline="central" fill={sel.has(q.id) ? '#fff' : '#c2410c'}>{q.valore}</text>
           </g>
         )
       })}
-      {!mini && (
+      {!mini && quoteForma?.map(q => {
+        const x = q.posizione.x, y = H - q.posizione.y
+        const piccola = q.tipo === 'scarto'
+        const testo = q.tipo === 'raggio' ? `R ${q.valore}` : q.tipo === 'freccia' ? `f ${q.valore}` : String(q.valore)
+        const fq = fs * 1.25
+        const w = fq * (0.55 * testo.length + 0.9) * (piccola ? 0.85 : 1), h = fq * (piccola ? 1.1 : 1.3)
+        const tocca = q.modificabile && onQuotaForma
+        return (
+          <g key={q.id} onClick={tocca ? e => { e.stopPropagation(); onQuotaForma(q.id, ancoraDi(e.currentTarget.querySelector('rect[data-quota]') ?? e.currentTarget)) } : undefined}
+            className={tocca ? 'cursor-pointer' : undefined} pointerEvents={tocca ? undefined : 'none'}>
+            {/* Zona da toccare piu' grande della quota: in cantiere si usa il dito */}
+            {tocca && <rect x={x - w / 2 - fq * 0.5} y={y - h * 1.1} width={w + fq} height={h * 2.2} fill="transparent" />}
+            {q.modificabile
+              ? <rect data-quota x={x - w / 2} y={y - h / 2} width={w} height={h} rx={fq * 0.2} fill={sel.has(q.id) ? SELEZIONE : '#ffffff'} stroke={q.tipo === 'lato' || q.tipo === 'totale' ? '#334155' : '#f97316'} strokeWidth={1} vectorEffect="non-scaling-stroke" />
+              : null}
+            <text x={x} y={y} fontSize={fq * (piccola ? 0.7 : 0.8)} textAnchor="middle" dominantBaseline="central" fill={q.modificabile ? '#0f172a' : '#64748b'} fontWeight={q.tipo === 'lato' || q.tipo === 'totale' ? 600 : 400}>{testo}</text>
+          </g>
+        )
+      })}
+      {!mini && !quoteForma?.length && (
         <g fill="#334155" fontSize={fs} pointerEvents="none">
           <line x1={0} x2={W} y1={H + pad * 0.45} y2={H + pad * 0.45} stroke="#334155" strokeWidth={1} vectorEffect="non-scaling-stroke" />
           <text x={W / 2} y={H + pad * 0.8} textAnchor="middle">{Math.round(W)}</text>

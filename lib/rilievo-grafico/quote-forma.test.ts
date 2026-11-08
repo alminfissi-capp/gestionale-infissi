@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { PuntoForma } from '@/types/rilievo-grafico'
 import { applicaQuota, formaValida, impostaArco, quoteForma } from './quote-forma'
 import { formaInPunti } from './forma'
+import { leggiMisura } from './misura'
 
 const R: PuntoForma[] = [{ x: 0, h: 0 }, { x: 1200, h: 0 }, { x: 1200, h: 1400 }, { x: 0, h: 1400 }]
 
@@ -131,5 +132,15 @@ describe('archi', () => {
 
   it('il raggio non si scrive', () => {
     expect(passo(impostaArco(R, 2, 150), 'R2', 500)).toBeNull()
+  })
+})
+
+describe('misura scritta nella casellina', () => {
+  it('virgola e spazi vanno bene, testo vuoto o lettere no', () => {
+    expect(leggiMisura('1200,5')).toBe(1200.5)
+    expect(leggiMisura(' 1200 ')).toBe(1200)
+    expect(leggiMisura('-150')).toBe(-150)
+    expect(leggiMisura('')).toBeNull()
+    expect(leggiMisura('abc')).toBeNull()
   })
 })
