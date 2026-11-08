@@ -16,6 +16,7 @@ import {
 } from '@/actions/calcolo-fp'
 import type { CorrezioniVoce, OreVoce, PercentualiCalcolo } from '@/lib/fppro/calcolo/tipi'
 import { campiMinuti, minutiDaOre, oreDaMinuti } from '@/lib/fppro/calcolo/correzioni'
+import { avvisoTrasferimento } from '@/lib/fppro/calcolo/trasferimento'
 import { nomeCliente } from './ElencoRilievi'
 import RiepilogoCosti from './RiepilogoCosti'
 
@@ -267,6 +268,8 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
 
   const trasferisci = async () => {
     if (dati.preventivi.length > 0 && !confirm('Da questo rilievo e\' gia\' stato creato un preventivo. Crearne un altro?')) return
+    const avviso = calcolo ? avvisoTrasferimento(calcolo.saltate) : null
+    if (avviso && !confirm(avviso)) return
     setInCorso('trasferimento')
     try {
       const r = await trasferisciInPreventivi(rilievoId)

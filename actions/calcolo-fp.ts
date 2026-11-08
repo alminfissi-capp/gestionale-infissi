@@ -9,7 +9,7 @@ import { requireAccesso } from '@/lib/permessi'
 import { selectAll } from '@/lib/supabase/paginate'
 import { regoleDaElenchi, type RegoleAccessori, type RigaKitCatalogo } from '@/lib/fppro/calcolo/accessori'
 import { listinoDaRighe, type RigheListino } from '@/lib/fppro/calcolo/listino'
-import { clienteDelRilievo, motivoCalcoloSuperato, motivoVoceNonCalcolabile, noteTelaioTesto } from '@/lib/fppro/calcolo/trasferimento'
+import { clienteDelRilievo, MOTIVO_VOCE_DISEGNATA, motivoCalcoloSuperato, motivoVoceNonCalcolabile, noteTelaioTesto } from '@/lib/fppro/calcolo/trasferimento'
 import { calcolaVoce, codiceDaDxf, type CalcoloVoce, type InputVoce, type ListinoCalcolo } from '@/lib/fppro/calcolo/voce'
 import { fattoreBarreCommessa } from '@/lib/fppro/calcolo/commessa'
 import type { CorrezioniVoce, OreVoce, PercentualiCalcolo, ProfiloCalcolo } from '@/lib/fppro/calcolo/tipi'
@@ -247,6 +247,11 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
     // Prima passata: ogni voce da sola, per avere i pezzi dei profili.
     const daCalcolare: { v: (typeof righeVoci)[number]; s: NonNullable<ReturnType<typeof perStruttura.get>>; input: InputVoce; listino: ListinoCalcolo; regole: RegoleAccessori }[] = []
     const saltate: CalcoloRilievo['saltate'] = []
+    // Voci disegnate: per ora fuori dal calcolo, ma elencate (la query delle voci FP resta quella di prima).
+    const { data: disegnate, error: eDis } = await supabase.from('rilievo_veloce_voci')
+      .select('id, ordine, voce').eq('organization_id', orgId).eq('rilievo_id', rilievoId).not('grafico', 'is', null).order('ordine')
+    if (eDis) throw new Error(eDis.message)
+    for (const d of disegnate ?? []) saltate.push({ voceId: d.id as string, posizione: (d.voce as string | null) ?? '', motivo: MOTIVO_VOCE_DISEGNATA })
     for (const v of righeVoci) {
       const posizione = v.voce ?? ''
       const s = perStruttura.get(v.fp.strutturaId)
@@ -390,8 +395,9 @@ export async function trasferisciInPreventivi(rilievoId: string): Promise<{ prev
       .eq('organization_id', orgId).eq('config_fppro->>rilievoId', rilievoId).limit(1)
     const giaTrasferito = (gia ?? []).length > 0
 
+    // Anche le voci disegnate: sono tra le "saltate" del calcolo, senza di loro sembrerebbero eliminate.
     const { data: voci, error: eVoci } = await supabase.from('rilievo_veloce_voci').select('id, fp, updated_at, correzioni_fp_at')
-      .eq('organization_id', orgId).eq('rilievo_id', rilievoId).not('fp', 'is', null)
+      .eq('organization_id', orgId).eq('rilievo_id', rilievoId).or('fp.not.is.null,grafico.not.is.null')
     if (eVoci) throw new Error(eVoci.message)
     const superato = motivoCalcoloSuperato(calcolo, (voci ?? []) as { id: string; updated_at: string; correzioni_fp_at: string | null }[])
     if (superato) return { errore: superato }

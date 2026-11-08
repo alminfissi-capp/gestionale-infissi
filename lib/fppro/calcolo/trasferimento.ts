@@ -83,3 +83,17 @@ export function noteTelaioTesto(note: Partial<Record<'sinistra' | 'alto' | 'dest
     .filter(([, t]) => t)
   return lati.length ? `Note telaio: ${lati.map(([l, t]) => `${l} ${t}`).join('; ')}` : null
 }
+
+/** Motivo con cui le voci disegnate finiscono tra le "saltate" del calcolo */
+export const MOTIVO_VOCE_DISEGNATA = 'voce disegnata: esclusa dal calcolo'
+
+/**
+ * Conferma prima del trasferimento in Preventivi: le voci disegnate non hanno ancora un
+ * calcolo e restano fuori dal preventivo. null = nessuna voce disegnata, niente da chiedere.
+ */
+export function avvisoTrasferimento(saltate: { posizione: string; motivo: string }[]): string | null {
+  const disegnate = saltate.filter(s => s.motivo === MOTIVO_VOCE_DISEGNATA)
+  if (disegnate.length === 0) return null
+  const nomi = disegnate.map(s => s.posizione.trim() || 'voce senza posizione')
+  return `${disegnate.length === 1 ? 'Questa voce disegnata non entra' : 'Queste voci disegnate non entrano'} nel preventivo (non hanno ancora un calcolo):\n- ${nomi.join('\n- ')}\n\nTrasferire comunque le altre voci?`
+}

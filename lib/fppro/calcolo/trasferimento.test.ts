@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clienteDelRilievo, clienteEsistente, motivoCalcoloSuperato, motivoVoceNonCalcolabile, noteTelaioTesto } from './trasferimento'
+import { clienteDelRilievo, clienteEsistente, motivoCalcoloSuperato, motivoVoceNonCalcolabile, noteTelaioTesto, avvisoTrasferimento, MOTIVO_VOCE_DISEGNATA } from './trasferimento'
 
 describe('clienteEsistente', () => {
   const clienti = [
@@ -101,5 +101,33 @@ describe('noteTelaioTesto', () => {
   it('vuote o assenti: null', () => {
     expect(noteTelaioTesto(undefined)).toBeNull()
     expect(noteTelaioTesto({ alto: '  ' })).toBeNull()
+  })
+})
+
+describe('avvisoTrasferimento: le voci disegnate non vanno nel preventivo', () => {
+  it('nessuna voce disegnata: niente avviso', () => {
+    expect(avvisoTrasferimento([])).toBeNull()
+    expect(avvisoTrasferimento([{ posizione: 'Bagno', motivo: 'Mancano le misure' }])).toBeNull()
+  })
+  it('elenca solo le disegnate', () => {
+    const t = avvisoTrasferimento([
+      { posizione: 'Veranda', motivo: MOTIVO_VOCE_DISEGNATA },
+      { posizione: 'Bagno', motivo: 'Mancano le misure' },
+      { posizione: '', motivo: MOTIVO_VOCE_DISEGNATA },
+    ])
+    expect(t).toContain('Veranda')
+    expect(t).toContain('voce senza posizione')
+    expect(t).not.toContain('Bagno')
+  })
+})
+
+describe('motivoCalcoloSuperato con voci disegnate', () => {
+  it('una voce disegnata elencata tra le saltate, ancora nel rilievo: il calcolo vale', () => {
+    const calcolo = { calcolatoAt: '2026-11-08T12:00:00Z', voci: [{ voceId: 'fp1' }], saltate: [{ voceId: 'dis1' }] }
+    const voci = [
+      { id: 'fp1', updated_at: '2026-11-08T11:00:00Z', correzioni_fp_at: null },
+      { id: 'dis1', updated_at: '2026-11-08T11:00:00Z', correzioni_fp_at: null },
+    ]
+    expect(motivoCalcoloSuperato(calcolo, voci)).toBeNull()
   })
 })
