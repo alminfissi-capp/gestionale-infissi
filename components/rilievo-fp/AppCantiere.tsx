@@ -9,6 +9,7 @@ import RiepilogoRilievo from './RiepilogoRilievo'
 import SchedaRilievo from './SchedaRilievo'
 import StatoSync from './StatoSync'
 import SchermataVoce from './SchermataVoce'
+import EditorVoceDisegnata from '@/components/rilievo-grafico/EditorVoceDisegnata'
 
 import { rilievoDaIndirizzo, vistaPrecedente, type VistaCantiere as Vista } from '@/lib/fppro/cantiere-elenco'
 
@@ -40,7 +41,7 @@ export default function AppCantiere({ rilievoIniziale = null }: { rilievoInizial
 
   return (
     // La voce e' una schermata larga (disegno + pannelli): il resto resta stretto.
-    <div className={`mx-auto space-y-3 p-3 ${vista.tipo === 'voce' ? 'max-w-7xl' : vista.tipo === 'elenco' ? 'max-w-xl' : 'max-w-4xl'} print:max-w-none print:p-0`}>
+    <div className={`mx-auto space-y-3 p-3 ${vista.tipo === 'voce' || vista.tipo === 'disegno' ? 'max-w-7xl' : vista.tipo === 'elenco' ? 'max-w-xl' : 'max-w-4xl'} print:max-w-none print:p-0`}>
       <div className="space-y-3 print:hidden">
         <ProntoOffline catalogoPronto={catalogo.stato.ultimo !== null} onScaricaCatalogo={catalogo.aggiorna} />
         <StatoSync catalogo={catalogo} invio={invio} />
@@ -49,12 +50,14 @@ export default function AppCantiere({ rilievoIniziale = null }: { rilievoInizial
       {vista.tipo === 'rilievo' && (
         <SchedaRilievo id={vista.id} onIndietro={() => window.history.back()} onVoce={voceId => vai({ tipo: 'voce', rilievoId: vista.id, voceId })}
           onCopia={copiaDa => vai({ tipo: 'voce', rilievoId: vista.id, voceId: null, copiaDa })}
-          onRiepilogo={() => vai({ tipo: 'riepilogo', id: vista.id })} />
+          onRiepilogo={() => vai({ tipo: 'riepilogo', id: vista.id })}
+          onDisegno={voceId => vai({ tipo: 'disegno', rilievoId: vista.id, voceId })} />
       )}
       {vista.tipo === 'riepilogo' && <RiepilogoRilievo id={vista.id} onIndietro={() => window.history.back()} />}
       {vista.tipo === 'voce' && (
         <SchermataVoce key={vista.voceId ?? (vista.copiaDa ? `copia-${vista.copiaDa}` : 'nuova')} rilievoId={vista.rilievoId} voceId={vista.voceId} copiaDa={vista.copiaDa ?? null} onFine={() => window.history.back()} />
       )}
+      {vista.tipo === 'disegno' && <EditorVoceDisegnata key={vista.voceId} voceId={vista.voceId} onIndietro={() => window.history.back()} />}
     </div>
   )
 }

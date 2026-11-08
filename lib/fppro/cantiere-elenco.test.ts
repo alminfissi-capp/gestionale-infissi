@@ -29,3 +29,8 @@ describe('rilievoDaIndirizzo (apertura diretta dal Calcolo e preventivo)', () =>
   })
   it('valore che non e\' un id: null', () => expect(rilievoDaIndirizzo('?rilievo=<script>')).toBeNull())
 })
+
+describe('vistaPrecedente dal disegno', () => {
+  it('dalla voce disegnata si torna al suo rilievo', () =>
+    expect(vistaPrecedente({ tipo: 'disegno', rilievoId: 'r', voceId: 'v' })).toEqual({ tipo: 'rilievo', id: 'r' }))
+})

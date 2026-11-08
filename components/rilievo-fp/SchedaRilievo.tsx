@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Calculator, ChevronLeft, Copy, GripVertical, Plus, Printer, Trash2 } from 'lucide-react'
+import { Calculator, ChevronLeft, Copy, GripVertical, Layers, PenLine, Plus, Printer, Trash2 } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -12,9 +12,10 @@ import { Textarea } from '@/components/ui/textarea'
 import AllegatiVoce from '@/components/rilievo/AllegatiVoce'
 import { db } from '@/lib/db'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import { eliminaRilievoLocale, eliminaVoceLocale, riordinaVociLocale, salvaRilievoLocale } from '@/lib/rilievo-fp-locale'
+import { eliminaRilievoLocale, eliminaVoceLocale, riordinaVociLocale, salvaRilievoLocale, salvaVoceLocale } from '@/lib/rilievo-fp-locale'
 import type { RilievoFp, StrutturaLocale, VoceFpDati, VoceLocale } from '@/types/rilievo-fp'
-import { eVoceFp } from '@/lib/rilievo-unico'
+import { copiaVoceDisegnata, eVoceDisegnata, eVoceFp, nuovaVoceDisegnata } from '@/lib/rilievo-unico'
+import RigaVoceDisegnata from './RigaVoceDisegnata'
 import SchedaVoceRiepilogo from './SchedaVoceRiepilogo'
 import { nomeCliente } from './ElencoRilievi'
 
@@ -96,9 +97,12 @@ interface Props {
   /** Nuova voce con le scelte di questa (si salva solo con Salva) */
   onCopia: (voceId: string) => void
   onRiepilogo: () => void
+  /** Apre l'editor di una voce disegnata */
+  onDisegno: (voceId: string) => void
 }
 
-export default function SchedaRilievo({ id, onIndietro, onVoce, onCopia, onRiepilogo }: Props) {
+export default function SchedaRilievo({ id, onIndietro, onVoce, onCopia, onRiepilogo, onDisegno }: Props) {
+  const [sceltaTipo, setSceltaTipo] = useState(false)
   const { isOnline } = useOnlineStatus()
   const rilievo = useLiveQuery(() => db.rilieviFp.get(id), [id])
   const voci = useLiveQuery(() => db.vociFp.where('rilievoId').equals(id).sortBy('ordine'), [id])
@@ -117,6 +121,24 @@ export default function SchedaRilievo({ id, onIndietro, onVoce, onCopia, onRiepi
     const a = voci.findIndex(v => v.id === over.id)
     if (da < 0 || a < 0) return
     void riordinaVociLocale(id, arrayMove(voci, da, a).map(v => v.id))
+  }
+
+  // Voce disegnata nuova o copiata: si salva subito nel dispositivo, in fondo all'elenco, e si apre.
+  const nuovaDisegnata = async () => {
+    const ordine = await db.vociFp.where('rilievoId').equals(id).count()
+    const v = nuovaVoceDisegnata(id, ordine, new Date().toISOString())
+    await salvaVoceLocale(v)
+    setSceltaTipo(false)
+    onDisegno(v.id)
+  }
+  const copiaDisegnata = async (voceId: string) => {
+    const origine = await db.vociFp.get(voceId)
+    if (!origine || !eVoceDisegnata(origine)) return
+    const { daInviare: _d, ...dati } = origine
+    const ordine = await db.vociFp.where('rilievoId').equals(id).count()
+    const c = copiaVoceDisegnata(dati, ordine, new Date().toISOString(), crypto.randomUUID())
+    await salvaVoceLocale(c)
+    onDisegno(c.id)
   }
 
   if (!rilievo) return <p className="text-sm text-muted-foreground">Rilievo non trovato.</p>
@@ -140,13 +162,30 @@ export default function SchedaRilievo({ id, onIndietro, onVoce, onCopia, onRiepi
             {(voci ?? []).map((v, i) => eVoceFp(v) ? (
               <RigaVoce key={v.id} v={v} numero={i + 1} struttura={strutture?.get(v.fp.strutturaId)} catalogoVuoto={catalogoVuoto}
                 isOnline={isOnline} onVoce={onVoce} onCopia={onCopia} />
-            ) : (
-              <li key={v.id} className="rounded border p-3 text-sm text-muted-foreground">Voce disegnata {i + 1}</li>
-            ))}
+            ) : eVoceDisegnata(v) ? (
+              <RigaVoceDisegnata key={v.id} v={v} numero={i + 1} isOnline={isOnline} onApri={onDisegno} onCopia={id => void copiaDisegnata(id)} />
+            ) : null)}
           </ul>
         </SortableContext>
       </DndContext>
-      <Button className="h-12 w-full" onClick={() => onVoce(null)}><Plus className="mr-1 size-4" />Aggiungi voce</Button>
+      {sceltaTipo ? (
+        <div className="space-y-2 rounded-lg border p-2">
+          <p className="text-sm font-medium">Che voce aggiungi?</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button variant="outline" className="h-16 flex-col gap-0.5" onClick={() => { setSceltaTipo(false); onVoce(null) }}>
+              <span className="flex items-center gap-1.5 font-semibold"><Layers className="size-4" />Da struttura FP PRO</span>
+              <span className="text-xs font-normal text-muted-foreground">serie, tipologia, misure</span>
+            </Button>
+            <Button variant="outline" className="h-16 flex-col gap-0.5" onClick={() => void nuovaDisegnata()}>
+              <span className="flex items-center gap-1.5 font-semibold"><PenLine className="size-4" />Disegnata</span>
+              <span className="text-xs font-normal text-muted-foreground">forma, quote, divisioni, ante</span>
+            </Button>
+          </div>
+          <Button variant="ghost" size="sm" className="w-full" onClick={() => setSceltaTipo(false)}>Annulla</Button>
+        </div>
+      ) : (
+        <Button className="h-12 w-full" onClick={() => setSceltaTipo(true)}><Plus className="mr-1 size-4" />Aggiungi voce</Button>
+      )}
       {isOnline && (voci ?? []).length > 0 && (
         (voci ?? []).some(v => v.daInviare === 1) || rilievo.daInviare === 1
           ? <p className="text-center text-xs text-amber-700">Calcolo e preventivo: prima vanno inviate le modifiche (attendi qualche secondo).</p>
