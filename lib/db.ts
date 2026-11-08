@@ -9,7 +9,6 @@ import type {
   ColoreLocale, EliminatoFp, ImmagineLocale, MetaFp, PreferenzaFp, RilievoLocale, SerieLocale,
   StrutturaLocale, SezioneLocale, TelaioLocale, VetroLocale, PannelloLocale, VoceLocale,
 } from '@/types/rilievo-fp'
-import type { EliminatoGrafico, RilievoGraficoLocale } from '@/types/rilievo-grafico'
 
 export interface PendingPreventivo {
   tempId?: number
@@ -94,8 +93,6 @@ class GestionaleDB extends Dexie {
   rilieviFp!: EntityTable<RilievoLocale, 'id'>
   vociFp!: EntityTable<VoceLocale, 'id'>
   eliminatiFp!: EntityTable<EliminatoFp, 'id'>
-  rilieviGrafici!: EntityTable<RilievoGraficoLocale, 'id'>
-  eliminatiGrafici!: EntityTable<EliminatoGrafico, 'id'>
 
   constructor() {
     super('gestionale-infissi')
@@ -344,6 +341,9 @@ class GestionaleDB extends Dexie {
     }).upgrade(async tx => {
       await tx.table('fpMeta').delete('cursore:fp_strutture')
     })
+    // Rilievo unico (2026-11-08): il vecchio rilievo grafico separato non c'e' piu' (le voci
+    // disegnate stanno in vociFp). Si tolgono solo le sue due tabelle, le altre restano.
+    this.version(13).stores({ rilieviGrafici: null, eliminatiGrafici: null })
   }
 }
 

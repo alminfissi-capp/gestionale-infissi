@@ -1,9 +1,6 @@
-import { requireAccesso } from '@/lib/permessi'
-import ElencoRilieviGrafici from '@/components/rilievo-grafico/ElencoRilieviGrafici'
+import { redirect } from 'next/navigation'
 
-export const metadata = { title: 'Rilievo grafico' }
-
-export default async function RilievoGraficoPage() {
-  await requireAccesso('rilievo')
-  return <ElencoRilieviGrafici />
+// Il rilievo grafico ora e' una voce "disegnata" dentro il rilievo in cantiere.
+export default function RilievoGraficoPage() {
+  redirect('/rilievo/cantiere')
 }

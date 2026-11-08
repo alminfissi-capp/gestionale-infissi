@@ -3,66 +3,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
 import { selectAll } from '@/lib/supabase/paginate'
-import type { DisegnoGrafico, ProfiloCatalogo, RilievoGrafico } from '@/types/rilievo-grafico'
+import type { ProfiloCatalogo } from '@/types/rilievo-grafico'
 
 // Solo gli utilizzi del profilo (utilizzo1..10 di FP PRO), non tutta la riga originale
 const CAMPI_PROFILO = 'fp_id, serie_fp_id, codice, descrizione, u1:dati->>utilizzo1, u2:dati->>utilizzo2, u3:dati->>utilizzo3, u4:dati->>utilizzo4, u5:dati->>utilizzo5, u6:dati->>utilizzo6, u7:dati->>utilizzo7, u8:dati->>utilizzo8, u9:dati->>utilizzo9, u10:dati->>utilizzo10'
 
 const messaggio = (e: unknown, riserva: string) => (e instanceof Error ? e.message : riserva)
-
-type Riga = {
-  id: string; nome: string; cliente: string; note: string; quantita: number; disegno: DisegnoGrafico
-  creato_at: string; aggiornato_at: string
-}
-const daRiga = (r: Riga): RilievoGrafico => ({
-  id: r.id, nome: r.nome, cliente: r.cliente, note: r.note, quantita: r.quantita, disegno: r.disegno,
-  creatoAt: new Date(r.creato_at).toISOString(), aggiornatoAt: new Date(r.aggiornato_at).toISOString(),
-})
-
-/** Tutti i rilievi grafici dell'azienda (sono pochi: si scaricano interi) */
-export async function elencoRilieviGrafici(): Promise<{ rilievi: RilievoGrafico[] } | { errore: string }> {
-  try {
-    const supabase = await createClient()
-    const orgId = await getOrgId()
-    const righe = await selectAll<Riga>((da, a) => supabase.from('rilievi_grafici')
-      .select('id, nome, cliente, note, quantita, disegno, creato_at, aggiornato_at')
-      .eq('organization_id', orgId).order('id').range(da, a))
-    return { rilievi: righe.map(daRiga) }
-  } catch (e) {
-    return { errore: messaggio(e, 'Rilievi grafici non disponibili') }
-  }
-}
-
-/**
- * Invio dal dispositivo: prima le eliminazioni, poi i rilievi dove il dispositivo ha la
- * modifica piu' recente (una copia vecchia non sovrascrive quella fatta in ufficio).
- */
-export async function inviaRilieviGrafici(p: { rilievi: RilievoGrafico[]; eliminati: string[] }): Promise<{ ok: true } | { errore: string }> {
-  try {
-    const supabase = await createClient()
-    const orgId = await getOrgId()
-    if (p.eliminati.length > 0) {
-      const { error } = await supabase.from('rilievi_grafici').delete().eq('organization_id', orgId).in('id', p.eliminati)
-      if (error) return { errore: error.message }
-    }
-    if (p.rilievi.length === 0) return { ok: true }
-    const { data, error } = await supabase.from('rilievi_grafici').select('id, aggiornato_at')
-      .eq('organization_id', orgId).in('id', p.rilievi.map(r => r.id))
-    if (error) return { errore: error.message }
-    const server = new Map((data ?? []).map(d => [d.id as string, new Date(d.aggiornato_at as string).getTime()]))
-    const nuovi = p.rilievi.filter(r => !server.has(r.id) || new Date(r.aggiornatoAt).getTime() > server.get(r.id)!)
-    if (nuovi.length === 0) return { ok: true }
-    const { error: e2 } = await supabase.from('rilievi_grafici').upsert(nuovi.map(r => ({
-      id: r.id, organization_id: orgId, nome: r.nome, cliente: r.cliente, note: r.note,
-      quantita: Math.max(1, Math.round(r.quantita || 1)), disegno: r.disegno,
-      creato_at: r.creatoAt, aggiornato_at: r.aggiornatoAt, updated_at: new Date().toISOString(),
-    })), { onConflict: 'id' })
-    if (e2) return { errore: e2.message }
-    return { ok: true }
-  } catch (e) {
-    return { errore: messaggio(e, 'Invio non riuscito') }
-  }
-}
 
 export interface SerieCatalogo { fpId: number; nome: string; descrizione: string | null }
 export interface VetroCatalogo { fpId: number; codice: string; descrizione: string | null; spessore: number | null }

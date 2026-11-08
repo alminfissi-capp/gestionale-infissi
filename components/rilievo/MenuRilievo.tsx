@@ -1,24 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { PenTool, Database, Zap } from 'lucide-react'
+import { Database, Zap } from 'lucide-react'
 
 const VOCI = [
   {
     href: '/rilievo/cantiere',
     icon: Zap,
     titolo: 'Rilievo in cantiere',
-    descrizione: 'Serie e strutture di FP PRO, funziona anche senza rete',
+    descrizione: 'Voci da strutture FP PRO o disegnate, funziona anche senza rete',
     color: 'text-orange-600',
     bg: 'bg-orange-50 hover:bg-orange-100 border-orange-200',
-  },
-  {
-    href: '/rilievo/grafico',
-    icon: PenTool,
-    titolo: 'Rilievo grafico',
-    descrizione: 'Serramenti fuori standard: disegni la struttura, poi assegni profili e vetri',
-    color: 'text-teal-600',
-    bg: 'bg-teal-50 hover:bg-teal-100 border-teal-200',
   },
   {
     href: '/rilievo/impostazioni',
