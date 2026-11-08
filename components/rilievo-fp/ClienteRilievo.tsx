@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { createCliente } from '@/actions/clienti'
 import StepCliente from '@/components/preventivi/StepCliente'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { db } from '@/lib/db'
 import { clienteDaRegistrare, snapshotDalModulo, snapshotPerModulo } from '@/lib/rilievo-cliente'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
@@ -73,7 +73,10 @@ export default function ClienteRilievo({ aperto, iniziale, titolo, conferma, onC
   return (
     <Dialog open={aperto} onOpenChange={o => { if (!o) onChiudi() }}>
       <DialogContent className="flex max-h-[100dvh] flex-col gap-0 p-0 sm:max-w-2xl">
-        <DialogHeader className="border-b px-4 py-3"><DialogTitle>{titolo}</DialogTitle></DialogHeader>
+        <DialogHeader className="border-b px-4 py-3">
+          <DialogTitle>{titolo}</DialogTitle>
+          <DialogDescription>Cerca in anagrafica o compila la scheda, come nei preventivi.</DialogDescription>
+        </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
           <StepCliente clienti={clienti} clienteId={clienteId} clienteSnapshot={snapshot} numero=""
             onClienteIdChange={setClienteId} onSnapshotChange={setSnapshot} onNumeroChange={() => {}} showNumero={false} />
