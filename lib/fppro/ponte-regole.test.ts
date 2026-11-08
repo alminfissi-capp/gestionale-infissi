@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { conTempoMassimo, devoAccodareSyncGiornaliera, giornoRoma, richiestaBloccata, soloLettura, statoPonte } from './ponte-regole'
+import { conTempoMassimo, controllaStrutture, devoAccodareSyncGiornaliera, giornoRoma, richiestaBloccata, soloLettura, statoPonte, type GuardiaStrutture } from './ponte-regole'
 import { TABELLE_SYNC } from './sync-tabelle'
 
 describe('statoPonte', () => {
@@ -73,4 +73,32 @@ describe('soloLettura: il ponte non deve MAI scrivere nel database di FP PRO', (
   it('tutte le letture della sincronizzazione passano', () => {
     for (const t of TABELLE_SYNC) expect(soloLettura(t.sql), t.mysql).toBe(true)
   })
+})
+
+describe('controllaStrutture: strutture nuove in FP PRO senza aspettare il giorno dopo', () => {
+  const vuota: GuardiaStrutture = { base: null, ultima: null }
+  it('cartella cambiata e ferma da un giro: si accoda e diventa la nuova base', () => {
+    const r = controllaStrutture({ base: 'A', ultima: 'B' }, 'B', false)
+    expect(r.accoda).toBe(true)
+    expect(r.guardia).toEqual({ base: 'B', ultima: 'B' })
+  })
+  it('appena cambiata: si aspetta un giro (FP PRO potrebbe star ancora salvando)', () => {
+    const r = controllaStrutture({ base: 'A', ultima: 'A' }, 'B', false)
+    expect(r.accoda).toBe(false)
+    expect(r.guardia).toEqual({ base: 'A', ultima: 'B' })
+  })
+  it('niente di nuovo: non si accoda', () =>
+    expect(controllaStrutture({ base: 'A', ultima: 'A' }, 'A', false).accoda).toBe(false))
+  it('ponte appena acceso: le strutture salvate a PC spento arrivano al secondo giro', () => {
+    const primo = controllaStrutture(vuota, 'A', false)
+    expect(primo.accoda).toBe(false)
+    expect(controllaStrutture(primo.guardia, 'A', false).accoda).toBe(true)
+  })
+  it('richiesta gia\' aperta: non se ne aggiunge un\'altra, si riprova dopo', () => {
+    const r = controllaStrutture({ base: 'A', ultima: 'B' }, 'B', true)
+    expect(r.accoda).toBe(false)
+    expect(r.guardia.base).toBe('A')
+  })
+  it('cartella non leggibile: non si accoda niente', () =>
+    expect(controllaStrutture({ base: 'A', ultima: 'A' }, null, false).accoda).toBe(false))
 })

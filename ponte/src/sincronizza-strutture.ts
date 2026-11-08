@@ -176,3 +176,28 @@ async function scrivi(supabase: SupabaseClient, righe: Record<string, unknown>[]
   }
   return declassate
 }
+
+/**
+ * Impronta della cartella delle strutture: nome, dimensione e data di ogni .STR.
+ * Si legge soltanto (readdir + stat). null se la cartella non si legge o e' vuota.
+ */
+export async function improntaStrutture(cartella: string): Promise<string | null> {
+  let voci: string[]
+  try {
+    voci = (await readdir(cartella, { recursive: true })).filter(f => f.toLowerCase().endsWith('.str'))
+  } catch {
+    return null
+  }
+  if (voci.length === 0) return null
+  const righe: string[] = []
+  for (const voce of voci) {
+    try {
+      const info = await stat(join(cartella, voce))
+      righe.push(`${voce}|${info.size}|${info.mtimeMs}`)
+    } catch {
+      // Sparito mentre leggevamo: conta come cambiamento al giro dopo.
+    }
+  }
+  righe.sort()
+  return createHash('sha1').update(righe.join('\n')).digest('hex')
+}

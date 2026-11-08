@@ -2,14 +2,17 @@
 //   node --env-file=<.env> ponte/src/ponte.ts             (servizio: segnale + coda)
 //   node --env-file=<.env> ponte/src/ponte.ts --una-volta (una sincronizzazione e basta)
 import { createClient } from '@supabase/supabase-js'
-import { conTempoMassimo, devoAccodareSyncGiornaliera, giornoRoma, richiestaBloccata } from '../../lib/fppro/ponte-regole.ts'
+import { conTempoMassimo, controllaStrutture, devoAccodareSyncGiornaliera, giornoRoma, richiestaBloccata, type GuardiaStrutture } from '../../lib/fppro/ponte-regole.ts'
 import { leggiConfig } from './config.ts'
 import { apriDbSolaLettura, type DbLettura } from './mysql-sola-lettura.ts'
 import { impostaLog, log } from './log.ts'
 import { sincronizza } from './sincronizza.ts'
+import { improntaStrutture } from './sincronizza-strutture.ts'
 
-const VERSIONE = '1.8.0'
+const VERSIONE = '1.9.0'
 const GIRO_MS = 30_000
+// Ogni quanti giri (30 s) si guarda se in FP PRO ci sono strutture nuove o cambiate.
+const GIRI_CONTROLLO_STRUTTURE = 4
 // La prima sync delle strutture (4.661 file) e' lunga: oltre 60 minuti e' appesa.
 const SYNC_MAX_MS = 60 * 60 * 1000
 
@@ -63,6 +66,27 @@ async function accodaGiornaliera(ora: Date): Promise<void> {
   log('Accodata la sincronizzazione giornaliera')
 }
 
+let guardiaStrutture: GuardiaStrutture = { base: null, ultima: null }
+
+/**
+ * Strutture salvate in FP PRO dopo la sync giornaliera: senza questo controllo
+ * arrivavano solo il giorno dopo (o premendo Sincronizza in Catalogo FP PRO).
+ */
+async function accodaSeStruttureCambiate(): Promise<void> {
+  const impronta = await improntaStrutture(cfg.strPath)
+  const { count, error } = await supabase
+    .from('fp_ponte_richieste').select('id', { count: 'exact', head: true })
+    .eq('organization_id', cfg.orgId).in('stato', ['in_attesa', 'in_corso'])
+  if (error) throw new Error(error.message)
+  const r = controllaStrutture(guardiaStrutture, impronta, (count ?? 0) > 0 || syncInCorso !== null)
+  guardiaStrutture = r.guardia
+  if (!r.accoda) return
+  const { error: e2 } = await supabase
+    .from('fp_ponte_richieste').insert({ organization_id: cfg.orgId, tipo: 'sincronizza', automatica: true })
+  if (e2 && e2.code !== '23505') throw new Error(e2.message)
+  log('Strutture nuove o cambiate in FP PRO: accodata la sincronizzazione')
+}
+
 /**
  * Sync ancora in esecuzione. Il tempo massimo chiude la richiesta ma non ferma il
  * lavoro gia' partito: finche' questo non e' finito non se ne avvia un'altra, per non
@@ -90,6 +114,9 @@ async function eseguiProssima(): Promise<void> {
   log(`Richiesta ${prossima.id} (${prossima.tipo}) iniziata`)
   try {
     if (prossima.tipo !== 'sincronizza') throw new Error(`Tipo di richiesta sconosciuto: ${prossima.tipo}`)
+    // Qualunque sync (giornaliera, pulsante) legge le strutture di adesso: non serve ripeterla.
+    const impronta = await improntaStrutture(cfg.strPath)
+    if (impronta) guardiaStrutture = { base: impronta, ultima: impronta }
     const lavoro = sincronizza(db, supabase, cfg.orgId, cfg.strPath)
     syncInCorso = lavoro
     lavoro.catch(() => {}).finally(() => { syncInCorso = null })
@@ -159,11 +186,12 @@ async function main(): Promise<void> {
   await battito()
   setInterval(battito, GIRO_MS)
 
-  for (;;) {
+  for (let giro = 0; ; giro++) {
     try {
       await chiudiInSospeso()
       await sbloccaRichieste(new Date())
       await accodaGiornaliera(new Date())
+      if (giro % GIRI_CONTROLLO_STRUTTURE === 0) await accodaSeStruttureCambiate()
       await eseguiProssima()
     } catch (e) {
       log(`Errore nel giro: ${messaggio(e)}`)

@@ -65,3 +65,23 @@ export function soloLettura(sql: string): boolean {
   if (!/^(select|show)\b/i.test(s)) return false
   return !/\binto\s+(out|dump)file\b|\bfor\s+update\b|\block\s+in\s+share\s+mode\b|\bfor\s+share\b/i.test(s)
 }
+
+/**
+ * Controllo della cartella delle strutture (.STR) tra una sync e l'altra.
+ * `base` = impronta della cartella all'ultima sync accodata, `ultima` = quella del giro prima.
+ * Si accoda quando la cartella e' diversa dalla base ed e' rimasta uguale per un giro
+ * (FP PRO potrebbe star ancora salvando). Base vuota (ponte appena acceso) = cambiata:
+ * cosi' arrivano anche le strutture salvate a PC spento.
+ */
+export interface GuardiaStrutture { base: string | null; ultima: string | null }
+
+export function controllaStrutture(
+  guardia: GuardiaStrutture,
+  impronta: string | null,
+  richiestaAperta: boolean,
+): { guardia: GuardiaStrutture; accoda: boolean } {
+  if (impronta === null) return { guardia, accoda: false }
+  if (impronta === guardia.base) return { guardia: { ...guardia, ultima: impronta }, accoda: false }
+  if (impronta !== guardia.ultima || richiestaAperta) return { guardia: { ...guardia, ultima: impronta }, accoda: false }
+  return { guardia: { base: impronta, ultima: impronta }, accoda: true }
+}
