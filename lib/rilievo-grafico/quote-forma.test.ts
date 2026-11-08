@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { PuntoForma } from '@/types/rilievo-grafico'
 import { applicaQuota, formaValida, quoteForma } from './quote-forma'
+import { formaInPunti } from './forma'
 
 const R: PuntoForma[] = [{ x: 0, h: 0 }, { x: 1200, h: 0 }, { x: 1200, h: 1400 }, { x: 0, h: 1400 }]
 
@@ -52,3 +53,55 @@ describe('quote del quadrilatero', () => {
     expect(formaValida([{ x: 0, h: 0 }, { x: 1200, h: 1400 }, { x: 1200, h: 0 }, { x: 0, h: 1400 }])).toBe(false)
   })
 })
+
+describe('forme con piu\' di 4 lati', () => {
+  const casetta = formaInPunti({ tipo: 'modello', modello: 'MODEL-02', misure: { L: 1500, H1: 1200, H2: 1800 } })
+  const aSquadra = (p: PuntoForma[]) => p.every((a, i) => { const b = p[(i + 1) % p.length]; return Math.abs(a.x - b.x) < 0.5 || Math.abs(a.h - b.h) < 0.5 })
+  const colmo = (p: PuntoForma[]) => p.reduce((m, q) => (q.h > m.h ? q : m))
+
+  it('casetta: totali e altezza delle gronde', () => {
+    expect(casetta).toHaveLength(5)
+    expect(valori(casetta)).toMatchObject({ TL: 1500, TH: 1800, A1200: 1200 })
+  })
+
+  it('casetta: altezza totale = colmo, i muri restano verticali e alti 1200', () => {
+    const p = passo(casetta, 'TH', 2000)!
+    expect(colmo(p)).toMatchObject({ x: 750, h: 2000 })
+    expect(p.filter(q => q.h === 1200)).toHaveLength(2)
+    expect(p.filter(q => q.x === 0)).toHaveLength(2)
+  })
+
+  it('casetta: gronde a 1000, colmo fermo', () => {
+    const p = passo(casetta, 'A1200', 1000)!
+    expect(colmo(p)).toMatchObject({ x: 750, h: 1800 })
+    expect(p.filter(q => q.h === 1000)).toHaveLength(2)
+  })
+
+  it('casetta: tetto sinistro largo 900 sposta il colmo, il muro resta verticale', () => {
+    const sinistro = quoteForma(casetta).find(q => q.tipo === 'lato' && q.direzione === 'x' && colmoDelLato(casetta, q.lato!) && casetta[q.lato!].x + casetta[(q.lato! + 1) % 5].x < 1500)!
+    const p = passo(casetta, sinistro.id, 900)!
+    expect(colmo(p)).toMatchObject({ x: 900, h: 1800 })
+    expect(p).toContainEqual({ x: 0, h: 1200 })
+    expect(p).toContainEqual({ x: 0, h: 0 })
+  })
+
+  it('casetta: niente scarti sui lati vicini ai muri', () => {
+    expect(quoteForma(casetta).filter(q => q.tipo === 'scarto')).toEqual([])
+  })
+
+  it('"L": cambiando l\'altezza dello scalino tutti i lati restano a squadra', () => {
+    const elle = formaInPunti({ tipo: 'modello', modello: 'MODEL-06', misure: {} })
+    expect(aSquadra(elle)).toBe(true)
+    const a = quoteForma(elle).find(q => q.tipo === 'angolo')!
+    expect(a).toBeDefined()
+    const p = passo(elle, a.id, a.valore - 100)!
+    expect(aSquadra(p)).toBe(true)
+    expect(valori(p)[`A${a.valore - 100}`]).toBe(a.valore - 100)
+  })
+})
+
+/** Il lato tocca il colmo (il punto piu' alto) */
+function colmoDelLato(p: PuntoForma[], i: number) {
+  const max = Math.max(...p.map(q => q.h))
+  return p[i].h === max || p[(i + 1) % p.length].h === max
+}

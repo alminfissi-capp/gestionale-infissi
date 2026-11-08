@@ -37,6 +37,46 @@ function latiDi(p: PuntoForma[]): Lato[] {
   })
 }
 
+const allineato = (l: Lato) => Math.abs(l.a.x - l.b.x) < TOLL || Math.abs(l.a.h - l.b.h) < TOLL
+
+/**
+ * Con piu' di 4 lati un lato si centra (con gli scarti) solo se nessuno dei due vicini e'
+ * orizzontale o verticale; altrimenti si muove un estremo e i lati a squadra restano tali.
+ * Sul quadrilatero si centra sempre, come FP PRO.
+ */
+const centrato = (lati: Lato[], i: number) => {
+  const n = lati.length
+  return n <= 4 || (!allineato(lati[(i + n - 1) % n]) && !allineato(lati[(i + 1) % n]))
+}
+
+/**
+ * Sposta i vertici `indici` di `d` lungo `k`. Con piu' di 4 lati si portano dietro l'altro
+ * estremo dei lati che restano a squadra: verticali se si sposta in x, orizzontali in h.
+ */
+function muovi(orig: PuntoForma[], p: PuntoForma[], indici: number[], k: Asse, d: number) {
+  const n = orig.length
+  const fatti = new Set<number>()
+  const coda = [...indici]
+  while (coda.length) {
+    const j = coda.pop()!
+    if (fatti.has(j)) continue
+    fatti.add(j)
+    p[j][k] += d
+    if (n <= 4) continue
+    for (const v of [(j + n - 1) % n, (j + 1) % n]) {
+      const fermo = k === 'x' ? Math.abs(orig[v].x - orig[j].x) < TOLL : Math.abs(orig[v].h - orig[j].h) < TOLL
+      if (fermo && !fatti.has(v)) coda.push(v)
+    }
+  }
+}
+
+/** Altezze dei vertici strettamente tra il punto piu' basso e il piu' alto (forme > 4 lati) */
+function altezzeAngoli(p: PuntoForma[]): number[] {
+  if (p.length <= 4) return []
+  const box = ingombroPunti(p)
+  return [...new Set(p.map(q => Math.round(q.h)))].filter(h => h > box.minH + TOLL && h < box.maxH - TOLL).sort((a, b) => a - b)
+}
+
 function ingombroPunti(p: PuntoForma[]) {
   const xs = p.map(q => q.x), hs = p.map(q => q.h)
   return { minX: Math.min(...xs), maxX: Math.max(...xs), minH: Math.min(...hs), maxH: Math.max(...hs) }
@@ -80,7 +120,7 @@ export function quoteForma(punti: PuntoForma[]): QuotaForma[] {
     const m = { x: (l.a.x + l.b.x) / 2, y: (l.a.h + l.b.h) / 2 }
     out.push({ id: `L${l.i}`, tipo: 'lato', lato: l.i, direzione: l.direzione, valore: Math.round(l.valore), modificabile: true, posizione: { x: m.x + nx * off, y: m.y + ny * off } })
     const [sa, sb] = scarti(l, box)
-    if (sa > TOLL || sb > TOLL) {
+    if (centrato(lati, l.i) && (sa > TOLL || sb > TOLL)) {
       const k = asseDi(l.direzione)
       const [pa, pb] = l.a[k] <= l.b[k] ? [l.a, l.b] : [l.b, l.a]
       const posA = l.direzione === 'x'
@@ -90,6 +130,13 @@ export function quoteForma(punti: PuntoForma[]): QuotaForma[] {
       out.push({ id: `S${l.i}a`, tipo: 'scarto', lato: l.i, direzione: l.direzione, valore: Math.round(sa), modificabile: true, posizione: posA })
       out.push({ id: `S${l.i}b`, tipo: 'scarto', lato: l.i, direzione: l.direzione, valore: Math.round(sb), modificabile: true, posizione: posB })
     }
+  }
+  if (punti.length > 4) {
+    for (const h of altezzeAngoli(punti)) {
+      out.push({ id: `A${h}`, tipo: 'angolo', lato: null, direzione: 'y', valore: h, modificabile: true, posizione: { x: box.minX - 2 * off, y: h } })
+    }
+    out.push({ id: 'TL', tipo: 'totale', lato: null, direzione: 'x', valore: Math.round(box.maxX - box.minX), modificabile: true, posizione: { x: (box.minX + box.maxX) / 2, y: box.minH - 2 * off } })
+    out.push({ id: 'TH', tipo: 'totale', lato: null, direzione: 'y', valore: Math.round(box.maxH - box.minH), modificabile: true, posizione: { x: box.maxX + 2 * off, y: (box.minH + box.maxH) / 2 } })
   }
   return out
 }
@@ -107,19 +154,38 @@ export function applicaQuota(punti: PuntoForma[], id: string, valore: number): P
     const l = lati[Number(m[1])]
     if (!l || valore <= 0) return null
     const k = asseDi(l.direzione)
-    const d = (valore - l.valore) / 2
     const ia = l.i, ib = (l.i + 1) % n
     const verso = p[ib][k] >= p[ia][k] ? 1 : -1
-    p[ia][k] -= verso * d
-    p[ib][k] += verso * d
+    if (centrato(lati, l.i)) {
+      const d = (valore - l.valore) / 2
+      muovi(punti, p, [ia], k, -verso * d)
+      muovi(punti, p, [ib], k, verso * d)
+    } else {
+      // Resta fermo l'estremo attaccato a un lato a squadra (se lo sono entrambi, quello a
+      // sinistra / in basso); l'altro si sposta
+      const vicinoA = allineato(lati[(l.i + n - 1) % n]), vicinoB = allineato(lati[ib])
+      const muoviB = vicinoA && vicinoB ? verso > 0 : vicinoA
+      const d = valore - l.valore
+      if (muoviB) muovi(punti, p, [ib], k, verso * d)
+      else muovi(punti, p, [ia], k, -verso * d)
+    }
   } else if ((m = id.match(/^S(\d+)([ab])$/))) {
     const l = lati[Number(m[1])]
     if (!l || valore < 0) return null
     const [sa, sb] = scarti(l, ingombroPunti(punti))
     const k = asseDi(l.direzione)
     const sposta = m[2] === 'a' ? valore - sa : -(valore - sb)
-    p[l.i][k] += sposta
-    p[(l.i + 1) % n][k] += sposta
+    muovi(punti, p, [l.i, (l.i + 1) % n], k, sposta)
+  } else if ((m = id.match(/^A(-?\d+)$/))) {
+    const h = Number(m[1])
+    if (!altezzeAngoli(punti).includes(h) || valore <= 0) return null
+    muovi(punti, p, punti.flatMap((q, j) => (Math.round(q.h) === h ? [j] : [])), 'h', valore - h)
+  } else if (id === 'TL' || id === 'TH') {
+    if (n <= 4 || valore <= 0) return null
+    const box = ingombroPunti(punti)
+    const k: Asse = id === 'TL' ? 'x' : 'h'
+    const max = k === 'x' ? box.maxX : box.maxH, min = k === 'x' ? box.minX : box.minH
+    muovi(punti, p, punti.flatMap((q, j) => (q[k] > max - TOLL ? [j] : [])), k, valore - (max - min))
   } else {
     return null
   }
