@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inviateConfermate, posizioneSicura, remotiDaApplicare } from './sync-rilievi'
+import { assegnazioniDaApplicare, inviateConfermate, posizioneSicura, remotiDaApplicare } from './sync-rilievi'
 
 const m = (righe: { id: string; aggiornatoAt: string; daInviare?: number }[]) => new Map(righe.map(r => [r.id, r]))
 
@@ -49,4 +49,22 @@ describe('posizioneSicura', () => {
     expect(posizioneSicura({ segno: '2026-10-11T09:59:50+00:00', chiave: '42' }, adesso))
       .toEqual({ segno: '2026-10-11T09:59:30.000Z', chiave: null })
   })
+})
+
+describe('assegnazioniDaApplicare: profili assegnati in ufficio arrivano anche se la voce non e cambiata', () => {
+  const a = { profili: { T0: { fpId: 1, codice: 'UP61833', descrizione: null } }, riempimenti: {} }
+  const loc = (at?: string | null) => new Map([['v', { assegnazioniAt: at }]])
+  it('remota piu recente: si applica', () =>
+    expect(assegnazioniDaApplicare(loc('2026-11-08T10:00:00Z'), [{ id: 'v', assegnazioni: a, assegnazioniAt: '2026-11-08T11:00:00+00:00' }]))
+      .toEqual([{ id: 'v', assegnazioni: a, assegnazioniAt: '2026-11-08T11:00:00+00:00' }]))
+  it('remota uguale o piu vecchia: niente', () => {
+    expect(assegnazioniDaApplicare(loc('2026-11-08T11:00:00Z'), [{ id: 'v', assegnazioni: a, assegnazioniAt: '2026-11-08T11:00:00+00:00' }])).toEqual([])
+    expect(assegnazioniDaApplicare(loc('2026-11-08T12:00:00Z'), [{ id: 'v', assegnazioni: a, assegnazioniAt: '2026-11-08T11:00:00Z' }])).toEqual([])
+  })
+  it('locale senza istante: si applica', () =>
+    expect(assegnazioniDaApplicare(loc(null), [{ id: 'v', assegnazioni: a, assegnazioniAt: '2026-11-08T11:00:00Z' }])).toHaveLength(1))
+  it('remota senza istante: mai', () =>
+    expect(assegnazioniDaApplicare(loc(null), [{ id: 'v', assegnazioni: a, assegnazioniAt: null }])).toEqual([]))
+  it('voce che nel telefono non c e: niente (ci pensa il bulkPut)', () =>
+    expect(assegnazioniDaApplicare(new Map(), [{ id: 'v', assegnazioni: a, assegnazioniAt: '2026-11-08T11:00:00Z' }])).toEqual([]))
 })

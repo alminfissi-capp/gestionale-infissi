@@ -1,6 +1,7 @@
 // Tipi del rilievo in cantiere con le strutture di FP PRO (fase 3).
 import type { NodoStruttura, TempiStruttura } from '@/lib/fppro/strutture-xml'
 import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
+import type { DisegnoGrafico } from '@/types/rilievo-grafico'
 
 export type Lato = 'sinistra' | 'alto' | 'destra' | 'basso'
 
@@ -77,9 +78,20 @@ export interface VoceFp {
   posizione: string
   quantita: number
   note: string
-  fp: VoceFpDati
+  /** Voce da struttura FP PRO; null nelle voci disegnate */
+  fp: VoceFpDati | null
+  /** Voce disegnata (forma, divisioni, ante, serie); assente o null nelle voci FP PRO */
+  grafico?: VoceGraficoDati | null
+  /** Profili e riempimenti scelti in ufficio: li scrive solo l'ufficio, il telefono li riceve */
+  assegnazioni?: AssegnazioniGrafico | null
+  assegnazioniAt?: string | null
   aggiornatoAt: string
 }
+
+export type VoceGraficoDati = Pick<DisegnoGrafico, 'forma' | 'radice' | 'serie'>
+export type AssegnazioniGrafico = Pick<DisegnoGrafico, 'profili' | 'riempimenti'>
+export type VoceFpVera = VoceFp & { fp: VoceFpDati }
+export type VoceDisegnata = VoceFp & { fp: null; grafico: VoceGraficoDati }
 
 /** Righe nel telefono: daInviare = 1 finche' il server non le ha ricevute. */
 export type RilievoLocale = RilievoFp & { daInviare: 0 | 1 }

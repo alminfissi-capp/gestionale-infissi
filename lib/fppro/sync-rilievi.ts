@@ -1,5 +1,5 @@
 // Regole di unione tra rilievi del telefono e del server: vince il piu' recente.
-import type { PosizioneFp } from '@/types/rilievo-fp'
+import type { AssegnazioniGrafico, PosizioneFp } from '@/types/rilievo-fp'
 
 export interface ConData {
   id: string
@@ -47,4 +47,23 @@ export function posizioneSicura(ultima: PosizioneFp | null, adesso: string): Pos
   if (!ultima) return null
   const soglia = istante(adesso) - MARGINE_SCRITTURE_MS
   return istante(ultima.segno) <= soglia ? ultima : { segno: new Date(soglia).toISOString(), chiave: null }
+}
+
+/**
+ * Assegnazioni dell'ufficio (profili, riempimenti) da portare nel telefono. Hanno un istante
+ * tutto loro: scriverle non cambia `aggiornatoAt` della voce, quindi `remotiDaApplicare` non
+ * le vedrebbe. Solo per voci gia' nel telefono (quelle nuove arrivano intere col bulkPut).
+ */
+export function assegnazioniDaApplicare(
+  locali: Map<string, { assegnazioniAt?: string | null }>,
+  remoti: { id: string; assegnazioni?: AssegnazioniGrafico | null; assegnazioniAt?: string | null }[],
+): { id: string; assegnazioni: AssegnazioniGrafico | null; assegnazioniAt: string }[] {
+  const out: { id: string; assegnazioni: AssegnazioniGrafico | null; assegnazioniAt: string }[] = []
+  for (const r of remoti) {
+    const l = locali.get(r.id)
+    if (!l || !r.assegnazioniAt) continue
+    if (l.assegnazioniAt && istante(l.assegnazioniAt) >= istante(r.assegnazioniAt)) continue
+    out.push({ id: r.id, assegnazioni: r.assegnazioni ?? null, assegnazioniAt: r.assegnazioniAt })
+  }
+  return out
 }

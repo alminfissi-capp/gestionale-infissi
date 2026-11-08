@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db'
 import { getRilieviFp, inviaRilieviFp } from '@/actions/rilievo-fp'
-import { inviateConfermate, posizioneSicura, remotiDaApplicare } from '@/lib/fppro/sync-rilievi'
+import { assegnazioniDaApplicare, inviateConfermate, posizioneSicura, remotiDaApplicare } from '@/lib/fppro/sync-rilievi'
 
 const OGNI_MS = 60_000
 
@@ -74,6 +74,9 @@ async function riceviTutto(): Promise<void> {
       .filter(v => !esclusi.has(v.rilievoId))
       .map(v => ({ ...v, daInviare: 0 as const })),
   )
+  // Profili assegnati in ufficio: hanno un istante loro, arrivano anche se la voce non e' cambiata.
+  const assegnazioni = assegnazioniDaApplicare(localiV, remoti.voci.filter(v => !esclusi.has(v.id) && !esclusi.has(v.rilievoId)))
+  await db.vociFp.bulkUpdate(assegnazioni.map(a => ({ key: a.id, changes: { assegnazioni: a.assegnazioni, assegnazioniAt: a.assegnazioniAt } })))
   const ricevuto = posizioneSicura(remoti.ultimoSegno ? { segno: remoti.ultimoSegno, chiave: null } : null, remoti.adesso)
   await db.fpMeta.put({ chiave: 'cursore:rilievi', ricevuto: ricevuto ?? meta?.ricevuto ?? null, inCorso: null })
 }

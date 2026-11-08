@@ -9,7 +9,7 @@ import type { AccessorioAColore } from '@/lib/fppro/opzioni-voce'
 import { accessoriDaCatalogo, type RigaKitCatalogo } from '@/lib/fppro/calcolo/accessori'
 import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
 import type {
-  EliminatoFp, PosizioneFp, PreferenzaFp, RilievoFp, TabellaCatalogoLocale, VoceFp, VoceFpDati,
+  AssegnazioniGrafico, EliminatoFp, PosizioneFp, PreferenzaFp, RilievoFp, TabellaCatalogoLocale, VoceFp, VoceFpDati, VoceGraficoDati,
 } from '@/types/rilievo-fp'
 import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
 import { dimensionePagina } from '@/lib/fppro/scelta'
@@ -179,7 +179,11 @@ export async function firmeImmagini(paths: string[]): Promise<{ url: Record<stri
 }
 
 type RigaRilievo = { id: string; cliente_snapshot: ClienteSnapshotRilievo; note: string | null; data_rilievo: string | null; created_at: string; updated_at: string; segno_server: string }
-type RigaVoce = { id: string; rilievo_id: string; ordine: number; voce: string | null; quantita: number; note: string | null; fp: VoceFpDati; updated_at: string; segno_server: string }
+type RigaVoce = {
+  id: string; rilievo_id: string; ordine: number; voce: string | null; quantita: number; note: string | null
+  fp: VoceFpDati | null; grafico: VoceGraficoDati | null; assegnazioni_grafico: AssegnazioniGrafico | null; assegnazioni_grafico_at: string | null
+  updated_at: string; segno_server: string
+}
 type RigaEliminato = { id: string; tipo: 'rilievo' | 'voce'; rilievo_id: string | null; segno_server: string }
 
 /**
@@ -221,12 +225,14 @@ export async function inviaRilieviFp(p: { rilievi: RilievoFp[]; voci: VoceFp[]; 
     const rilieviVivi = p.rilievi.filter(r => !eliminatiAltrove.has(r.id))
     const vociVive = p.voci.filter(v => !eliminatiAltrove.has(v.id) && !eliminatiAltrove.has(v.rilievoId))
 
+    // Id gia' presenti sul server: le assegnazioni dell'ufficio si mandano solo per le voci nuove (copiate).
+    const presenti = new Set<string>()
     const piuRecenti = async <T extends { id: string; aggiornatoAt: string }>(tabella: string, righe: T[]) => {
       const server = new Map<string, string>()
       for (const blocco of blocchi(righe, BLOCCO_ID)) {
         const { data, error } = await supabase.from(tabella).select('id, updated_at').eq('organization_id', orgId).in('id', blocco.map(r => r.id))
         if (error) throw new Error(error.message)
-        for (const d of data ?? []) server.set(d.id as string, d.updated_at as string)
+        for (const d of data ?? []) { server.set(d.id as string, d.updated_at as string); if (tabella === 'rilievo_veloce_voci') presenti.add(d.id as string) }
       }
       return righe.filter(r => !server.has(r.id) || Date.parse(r.aggiornatoAt) > Date.parse(server.get(r.id)!))
     }
@@ -241,11 +247,21 @@ export async function inviaRilieviFp(p: { rilievi: RilievoFp[]; voci: VoceFp[]; 
     }
     const voci = await piuRecenti('rilievo_veloce_voci', vociVive)
     if (voci.length > 0) {
-      const { error } = await supabase.from('rilievo_veloce_voci').upsert(voci.map(v => ({
+      const riga = (v: VoceFp) => ({
         id: v.id, rilievo_id: v.rilievoId, organization_id: orgId, ordine: v.ordine, voce: v.posizione || null,
-        quantita: Math.max(1, Math.round(v.quantita)), note: v.note || null, fp: v.fp, updated_at: v.aggiornatoAt,
-      })))
-      if (error) return { errore: error.message }
+        quantita: Math.max(1, Math.round(v.quantita)), note: v.note || null, fp: v.fp ?? null, grafico: v.grafico ?? null,
+        updated_at: v.aggiornatoAt,
+      })
+      // Due upsert: le righe con colonne diverse in un solo invio si riempirebbero di NULL.
+      const esistenti = voci.filter(v => presenti.has(v.id)).map(riga)
+      const nuove = voci.filter(v => !presenti.has(v.id)).map(v => ({
+        ...riga(v), assegnazioni_grafico: v.assegnazioni ?? null, assegnazioni_grafico_at: v.assegnazioni ? v.assegnazioniAt ?? null : null,
+      }))
+      for (const righe of [esistenti, nuove]) {
+        if (righe.length === 0) continue
+        const { error } = await supabase.from('rilievo_veloce_voci').upsert(righe)
+        if (error) return { errore: error.message }
+      }
     }
     const saltati = [...p.rilievi.filter(r => !rilieviVivi.includes(r)), ...p.voci.filter(v => !vociVive.includes(v))].map(x => x.id)
     return { ok: true, saltati }
@@ -255,7 +271,7 @@ export async function inviaRilieviFp(p: { rilievi: RilievoFp[]; voci: VoceFp[]; 
 }
 
 /**
- * Rilievi, voci (solo quelle nuove, con fp) ed eliminazioni con segno del server >= `da`.
+ * Rilievi, voci (FP PRO e disegnate) ed eliminazioni con segno del server >= `da`.
  * `ultimoSegno` = segno piu' alto ricevuto: il telefono riparte da li' (meno un margine).
  */
 export async function getRilieviFp(da: string | null): Promise<{
@@ -273,8 +289,9 @@ export async function getRilieviFp(da: string | null): Promise<{
       dal(supabase.from('rilievi_veloci').select('id, cliente_snapshot, note, data_rilievo, created_at, updated_at, segno_server').eq('organization_id', orgId))
         .order('id').range(a, b))
     const voci = await selectAll<RigaVoce>((a, b) =>
-      dal(supabase.from('rilievo_veloce_voci').select('id, rilievo_id, ordine, voce, quantita, note, fp, updated_at, segno_server')
-        .eq('organization_id', orgId).not('fp', 'is', null))
+      dal(supabase.from('rilievo_veloce_voci')
+        .select('id, rilievo_id, ordine, voce, quantita, note, fp, grafico, assegnazioni_grafico, assegnazioni_grafico_at, updated_at, segno_server')
+        .eq('organization_id', orgId).or('fp.not.is.null,grafico.not.is.null'))
         .order('id').range(a, b))
     const eliminati = await selectAll<RigaEliminato>((a, b) =>
       dal(supabase.from('fp_rilievi_eliminati').select('id, tipo, rilievo_id, segno_server').eq('organization_id', orgId))
@@ -283,13 +300,37 @@ export async function getRilieviFp(da: string | null): Promise<{
     const ultimoSegno = segni.reduce<string | null>((m, s) => (!m || Date.parse(s) > Date.parse(m) ? s : m), null)
     return {
       rilievi: rilievi.map(r => ({ id: r.id, cliente: r.cliente_snapshot, note: r.note ?? '', dataRilievo: r.data_rilievo ?? null, creatoAt: iso(r.created_at), aggiornatoAt: iso(r.updated_at) })),
-      voci: voci.map(v => ({ id: v.id, rilievoId: v.rilievo_id, ordine: v.ordine, posizione: v.voce ?? '', quantita: v.quantita, note: v.note ?? '', fp: v.fp, aggiornatoAt: iso(v.updated_at) })),
+      voci: voci.map(v => ({
+        id: v.id, rilievoId: v.rilievo_id, ordine: v.ordine, posizione: v.voce ?? '', quantita: v.quantita, note: v.note ?? '',
+        fp: v.fp, grafico: v.grafico, assegnazioni: v.assegnazioni_grafico,
+        assegnazioniAt: v.assegnazioni_grafico_at ? iso(v.assegnazioni_grafico_at) : null, aggiornatoAt: iso(v.updated_at),
+      })),
       eliminati: eliminati.map(e => ({ id: e.id, tipo: e.tipo, rilievoId: e.rilievo_id })),
       ultimoSegno,
       adesso: new Date().toISOString(),
     }
   } catch (e) {
     return { errore: messaggio(e, 'Rilievi non disponibili') }
+  }
+}
+
+/**
+ * Profili e riempimenti scelti in ufficio per una voce disegnata. Non tocca updated_at: una
+ * modifica al disegno fatta prima in cantiere, e inviata dopo, non deve venire scartata.
+ */
+export async function salvaAssegnazioniGrafico(voceId: string, a: AssegnazioniGrafico): Promise<{ assegnazioniAt: string } | { errore: string }> {
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+    const ora = new Date().toISOString()
+    const { data, error } = await supabase.from('rilievo_veloce_voci')
+      .update({ assegnazioni_grafico: { profili: a.profili, riempimenti: a.riempimenti }, assegnazioni_grafico_at: ora })
+      .eq('organization_id', orgId).eq('id', voceId).not('grafico', 'is', null).select('id')
+    if (error) return { errore: error.message }
+    if (!data || data.length === 0) return { errore: 'Voce non ancora inviata al server: invia il rilievo e riprova' }
+    return { assegnazioniAt: ora }
+  } catch (e) {
+    return { errore: messaggio(e, 'Profili non salvati') }
   }
 }
 
