@@ -1,5 +1,7 @@
 // Rilievo unico: una voce e' da struttura FP PRO (fp) oppure disegnata (grafico).
 import type { DisegnoGrafico } from '@/types/rilievo-grafico'
+import { formaIniziale, formaInPunti } from '@/lib/rilievo-grafico/forma'
+import { radiceIniziale } from '@/lib/rilievo-grafico/modifiche'
 import type { VoceDisegnata, VoceFp, VoceFpDati, VoceFpVera, VoceGraficoDati } from '@/types/rilievo-fp'
 
 // Generiche: servono anche sulle righe del telefono (VoceLocale), che hanno daInviare in piu'.
@@ -14,4 +16,24 @@ export function disegnoDellaVoce(v: VoceDisegnata): DisegnoGrafico {
 /** Riepilogo stampabile: per ora solo le voci FP PRO (le disegnate arrivano con la parte 2) */
 export function vociDelRiepilogo(voci: VoceFp[]): { fp: VoceFpVera[]; disegnate: number } {
   return { fp: voci.filter(eVoceFp), disegnate: voci.filter(eVoceDisegnata).length }
+}
+
+/** Voce disegnata appena aggiunta: rettangolo 1200 x 1400 a punti, da modificare sul disegno */
+export function nuovaVoceDisegnata(rilievoId: string, ordine: number, ora: string): VoceDisegnata {
+  return {
+    id: crypto.randomUUID(), rilievoId, ordine, posizione: '', quantita: 1, note: '',
+    fp: null,
+    grafico: { forma: { tipo: 'punti', punti: formaInPunti(formaIniziale()) }, radice: radiceIniziale(), serie: [] },
+    assegnazioni: null, assegnazioniAt: null, aggiornatoAt: ora,
+  }
+}
+
+/** Copia di una voce disegnata, in fondo all'elenco: stesso disegno e stessi profili */
+export function copiaVoceDisegnata(v: VoceDisegnata, ordine: number, ora: string, id: string): VoceDisegnata {
+  return {
+    ...v, id, ordine, aggiornatoAt: ora,
+    grafico: structuredClone(v.grafico),
+    assegnazioni: v.assegnazioni ? structuredClone(v.assegnazioni) : null,
+    assegnazioniAt: v.assegnazioniAt ?? null,
+  }
 }
