@@ -25,6 +25,7 @@ import {
 import { profiliPer, UTILIZZI_ANTA, UTILIZZO_TELAIO } from '@/lib/fppro/profili-voce'
 import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
 import DisegnoConNote from './DisegnoConNote'
+import SceltaColore from './SceltaColore'
 import SceltaFp, { type VoceScelta } from './SceltaFp'
 import SceltaTipologia from './SceltaTipologia'
 import type { AnteprimaProfilo, FaseLavoro, Lato, RifFp, StrutturaLocale, TelaioLocale, VoceFpDati, VoceFpVera } from '@/types/rilievo-fp'
@@ -317,21 +318,8 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
       <div className="grid gap-4 lg:grid-cols-[18rem_minmax(0,1fr)_18rem] xl:grid-cols-[20rem_minmax(0,1fr)_20rem]">
         <div className="order-2 space-y-2 lg:order-1">
           <Pannello titolo="Colori">
-            {([['coloreInt', 'Interno', false], ['coloreEst', 'Esterno', false]] as const).map(([campo, etichetta, perAcc]) => (
-              <div key={campo} className="space-y-1">
-                <Label className="text-xs">{etichetta}</Label>
-                <SceltaFp
-                  voci={vociColori(perAcc)}
-                  preferiti={perAcc ? undefined : pref('colore')}
-                  onStella={(x, attiva) => void cambiaPreferenzaFp('colore', x.id, attiva)}
-                  valore={v[campo]?.fpId !== undefined ? String(v[campo]!.fpId) : null}
-                  segnaposto={perAcc ? 'Cerca colore accessori (es. 9010)' : 'Cerca colore (es. 9010)'}
-                  etichettaNessuno="Non indicato"
-                  riserva={v[campo] ? { id: String(v[campo]!.fpId), testo: v[campo]!.descrizione } : null}
-                  onScegli={x => aggiorna({ [campo]: rif(x) })}
-                />
-              </div>
-            ))}
+            <SceltaColore int={v.coloreInt} est={v.coloreEst} voci={vociColori(false)} preferiti={pref('colore')}
+              onStella={(x, attiva) => void cambiaPreferenzaFp('colore', x.id, attiva)} onCambia={c => aggiorna(c)} />
             {/* Come FP PRO: elenco in ordine; per ogni accessorio vale il primo colore in cui esiste. */}
             {codiciNoti.length === 0 && coloriAcc.length === 0
               ? <p className="text-xs text-muted-foreground">Accessori: prezzo unico, il colore non cambia il prezzo.</p>
