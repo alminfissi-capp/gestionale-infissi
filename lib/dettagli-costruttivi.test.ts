@@ -65,7 +65,7 @@ describe('dettagliVoceDisegnata', () => {
   it('telaio e montante assegnati, riempimento con vetro', () => {
     const v = base()
     v.grafico = { ...v.grafico, radice: dividi(v.grafico.radice, v.grafico.radice.id, 'montante', { modo: 'uguali' }, 2) }
-    const calc = calcolaDisegno({ ...v.grafico, profili: {}, riempimenti: {} })
+    const calc = calcolaDisegno(v.grafico)
     const profili: Record<string, { fpId: number; codice: string; descrizione: null }> = {}
     for (const p of calc.pezzi) if (p.ruolo === 'telaio') profili[p.id] = { fpId: 1, codice: 'UP61833', descrizione: null }
     const m = calc.pezzi.find(p => p.ruolo === 'montante')!
