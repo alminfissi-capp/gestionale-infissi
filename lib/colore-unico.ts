@@ -16,3 +16,7 @@ type Coppia = { coloreInt?: Colore; coloreEst?: Colore }
 const stesso = (a: Colore, b: Colore) => (a?.fpId ?? null) === (b?.fpId ?? null)
 /** Stessi colori dentro e fuori: premere un pulsante senza cambiare niente non deve modificare la voce */
 export const coloriUguali = (a: Coppia, b: Coppia) => stesso(a.coloreInt, b.coloreInt) && stesso(a.coloreEst, b.coloreEst)
+
+/** Elenco di scelta in ordine alfabetico, come lo leggerebbe una persona (RAL 1013 prima di RAL 9010) */
+export const inOrdine = <T extends { testo: string }>(voci: T[]): T[] =>
+  [...voci].sort((a, b) => a.testo.localeCompare(b.testo, 'it', { sensitivity: 'base', numeric: true }))

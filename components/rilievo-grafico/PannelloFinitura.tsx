@@ -7,6 +7,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import SceltaColore from '@/components/rilievo-fp/SceltaColore'
 import ColoriAccessori from '@/components/rilievo-fp/ColoriAccessori'
 import AccessoriAggiunti from '@/components/rilievo-fp/AccessoriAggiunti'
+import { inOrdine } from '@/lib/colore-unico'
 import type { VoceGraficoDati } from '@/types/rilievo-fp'
 
 /**
@@ -19,8 +20,8 @@ export default function PannelloFinitura({ g, onCambia }: { g: VoceGraficoDati; 
   const colori = useLiveQuery(() => db.fpColori.filter(c => c.presente).toArray(), [], [])
   const preferenze = useLiveQuery(() => db.fpPreferenze.where('tipo').equals('colore').toArray(), [], [])
   const preferiti = new Set(preferenze.map(p => String(p.rif)))
-  const vociProfili = colori.filter(c => c.per_profili !== false).map(c => ({ id: String(c.fp_id), testo: c.descrizione }))
-  const vociAccessori = colori.filter(c => c.per_accessori === true).map(c => ({ id: String(c.fp_id), testo: c.descrizione }))
+  const vociProfili = inOrdine(colori.filter(c => c.per_profili !== false).map(c => ({ id: String(c.fp_id), testo: c.descrizione })))
+  const vociAccessori = inOrdine(colori.filter(c => c.per_accessori === true).map(c => ({ id: String(c.fp_id), testo: c.descrizione })))
 
   return (
     <div className="space-y-4">

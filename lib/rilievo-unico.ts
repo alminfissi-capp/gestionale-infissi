@@ -59,3 +59,24 @@ export function assegnazioniDaTenere(attuale: ConAssegnazioni | undefined, voce:
   const da = attuale ?? voce
   return { assegnazioni: da.assegnazioni ?? null, assegnazioniAt: da.assegnazioniAt ?? null }
 }
+
+/**
+ * Passo di Annulla/Ripeti del disegno: torna la forma, la struttura e le scritte di allora,
+ * ma colori e accessori restano quelli di adesso (si cambiano nella scheda 3, non si annullano
+ * dal disegno).
+ */
+export const conFinituraDi = (passo: VoceGraficoDati, adesso: VoceGraficoDati): VoceGraficoDati => ({
+  ...passo,
+  coloreInt: adesso.coloreInt, coloreEst: adesso.coloreEst, coloriAcc: adesso.coloriAcc, accessoriAggiunti: adesso.accessoriAggiunti,
+})
+
+/**
+ * Assegnazioni dell'ufficio arrivate nel dispositivo mentre l'editor e' aperto: da prendere
+ * solo se piu' recenti di quelle che l'editor ha gia' (null = niente da fare).
+ */
+export function assegnazioniArrivate(editor: ConAssegnazioni, arrivate: ConAssegnazioni) {
+  if (!arrivate.assegnazioniAt || Number.isNaN(Date.parse(arrivate.assegnazioniAt))) return null
+  if (editor.assegnazioniAt === arrivate.assegnazioniAt) return null
+  if (editor.assegnazioniAt && Date.parse(editor.assegnazioniAt) >= Date.parse(arrivate.assegnazioniAt)) return null
+  return { assegnazioni: arrivate.assegnazioni ?? null, assegnazioniAt: arrivate.assegnazioniAt }
+}

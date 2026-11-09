@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { aggiungiAccessorio, assegnazioniDaTenere, copiaVoceDisegnata, disegnoDellaVoce, eVoceDisegnata, eVoceFp, nuovaVoceDisegnata, vociDelRiepilogo } from './rilievo-unico'
-import type { VoceFp } from '@/types/rilievo-fp'
+import { aggiungiAccessorio, assegnazioniArrivate, assegnazioniDaTenere, conFinituraDi, copiaVoceDisegnata, disegnoDellaVoce, eVoceDisegnata, eVoceFp, nuovaVoceDisegnata, vociDelRiepilogo } from './rilievo-unico'
+import type { AccessorioAggiunto, VoceFp } from '@/types/rilievo-fp'
 import { radiceIniziale } from '@/lib/rilievo-grafico/modifiche'
 
 const base = { id: 'v', rilievoId: 'r', ordine: 0, posizione: '', quantita: 1, note: '', aggiornatoAt: '2026-11-08T10:00:00Z' }
@@ -93,4 +93,35 @@ describe('assegnazioniDaTenere: salvando il disegno valgono quelle nel dispositi
     expect(assegnazioniDaTenere({ assegnazioni: ass, assegnazioniAt: 't' }, { assegnazioni: null })).toEqual({ assegnazioni: ass, assegnazioniAt: 't' }))
   it('voce non ancora nel dispositivo: quelle della voce', () =>
     expect(assegnazioniDaTenere(undefined, { assegnazioni: ass, assegnazioniAt: 't' })).toEqual({ assegnazioni: ass, assegnazioniAt: 't' }))
+})
+
+describe('Annulla del disegno: non tocca colori e accessori', () => {
+  const b = { fpId: 1, descrizione: 'RAL 9010' }, n = { fpId: 2, descrizione: 'Noce' }
+  it('il passo torna indietro nel disegno ma tiene colori e accessori di adesso', () => {
+    const passo = { ...grafico, serie: [1], noteLati: { 0: 'vecchia' }, coloreInt: b, coloreEst: b }
+    const adesso = { ...grafico, serie: [5], noteLati: { 0: 'nuova' }, coloreInt: n, coloreEst: n, coloriAcc: [b], accessoriAggiunti: [{ fpId: 9, codice: 'M', descrizione: 'Maniglia', quantita: 1 } as unknown as AccessorioAggiunto] }
+    const r = conFinituraDi(passo, adesso)
+    expect(r.serie).toEqual([1])
+    expect(r.noteLati).toEqual({ 0: 'vecchia' })
+    expect(r.coloreInt).toEqual(n)
+    expect(r.coloreEst).toEqual(n)
+    expect(r.coloriAcc).toEqual([b])
+    expect(r.accessoriAggiunti).toHaveLength(1)
+  })
+})
+
+describe('assegnazioni arrivate mentre l editor e aperto', () => {
+  const a = { profili: { T0: { fpId: 1, codice: 'UP1', descrizione: null } }, riempimenti: {} }
+  it('piu recenti di quelle dell editor: si prendono', () =>
+    expect(assegnazioniArrivate({ assegnazioniAt: '2026-11-09T10:00:00Z' }, { assegnazioni: a, assegnazioniAt: '2026-11-09T11:00:00+00:00' }))
+      .toEqual({ assegnazioni: a, assegnazioniAt: '2026-11-09T11:00:00+00:00' }))
+  it('editor senza istante: si prendono', () =>
+    expect(assegnazioniArrivate({ assegnazioniAt: null }, { assegnazioni: a, assegnazioniAt: '2026-11-09T11:00:00Z' })).not.toBeNull())
+  it('uguali o piu vecchie, o senza istante: niente', () => {
+    expect(assegnazioniArrivate({ assegnazioniAt: '2026-11-09T11:00:00.000Z' }, { assegnazioni: a, assegnazioniAt: '2026-11-09T11:00:00+00:00' })).toBeNull()
+    expect(assegnazioniArrivate({ assegnazioniAt: '2026-11-09T12:00:00Z' }, { assegnazioni: a, assegnazioniAt: '2026-11-09T11:00:00Z' })).toBeNull()
+    expect(assegnazioniArrivate({ assegnazioniAt: null }, { assegnazioni: a, assegnazioniAt: null })).toBeNull()
+  })
+  it('istante illeggibile: niente (altrimenti l editor si ricaricherebbe all infinito)', () =>
+    expect(assegnazioniArrivate({ assegnazioniAt: 'x' }, { assegnazioni: a, assegnazioniAt: 'boh' })).toBeNull())
 })

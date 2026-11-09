@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db'
 import { getRilieviFp, inviaRilieviFp } from '@/actions/rilievo-fp'
-import { assegnazioniDaApplicare, inviateConfermate, posizioneSicura, remotiDaApplicare } from '@/lib/fppro/sync-rilievi'
+import { assegnazioniDaApplicare, conAssegnazioniPiuRecenti, inviateConfermate, posizioneSicura, remotiDaApplicare } from '@/lib/fppro/sync-rilievi'
 
 const OGNI_MS = 60_000
 
@@ -67,16 +67,20 @@ async function riceviTutto(): Promise<void> {
     ...remoti.eliminati.map(e => e.id),
   ])
   const localiR = new Map((await db.rilieviFp.toArray()).map(r => [r.id, r]))
-  const localiV = new Map((await db.vociFp.toArray()).map(v => [v.id, v]))
   await db.rilieviFp.bulkPut(remotiDaApplicare(localiR, remoti.rilievi, esclusi).map(r => ({ ...r, daInviare: 0 as const })))
-  await db.vociFp.bulkPut(
-    remotiDaApplicare(localiV, remoti.voci, esclusi)
-      .filter(v => !esclusi.has(v.rilievoId))
-      .map(v => ({ ...v, daInviare: 0 as const })),
-  )
-  // Profili assegnati in ufficio: hanno un istante loro, arrivano anche se la voce non e' cambiata.
-  const assegnazioni = assegnazioniDaApplicare(localiV, remoti.voci.filter(v => !esclusi.has(v.id) && !esclusi.has(v.rilievoId)))
-  await db.vociFp.bulkUpdate(assegnazioni.map(a => ({ key: a.id, changes: { assegnazioni: a.assegnazioni, assegnazioniAt: a.assegnazioniAt } })))
+  // Voci lette e scritte nella stessa transazione: assegnazioni salvate dall'ufficio in questo
+  // telefono mentre la ricezione era in corso non vengono coperte da quelle vecchie del server.
+  await db.transaction('rw', db.vociFp, async () => {
+    const localiV = new Map((await db.vociFp.toArray()).map(v => [v.id, v]))
+    await db.vociFp.bulkPut(
+      remotiDaApplicare(localiV, remoti.voci, esclusi)
+        .filter(v => !esclusi.has(v.rilievoId))
+        .map(v => ({ ...conAssegnazioniPiuRecenti(v, localiV.get(v.id)), daInviare: 0 as const })),
+    )
+    // Profili assegnati in ufficio: hanno un istante loro, arrivano anche se la voce non e' cambiata.
+    const assegnazioni = assegnazioniDaApplicare(localiV, remoti.voci.filter(v => !esclusi.has(v.id) && !esclusi.has(v.rilievoId)))
+    await db.vociFp.bulkUpdate(assegnazioni.map(a => ({ key: a.id, changes: { assegnazioni: a.assegnazioni, assegnazioniAt: a.assegnazioniAt } })))
+  })
   const ricevuto = posizioneSicura(remoti.ultimoSegno ? { segno: remoti.ultimoSegno, chiave: null } : null, remoti.adesso)
   await db.fpMeta.put({ chiave: 'cursore:rilievi', ricevuto: ricevuto ?? meta?.ricevuto ?? null, inCorso: null })
 }

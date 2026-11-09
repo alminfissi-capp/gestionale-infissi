@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assegnazioniDaApplicare, inviateConfermate, posizioneSicura, remotiDaApplicare } from './sync-rilievi'
+import { assegnazioniDaApplicare, conAssegnazioniPiuRecenti, inviateConfermate, posizioneSicura, remotiDaApplicare } from './sync-rilievi'
 
 const m = (righe: { id: string; aggiornatoAt: string; daInviare?: number }[]) => new Map(righe.map(r => [r.id, r]))
 
@@ -67,4 +67,17 @@ describe('assegnazioniDaApplicare: profili assegnati in ufficio arrivano anche s
     expect(assegnazioniDaApplicare(loc(null), [{ id: 'v', assegnazioni: a, assegnazioniAt: null }])).toEqual([]))
   it('voce che nel telefono non c e: niente (ci pensa il bulkPut)', () =>
     expect(assegnazioniDaApplicare(new Map(), [{ id: 'v', assegnazioni: a, assegnazioniAt: '2026-11-08T11:00:00Z' }])).toEqual([]))
+})
+
+describe('voce ricevuta: le assegnazioni piu recenti del telefono restano', () => {
+  const vecchie = { profili: {}, riempimenti: {} }
+  const nuove = { profili: { T0: { fpId: 1, codice: 'UP1', descrizione: null } }, riempimenti: {} }
+  const remota = { id: 'v', aggiornatoAt: '2026-11-09T12:00:00Z', assegnazioni: vecchie, assegnazioniAt: '2026-11-09T10:00:00+00:00' }
+  it('nel telefono ce ne sono di piu recenti (salvate durante la ricezione): si tengono', () =>
+    expect(conAssegnazioniPiuRecenti(remota, { assegnazioni: nuove, assegnazioniAt: '2026-11-09T11:00:00Z' }))
+      .toEqual({ ...remota, assegnazioni: nuove, assegnazioniAt: '2026-11-09T11:00:00Z' }))
+  it('quelle del server sono piu recenti, o il telefono non ne ha: vince il server', () => {
+    expect(conAssegnazioniPiuRecenti(remota, { assegnazioni: nuove, assegnazioniAt: '2026-11-09T09:00:00Z' })).toEqual(remota)
+    expect(conAssegnazioniPiuRecenti(remota, undefined)).toEqual(remota)
+  })
 })

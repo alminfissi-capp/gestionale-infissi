@@ -67,3 +67,16 @@ export function assegnazioniDaApplicare(
   }
   return out
 }
+
+/**
+ * Voce arrivata dal server da scrivere nel telefono: se nel frattempo il telefono ha salvato
+ * assegnazioni piu' recenti (l'ufficio le ha appena scelte da qui), restano quelle.
+ */
+export function conAssegnazioniPiuRecenti<T extends { assegnazioni?: AssegnazioniGrafico | null; assegnazioniAt?: string | null }>(
+  remota: T,
+  attuale: { assegnazioni?: AssegnazioniGrafico | null; assegnazioniAt?: string | null } | undefined,
+): T {
+  if (!attuale?.assegnazioniAt) return remota
+  if (remota.assegnazioniAt && istante(remota.assegnazioniAt) >= istante(attuale.assegnazioniAt)) return remota
+  return { ...remota, assegnazioni: attuale.assegnazioni ?? null, assegnazioniAt: attuale.assegnazioniAt }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { colori, coloriUguali, eBicolore, toglieBicolore } from './colore-unico'
+import { colori, coloriUguali, eBicolore, inOrdine, toglieBicolore } from './colore-unico'
 
 const bianco = { fpId: 56, descrizione: 'RAL 9010' }
 const noce = { fpId: 70, descrizione: 'Noce' }
@@ -25,4 +25,10 @@ describe('coloriUguali: niente modifica finta', () => {
     expect(coloriUguali({ coloreInt: bianco, coloreEst: bianco }, { coloreInt: { ...bianco }, coloreEst: bianco })).toBe(true))
   it('tutti vuoti: uguali', () => expect(coloriUguali({ coloreInt: null, coloreEst: undefined }, { coloreInt: null, coloreEst: null })).toBe(true))
   it('esterno diverso: diversi', () => expect(coloriUguali({ coloreInt: bianco, coloreEst: noce }, colori(bianco))).toBe(false))
+})
+
+describe('elenco dei colori in ordine alfabetico', () => {
+  it('ordina per testo, maiuscole e numeri come una persona', () =>
+    expect(inOrdine([{ id: '1', testo: 'noce' }, { id: '2', testo: 'RAL 9010' }, { id: '3', testo: 'Avorio' }, { id: '4', testo: 'RAL 1013' }]).map(x => x.id))
+      .toEqual(['3', '1', '4', '2']))
 })

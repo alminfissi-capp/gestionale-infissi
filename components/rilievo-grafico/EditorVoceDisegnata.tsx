@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { db } from '@/lib/db'
 import { salvaVoceLocale } from '@/lib/rilievo-fp-locale'
-import { assegnazioniDaTenere, disegnoDellaVoce, eVoceDisegnata } from '@/lib/rilievo-unico'
+import { assegnazioniArrivate, assegnazioniDaTenere, conFinituraDi, disegnoDellaVoce, eVoceDisegnata } from '@/lib/rilievo-unico'
 import { salvaAssegnazioniGrafico } from '@/actions/rilievo-fp'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import type { AssegnazioniGrafico, VoceDisegnata, VoceGraficoDati } from '@/types/rilievo-fp'
@@ -46,7 +46,7 @@ export default function EditorVoceDisegnata({ voceId, onIndietro }: { voceId: st
     )
   }
   const { daInviare: _d, ...voce } = v
-  return <Editor key={voceId} iniziale={voce} onIndietro={onIndietro} />
+  return <Editor key={voceId} iniziale={voce} arrivate={{ assegnazioni: v.assegnazioni, assegnazioniAt: v.assegnazioniAt }} onIndietro={onIndietro} />
 }
 
 /** Scrive il disegno nel dispositivo tenendo le assegnazioni che ci sono adesso (arrivano dal server) */
@@ -79,9 +79,16 @@ const aPunti = (x: VoceDisegnata): VoceDisegnata => {
 }
 type Stato = 'salvato' | 'da_salvare' | 'salvataggio'
 
-function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro: () => void }) {
+function Editor({ iniziale, arrivate, onIndietro }: {
+  iniziale: VoceDisegnata
+  /** Assegnazioni nel dispositivo adesso: quelle scelte in ufficio arrivano anche a editor aperto */
+  arrivate: Pick<VoceDisegnata, 'assegnazioni' | 'assegnazioniAt'>
+  onIndietro: () => void
+}) {
   const { isOnline } = useOnlineStatus()
   const [r, setR] = useState(() => aPunti(iniziale))
+  const nuoveAssegnazioni = assegnazioniArrivate(r, arrivate)
+  if (nuoveAssegnazioni) setR(x => ({ ...x, ...nuoveAssegnazioni }))
   const [storia, setStoria] = useState<{ indietro: VoceGraficoDati[]; avanti: VoceGraficoDati[] }>({ indietro: [], avanti: [] })
   const [scheda, setScheda] = useState<Scheda>('struttura')
   const [traccia, setTraccia] = useState(false)
@@ -180,11 +187,15 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
     if (!unisci) setStoria(s => ({ indietro: [...s.indietro.slice(-60), r.grafico], avanti: [] }))
     cambia({ ...r, grafico: g })
   }
-  /** Scritte, colori, accessori: un passo di Annulla come il resto del disegno */
+  /** Scritte dei lati: un passo di Annulla come il resto del disegno */
   const cambiaGrafico = (g: VoceGraficoDati) => {
     if (uguali(g, r.grafico)) return
     setStoria(s => ({ indietro: [...s.indietro.slice(-60), r.grafico], avanti: [] }))
     cambia({ ...r, grafico: g })
+  }
+  /** Colori e accessori (scheda 3): fuori da Annulla, che resta del disegno */
+  const cambiaFinitura = (g: VoceGraficoDati) => {
+    if (!uguali(g, r.grafico)) cambia({ ...r, grafico: g })
   }
   const cambiaRadice = (radice: Zona, nuovaSel?: SelezioneStruttura) => {
     cambiaDisegno({ ...disegno, radice })
@@ -227,7 +238,7 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
     if (!prec) return
     setStoria(s => ({ indietro: s.indietro.slice(0, -1), avanti: [r.grafico, ...s.avanti] }))
     setSelS(null)
-    cambia({ ...r, grafico: prec })
+    cambia({ ...r, grafico: conFinituraDi(prec, r.grafico) })
   }
   const ripeti = () => {
     setAperta(null)
@@ -235,7 +246,7 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
     if (!succ) return
     setStoria(s => ({ indietro: [...s.indietro, r.grafico], avanti: s.avanti.slice(1) }))
     setSelS(null)
-    cambia({ ...r, grafico: succ })
+    cambia({ ...r, grafico: conFinituraDi(succ, r.grafico) })
   }
 
   const suTraccia = (punti: { x: number; y: number }[]) => {
@@ -339,7 +350,7 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
         {(pannelloAperto || scheda === 'finitura') && (
           <div className="space-y-4 rounded-lg border p-3">
             {scheda === 'finitura' ? (
-              <PannelloFinitura g={r.grafico} onCambia={cambiaGrafico} />
+              <PannelloFinitura g={r.grafico} onCambia={cambiaFinitura} />
             ) : scheda === 'struttura' ? (
               <PannelloStruttura calc={calc} radice={r.grafico.radice} selezione={selS} onRadice={cambiaRadice} />
             ) : isOnline ? (
