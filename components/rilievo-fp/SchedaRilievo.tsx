@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Calculator, ChevronLeft, Copy, GripVertical, Layers, PenLine, Plus, Printer, Trash2, UserRound } from 'lucide-react'
+import { Calculator, ChevronLeft, Copy, GripVertical, Layers, PenLine, Plus, Printer, Trash2, UserRound, Wrench } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -98,11 +98,13 @@ interface Props {
   /** Nuova voce con le scelte di questa (si salva solo con Salva) */
   onCopia: (voceId: string) => void
   onRiepilogo: () => void
+  /** Dettagli costruttivi: 4 serramenti per foglio con i codici dei profili */
+  onDettagli: () => void
   /** Apre l'editor di una voce disegnata */
   onDisegno: (voceId: string) => void
 }
 
-export default function SchedaRilievo({ id, onIndietro, onVoce, onCopia, onRiepilogo, onDisegno }: Props) {
+export default function SchedaRilievo({ id, onIndietro, onVoce, onCopia, onRiepilogo, onDisegno, onDettagli }: Props) {
   const [sceltaTipo, setSceltaTipo] = useState(false)
   const [cambiaCliente, setCambiaCliente] = useState(false)
   const { isOnline } = useOnlineStatus()
@@ -149,7 +151,12 @@ export default function SchedaRilievo({ id, onIndietro, onVoce, onCopia, onRiepi
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <Button variant="ghost" size="sm" onClick={onIndietro}><ChevronLeft className="mr-1 size-4" />Rilievi</Button>
-        {(voci ?? []).length > 0 && <Button variant="outline" size="sm" className="gap-1.5" onClick={onRiepilogo}><Printer className="size-4" />Stampa / PDF</Button>}
+        {(voci ?? []).length > 0 && (
+          <div className="flex gap-1.5">
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={onDettagli}><Wrench className="size-4" />Dettagli costruttivi</Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={onRiepilogo}><Printer className="size-4" />Stampa / PDF</Button>
+          </div>
+        )}
       </div>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">

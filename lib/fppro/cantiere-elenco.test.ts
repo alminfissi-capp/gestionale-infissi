@@ -34,3 +34,7 @@ describe('vistaPrecedente dal disegno', () => {
   it('dalla voce disegnata si torna al suo rilievo', () =>
     expect(vistaPrecedente({ tipo: 'disegno', rilievoId: 'r', voceId: 'v' })).toEqual({ tipo: 'rilievo', id: 'r' }))
 })
+
+describe('vistaPrecedente dai dettagli costruttivi', () => {
+  it('si torna al rilievo', () => expect(vistaPrecedente({ tipo: 'dettagli', id: 'r' })).toEqual({ tipo: 'rilievo', id: 'r' }))
+})

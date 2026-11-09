@@ -6,6 +6,7 @@ import { useInvioRilievi } from '@/hooks/useInvioRilievi'
 import ElencoRilievi from './ElencoRilievi'
 import ProntoOffline from './ProntoOffline'
 import RiepilogoRilievo from './RiepilogoRilievo'
+import DettagliCostruttivi from './DettagliCostruttivi'
 import SchedaRilievo from './SchedaRilievo'
 import StatoSync from './StatoSync'
 import SchermataVoce from './SchermataVoce'
@@ -51,9 +52,11 @@ export default function AppCantiere({ rilievoIniziale = null }: { rilievoInizial
         <SchedaRilievo id={vista.id} onIndietro={() => window.history.back()} onVoce={voceId => vai({ tipo: 'voce', rilievoId: vista.id, voceId })}
           onCopia={copiaDa => vai({ tipo: 'voce', rilievoId: vista.id, voceId: null, copiaDa })}
           onRiepilogo={() => vai({ tipo: 'riepilogo', id: vista.id })}
+          onDettagli={() => vai({ tipo: 'dettagli', id: vista.id })}
           onDisegno={voceId => vai({ tipo: 'disegno', rilievoId: vista.id, voceId })} />
       )}
       {vista.tipo === 'riepilogo' && <RiepilogoRilievo id={vista.id} onIndietro={() => window.history.back()} />}
+      {vista.tipo === 'dettagli' && <DettagliCostruttivi id={vista.id} onIndietro={() => window.history.back()} />}
       {vista.tipo === 'voce' && (
         <SchermataVoce key={vista.voceId ?? (vista.copiaDa ? `copia-${vista.copiaDa}` : 'nuova')} rilievoId={vista.rilievoId} voceId={vista.voceId} copiaDa={vista.copiaDa ?? null} onFine={() => window.history.back()} />
       )}

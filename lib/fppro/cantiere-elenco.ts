@@ -4,6 +4,7 @@ export type VistaCantiere =
   | { tipo: 'elenco' }
   | { tipo: 'rilievo'; id: string }
   | { tipo: 'riepilogo'; id: string }
+  | { tipo: 'dettagli'; id: string }
   | { tipo: 'voce'; rilievoId: string; voceId: string | null; copiaDa?: string | null }
   | { tipo: 'disegno'; rilievoId: string; voceId: string }
 
@@ -13,7 +14,7 @@ export type VistaCantiere =
  */
 export function vistaPrecedente(v: VistaCantiere): VistaCantiere {
   if (v.tipo === 'voce' || v.tipo === 'disegno') return { tipo: 'rilievo', id: v.rilievoId }
-  if (v.tipo === 'riepilogo') return { tipo: 'rilievo', id: v.id }
+  if (v.tipo === 'riepilogo' || v.tipo === 'dettagli') return { tipo: 'rilievo', id: v.id }
   return { tipo: 'elenco' }
 }
 
