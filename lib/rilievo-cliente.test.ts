@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { azioneCliente, clienteDaRegistrare, separaNome, snapshotDalModulo, snapshotPerModulo } from './rilievo-cliente'
+import { azioneCliente, clienteDaRegistrare, separaNome, snapshotDalModulo, snapshotPerModulo, stessoCliente } from './rilievo-cliente'
 import type { ClienteSnapshotRilievo } from '@/types/rilievo-veloce'
 
 describe('separaNome (cliente nuovo scritto in cantiere)', () => {
@@ -57,4 +57,11 @@ describe('azioneCliente: niente doppioni in anagrafica', () => {
     expect(azioneCliente(scritto, anagrafica, false)).toBeNull()
     expect(azioneCliente({ ...scritto, clienteId: 'c9' }, anagrafica, true)).toBeNull()
   })
+})
+
+describe('stessoCliente: salvare senza cambiare non segna il rilievo da inviare', () => {
+  const c: ClienteSnapshotRilievo = { tipo: 'privato', ragione_sociale: null, nome: 'Anna', cognome: 'Rossi', telefono: null, email: null, indirizzo: 'Via Etna 3', cantiere: null }
+  it('campi assenti o nulli valgono uguale', () =>
+    expect(stessoCliente(c, { ...c, via: null, civico: null, clienteId: null, cf_piva: null })).toBe(true))
+  it('telefono cambiato: diverso', () => expect(stessoCliente(c, { ...c, telefono: '333' })).toBe(false))
 })

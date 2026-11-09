@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { colori, eBicolore, toglieBicolore } from './colore-unico'
+import { colori, coloriUguali, eBicolore, toglieBicolore } from './colore-unico'
 
 const bianco = { fpId: 56, descrizione: 'RAL 9010' }
 const noce = { fpId: 70, descrizione: 'Noce' }
@@ -18,4 +18,11 @@ describe('colore unico e Bicolore', () => {
     expect(toglieBicolore(bianco, noce)).toEqual({ coloreInt: bianco, coloreEst: bianco })
     expect(toglieBicolore(null, noce)).toEqual({ coloreInt: noce, coloreEst: noce })
   })
+})
+
+describe('coloriUguali: niente modifica finta', () => {
+  it('stessi colori (anche oggetti diversi): uguali', () =>
+    expect(coloriUguali({ coloreInt: bianco, coloreEst: bianco }, { coloreInt: { ...bianco }, coloreEst: bianco })).toBe(true))
+  it('tutti vuoti: uguali', () => expect(coloriUguali({ coloreInt: null, coloreEst: undefined }, { coloreInt: null, coloreEst: null })).toBe(true))
+  it('esterno diverso: diversi', () => expect(coloriUguali({ coloreInt: bianco, coloreEst: noce }, colori(bianco))).toBe(false))
 })

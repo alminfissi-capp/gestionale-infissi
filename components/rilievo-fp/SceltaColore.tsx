@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import SceltaFp, { type VoceScelta } from './SceltaFp'
-import { colori, eBicolore, toglieBicolore } from '@/lib/colore-unico'
+import { colori, coloriUguali, eBicolore, toglieBicolore } from '@/lib/colore-unico'
 import type { RifFp } from '@/types/rilievo-fp'
 
 interface Props {
@@ -51,7 +51,11 @@ export default function SceltaColore({ int, est, voci, preferiti, onStella, onCa
       )}
       <Button type="button" variant="outline" size="sm" className="w-full"
         onClick={() => {
-          if (bicolore) onCambia(toglieBicolore(int, est))
+          if (bicolore) {
+            const nuovo = toglieBicolore(int, est)
+            // Gia' uguali dentro e fuori: niente modifica (la voce non diventa "piu' recente")
+            if (!coloriUguali({ coloreInt: int, coloreEst: est }, nuovo)) onCambia(nuovo)
+          }
           setBicolore(!bicolore)
         }}>
         {bicolore ? 'Colore unico (uguale dentro e fuori)' : 'Bicolore (interno ed esterno diversi)'}

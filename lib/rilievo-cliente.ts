@@ -55,3 +55,9 @@ export function azioneCliente<T extends { id: string; tipo: 'privato' | 'azienda
   const id = clienteEsistente(s, clienti)
   return id ? { collega: id } : 'crea'
 }
+
+/** Stesso cliente (campi assenti, vuoti o nulli valgono uguale): Salva senza modifiche non scrive niente */
+export function stessoCliente(a: ClienteSnapshotRilievo, b: ClienteSnapshotRilievo): boolean {
+  const chiavi = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof ClienteSnapshotRilievo>
+  return [...chiavi].every(k => (n(a[k] as string | null | undefined) ?? null) === (n(b[k] as string | null | undefined) ?? null))
+}

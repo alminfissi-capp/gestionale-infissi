@@ -11,3 +11,8 @@ export const colori = (unico: RifFp | null): { coloreInt: RifFp | null; coloreEs
 
 /** Da Bicolore a colore unico: vale l'interno (l'esterno se l'interno non c'e'), niente esterno vecchio nascosto */
 export const toglieBicolore = (int: Colore, est: Colore) => colori(int ?? est ?? null)
+
+type Coppia = { coloreInt?: Colore; coloreEst?: Colore }
+const stesso = (a: Colore, b: Colore) => (a?.fpId ?? null) === (b?.fpId ?? null)
+/** Stessi colori dentro e fuori: premere un pulsante senza cambiare niente non deve modificare la voce */
+export const coloriUguali = (a: Coppia, b: Coppia) => stesso(a.coloreInt, b.coloreInt) && stesso(a.coloreEst, b.coloreEst)

@@ -17,6 +17,7 @@ import type { RilievoFp, StrutturaLocale, VoceFpDati, VoceLocale } from '@/types
 import { copiaVoceDisegnata, eVoceDisegnata, eVoceFp, nuovaVoceDisegnata } from '@/lib/rilievo-unico'
 import RigaVoceDisegnata from './RigaVoceDisegnata'
 import ClienteRilievo from './ClienteRilievo'
+import { stessoCliente } from '@/lib/rilievo-cliente'
 import SchedaVoceRiepilogo from './SchedaVoceRiepilogo'
 import { nomeCliente } from './ElencoRilievi'
 
@@ -168,7 +169,7 @@ export default function SchedaRilievo({ id, onIndietro, onVoce, onCopia, onRiepi
       {cambiaCliente && (
         <ClienteRilievo aperto iniziale={rilievo.cliente} titolo="Cliente del rilievo" conferma="Salva"
           onChiudi={() => setCambiaCliente(false)}
-          onConferma={async c => { await salvaRilievoLocale({ ...rilievo, cliente: c }); setCambiaCliente(false) }} />
+          onConferma={async c => { if (!stessoCliente(rilievo.cliente, c)) await salvaRilievoLocale({ ...rilievo, cliente: c }); setCambiaCliente(false) }} />
       )}
       <DatiRilievo key={`${rilievo.id}-${rilievo.cliente.cantiere ?? ''}`} rilievo={rilievo} />
       <NoteRilievo key={rilievo.id} rilievo={rilievo} />
