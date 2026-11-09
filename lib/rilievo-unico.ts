@@ -48,3 +48,14 @@ export function aggiungiAccessorio(
     ? lista.map((x, j) => (j === gia ? { ...x, quantita: x.quantita + 1 } : x))
     : [...lista, { codice: a.codice, descrizione: a.descrizione ?? '', serie, quantita: 1 }]
 }
+
+type ConAssegnazioni = { assegnazioni?: VoceFp['assegnazioni']; assegnazioniAt?: string | null }
+/**
+ * Salvando il disegno nel dispositivo, le assegnazioni sono quelle gia' nel dispositivo (le
+ * scrive solo l'ufficio, dopo che il server le ha accettate): mai quelle provvisorie
+ * dell'editor, che il server potrebbe aver rifiutato. Voce non ancora nel dispositivo: le sue.
+ */
+export function assegnazioniDaTenere(attuale: ConAssegnazioni | undefined, voce: ConAssegnazioni) {
+  const da = attuale ?? voce
+  return { assegnazioni: da.assegnazioni ?? null, assegnazioniAt: da.assegnazioniAt ?? null }
+}

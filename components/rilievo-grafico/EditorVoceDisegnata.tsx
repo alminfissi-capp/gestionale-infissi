@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { db } from '@/lib/db'
 import { salvaVoceLocale } from '@/lib/rilievo-fp-locale'
-import { disegnoDellaVoce, eVoceDisegnata } from '@/lib/rilievo-unico'
+import { assegnazioniDaTenere, disegnoDellaVoce, eVoceDisegnata } from '@/lib/rilievo-unico'
 import { salvaAssegnazioniGrafico } from '@/actions/rilievo-fp'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import type { AssegnazioniGrafico, VoceDisegnata, VoceGraficoDati } from '@/types/rilievo-fp'
@@ -52,7 +52,7 @@ export default function EditorVoceDisegnata({ voceId, onIndietro }: { voceId: st
 /** Scrive il disegno nel dispositivo tenendo le assegnazioni che ci sono adesso (arrivano dal server) */
 async function salvaOra(x: VoceDisegnata) {
   const attuale = await db.vociFp.get(x.id)
-  await salvaVoceLocale({ ...x, assegnazioni: attuale?.assegnazioni ?? x.assegnazioni ?? null, assegnazioniAt: attuale?.assegnazioniAt ?? x.assegnazioniAt ?? null })
+  await salvaVoceLocale({ ...x, ...assegnazioniDaTenere(attuale, x) })
 }
 
 /** Parte del cantiere del disegno: tiene scritte, colori e accessori (le scritte vedi graficoConForma) */
@@ -136,8 +136,19 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
     return () => clearTimeout(t)
   }, [stato, r])
 
+  // Ultimo stato e scritta del lato in corso: servono uscendo col tasto indietro del telefono,
+  // quando la vista si chiude senza passare dai pulsanti dell'editor.
+  const ultimo = useRef(r)
+  useEffect(() => { ultimo.current = r }, [r])
+  const scrittaInCorso = useRef<{ lato: number; testo: string } | null>(null)
   // Uscendo dalla pagina con una modifica non ancora scritta: si scrive subito
-  useEffect(() => () => { if (daSalvare.current) void salvaOra(daSalvare.current) }, [])
+  useEffect(() => () => {
+    const n = scrittaInCorso.current
+    const base = daSalvare.current ?? ultimo.current
+    if (n && n.testo.trim() !== (base.grafico.noteLati?.[n.lato] ?? '')) {
+      void salvaOra({ ...base, grafico: conNotaLato(base.grafico, n.lato, n.testo), aggiornatoAt: new Date().toISOString() })
+    } else if (daSalvare.current) void salvaOra(daSalvare.current)
+  }, [])
 
   const cambia = (nuovo: VoceDisegnata) => {
     const x = { ...nuovo, aggiornatoAt: new Date().toISOString() }
@@ -192,6 +203,7 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
       : r.grafico
   /** Apre o chiude casellina e menu: la scritta del lato in corso si salva comunque si esca */
   const apri = (x: Aperta | null) => {
+    scrittaInCorso.current = null
     cambiaGrafico(conScrittaInCorso())
     setAperta(x)
   }
@@ -290,9 +302,10 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
               scritteLati={r.grafico.noteLati}
               riempimenti={disegno.riempimenti}
               quoteForma={quote}
-              onZona={id => (scheda === 'struttura' ? setSelS(s => (s?.id === id ? null : { tipo: 'zona', id })) : tocca(id))}
-              onPezzo={id => (scheda === 'struttura' ? setSelS(s => (s?.id === id ? null : { tipo: 'pezzo', id })) : tocca(id))}
-              onQuota={(id, ancora) => {
+              // Scheda 3 (colori e accessori): il disegno e' solo da guardare
+              onZona={scheda === 'finitura' ? undefined : id => (scheda === 'struttura' ? setSelS(s => (s?.id === id ? null : { tipo: 'zona', id })) : tocca(id))}
+              onPezzo={scheda === 'finitura' ? undefined : id => (scheda === 'struttura' ? setSelS(s => (s?.id === id ? null : { tipo: 'pezzo', id })) : tocca(id))}
+              onQuota={scheda === 'finitura' ? undefined : (id, ancora) => {
                 setSelS({ tipo: 'pezzo', id })
                 const q = calc.quote.find(x => x.id === id)
                 if (q) apri({ tipo: 'taglio', id, valore: q.valore, ancora })
@@ -317,7 +330,7 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
                 onDritto={() => { nuovaForma(impostaArco(punti, aperta.lato, 0), conScrittaInCorso()); setAperta(null) }}
                 onChiudi={chiudiAperta}
                 scritta={aperta.scritta}
-                onScritta={testo => setAperta({ ...aperta, scritta: testo })}
+                onScritta={testo => { scrittaInCorso.current = { lato: aperta.lato, testo }; setAperta({ ...aperta, scritta: testo }) }}
               />
             )}
           </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aggiungiAccessorio, copiaVoceDisegnata, disegnoDellaVoce, eVoceDisegnata, eVoceFp, nuovaVoceDisegnata, vociDelRiepilogo } from './rilievo-unico'
+import { aggiungiAccessorio, assegnazioniDaTenere, copiaVoceDisegnata, disegnoDellaVoce, eVoceDisegnata, eVoceFp, nuovaVoceDisegnata, vociDelRiepilogo } from './rilievo-unico'
 import type { VoceFp } from '@/types/rilievo-fp'
 import { radiceIniziale } from '@/lib/rilievo-grafico/modifiche'
 
@@ -83,4 +83,14 @@ describe('aggiungiAccessorio', () => {
     expect(aggiungiAccessorio(aggiungiAccessorio([], a), { ...a, serie: 'MEDISYSTEM' })).toHaveLength(2))
   it('descrizione e serie mancanti diventano testo vuoto', () =>
     expect(aggiungiAccessorio([], { codice: 'X', descrizione: null, serie: null })[0]).toEqual({ codice: 'X', descrizione: '', serie: '', quantita: 1 }))
+})
+
+describe('assegnazioniDaTenere: salvando il disegno valgono quelle nel dispositivo', () => {
+  const ass = { profili: { T0: { fpId: 1, codice: 'UP1', descrizione: null } }, riempimenti: {} }
+  it('nel dispositivo non ce ne sono: non si salva quella provvisoria dell editor', () =>
+    expect(assegnazioniDaTenere({ assegnazioni: null, assegnazioniAt: null }, { assegnazioni: ass, assegnazioniAt: null })).toEqual({ assegnazioni: null, assegnazioniAt: null }))
+  it('nel dispositivo ci sono: quelle', () =>
+    expect(assegnazioniDaTenere({ assegnazioni: ass, assegnazioniAt: 't' }, { assegnazioni: null })).toEqual({ assegnazioni: ass, assegnazioniAt: 't' }))
+  it('voce non ancora nel dispositivo: quelle della voce', () =>
+    expect(assegnazioniDaTenere(undefined, { assegnazioni: ass, assegnazioniAt: 't' })).toEqual({ assegnazioni: ass, assegnazioniAt: 't' }))
 })

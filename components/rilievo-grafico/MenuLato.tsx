@@ -22,7 +22,8 @@ export default function MenuLato({ ancora, arco, onArco, onDritto, onChiudi, scr
   return (
     <>
       <button type="button" aria-label="Chiudi" className="absolute inset-0 z-10 cursor-default" onClick={onChiudi} />
-      <div className="absolute z-20 w-60 -translate-x-1/2 -translate-y-full space-y-1 rounded-lg border bg-white p-1 shadow-lg" style={{ left: ancora.x, top: ancora.y - 8 }}>
+      {/* Centrato sul lato ma sempre dentro il disegno (al telefono, vicino al bordo, usciva) */}
+      <div className="absolute z-20 w-60 -translate-y-full space-y-1 rounded-lg border bg-white p-1 shadow-lg" style={{ left: `clamp(0px, ${ancora.x}px - 7.5rem, 100% - 15rem)`, top: ancora.y - 8 }}>
         <div className="flex gap-1">
           <Button size="sm" variant={arco ? 'default' : 'outline'} className="gap-1" onClick={onArco}><Spline className="size-4" />Arco</Button>
           {arco && <Button size="sm" variant="outline" className="gap-1" onClick={onDritto}><Minus className="size-4" />Dritto</Button>}
