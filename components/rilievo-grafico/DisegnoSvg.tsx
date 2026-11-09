@@ -210,10 +210,11 @@ export default function DisegnoSvg({ calc, modo, selezione, profili, riempimenti
       {Object.entries(scritteLati ?? {}).map(([k, t]) => {
         const l = calc.contorno[Number(k)]
         if (!l || !t) return null
-        // Tra il telaio e le quote della forma (che stanno piu' fuori)
-        const p = posizioneScritta(l, fs * (mini ? 1.4 : 1.1))
+        // Dentro il serramento, lungo il suo lato: fuori ci sono le quote della forma, e nella
+        // miniatura del riepilogo il bordo taglierebbe il testo.
+        const p = posizioneScritta(l, -fs * (mini ? 2.6 : 2.2))
         return (
-          <text key={`scritta-${k}`} x={p.x} y={H - p.y} fontSize={fs * (mini ? 1.6 : 0.9)} fill="#c2410c" fontWeight={600}
+          <text key={`scritta-${k}`} x={p.x} y={H - p.y} fontSize={fs * (mini ? 2.2 : 1)} fill="#c2410c" fontWeight={600}
             textAnchor="middle" dominantBaseline="central" transform={`rotate(${-p.angolo} ${p.x} ${H - p.y})`} pointerEvents="none">{t}</text>
         )
       })}
