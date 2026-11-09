@@ -94,3 +94,22 @@ describe('nota scritta dalla pagina: mai sopra una nota piu recente', () => {
     expect(notaAggiornata(s, 'a')).toBe(s)
   })
 })
+
+describe('profili meno comuni e pannelli', () => {
+  it('FP: fermapannello con i fermavetri, riporti dei bilici con i riporti', () => {
+    const pezzo = (tipo: number, codice: string) => ({ tipo, dxf: 'X\\' + codice + '.DXF', serie: 'X', indice: 0 })
+    const s = { ...ekos, albero: [{ ...ekos.albero[0], pezzi: [...ekos.albero[0].pezzi, pezzo(8270, 'FP27'), pezzo(8240, 'RB24'), pezzo(8250, 'RB25')] }] }
+    const d = dettagliVoceFp(voce(), s)
+    expect(d.righe.Fermavetro).toContain('FP27')
+    expect(d.righe.Riporto).toContain('RB24')
+    expect(d.righe.Riporto).toContain('RB25')
+  })
+  it('disegnata: un pannello si legge come pannello', () => {
+    const v = nuovaVoceDisegnata('r', 0, '2026-11-09T10:00:00Z')
+    v.grafico = { ...v.grafico, radice: { ...v.grafico.radice, contenuto: { tipo: 'riempimento', materiale: 'pannello' } } }
+    const calc = calcolaDisegno(v.grafico)
+    const zona = calc.zone.find(z => z.foglia && z.materiale)!
+    const d = dettagliVoceDisegnata({ ...v, assegnazioni: { profili: {}, riempimenti: { [zona.id]: { fpId: 1, codice: 'PAN30', descrizione: null, materiale: 'pannello' } } } }, new Map())
+    expect(d.righe.Vetri).toBe('Pannello PAN30')
+  })
+})

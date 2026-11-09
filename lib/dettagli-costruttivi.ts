@@ -4,6 +4,7 @@ import type { NodoStruttura, PezzoStruttura } from '@/lib/fppro/strutture-xml'
 import { coloriAccessori, telaiStruttura } from '@/lib/fppro/rilievo-fp'
 import { datiRiepilogo } from '@/lib/fppro/riepilogo'
 import { calcolaDisegno } from '@/lib/rilievo-grafico/geometria'
+import { NOMI_MATERIALE } from '@/lib/rilievo-grafico/ruoli'
 import { datiRiepilogoDisegnata } from '@/lib/rilievo-grafico/riepilogo-disegnata'
 import { disegnoDellaVoce } from '@/lib/rilievo-unico'
 import type { RuoloPezzo } from '@/types/rilievo-grafico'
@@ -71,10 +72,12 @@ export function dettagliVoceFp(v: VoceFpVera, s: Pick<StrutturaLocale, 'albero' 
     righe: {
       Telaio: telaio,
       Anta: fp.anta || elenco(codici([8090, 8100])),
-      Riporto: elenco(codici([8150, 8160])),
+      // Riporti verticali/orizzontali e dei bilici (8240 anta, 8250 telaio)
+      Riporto: elenco(codici([8150, 8160, 8240, 8250])),
       Montanti: conConteggio(codici([8060])),
       Traversi: conConteggio(codici([8070])),
-      Fermavetro: elenco(codici([8180])),
+      // Il fermapannello (8270) e' il fermavetro dei campi a pannello
+      Fermavetro: elenco(codici([8180, 8270])),
       Vetri: r.vetri,
       Accessori: r.accessori,
       Colori: testoColori(fp.coloreInt, fp.coloreEst, coloriAccessori(fp)),
@@ -95,7 +98,9 @@ export function dettagliVoceDisegnata(v: VoceDisegnata, nomiSerie: Map<number, s
   const codici = (ruoli: RuoloPezzo[]) => calc.pezzi.filter(p => ruoli.includes(p.ruolo)).map(p => disegno.profili[p.id]?.codice || DA_ASSEGNARE)
   const vetri = calc.zone.filter(z => z.foglia && z.materiale).map(z => {
     const a = disegno.riempimenti[z.id]
-    return a && (!a.materiale || a.materiale === z.materiale) ? a.codice : DA_ASSEGNARE
+    if (!a || (a.materiale && a.materiale !== z.materiale)) return DA_ASSEGNARE
+    // Come nelle voci FP PRO: il pannello si legge come tale, il vetro col solo codice
+    return z.materiale === 'vetro' ? a.codice : `${NOMI_MATERIALE[z.materiale!]} ${a.codice}`
   })
   const riga = (e: EtichettaRiga) => {
     const c = codici(RUOLI[e] ?? [])
