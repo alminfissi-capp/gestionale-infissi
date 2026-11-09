@@ -1,6 +1,8 @@
 'use client'
 
-import { vociDelRiepilogo } from '@/lib/rilievo-unico'
+import { eVoceDisegnata, eVoceFp } from '@/lib/rilievo-unico'
+import { datiRiepilogoDisegnata } from '@/lib/rilievo-grafico/riepilogo-disegnata'
+import SchedaVoceDisegnataRiepilogo from './SchedaVoceDisegnataRiepilogo'
 import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowLeft, Printer } from 'lucide-react'
@@ -26,9 +28,10 @@ export default function RiepilogoRilievo({ id, onIndietro }: { id: string; onInd
   const { isOnline } = useOnlineStatus()
   const rilievo = useLiveQuery(() => db.rilieviFp.get(id), [id])
   const tutte = useLiveQuery(() => db.vociFp.where('rilievoId').equals(id).sortBy('ordine'), [id])
-  const { fp: voci, disegnate } = useMemo(() => (tutte ? vociDelRiepilogo(tutte) : { fp: null, disegnate: 0 }), [tutte])
+  // Voci FP PRO e disegnate insieme, nell'ordine del rilievo
+  const voci = useMemo(() => (tutte ? tutte.filter(v => eVoceFp(v) || eVoceDisegnata(v)) : null), [tutte])
   const strutture = useLiveQuery(async () => {
-    const righe = await db.fpStrutture.bulkGet((voci ?? []).map(v => v.fp.strutturaId))
+    const righe = await db.fpStrutture.bulkGet((voci ?? []).filter(eVoceFp).map(v => v.fp.strutturaId))
     return new Map(righe.filter(s => !!s).map(s => [s!.id, s!]))
   }, [voci])
   const [server, setServer] = useState<DatiRiepilogoServer | null>(null)
@@ -59,10 +62,14 @@ export default function RiepilogoRilievo({ id, onIndietro }: { id: string; onInd
   for (let i = 0; i < voci.length; i += PER_PAGINA) pagine.push(voci.slice(i, i + PER_PAGINA))
   if (pagine.length === 0) pagine.push([])
 
-  const mqTotali = voci.reduce((t, v) => t + (datiRiepilogo(v, strutture?.get(v.fp.strutturaId) ?? null).mq ?? 0), 0)
+  const mqTotali = voci.reduce((t, v) => t + (eVoceFp(v)
+    ? datiRiepilogo(v, strutture?.get(v.fp.strutturaId) ?? null).mq ?? 0
+    : eVoceDisegnata(v) ? datiRiepilogoDisegnata(v, new Map()).mq : 0), 0)
   const pezzi = voci.reduce((t, v) => t + (v.quantita || 1), 0)
-  const stati = voci.map(v => prezzoDi(v))
-  const totale = stati.reduce((t, s, i) => t + (s?.tipo === 'prezzo' ? s.unitario * (voci[i].quantita || 1) : 0), 0)
+  // Prezzi solo delle voci FP PRO: le disegnate sono fuori dal calcolo (non "da ricalcolare")
+  const vociFp = voci.filter(eVoceFp)
+  const stati = vociFp.map(v => prezzoDi(v))
+  const totale = stati.reduce((t, s, i) => t + (s?.tipo === 'prezzo' ? s.unitario * (vociFp[i].quantita || 1) : 0), 0)
   const incompleto = stati.some(s => s && s.tipo !== 'prezzo')
   const c = rilievo.cliente
   const oggi = dataRilievoTesto(rilievo)
@@ -80,11 +87,6 @@ export default function RiepilogoRilievo({ id, onIndietro }: { id: string; onInd
         </label>
         <Button size="sm" className="ml-auto gap-1.5" onClick={() => window.print()}><Printer className="size-4" />Stampa / PDF</Button>
       </div>
-      {disegnate > 0 && (
-        <p className="text-sm text-amber-700 print:hidden">
-          {disegnate === 1 ? '1 voce disegnata non è' : `${disegnate} voci disegnate non sono`} ancora nel riepilogo: arriveranno con il prossimo aggiornamento.
-        </p>
-      )}
 
       {pagine.map((gruppo, p) => (
         <section key={p} className="mx-auto max-w-[190mm] space-y-1.5 bg-white print:max-w-none print:break-after-page print:last:break-after-auto">
@@ -103,10 +105,12 @@ export default function RiepilogoRilievo({ id, onIndietro }: { id: string; onInd
               <p>Pagina {p + 1} / {pagine.length}</p>
             </div>
           </header>
-          {gruppo.map((v, i) => (
+          {gruppo.map((v, i) => eVoceFp(v) ? (
             <SchedaVoceRiepilogo key={v.id} voce={v} struttura={strutture?.get(v.fp.strutturaId) ?? null}
               prezzo={prezzoDi(v)} numero={p * PER_PAGINA + i + 1} />
-          ))}
+          ) : eVoceDisegnata(v) ? (
+            <SchedaVoceDisegnataRiepilogo key={v.id} voce={v} numero={p * PER_PAGINA + i + 1} conPrezzo={mostraPrezzi && !!prezzi} />
+          ) : null)}
           {p === pagine.length - 1 && (
             <footer className="flex flex-wrap justify-end gap-4 border border-gray-400 p-1.5 text-[11px] text-gray-900">
               <span>Serramenti <b>{voci.length}</b> · pezzi <b>{pezzi}</b></span>
