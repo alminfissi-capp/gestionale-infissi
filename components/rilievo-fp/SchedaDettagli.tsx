@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import DisegnoSvg from '@/components/rilievo-grafico/DisegnoSvg'
 import { formatMq, datiRiepilogo } from '@/lib/fppro/riepilogo'
-import { RIGHE, DA_ASSEGNARE, dettagliVoceDisegnata, dettagliVoceFp } from '@/lib/dettagli-costruttivi'
+import { RIGHE, DA_ASSEGNARE, dettagliVoceDisegnata, dettagliVoceFp, notaAggiornata, notaDaSalvare, type StatoNota } from '@/lib/dettagli-costruttivi'
 import { calcolaDisegno } from '@/lib/rilievo-grafico/geometria'
 import { disegnoDellaVoce, eVoceDisegnata, eVoceFp } from '@/lib/rilievo-unico'
 import { salvaVoceLocale } from '@/lib/rilievo-fp-locale'
@@ -12,11 +12,17 @@ import DisegnoVoceSvg from './DisegnoVoceSvg'
 
 /** Note scrivibili dalla pagina: stesso campo note della voce, salvato nel dispositivo uscendo dal campo */
 function Note({ voce }: { voce: VoceLocale }) {
-  const [testo, setTesto] = useState(voce.note)
+  const [stato, setStato] = useState<StatoNota>({ testo: voce.note, base: voce.note })
+  // Nota cambiata altrove mentre la pagina e' aperta: si prende, senza perdere quello che si sta scrivendo
+  const aggiornato = notaAggiornata(stato, voce.note)
+  if (aggiornato !== stato) setStato(aggiornato)
+  const testo = aggiornato.testo
+  const setTesto = (t: string) => setStato(s => ({ ...s, testo: t }))
   const salva = () => {
-    if (testo === voce.note) return
+    if (!notaDaSalvare(stato)) return
     const { daInviare: _d, ...v } = voce
-    void salvaVoceLocale({ ...v, note: testo })
+    void salvaVoceLocale({ ...v, note: stato.testo })
+    setStato({ testo: stato.testo, base: stato.testo })
   }
   return (
     <div className="flex min-h-0 flex-col border-l border-gray-300 px-1.5 py-1">
@@ -52,7 +58,7 @@ export default function SchedaDettagli({ voce, struttura, nomiSerie, numero }: {
     t ? <span className={`text-[8px] font-semibold leading-tight text-orange-700 ${classe}`}>{t}</span> : null
 
   return (
-    <div className="grid grid-cols-[27%_minmax(0,1fr)_23%] overflow-hidden rounded border border-gray-500 bg-white text-gray-900 print:h-[60mm] print:break-inside-avoid">
+    <div className="scheda-dettagli grid grid-cols-[27%_minmax(0,1fr)_23%] overflow-hidden rounded border border-gray-500 bg-white text-gray-900 print:h-[60mm] print:break-inside-avoid">
       {/* Disegno */}
       <div className="flex min-h-0 flex-col border-r border-gray-300 p-1">
         <div className="flex items-baseline justify-between gap-1 text-[10px] font-bold leading-tight">

@@ -7,7 +7,7 @@ import { nuovaVoceFp } from '@/lib/fppro/rilievo-fp'
 import { nuovaVoceDisegnata } from '@/lib/rilievo-unico'
 import { dividi } from '@/lib/rilievo-grafico/modifiche'
 import { calcolaDisegno } from '@/lib/rilievo-grafico/geometria'
-import { RIGHE, dettagliVoceDisegnata, dettagliVoceFp } from './dettagli-costruttivi'
+import { RIGHE, dettagliVoceDisegnata, dettagliVoceFp, notaAggiornata, notaDaSalvare } from './dettagli-costruttivi'
 import type { VoceFpDati, VoceFpVera } from '@/types/rilievo-fp'
 
 const ekos = { ...strutturaDaXml(new XMLParser(OPZIONI_XML).parse(
@@ -77,5 +77,20 @@ describe('dettagliVoceDisegnata', () => {
     expect(d.righe.Montanti).toBe('UP61840 (1)')
     expect(d.righe.Vetri).toBe('33.1_16_4')
     expect(d.righe.Traversi).toBeNull()
+  })
+})
+
+describe('nota scritta dalla pagina: mai sopra una nota piu recente', () => {
+  it('si salva solo se l utente ha cambiato il testo', () => {
+    expect(notaDaSalvare({ testo: 'a', base: 'a' })).toBe(false)
+    expect(notaDaSalvare({ testo: 'b', base: 'a' })).toBe(true)
+  })
+  it('nota arrivata da un altro dispositivo mentre il campo non e toccato: si prende la nuova', () =>
+    expect(notaAggiornata({ testo: 'vecchia', base: 'vecchia' }, 'nuova')).toEqual({ testo: 'nuova', base: 'nuova' }))
+  it('nota arrivata mentre l utente sta scrivendo: il suo testo resta, la base si aggiorna', () =>
+    expect(notaAggiornata({ testo: 'mio', base: 'vecchia' }, 'nuova')).toEqual({ testo: 'mio', base: 'nuova' }))
+  it('niente di nuovo: stesso stato', () => {
+    const s = { testo: 'x', base: 'a' }
+    expect(notaAggiornata(s, 'a')).toBe(s)
   })
 })

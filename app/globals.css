@@ -146,6 +146,13 @@
     print-color-adjust: exact;
   }
 
+  /* Dettagli costruttivi: altezza fissa per stare 4 a foglio, quindi il testo lungo (note,
+     accessori) si taglia dentro la scheda invece di finire sopra quella dopo. */
+  .scheda-dettagli,
+  .scheda-dettagli * {
+    overflow: hidden !important;
+  }
+
   ::-webkit-scrollbar {
     display: none !important;
     width: 0 !important;

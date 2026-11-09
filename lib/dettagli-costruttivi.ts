@@ -115,3 +115,18 @@ export function dettagliVoceDisegnata(v: VoceDisegnata, nomiSerie: Map<number, s
     },
   }
 }
+
+/** Nota scritta nella pagina: `base` = la nota della voce che l'utente ha davanti */
+export interface StatoNota { testo: string; base: string }
+
+/** Si salva solo se l'utente ha cambiato il testo (toccare e uscire non scrive niente) */
+export const notaDaSalvare = (s: StatoNota) => s.testo !== s.base
+
+/**
+ * Nota della voce cambiata altrove (sincronizzazione, altra schermata): se il campo non e'
+ * stato toccato si prende la nuova; se l'utente sta scrivendo, il suo testo resta.
+ */
+export function notaAggiornata(s: StatoNota, notaVoce: string): StatoNota {
+  if (notaVoce === s.base) return s
+  return { testo: s.testo === s.base ? notaVoce : s.testo, base: notaVoce }
+}
