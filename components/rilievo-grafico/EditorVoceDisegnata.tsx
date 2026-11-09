@@ -27,6 +27,7 @@ import MenuLato from './MenuLato'
 import SceltaForme from './SceltaForme'
 import PannelloStruttura, { type SelezioneStruttura } from './PannelloStruttura'
 import PannelloProfili from './PannelloProfili'
+import PannelloFinitura from './PannelloFinitura'
 
 /**
  * Voce disegnata del rilievo, aperta dentro la pagina del cantiere: funziona anche senza
@@ -64,7 +65,7 @@ const uguali = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(
 
 const CHIAVE_PANNELLO = 'rilievo-grafico:pannello'
 
-type Scheda = 'struttura' | 'profili'
+type Scheda = 'struttura' | 'profili' | 'finitura'
 /** Casellina o menù aperti sul disegno */
 type Aperta =
   | { tipo: 'forma' | 'taglio'; id: string; valore: number; ancora: Ancora }
@@ -252,9 +253,10 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
           2 · Profili e vetri
           {(conta.pezzi > 0 || conta.riempimenti > 0) && <span className="ml-1 rounded-full bg-red-100 px-1.5 text-[11px] text-red-700">{conta.pezzi + conta.riempimenti}</span>}
         </Button>
+        <Button size="sm" variant={scheda === 'finitura' ? 'default' : 'outline'} onClick={() => { setScheda('finitura'); setTraccia(false); setAperta(null) }}>3 · Colori e accessori</Button>
       </div>
 
-      <div className={`grid gap-3 ${pannelloAperto ? 'lg:grid-cols-[minmax(0,1fr)_24rem]' : ''}`}>
+      <div className={`grid gap-3 ${pannelloAperto || scheda === 'finitura' ? 'lg:grid-cols-[minmax(0,1fr)_24rem]' : ''}`}>
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-1">
             {scheda === 'struttura' && (
@@ -312,9 +314,11 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
           </div>
         </div>
 
-        {pannelloAperto && (
+        {(pannelloAperto || scheda === 'finitura') && (
           <div className="space-y-4 rounded-lg border p-3">
-            {scheda === 'struttura' ? (
+            {scheda === 'finitura' ? (
+              <PannelloFinitura g={r.grafico} onCambia={cambiaGrafico} />
+            ) : scheda === 'struttura' ? (
               <PannelloStruttura calc={calc} radice={r.grafico.radice} selezione={selS} onRadice={cambiaRadice} />
             ) : isOnline ? (
               <PannelloProfili calc={calc} disegno={disegno} selezione={selP} onSelezione={setSelP} onDisegno={d => cambiaDisegno(d)} />

@@ -4,16 +4,14 @@ import { eVoceFp } from '@/lib/rilievo-unico'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { toast } from 'sonner'
-import { ArrowDown, ArrowLeft, ArrowUp, ChevronDown, Plus, Save, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowUp, ChevronDown, Save, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { db } from '@/lib/db'
 import { salvaVoceLocale } from '@/lib/rilievo-fp-locale'
-import { getSerieAccessoriFp, type SerieAccessoriFp } from '@/actions/rilievo-fp'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import DialogAccessorioFp from './DialogAccessorioFp'
 import OpzioniVoce from './OpzioniVoce'
 import {
   accessoriScoperti, codiciAColore, coperturaColori, riallineaMano, schemaOpzioni, type AccessorioAColore,
@@ -26,6 +24,7 @@ import { profiliPer, UTILIZZI_ANTA, UTILIZZO_TELAIO } from '@/lib/fppro/profili-
 import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
 import DisegnoConNote from './DisegnoConNote'
 import SceltaColore from './SceltaColore'
+import AccessoriAggiunti from './AccessoriAggiunti'
 import SceltaFp, { type VoceScelta } from './SceltaFp'
 import SceltaTipologia from './SceltaTipologia'
 import type { AnteprimaProfilo, FaseLavoro, Lato, RifFp, StrutturaLocale, TelaioLocale, VoceFpDati, VoceFpVera } from '@/types/rilievo-fp'
@@ -133,16 +132,6 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
   // Campi in cui si sta scegliendo l'altro tipo di riempimento (prima di aver scelto il codice).
   const [tipoRiempimento, setTipoRiempimento] = useState<Record<string, 'vetro' | 'pannello'>>({})
   const { isOnline } = useOnlineStatus()
-  const [serieAccessori, setSerieAccessori] = useState<SerieAccessoriFp[] | null>(null)
-  const [aggiungiAperto, setAggiungiAperto] = useState(false)
-  const apriAggiungi = async () => {
-    if (!serieAccessori) {
-      const r = await getSerieAccessoriFp()
-      if ('errore' in r) { toast.error(r.errore); return }
-      setSerieAccessori(r)
-    }
-    setAggiungiAperto(true)
-  }
   const preferenze = useLiveQuery(() => db.fpPreferenze.toArray(), [], [])
   const nomeSerie = serieScelta ?? voce?.fp.serie ?? null
   const serieFp = useLiveQuery(() => (nomeSerie ? db.fpSerie.where('nome').equals(nomeSerie).first() : undefined), [nomeSerie])
@@ -421,39 +410,10 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
           <Pannello titolo="Opzioni">
               <OpzioniVoce albero={struttura.albero} schema={schema} v={v} onCambia={patch => aggiorna(patch)} />
               {/* Accessori presi dal catalogo a mano (es. MEDISYSTEM: maniglione FIMET, motore vasistas) */}
-              <div className="space-y-1 border-t pt-2">
-                <p className="text-sm">Accessori aggiunti</p>
-                {(v.accessoriAggiunti ?? []).map((a, i) => (
-                  <div key={`${a.serie}|${a.codice}`} className="flex items-center gap-1 text-xs">
-                    <span className="min-w-0 flex-1"><span className="block truncate">{a.descrizione || a.codice}</span><span className="block text-muted-foreground">{a.codice}</span></span>
-                    <Input aria-label={`Quantità ${a.codice}`} className="h-7 w-14" inputMode="numeric" value={a.quantita || ''}
-                      onChange={e => {
-                        const n = numero(e.target.value)
-                        aggiorna({ accessoriAggiunti: (v.accessoriAggiunti ?? []).map((x, j) => (j === i ? { ...x, quantita: n !== null && n >= 0 ? n : 0 } : x)) })
-                      }} />
-                    <Button type="button" variant="ghost" size="icon" className="size-7" aria-label={`Togli ${a.codice}`}
-                      onClick={() => aggiorna({ accessoriAggiunti: (v.accessoriAggiunti ?? []).filter((_, j) => j !== i) })}>
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  </div>
-                ))}
-                <Button type="button" variant="outline" size="sm" className="w-full gap-1.5" disabled={!isOnline} onClick={() => void apriAggiungi()}>
-                  <Plus className="size-4" />Aggiungi accessorio
-                </Button>
-                {!isOnline && <p className="text-xs text-muted-foreground">Serve la rete per sfogliare il catalogo.</p>}
+              <div className="border-t pt-2">
+                <AccessoriAggiunti lista={v.accessoriAggiunti ?? []} isOnline={isOnline} onCambia={lista => aggiorna({ accessoriAggiunti: lista })} />
               </div>
             </Pannello>
-            {aggiungiAperto && serieAccessori && (
-              <DialogAccessorioFp aperto serie={serieAccessori} onChiudi={() => setAggiungiAperto(false)}
-                onAggiungi={a => {
-                  const lista = v.accessoriAggiunti ?? []
-                  const gia = lista.findIndex(x => x.codice === a.codice && x.serie === (a.serie ?? ''))
-                  aggiorna({ accessoriAggiunti: gia >= 0
-                    ? lista.map((x, j) => (j === gia ? { ...x, quantita: x.quantita + 1 } : x))
-                    : [...lista, { codice: a.codice, descrizione: a.descrizione ?? '', serie: a.serie ?? '', quantita: 1 }] })
-                  toast.success(`Aggiunto ${a.codice}`)
-                }} />
-            )}
         </div>
 
         <div className="order-1 space-y-3 lg:order-2">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { copiaVoceDisegnata, disegnoDellaVoce, eVoceDisegnata, eVoceFp, nuovaVoceDisegnata, vociDelRiepilogo } from './rilievo-unico'
+import { aggiungiAccessorio, copiaVoceDisegnata, disegnoDellaVoce, eVoceDisegnata, eVoceFp, nuovaVoceDisegnata, vociDelRiepilogo } from './rilievo-unico'
 import type { VoceFp } from '@/types/rilievo-fp'
 import { radiceIniziale } from '@/lib/rilievo-grafico/modifiche'
 
@@ -71,4 +71,16 @@ describe('nuova voce disegnata e copia', () => {
     expect(c.assegnazioniAt).toBe('2026-11-08T11:00:00Z')
     expect(c.aggiornatoAt).toBe(ora)
   })
+})
+
+describe('aggiungiAccessorio', () => {
+  const a = { codice: 'ACP 8011', descrizione: 'Maniglia', serie: 'AL_SLIDE' }
+  it('lista vuota: uno con quantita 1', () =>
+    expect(aggiungiAccessorio([], a)).toEqual([{ codice: 'ACP 8011', descrizione: 'Maniglia', serie: 'AL_SLIDE', quantita: 1 }]))
+  it('stesso codice e serie: quantita +1', () =>
+    expect(aggiungiAccessorio(aggiungiAccessorio([], a), a)[0].quantita).toBe(2))
+  it('stesso codice, serie diversa: due righe', () =>
+    expect(aggiungiAccessorio(aggiungiAccessorio([], a), { ...a, serie: 'MEDISYSTEM' })).toHaveLength(2))
+  it('descrizione e serie mancanti diventano testo vuoto', () =>
+    expect(aggiungiAccessorio([], { codice: 'X', descrizione: null, serie: null })[0]).toEqual({ codice: 'X', descrizione: '', serie: '', quantita: 1 }))
 })

@@ -2,7 +2,7 @@
 import type { DisegnoGrafico } from '@/types/rilievo-grafico'
 import { formaIniziale, formaInPunti } from '@/lib/rilievo-grafico/forma'
 import { radiceIniziale } from '@/lib/rilievo-grafico/modifiche'
-import type { VoceDisegnata, VoceFp, VoceFpDati, VoceFpVera, VoceGraficoDati } from '@/types/rilievo-fp'
+import type { AccessorioAggiunto, VoceDisegnata, VoceFp, VoceFpDati, VoceFpVera, VoceGraficoDati } from '@/types/rilievo-fp'
 
 // Generiche: servono anche sulle righe del telefono (VoceLocale), che hanno daInviare in piu'.
 export const eVoceDisegnata = <T extends VoceFp>(v: T): v is T & { fp: null; grafico: VoceGraficoDati } => v.fp === null && !!v.grafico
@@ -36,4 +36,15 @@ export function copiaVoceDisegnata(v: VoceDisegnata, ordine: number, ora: string
     assegnazioni: v.assegnazioni ? structuredClone(v.assegnazioni) : null,
     assegnazioniAt: v.assegnazioniAt ?? null,
   }
+}
+
+/** Accessorio scelto dal catalogo: stesso codice e serie = un pezzo in piu', altrimenti in fondo */
+export function aggiungiAccessorio(
+  lista: AccessorioAggiunto[], a: { codice: string; descrizione: string | null; serie: string | null },
+): AccessorioAggiunto[] {
+  const serie = a.serie ?? ''
+  const gia = lista.findIndex(x => x.codice === a.codice && x.serie === serie)
+  return gia >= 0
+    ? lista.map((x, j) => (j === gia ? { ...x, quantita: x.quantita + 1 } : x))
+    : [...lista, { codice: a.codice, descrizione: a.descrizione ?? '', serie, quantita: 1 }]
 }
