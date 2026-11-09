@@ -20,7 +20,7 @@ import { dividi, scriviQuotaTaglio } from '@/lib/rilievo-grafico/modifiche'
 import { formaInPunti } from '@/lib/rilievo-grafico/forma'
 import { applicaQuota, impostaArco, quoteForma } from '@/lib/rilievo-grafico/quote-forma'
 import { mancanti, potaAssegnazioni } from '@/lib/rilievo-grafico/ruoli'
-import { notePulite } from '@/lib/rilievo-grafico/scritte-lati'
+import { conNotaLato, graficoConForma } from '@/lib/rilievo-grafico/scritte-lati'
 import DisegnoSvg from './DisegnoSvg'
 import CasellaQuota, { type Ancora } from './CasellaQuota'
 import MenuLato from './MenuLato'
@@ -55,12 +55,9 @@ async function salvaOra(x: VoceDisegnata) {
   await salvaVoceLocale({ ...x, assegnazioni: attuale?.assegnazioni ?? x.assegnazioni ?? null, assegnazioniAt: attuale?.assegnazioniAt ?? x.assegnazioniAt ?? null })
 }
 
-/** Parte del cantiere del disegno: tiene scritte, colori e accessori; le scritte di lati spariti si tolgono */
-const grafico = (prima: VoceGraficoDati, d: DisegnoGrafico): VoceGraficoDati => {
-  const g: VoceGraficoDati = { ...prima, forma: d.forma, radice: d.radice, serie: d.serie }
-  if (prima.noteLati) g.noteLati = notePulite(prima.noteLati, formaInPunti(d.forma).length)
-  return g
-}
+/** Parte del cantiere del disegno: tiene scritte, colori e accessori (le scritte vedi graficoConForma) */
+const grafico = (prima: VoceGraficoDati, d: DisegnoGrafico): VoceGraficoDati =>
+  ({ ...graficoConForma(prima, d.forma), radice: d.radice, serie: d.serie })
 const uguali = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 const CHIAVE_PANNELLO = 'rilievo-grafico:pannello'
@@ -69,7 +66,7 @@ type Scheda = 'struttura' | 'profili' | 'finitura'
 /** Casellina o menù aperti sul disegno */
 type Aperta =
   | { tipo: 'forma' | 'taglio'; id: string; valore: number; ancora: Ancora }
-  | { tipo: 'lato'; lato: number; ancora: Ancora }
+  | { tipo: 'lato'; lato: number; ancora: Ancora; scritta: string }
 
 /**
  * All'apertura la forma passa ai punti puliti (i modelli diventano punti, le forme a punti
@@ -163,10 +160,11 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
     await db.vociFp.update(r.id, { assegnazioni: pulite, assegnazioniAt: esito.assegnazioniAt })
   }
 
-  const cambiaDisegno = (d: DisegnoGrafico, unisci = false) => {
+  /** `base`: da dove parte il disegno nuovo (di solito quello di adesso; con una scritta appena scritta, quello con la scritta) */
+  const cambiaDisegno = (d: DisegnoGrafico, unisci = false, base: VoceGraficoDati = r.grafico) => {
     const a = { profili: d.profili, riempimenti: d.riempimenti }
     if (!uguali(a, { profili: disegno.profili, riempimenti: disegno.riempimenti })) void salvaAssegnazioni(a)
-    const g = grafico(r.grafico, d)
+    const g = grafico(base, d)
     if (uguali(g, r.grafico)) return
     if (!unisci) setStoria(s => ({ indietro: [...s.indietro.slice(-60), r.grafico], avanti: [] }))
     cambia({ ...r, grafico: g })
@@ -182,10 +180,20 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
     if (nuovaSel !== undefined) setSelS(nuovaSel)
   }
   /** Applica una nuova forma a punti: un passo di Annulla per ogni conferma */
-  const nuovaForma = (p: ReturnType<typeof applicaQuota>) => {
+  const nuovaForma = (p: ReturnType<typeof applicaQuota>, base?: VoceGraficoDati) => {
     if (!p) return false
-    cambiaDisegno({ ...disegno, forma: { tipo: 'punti', punti: p } })
+    cambiaDisegno({ ...disegno, forma: { tipo: 'punti', punti: p } }, false, base)
     return true
+  }
+  /** Disegno con la scritta del lato che si sta scrivendo nel menu (se cambiata) */
+  const conScrittaInCorso = (): VoceGraficoDati =>
+    aperta?.tipo === 'lato' && aperta.scritta.trim() !== (r.grafico.noteLati?.[aperta.lato] ?? '')
+      ? conNotaLato(r.grafico, aperta.lato, aperta.scritta)
+      : r.grafico
+  /** Apre o chiude casellina e menu: la scritta del lato in corso si salva comunque si esca */
+  const apri = (x: Aperta | null) => {
+    cambiaGrafico(conScrittaInCorso())
+    setAperta(x)
   }
   const confermaAperta = (n: number): boolean => {
     if (!aperta || aperta.tipo === 'lato') return false
@@ -199,7 +207,7 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
     setAperta(null)
     return true
   }
-  const chiudiAperta = () => setAperta(null)
+  const chiudiAperta = () => apri(null)
 
   const annulla = () => {
     setAperta(null)
@@ -234,7 +242,7 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
   return (
     <div className="mx-auto max-w-7xl space-y-3 p-3 sm:p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={onIndietro}><ArrowLeft className="size-4" />Rilievo</Button>
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { apri(null); onIndietro() }}><ArrowLeft className="size-4" />Rilievo</Button>
         <Input className="h-9 max-w-xs flex-1 font-semibold" placeholder="Posizione (es. Cucina)" value={r.posizione} onChange={e => cambia({ ...r, posizione: e.target.value })} />
         <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
           {stato === 'salvato' ? <><Check className="size-3.5 text-green-600" />Salvato</> : <><Loader2 className="size-3.5 animate-spin" />Salvataggio…</>}
@@ -248,12 +256,12 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
       </div>
 
       <div className="flex flex-wrap gap-1 border-b pb-2">
-        <Button size="sm" variant={scheda === 'struttura' ? 'default' : 'outline'} onClick={() => { setScheda('struttura'); setAperta(null) }}>1 · Struttura</Button>
-        <Button size="sm" variant={scheda === 'profili' ? 'default' : 'outline'} onClick={() => { setScheda('profili'); setTraccia(false); setAperta(null) }}>
+        <Button size="sm" variant={scheda === 'struttura' ? 'default' : 'outline'} onClick={() => { setScheda('struttura'); apri(null) }}>1 · Struttura</Button>
+        <Button size="sm" variant={scheda === 'profili' ? 'default' : 'outline'} onClick={() => { setScheda('profili'); setTraccia(false); apri(null) }}>
           2 · Profili e vetri
           {(conta.pezzi > 0 || conta.riempimenti > 0) && <span className="ml-1 rounded-full bg-red-100 px-1.5 text-[11px] text-red-700">{conta.pezzi + conta.riempimenti}</span>}
         </Button>
-        <Button size="sm" variant={scheda === 'finitura' ? 'default' : 'outline'} onClick={() => { setScheda('finitura'); setTraccia(false); setAperta(null) }}>3 · Colori e accessori</Button>
+        <Button size="sm" variant={scheda === 'finitura' ? 'default' : 'outline'} onClick={() => { setScheda('finitura'); setTraccia(false); apri(null) }}>3 · Colori e accessori</Button>
       </div>
 
       <div className={`grid gap-3 ${pannelloAperto || scheda === 'finitura' ? 'lg:grid-cols-[minmax(0,1fr)_24rem]' : ''}`}>
@@ -263,7 +271,7 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
               <>
                 <Button size="sm" variant="outline" className="gap-1" disabled={storia.indietro.length === 0} onClick={annulla}><Undo2 className="size-4" />Annulla</Button>
                 <Button size="sm" variant="outline" className="gap-1" disabled={storia.avanti.length === 0} onClick={ripeti}><Redo2 className="size-4" />Ripeti</Button>
-                <Button size="sm" variant="outline" className="gap-1" onClick={() => { setAperta(null); setScegliForma(true) }}><Shapes className="size-4" />Forme</Button>
+                <Button size="sm" variant="outline" className="gap-1" onClick={() => { apri(null); setScegliForma(true) }}><Shapes className="size-4" />Forme</Button>
                 <Button size="sm" variant={traccia ? 'default' : 'outline'} className="gap-1" onClick={() => setTraccia(t => !t)}><PenLine className="size-4" />Traccia{traccia ? ' (attivo)' : ''}</Button>
               </>
             )}
@@ -287,13 +295,13 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
               onQuota={(id, ancora) => {
                 setSelS({ tipo: 'pezzo', id })
                 const q = calc.quote.find(x => x.id === id)
-                if (q) setAperta({ tipo: 'taglio', id, valore: q.valore, ancora })
+                if (q) apri({ tipo: 'taglio', id, valore: q.valore, ancora })
               }}
               onQuotaForma={scheda === 'struttura' ? (id, ancora) => {
                 const q = quote.find(x => x.id === id)
-                if (q) setAperta({ tipo: 'forma', id, valore: q.valore, ancora })
+                if (q) apri({ tipo: 'forma', id, valore: q.valore, ancora })
               } : undefined}
-              onLato={scheda === 'struttura' ? (lato, ancora) => setAperta({ tipo: 'lato', lato, ancora }) : undefined}
+              onLato={scheda === 'struttura' ? (lato, ancora) => apri({ tipo: 'lato', lato, ancora, scritta: r.grafico.noteLati?.[lato] ?? '' }) : undefined}
               onTraccia={suTraccia}
               className="h-[55vh] w-full lg:h-[68vh]"
             />
@@ -304,11 +312,12 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
               <MenuLato key={aperta.lato}
                 ancora={aperta.ancora}
                 arco={Boolean(punti[aperta.lato]?.freccia)}
-                onArco={() => setAperta({ tipo: 'forma', id: `F${aperta.lato}`, valore: Math.round(punti[aperta.lato]?.freccia ?? 0), ancora: aperta.ancora })}
-                onDritto={() => { nuovaForma(impostaArco(punti, aperta.lato, 0)); setAperta(null) }}
+                onArco={() => apri({ tipo: 'forma', id: `F${aperta.lato}`, valore: Math.round(punti[aperta.lato]?.freccia ?? 0), ancora: aperta.ancora })}
+                // Un solo passo: arco tolto e scritta appena scritta insieme (prima la scritta si perdeva)
+                onDritto={() => { nuovaForma(impostaArco(punti, aperta.lato, 0), conScrittaInCorso()); setAperta(null) }}
                 onChiudi={chiudiAperta}
-                scritta={r.grafico.noteLati?.[aperta.lato] ?? ''}
-                onScritta={testo => cambiaGrafico({ ...r.grafico, noteLati: notePulite({ ...r.grafico.noteLati, [aperta.lato]: testo }, punti.length) })}
+                scritta={aperta.scritta}
+                onScritta={testo => setAperta({ ...aperta, scritta: testo })}
               />
             )}
           </div>

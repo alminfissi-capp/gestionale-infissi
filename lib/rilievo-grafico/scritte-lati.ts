@@ -1,7 +1,9 @@
 // Scritte libere sui lati della voce disegnata (es. "L MAG", "soglia ribassata"): chiave =
 // indice del lato, lo stesso dei pezzi telaio T0, T1... (la forma a punti non rinumera i lati).
 import type { LatoContorno } from './prm'
-import { ampiezzaArco } from './forma'
+import type { Forma } from '@/types/rilievo-grafico'
+import type { VoceGraficoDati } from '@/types/rilievo-fp'
+import { ampiezzaArco, formaInPunti, lunghezzaLato } from './forma'
 
 /** Angolo leggibile in gradi (y verso l'alto): mai a testa in giu' */
 const leggibile = (gradi: number) => (gradi > 90 + 1e-6 ? gradi - 180 : gradi <= -90 + 1e-6 ? gradi + 180 : gradi)
@@ -43,4 +45,33 @@ export function notePulite(note: Record<string, string> | undefined, nLati: numb
     if (Number.isInteger(i) && i >= 0 && i < nLati && t.trim()) out[k] = t.trim()
   }
   return out
+}
+
+/**
+ * Carattere e distanza dal lato per una scritta: il testo sta dentro la lunghezza del lato
+ * (si rimpicciolisce se serve) e su un serramento stretto non va oltre un quarto del lato corto.
+ * Larghezza di un carattere stimata a 0,6 volte la sua altezza.
+ */
+export function misuraScritta(l: LatoContorno, testo: string, base: number, W: number, H: number): { carattere: number; distanza: number } {
+  const massimo = (0.9 * lunghezzaLato(l)) / (0.6 * Math.max(1, testo.length))
+  const carattere = Math.min(base, massimo)
+  return { carattere, distanza: Math.min(base * 2.2, Math.min(W, H) * 0.25) }
+}
+
+/**
+ * Forma nuova con le scritte dei lati: restano se il numero dei lati non cambia (quote, archi);
+ * se cambia (forma scelta da Forme) si tolgono, perche' l'indice indicherebbe un altro lato.
+ */
+export function graficoConForma(g: VoceGraficoDati, forma: Forma): VoceGraficoDati {
+  const nuovo: VoceGraficoDati = { ...g, forma }
+  if (!g.noteLati) return nuovo
+  const prima = formaInPunti(g.forma).length, dopo = formaInPunti(forma).length
+  if (prima !== dopo) delete nuovo.noteLati
+  else nuovo.noteLati = notePulite(g.noteLati, dopo)
+  return nuovo
+}
+
+/** Scritta di un lato aggiunta, cambiata o tolta (testo vuoto) */
+export function conNotaLato(g: VoceGraficoDati, lato: number, testo: string): VoceGraficoDati {
+  return { ...g, noteLati: notePulite({ ...g.noteLati, [lato]: testo }, formaInPunti(g.forma).length) }
 }

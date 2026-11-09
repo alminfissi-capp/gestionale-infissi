@@ -1,6 +1,6 @@
 'use client'
 
-import { posizioneScritta } from '@/lib/rilievo-grafico/scritte-lati'
+import { misuraScritta, posizioneScritta } from '@/lib/rilievo-grafico/scritte-lati'
 import { useId, useRef, useState } from 'react'
 import type { Assegnazione, Pt } from '@/types/rilievo-grafico'
 import { pezziInOrdine, type AntaCalcolata, type DisegnoCalcolato, type PezzoCalcolato } from '@/lib/rilievo-grafico/geometria'
@@ -212,9 +212,10 @@ export default function DisegnoSvg({ calc, modo, selezione, profili, riempimenti
         if (!l || !t) return null
         // Dentro il serramento, lungo il suo lato: fuori ci sono le quote della forma, e nella
         // miniatura del riepilogo il bordo taglierebbe il testo.
-        const p = posizioneScritta(l, -fs * (mini ? 2.6 : 2.2))
+        const m = misuraScritta(l, t, fs * (mini ? 2.2 : 1), W, H)
+        const p = posizioneScritta(l, -m.distanza)
         return (
-          <text key={`scritta-${k}`} x={p.x} y={H - p.y} fontSize={fs * (mini ? 2.2 : 1)} fill="#c2410c" fontWeight={600}
+          <text key={`scritta-${k}`} x={p.x} y={H - p.y} fontSize={m.carattere} fill="#c2410c" fontWeight={600}
             textAnchor="middle" dominantBaseline="central" transform={`rotate(${-p.angolo} ${p.x} ${H - p.y})`} pointerEvents="none">{t}</text>
         )
       })}

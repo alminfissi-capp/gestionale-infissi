@@ -5,9 +5,9 @@ const bianco = { fpId: 56, descrizione: 'RAL 9010' }
 const noce = { fpId: 70, descrizione: 'Noce' }
 
 describe('colore unico e Bicolore', () => {
-  it('bicolore solo con due colori diversi', () => {
-    expect(eBicolore(bianco, null)).toBe(false)
-    expect(eBicolore(null, noce)).toBe(false)
+  it("bicolore con due colori diversi, o con un lato solo indicato (cosi' si vede che l'altro manca)", () => {
+    expect(eBicolore(bianco, null)).toBe(true)
+    expect(eBicolore(null, noce)).toBe(true)
     expect(eBicolore(bianco, { ...bianco })).toBe(false)
     expect(eBicolore(bianco, noce)).toBe(true)
     expect(eBicolore(undefined, undefined)).toBe(false)

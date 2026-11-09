@@ -4,7 +4,8 @@ import type { RifFp } from '@/types/rilievo-fp'
 
 type Colore = RifFp | null | undefined
 
-export const eBicolore = (int: Colore, est: Colore): boolean => !!int && !!est && int.fpId !== est.fpId
+/** Bicolore = due colori diversi, oppure un lato solo indicato: cosi' si vede che all'altro manca */
+export const eBicolore = (int: Colore, est: Colore): boolean => (!!int !== !!est) || (!!int && !!est && int.fpId !== est.fpId)
 
 export const colori = (unico: RifFp | null): { coloreInt: RifFp | null; coloreEst: RifFp | null } => ({ coloreInt: unico, coloreEst: unico })
 
