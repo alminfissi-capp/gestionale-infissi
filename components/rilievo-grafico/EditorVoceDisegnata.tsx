@@ -20,6 +20,7 @@ import { dividi, scriviQuotaTaglio } from '@/lib/rilievo-grafico/modifiche'
 import { formaInPunti } from '@/lib/rilievo-grafico/forma'
 import { applicaQuota, impostaArco, quoteForma } from '@/lib/rilievo-grafico/quote-forma'
 import { mancanti, potaAssegnazioni } from '@/lib/rilievo-grafico/ruoli'
+import { notePulite } from '@/lib/rilievo-grafico/scritte-lati'
 import DisegnoSvg from './DisegnoSvg'
 import CasellaQuota, { type Ancora } from './CasellaQuota'
 import MenuLato from './MenuLato'
@@ -53,7 +54,12 @@ async function salvaOra(x: VoceDisegnata) {
   await salvaVoceLocale({ ...x, assegnazioni: attuale?.assegnazioni ?? x.assegnazioni ?? null, assegnazioniAt: attuale?.assegnazioniAt ?? x.assegnazioniAt ?? null })
 }
 
-const grafico = (d: DisegnoGrafico): VoceGraficoDati => ({ forma: d.forma, radice: d.radice, serie: d.serie })
+/** Parte del cantiere del disegno: tiene scritte, colori e accessori; le scritte di lati spariti si tolgono */
+const grafico = (prima: VoceGraficoDati, d: DisegnoGrafico): VoceGraficoDati => {
+  const g: VoceGraficoDati = { ...prima, forma: d.forma, radice: d.radice, serie: d.serie }
+  if (prima.noteLati) g.noteLati = notePulite(prima.noteLati, formaInPunti(d.forma).length)
+  return g
+}
 const uguali = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 const CHIAVE_PANNELLO = 'rilievo-grafico:pannello'
@@ -159,9 +165,15 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
   const cambiaDisegno = (d: DisegnoGrafico, unisci = false) => {
     const a = { profili: d.profili, riempimenti: d.riempimenti }
     if (!uguali(a, { profili: disegno.profili, riempimenti: disegno.riempimenti })) void salvaAssegnazioni(a)
-    const g = grafico(d)
+    const g = grafico(r.grafico, d)
     if (uguali(g, r.grafico)) return
     if (!unisci) setStoria(s => ({ indietro: [...s.indietro.slice(-60), r.grafico], avanti: [] }))
+    cambia({ ...r, grafico: g })
+  }
+  /** Scritte, colori, accessori: un passo di Annulla come il resto del disegno */
+  const cambiaGrafico = (g: VoceGraficoDati) => {
+    if (uguali(g, r.grafico)) return
+    setStoria(s => ({ indietro: [...s.indietro.slice(-60), r.grafico], avanti: [] }))
     cambia({ ...r, grafico: g })
   }
   const cambiaRadice = (radice: Zona, nuovaSel?: SelezioneStruttura) => {
@@ -265,6 +277,7 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
               modo={scheda === 'profili' ? 'profili' : traccia ? 'traccia' : 'struttura'}
               selezione={selezioneSvg}
               profili={disegno.profili}
+              scritteLati={r.grafico.noteLati}
               riempimenti={disegno.riempimenti}
               quoteForma={quote}
               onZona={id => (scheda === 'struttura' ? setSelS(s => (s?.id === id ? null : { tipo: 'zona', id })) : tocca(id))}
@@ -286,12 +299,14 @@ function Editor({ iniziale, onIndietro }: { iniziale: VoceDisegnata; onIndietro:
               <CasellaQuota key={`${aperta.tipo}-${aperta.id}`} ancora={aperta.ancora} valore={aperta.valore} conSegno={/^F\d+$/.test(aperta.id)} onConferma={confermaAperta} onAnnulla={chiudiAperta} />
             )}
             {aperta?.tipo === 'lato' && (
-              <MenuLato
+              <MenuLato key={aperta.lato}
                 ancora={aperta.ancora}
                 arco={Boolean(punti[aperta.lato]?.freccia)}
                 onArco={() => setAperta({ tipo: 'forma', id: `F${aperta.lato}`, valore: Math.round(punti[aperta.lato]?.freccia ?? 0), ancora: aperta.ancora })}
                 onDritto={() => { nuovaForma(impostaArco(punti, aperta.lato, 0)); setAperta(null) }}
                 onChiudi={chiudiAperta}
+                scritta={r.grafico.noteLati?.[aperta.lato] ?? ''}
+                onScritta={testo => cambiaGrafico({ ...r.grafico, noteLati: notePulite({ ...r.grafico.noteLati, [aperta.lato]: testo }, punti.length) })}
               />
             )}
           </div>

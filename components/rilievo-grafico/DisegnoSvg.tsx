@@ -1,5 +1,6 @@
 'use client'
 
+import { posizioneScritta } from '@/lib/rilievo-grafico/scritte-lati'
 import { useId, useRef, useState } from 'react'
 import type { Assegnazione, Pt } from '@/types/rilievo-grafico'
 import { pezziInOrdine, type AntaCalcolata, type DisegnoCalcolato, type PezzoCalcolato } from '@/lib/rilievo-grafico/geometria'
@@ -25,6 +26,8 @@ interface Props {
   /** Tocco su un lato del telaio (indice del lato) */
   onLato?: (lato: number, ancora: Ancora) => void
   onTraccia?: (punti: Pt[]) => void
+  /** Scritte libere dei lati (chiave = indice del lato), in arancione accanto al lato */
+  scritteLati?: Record<string, string>
   className?: string
 }
 
@@ -80,7 +83,7 @@ function Simbolo({ a, H, k }: { a: AntaCalcolata; H: number; k: number }) {
   )
 }
 
-export default function DisegnoSvg({ calc, modo, selezione, profili, riempimenti, quoteForma, onPezzo, onZona, onQuota, onQuotaForma, onLato, onTraccia, className }: Props) {
+export default function DisegnoSvg({ calc, modo, selezione, profili, riempimenti, quoteForma, onPezzo, onZona, onQuota, onQuotaForma, onLato, onTraccia, scritteLati, className }: Props) {
   const uid = useId().replace(/:/g, '')
   const svg = useRef<SVGSVGElement>(null)
   const [traccia, setTraccia] = useState<Pt[] | null>(null)
@@ -202,6 +205,16 @@ export default function DisegnoSvg({ calc, modo, selezione, profili, riempimenti
             <rect x={x - fs * 1.6} y={y - fs * 0.65} width={fs * 3.2} height={fs * 1.3} rx={fs * 0.2} fill={sel.has(q.id) ? SELEZIONE : '#ffffff'} stroke="#f97316" strokeWidth={1} vectorEffect="non-scaling-stroke" />
             <text x={x} y={y} fontSize={fs * 0.8} textAnchor="middle" dominantBaseline="central" fill={sel.has(q.id) ? '#fff' : '#c2410c'}>{q.valore}</text>
           </g>
+        )
+      })}
+      {Object.entries(scritteLati ?? {}).map(([k, t]) => {
+        const l = calc.contorno[Number(k)]
+        if (!l || !t) return null
+        // Tra il telaio e le quote della forma (che stanno piu' fuori)
+        const p = posizioneScritta(l, fs * (mini ? 1.4 : 1.1))
+        return (
+          <text key={`scritta-${k}`} x={p.x} y={H - p.y} fontSize={fs * (mini ? 1.6 : 0.9)} fill="#c2410c" fontWeight={600}
+            textAnchor="middle" dominantBaseline="central" transform={`rotate(${-p.angolo} ${p.x} ${H - p.y})`} pointerEvents="none">{t}</text>
         )
       })}
       {!mini && quoteForma?.map(q => {

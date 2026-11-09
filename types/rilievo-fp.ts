@@ -88,7 +88,15 @@ export interface VoceFp {
   aggiornatoAt: string
 }
 
-export type VoceGraficoDati = Pick<DisegnoGrafico, 'forma' | 'radice' | 'serie'>
+export type VoceGraficoDati = Pick<DisegnoGrafico, 'forma' | 'radice' | 'serie'> & {
+  /** Scritte libere per lato (chiave = indice del lato, come i pezzi telaio T0, T1...) */
+  noteLati?: Record<string, string>
+  coloreInt?: RifFp | null
+  coloreEst?: RifFp | null
+  /** Colori accessori in ordine di preferenza, come nelle voci FP PRO */
+  coloriAcc?: RifFp[]
+  accessoriAggiunti?: AccessorioAggiunto[]
+}
 export type AssegnazioniGrafico = Pick<DisegnoGrafico, 'profili' | 'riempimenti'>
 export type VoceFpVera = VoceFp & { fp: VoceFpDati }
 export type VoceDisegnata = VoceFp & { fp: null; grafico: VoceGraficoDati }
