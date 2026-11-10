@@ -323,6 +323,16 @@ totale_costi_acquisto = Σ(costo_acquisto_unitario × quantita)
 - `sconto_articolo` (0–50%) — applicato sulla singola riga
 - `mostra_sconto_riga` (bool) — controlla se lo sconto per riga appare nel PDF cliente
 
+### 6.7-bis Provvigione agente (2026-11-10)
+- Campo **Provvigione agente** (% o €) nello step finale del wizard, accanto allo sconto
+- Base = mio prezzo: voci + trasporto, **prima** dello sconto (5% su 10.000 → 10.500)
+- Spalmata in modo uniforme (fattore `k = 1 + pct/100`) su ogni voce **e sul trasporto**; in € diventa la % equivalente
+- Lo sconto globale si applica dopo, sui prezzi maggiorati: pesa anche sull'agente (10.000 +5% −10% → 9.450, agente 450)
+- Le righe in DB sono salvate **già maggiorate** (il cliente non vede mai la provvigione: PDF, stampa, link, email, firma invariati); il wizard divide per `k` quando riapre
+- Colonne `preventivi.provvigione_percentuale`, `provvigione_importo_fisso`, `provvigione_importo` (quota agente dopo lo sconto)
+- Report interno / Stampa Calcoli: riga "Provvigione agente" tra i costi; trasporto contato senza provvigione; statistiche commesse e contabilità commessa la scalano dall'utile
+- Logica: `lib/provvigione.ts` (`calcolaTotaliConProvvigione` usato da server e wizard)
+
 ### 6.8 Duplicazione preventivo
 Crea copia identica con:
 - Nuovo ID
