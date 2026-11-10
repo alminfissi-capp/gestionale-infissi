@@ -4,14 +4,12 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { getOrgId } from '@/lib/auth'
 import {
-  calcolaSubtotale,
   calcolaSpeseTrasportoPezzi,
-  calcolaTotalePreventivo,
   calcolaTotalePezzi,
-  calcolaRiepilogoIva,
   calcolaCostoAcquistoUnitario,
   calcolaAccessorioGriglia,
 } from '@/lib/pricing'
+import { calcolaTotaliConProvvigione, fattoreProvvigione, togliProvvigione, applicaProvvigione } from '@/lib/provvigione'
 import { generaNumeroPreventivo } from '@/lib/numerazione'
 import { clienteSchema } from '@/lib/validations/clienteSchema'
 import type {
@@ -315,7 +313,9 @@ export async function getPreventivo(id: string): Promise<PreventivoCompleto | nu
     getRegoleTrasportoLiberi(listinoLiberoIdsForQuote),
   ])
   const quoteTrasporto = calcolaQuoteTrasportoPerArticolo(articoli ?? [], regoleForQuote, regoleLiberiForQuote)
-  const articoliConQuota = (articoli ?? []).map((a, i) => ({ ...a, quota_trasporto: quoteTrasporto[i] ?? 0 }))
+  // Le righe in DB hanno gia' la provvigione, le regole di trasporto no: anche le quote si maggiorano
+  const kProvvigione = fattoreProvvigione(prev.provvigione_percentuale ?? 0)
+  const articoliConQuota = (articoli ?? []).map((a, i) => ({ ...a, quota_trasporto: (quoteTrasporto[i] ?? 0) * kProvvigione }))
 
   // Allegati PDF caricati dal dispositivo (bucket pubblico → getPublicUrl, come i cataloghi)
   const allegatiPdf: { id: string; nome: string; storage_path: string }[] = prev.allegati_pdf ?? []
@@ -517,20 +517,21 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
   ])
 
   const totalePezzi = calcolaTotalePezzi(input.articoli)
-  const subtotale = calcolaSubtotale(input.articoli)
-  const speseTrasporto = calcolaSpeseTrasportoInput(input.articoli, regole, regoleLiberi)
-  const { articoliConCosto, totaleCostiAcquisto } = await calcolaCostiAcquistoInput(input.articoli, regole)
-  const quoteTrasporto = calcolaQuoteTrasportoPerArticolo(input.articoli, regole, regoleLiberi)
-  const articoliConQuota = input.articoli.map((a, i) => ({ ...a, quota_trasporto: quoteTrasporto[i] }))
-  const riepilogoIva = calcolaRiepilogoIva(articoliConQuota, input.scontoGlobale, input.scontoImportoFisso ?? null)
-  const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
-  const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
-    subtotale,
-    input.scontoGlobale,
-    speseTrasporto,
-    ivaTotale,
-    input.scontoImportoFisso ?? null
-  )
+  const { articoliConCosto: articoliConCostoBase, totaleCostiAcquisto } = await calcolaCostiAcquistoInput(input.articoli, regole)
+  // Gli articoli arrivano col mio prezzo: la provvigione (se c'e') si applica qui a righe e trasporto,
+  // e le righe vengono salvate gia' maggiorate (il cliente vede solo quei prezzi).
+  const {
+    articoli: articoliConCosto, provvigionePct, provvigioneImporto,
+    subtotale, speseTrasporto, riepilogoIva, ivaTotale, importoSconto, totaleArticoli, totaleFinale,
+  } = calcolaTotaliConProvvigione({
+    articoliBase: articoliConCostoBase,
+    trasportoBase: calcolaSpeseTrasportoInput(input.articoli, regole, regoleLiberi),
+    quoteBase: calcolaQuoteTrasportoPerArticolo(input.articoli, regole, regoleLiberi),
+    scontoGlobale: input.scontoGlobale,
+    scontoImportoFisso: input.scontoImportoFisso ?? null,
+    provvigionePct: input.provvigionePercentuale ?? 0,
+    provvigioneImportoFisso: input.provvigioneImportoFisso ?? null,
+  })
 
   const { data: prev, error: prevErr } = await supabase
     .from('preventivi')
@@ -541,6 +542,9 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
       cliente_snapshot: input.clienteSnapshot,
       sconto_globale: input.scontoGlobale,
       sconto_importo_fisso: input.scontoImportoFisso ?? null,
+      provvigione_percentuale: provvigionePct,
+      provvigione_importo_fisso: provvigionePct > 0 ? (input.provvigioneImportoFisso ?? null) : null,
+      provvigione_importo: provvigioneImporto,
       mostra_sconto_riga: input.mostraSconto,
       note: input.note || null,
       subtotale,
@@ -592,20 +596,21 @@ export async function updatePreventivo(
   ])
 
   const totalePezzi = calcolaTotalePezzi(input.articoli)
-  const subtotale = calcolaSubtotale(input.articoli)
-  const speseTrasporto = calcolaSpeseTrasportoInput(input.articoli, regole, regoleLiberi)
-  const { articoliConCosto, totaleCostiAcquisto } = await calcolaCostiAcquistoInput(input.articoli, regole)
-  const quoteTrasporto = calcolaQuoteTrasportoPerArticolo(input.articoli, regole, regoleLiberi)
-  const articoliConQuota = input.articoli.map((a, i) => ({ ...a, quota_trasporto: quoteTrasporto[i] }))
-  const riepilogoIva = calcolaRiepilogoIva(articoliConQuota, input.scontoGlobale, input.scontoImportoFisso ?? null)
-  const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
-  const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
-    subtotale,
-    input.scontoGlobale,
-    speseTrasporto,
-    ivaTotale,
-    input.scontoImportoFisso ?? null
-  )
+  const { articoliConCosto: articoliConCostoBase, totaleCostiAcquisto } = await calcolaCostiAcquistoInput(input.articoli, regole)
+  // Gli articoli arrivano col mio prezzo: la provvigione (se c'e') si applica qui a righe e trasporto,
+  // e le righe vengono salvate gia' maggiorate (il cliente vede solo quei prezzi).
+  const {
+    articoli: articoliConCosto, provvigionePct, provvigioneImporto,
+    subtotale, speseTrasporto, riepilogoIva, ivaTotale, importoSconto, totaleArticoli, totaleFinale,
+  } = calcolaTotaliConProvvigione({
+    articoliBase: articoliConCostoBase,
+    trasportoBase: calcolaSpeseTrasportoInput(input.articoli, regole, regoleLiberi),
+    quoteBase: calcolaQuoteTrasportoPerArticolo(input.articoli, regole, regoleLiberi),
+    scontoGlobale: input.scontoGlobale,
+    scontoImportoFisso: input.scontoImportoFisso ?? null,
+    provvigionePct: input.provvigionePercentuale ?? 0,
+    provvigioneImportoFisso: input.provvigioneImportoFisso ?? null,
+  })
 
   const { error: prevErr } = await supabase
     .from('preventivi')
@@ -615,6 +620,9 @@ export async function updatePreventivo(
       cliente_snapshot: input.clienteSnapshot,
       sconto_globale: input.scontoGlobale,
       sconto_importo_fisso: input.scontoImportoFisso ?? null,
+      provvigione_percentuale: provvigionePct,
+      provvigione_importo_fisso: provvigionePct > 0 ? (input.provvigioneImportoFisso ?? null) : null,
+      provvigione_importo: provvigioneImporto,
       mostra_sconto_riga: input.mostraSconto,
       note: input.note || null,
       subtotale,
@@ -703,6 +711,9 @@ export async function duplicaPreventivo(id: string): Promise<{ id: string }> {
       cliente_snapshot: src.cliente_snapshot,
       sconto_globale: src.sconto_globale,
       sconto_importo_fisso: src.sconto_importo_fisso ?? null,
+      provvigione_percentuale: src.provvigione_percentuale ?? 0,
+      provvigione_importo_fisso: src.provvigione_importo_fisso ?? null,
+      provvigione_importo: src.provvigione_importo ?? 0,
       mostra_sconto_riga: src.mostra_sconto_riga ?? false,
       note: src.note,
       subtotale: src.subtotale,
@@ -767,7 +778,7 @@ async function ricalcolaTotaliPreventivo(
   preventivoId: string
 ): Promise<void> {
   const [{ data: prev }, { data: articoli }] = await Promise.all([
-    supabase.from('preventivi').select('sconto_globale, sconto_importo_fisso').eq('id', preventivoId).single(),
+    supabase.from('preventivi').select('sconto_globale, sconto_importo_fisso, provvigione_percentuale').eq('id', preventivoId).single(),
     supabase.from('articoli_preventivo').select('*').eq('preventivo_id', preventivoId),
   ])
   if (!prev) throw new Error('Preventivo non trovato')
@@ -780,19 +791,24 @@ async function ricalcolaTotaliPreventivo(
     getRegoleTrasportoLiberi(listinoLiberoIds),
   ])
 
-  const scontoGlobale = prev.sconto_globale ?? 0
-  const scontoImportoFisso = prev.sconto_importo_fisso ?? null
+  // Le righe in DB hanno gia' la provvigione: si torna al mio prezzo e si riapplica la stessa
+  // percentuale (un eventuale importo fisso in euro non vale piu', il lordo e' cambiato).
+  const pctSalvata = Number(prev.provvigione_percentuale) || 0
+  const righeBase = togliProvvigione(righe, pctSalvata)
   const totalePezzi = calcolaTotalePezzi(righe)
-  const subtotale = calcolaSubtotale(righe)
-  const speseTrasporto = calcolaSpeseTrasportoInput(righe, regole, regoleLiberi)
-  const quoteTrasporto = calcolaQuoteTrasportoPerArticolo(righe, regole, regoleLiberi)
-  const righeConQuota = righe.map((a, i) => ({ ...a, quota_trasporto: quoteTrasporto[i] }))
-  const riepilogoIva = calcolaRiepilogoIva(righeConQuota, scontoGlobale, scontoImportoFisso)
-  const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
   const totaleCostiAcquisto = righe.reduce((sum, a) => sum + (a.costo_acquisto_unitario ?? 0) * a.quantita, 0)
-  const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
-    subtotale, scontoGlobale, speseTrasporto, ivaTotale, scontoImportoFisso
-  )
+  const {
+    provvigionePct, provvigioneImporto,
+    subtotale, speseTrasporto, riepilogoIva, ivaTotale, importoSconto, totaleArticoli, totaleFinale,
+  } = calcolaTotaliConProvvigione({
+    articoliBase: righeBase,
+    trasportoBase: calcolaSpeseTrasportoInput(righeBase, regole, regoleLiberi),
+    quoteBase: calcolaQuoteTrasportoPerArticolo(righeBase, regole, regoleLiberi),
+    scontoGlobale: prev.sconto_globale ?? 0,
+    scontoImportoFisso: prev.sconto_importo_fisso ?? null,
+    provvigionePct: pctSalvata,
+    provvigioneImportoFisso: null,
+  })
 
   const { error } = await supabase
     .from('preventivi')
@@ -806,6 +822,9 @@ async function ricalcolaTotaliPreventivo(
       riepilogo_iva: riepilogoIva,
       totale_finale: totaleFinale,
       totale_pezzi: totalePezzi,
+      provvigione_percentuale: provvigionePct,
+      provvigione_importo_fisso: null,
+      provvigione_importo: provvigioneImporto,
     })
     .eq('id', preventivoId)
   if (error) throw new Error(error.message)
@@ -824,7 +843,7 @@ export async function copiaArticoloInPreventivo(
 
   const [{ data: articolo, error: artErr }, { data: target, error: tgtErr }] = await Promise.all([
     supabase.from('articoli_preventivo').select('*').eq('id', articoloId).eq('organization_id', orgId).single(),
-    supabase.from('preventivi').select('id, firma_stato').eq('id', targetPreventivoId).eq('organization_id', orgId).single(),
+    supabase.from('preventivi').select('id, firma_stato, provvigione_percentuale').eq('id', targetPreventivoId).eq('organization_id', orgId).single(),
   ])
   if (artErr || !articolo) throw new Error('Articolo non trovato')
   if (tgtErr || !target) throw new Error('Preventivo di destinazione non trovato')
@@ -842,7 +861,15 @@ export async function copiaArticoloInPreventivo(
     .maybeSingle()
   const nuovoOrdine = (maxRow?.ordine ?? -1) + 1
 
-  const { id: _id, preventivo_id: _pid, created_at: _ca, ordine: _ord, ...rest } = articolo as ArticoloPreventivoRow
+  // La riga sorgente ha i prezzi con la provvigione del SUO preventivo: si torna al mio prezzo
+  // e si applica quella del preventivo di destinazione.
+  const { data: sorgente } = await supabase.from('preventivi').select('provvigione_percentuale')
+    .eq('id', (articolo as ArticoloPreventivoRow).preventivo_id).single()
+  const [articoloTarget] = applicaProvvigione(
+    togliProvvigione([articolo as ArticoloPreventivoRow], Number(sorgente?.provvigione_percentuale) || 0),
+    Number(target.provvigione_percentuale) || 0,
+  )
+  const { id: _id, preventivo_id: _pid, created_at: _ca, ordine: _ord, ...rest } = articoloTarget
   const { error: insErr } = await supabase.from('articoli_preventivo').insert({
     ...rest,
     preventivo_id: targetPreventivoId,

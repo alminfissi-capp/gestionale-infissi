@@ -6,6 +6,7 @@ import {
   togliProvvigione,
   senzaProvvigione,
   importoProvvigione,
+  calcolaTotaliConProvvigione,
 } from '@/lib/provvigione'
 
 describe('percentualeProvvigione', () => {
@@ -56,5 +57,62 @@ describe('importoProvvigione', () => {
   })
   it('senza prezzo: 0', () => {
     expect(importoProvvigione(0, 0, 5)).toBe(0)
+  })
+})
+
+describe('calcolaTotaliConProvvigione', () => {
+  const riga = (prezzo: number, iva: number | null = 22) => ({ prezzo_unitario: prezzo, prezzo_totale_riga: prezzo, aliquota_iva: iva, quantita: 1 })
+
+  it('esempio della chat: 10.000, provvigione 5%, sconto 10% → 9.450, agente 450', () => {
+    const t = calcolaTotaliConProvvigione({
+      articoliBase: [riga(6000), riga(4000)], trasportoBase: 0, quoteBase: [0, 0],
+      scontoGlobale: 10, scontoImportoFisso: null, provvigionePct: 5, provvigioneImportoFisso: null,
+    })
+    expect(t.articoli[0].prezzo_unitario).toBeCloseTo(6300, 8)
+    expect(t.subtotale).toBeCloseTo(10500, 8)
+    expect(t.totaleArticoli).toBeCloseTo(9450, 8)
+    expect(t.provvigioneImporto).toBe(450)
+    expect(t.provvigionePct).toBe(5)
+  })
+
+  it('anche il trasporto e le sue quote salgono della provvigione', () => {
+    const t = calcolaTotaliConProvvigione({
+      articoliBase: [riga(900)], trasportoBase: 100, quoteBase: [100],
+      scontoGlobale: 0, scontoImportoFisso: null, provvigionePct: 5, provvigioneImportoFisso: null,
+    })
+    expect(t.speseTrasporto).toBeCloseTo(105, 8)
+    expect(t.quoteTrasporto[0]).toBeCloseTo(105, 8)
+    expect(t.totaleArticoli).toBeCloseTo(1050, 8)
+    expect(t.ivaTotale).toBeCloseTo(1050 * 0.22, 8)
+    expect(t.provvigioneImporto).toBe(50)
+  })
+
+  it('provvigione in euro: 500 su 10.000 = 5%', () => {
+    const t = calcolaTotaliConProvvigione({
+      articoliBase: [riga(10000)], trasportoBase: 0, quoteBase: [0],
+      scontoGlobale: 0, scontoImportoFisso: null, provvigionePct: 0, provvigioneImportoFisso: 500,
+    })
+    expect(t.provvigionePct).toBeCloseTo(5, 10)
+    expect(t.totaleArticoli).toBeCloseTo(10500, 8)
+    expect(t.provvigioneImporto).toBe(500)
+  })
+
+  it('sconto in euro resta l importo esatto sul lordo maggiorato', () => {
+    const t = calcolaTotaliConProvvigione({
+      articoliBase: [riga(10000)], trasportoBase: 0, quoteBase: [0],
+      scontoGlobale: 0, scontoImportoFisso: 1050, provvigionePct: 5, provvigioneImportoFisso: null,
+    })
+    expect(t.importoSconto).toBeCloseTo(1050, 8)
+    expect(t.totaleArticoli).toBeCloseTo(9450, 8)
+    expect(t.provvigioneImporto).toBe(450)
+  })
+
+  it('senza provvigione i totali sono quelli di sempre', () => {
+    const t = calcolaTotaliConProvvigione({
+      articoliBase: [riga(1000)], trasportoBase: 50, quoteBase: [50],
+      scontoGlobale: 10, scontoImportoFisso: null, provvigionePct: 0, provvigioneImportoFisso: null,
+    })
+    expect(t.totaleArticoli).toBeCloseTo(945, 8)
+    expect(t.provvigioneImporto).toBe(0)
   })
 })

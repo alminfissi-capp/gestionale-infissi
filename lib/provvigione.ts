@@ -6,6 +6,8 @@
 // mostrano i prezzi cliente senza saperne nulla); il mio prezzo si ricava dividendo per k.
 // Lo sconto globale si applica dopo, sui prezzi maggiorati: pesa anche sull'agente.
 
+import { calcolaSubtotale, calcolaRiepilogoIva, calcolaTotalePreventivo, type RiepilogoIvaItem } from '@/lib/pricing'
+
 type RigaPrezzo = { prezzo_unitario: number; prezzo_totale_riga: number }
 
 /**
@@ -52,4 +54,54 @@ export function importoProvvigione(lordoCliente: number, totaleArticoli: number,
   if (lordoCliente <= 0 || pct <= 0) return 0
   const quotaLorda = lordoCliente - lordoCliente / fattoreProvvigione(pct)
   return Math.round(quotaLorda * (totaleArticoli / lordoCliente) * 100) / 100
+}
+
+/**
+ * Totali completi del preventivo partendo dal MIO prezzo: applica la provvigione a righe,
+ * trasporto e quote di trasporto, poi sconto, IVA e totali come sempre.
+ * Unica fonte per server (salvataggio) e wizard (anteprima): i numeri devono coincidere.
+ * `quoteBase` = quote di trasporto per riga (parallele ad articoliBase), senza provvigione.
+ */
+export function calcolaTotaliConProvvigione<T extends RigaPrezzo & { aliquota_iva: number | null }>(p: {
+  articoliBase: T[]
+  trasportoBase: number
+  quoteBase: number[]
+  scontoGlobale: number
+  scontoImportoFisso: number | null
+  provvigionePct: number
+  provvigioneImportoFisso: number | null
+}): {
+  articoli: T[]
+  quoteTrasporto: number[]
+  provvigionePct: number
+  subtotale: number
+  speseTrasporto: number
+  riepilogoIva: RiepilogoIvaItem[]
+  ivaTotale: number
+  importoSconto: number
+  totaleArticoli: number
+  totaleFinale: number
+  provvigioneImporto: number
+} {
+  const lordoBase = calcolaSubtotale(p.articoliBase) + p.trasportoBase
+  const provvigionePct = percentualeProvvigione(lordoBase, p.provvigionePct, p.provvigioneImportoFisso)
+  const k = fattoreProvvigione(provvigionePct)
+  const articoli = applicaProvvigione(p.articoliBase, provvigionePct)
+  const quoteTrasporto = p.articoliBase.map((_, i) => (p.quoteBase[i] ?? 0) * k)
+  const speseTrasporto = p.trasportoBase * k
+  const subtotale = calcolaSubtotale(articoli)
+  const riepilogoIva = calcolaRiepilogoIva(
+    articoli.map((a, i) => ({ ...a, quota_trasporto: quoteTrasporto[i] })),
+    p.scontoGlobale,
+    p.scontoImportoFisso,
+  )
+  const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
+  const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
+    subtotale, p.scontoGlobale, speseTrasporto, ivaTotale, p.scontoImportoFisso,
+  )
+  return {
+    articoli, quoteTrasporto, provvigionePct, subtotale, speseTrasporto, riepilogoIva, ivaTotale,
+    importoSconto, totaleArticoli, totaleFinale,
+    provvigioneImporto: importoProvvigione(subtotale + speseTrasporto, totaleArticoli, provvigionePct),
+  }
 }
