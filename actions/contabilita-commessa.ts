@@ -129,7 +129,7 @@ export async function getPaginaContabile(commessaId: string): Promise<PaginaCont
   let preventivoNumero: string | null = null
   if (prevIds.length) {
     const [{ data: prev }, arts] = await Promise.all([
-      supabase.from('preventivi').select('id, numero, totale_articoli, spese_trasporto').in('id', prevIds),
+      supabase.from('preventivi').select('id, numero, totale_articoli, spese_trasporto, provvigione_percentuale, provvigione_importo').in('id', prevIds),
       selectAll<ArticoloCosti & { preventivo_id: string }>((da, a) =>
         supabase.from('articoli_preventivo')
           .select('preventivo_id, tipo, quantita, costo_acquisto_unitario, costo_posa, config_su_misura, config_scorrevole, prezzo_fp:config_fppro->calcolo->prezzo')
@@ -137,8 +137,10 @@ export async function getPaginaContabile(commessaId: string): Promise<PaginaCont
     ])
     let materiali = 0, posa = 0, spese = 0, trasporto = 0
     for (const p of prev ?? []) {
-      const r = calcolaCostiPreventivo(arts.filter((a) => a.preventivo_id === p.id), Number(p.totale_articoli) || 0, Number(p.spese_trasporto) || 0)
-      materiali += r.materiali; posa += r.posa; spese += r.spese; trasporto += Number(p.spese_trasporto) || 0
+      const r = calcolaCostiPreventivo(arts.filter((a) => a.preventivo_id === p.id), Number(p.totale_articoli) || 0, Number(p.spese_trasporto) || 0,
+        { percentuale: Number(p.provvigione_percentuale) || 0, importo: Number(p.provvigione_importo) || 0 })
+      // La provvigione agente va con le spese (come quella gia' dentro le righe FP PRO)
+      materiali += r.materiali; posa += r.posa; spese += r.spese + r.provvigione; trasporto += r.trasporto
     }
     if (materiali || posa || spese || trasporto) stimaPreventivo = stimaDaPreventivo({ materiali, posa, spese, trasporto })
     preventivoNumero = (prev ?? []).map((p) => p.numero).filter(Boolean).join(', ') || null

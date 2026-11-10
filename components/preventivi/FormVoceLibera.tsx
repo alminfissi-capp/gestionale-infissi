@@ -24,6 +24,7 @@ import {
 import ScontoSelect from './ScontoSelect'
 import type { ArticoloWizard } from '@/types/preventivo'
 import type { ArchivioCategoriaConImmagini, IconaPreventivo } from '@/types/impostazioni'
+import { arrotondaCent } from '@/lib/provvigione'
 
 interface Props {
   aliquote: number[]
@@ -34,7 +35,7 @@ interface Props {
 
 export default function FormVoceLibera({ aliquote, initialValues, isEditing, onAdd }: Props) {
   const [descrizione, setDescrizione] = useState(initialValues?.tipologia ?? '')
-  const [prezzoUnitario, setPrezzoUnitario] = useState(initialValues?.prezzo_unitario?.toString() ?? '')
+  const [prezzoUnitario, setPrezzoUnitario] = useState(initialValues?.prezzo_unitario != null ? String(arrotondaCent(initialValues.prezzo_unitario)) : '')
   const [costoAcquisto, setCostoAcquisto] = useState(initialValues?.costo_acquisto_unitario?.toString() ?? '')
   const [costoManodopera, setCostoManodopera] = useState(initialValues?.costo_posa?.toString() ?? '')
   const [larghezza, setLarghezza] = useState(initialValues?.larghezza_mm?.toString() ?? '')

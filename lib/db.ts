@@ -25,6 +25,8 @@ export interface BozzaWizard {
   scontoGlobale: number
   scontoImportoFisso: number | null
   mostraSconto: boolean
+  provvigionePct?: number
+  provvigioneImportoFisso?: number | null
   note: string
   updatedAt: string
 }

@@ -3,6 +3,7 @@
 // commesse (analisi costi/utili stimati per mese).
 
 import type { ArticoloPreventivoRow } from '@/types/preventivo'
+import { senzaProvvigione } from '@/lib/provvigione'
 
 // Sottoinsieme di campi necessari al calcolo costi (così il server può passare righe parziali).
 export type ArticoloCosti = Pick<
@@ -61,16 +62,26 @@ export type CostiPreventivo = {
   materiali: number   // Σ acq × quantità
   posa: number        // Σ posa × quantità
   spese: number       // Σ spese varie × quantità (articoli su misura; righe FP PRO: spese generali + provvigione + spese varie)
-  costoTotale: number // materiali + posa + spese + spese trasporto
+  trasporto: number   // spese trasporto come costo, senza la parte di provvigione
+  provvigione: number // quota agente dopo lo sconto (0 se nessuna)
+  costoTotale: number // materiali + posa + spese + trasporto + provvigione
   utile: number       // totaleArticoli − costoTotale
 }
 
+/** Il Report interno ha qualcosa da mostrare: costi, trasporto o provvigione */
+export function mostraReportInterno(c: Pick<CostiPreventivo, 'materiali' | 'posa' | 'spese' | 'trasporto' | 'provvigione'>): boolean {
+  return c.materiali !== 0 || c.posa !== 0 || c.spese !== 0 || c.trasporto !== 0 || c.provvigione !== 0
+}
+
 // Aggrega i costi/utile di un intero preventivo.
-// utile = totaleArticoli − (materiali + posa + speseVarie + speseTrasporto).
+// utile = totaleArticoli − (materiali + posa + speseVarie + trasporto + provvigione).
+// Con provvigione: speseTrasporto (quello salvato, gia' maggiorato) si conta senza la sua
+// parte di provvigione, che e' gia' dentro `provvigione.importo` (non contarla due volte).
 export function calcolaCostiPreventivo(
   articoli: ArticoloCosti[],
   totaleArticoli: number,
   speseTrasporto: number,
+  provvigione?: { percentuale: number; importo: number },
 ): CostiPreventivo {
   let materiali = 0
   let posa = 0
@@ -81,7 +92,10 @@ export function calcolaCostiPreventivo(
     posa += c.posa * a.quantita
     spese += c.spese * a.quantita
   }
-  const costoTotale = materiali + posa + spese + speseTrasporto
+  const pct = Number(provvigione?.percentuale) || 0
+  const trasporto = pct > 0 ? senzaProvvigione(speseTrasporto, pct) : speseTrasporto
+  const quotaAgente = Number(provvigione?.importo) || 0
+  const costoTotale = materiali + posa + spese + trasporto + quotaAgente
   const utile = totaleArticoli - costoTotale
-  return { materiali, posa, spese, costoTotale, utile }
+  return { materiali, posa, spese, trasporto, provvigione: quotaAgente, costoTotale, utile }
 }

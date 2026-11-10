@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { costiArticolo, calcolaCostiPreventivo, type ArticoloCosti } from '@/lib/preventivo-costi'
+import { costiArticolo, calcolaCostiPreventivo, mostraReportInterno, type ArticoloCosti } from '@/lib/preventivo-costi'
 import type { ConfigSuMisuraArticolo } from '@/types/preventivo'
 
 // Config su misura minimale: il form compone il prezzo come
@@ -110,5 +110,41 @@ describe('righe da un rilievo FP PRO', () => {
   })
   it('voce libera normale: nessuna spesa', () => {
     expect(costiArticolo(riga({ config_fppro: null })).spese).toBe(0)
+  })
+})
+
+describe('calcolaCostiPreventivo con provvigione', () => {
+  const vuota: ArticoloCosti = {
+    tipo: 'libera', quantita: 1, costo_acquisto_unitario: 0, costo_posa: 0,
+    config_su_misura: null, config_scorrevole: null,
+  }
+  it('la provvigione e un costo: 9.450 incassati, 450 all agente → utile 9.000', () => {
+    const r = calcolaCostiPreventivo([vuota], 9450, 0, { percentuale: 5, importo: 450 })
+    expect(r.provvigione).toBe(450)
+    expect(r.utile).toBeCloseTo(9000, 8)
+  })
+  it('il trasporto si conta senza la sua parte di provvigione', () => {
+    const r = calcolaCostiPreventivo([vuota], 1050, 105, { percentuale: 5, importo: 50 })
+    expect(r.costoTotale).toBeCloseTo(150, 8)
+    expect(r.trasporto).toBeCloseTo(100, 8)
+  })
+  it('senza provvigione nessuna differenza', () => {
+    const r = calcolaCostiPreventivo([vuota], 1000, 100)
+    expect(r.provvigione).toBe(0)
+    expect(r.trasporto).toBe(100)
+    expect(r.utile).toBe(900)
+  })
+})
+
+describe('mostraReportInterno', () => {
+  const zero = { materiali: 0, posa: 0, spese: 0, trasporto: 0, provvigione: 0, costoTotale: 0, utile: 0 }
+  it('nascosto se non ci sono costi ne provvigione', () => {
+    expect(mostraReportInterno(zero)).toBe(false)
+  })
+  it('visibile se c e solo la provvigione', () => {
+    expect(mostraReportInterno({ ...zero, provvigione: 50 })).toBe(true)
+  })
+  it('visibile con il solo trasporto', () => {
+    expect(mostraReportInterno({ ...zero, trasporto: 10 })).toBe(true)
   })
 })

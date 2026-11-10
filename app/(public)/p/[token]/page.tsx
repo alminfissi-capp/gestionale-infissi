@@ -5,6 +5,7 @@ import { createPublicClient } from '@/lib/supabase/public'
 import { createServiceClient } from '@/lib/supabase/service'
 import StampaPreventivo from '@/components/preventivi/StampaPreventivo'
 import type { PreventivoCompleto } from '@/types/preventivo'
+import { senzaDatiProvvigione } from '@/lib/provvigione'
 import type { Settings } from '@/types/impostazioni'
 
 interface Props {
@@ -73,7 +74,9 @@ async function getPreventivoByToken(token: string): Promise<PreventivoCompleto |
 
   // config_fppro contiene il calcolo interno (costi, utile, provvigione): non va nella pagina del cliente.
   const articoliCliente = (articoli ?? []).map(({ config_fppro: _calcoloInterno, ...a }) => a)
-  return { ...prev, articoli: articoliCliente, cataloghi_allegati_data, allegati_pdf_data, allegati_calcoli_data: [] }
+  // La provvigione agente non deve arrivare nel browser del cliente (i prezzi la contengono gia').
+  return { ...senzaDatiProvvigione(prev as PreventivoCompleto), provvigione_percentuale: 0, provvigione_importo: 0, provvigione_importo_fisso: null,
+    articoli: articoliCliente, cataloghi_allegati_data, allegati_pdf_data, allegati_calcoli_data: [] }
 }
 
 async function getSettingsPubblici(orgId: string): Promise<Settings | null> {

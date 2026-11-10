@@ -132,6 +132,12 @@ export type Preventivo = {
   cliente_snapshot: ClienteSnapshot
   sconto_globale: number
   sconto_importo_fisso: number | null
+  /** Provvigione agente: percentuale effettiva sul mio prezzo (voci + trasporto, prima dello sconto) */
+  provvigione_percentuale: number
+  /** Provvigione scritta in euro: importo esatto (altrimenti null) */
+  provvigione_importo_fisso: number | null
+  /** Quanto spetta all'agente dopo lo sconto (solo uso interno) */
+  provvigione_importo: number
   note: string | null
   subtotale: number
   importo_sconto: number
@@ -178,6 +184,9 @@ export type PreventivoInput = {
   articoli: Omit<ArticoloWizard, 'tempId'>[]
   scontoGlobale: number
   scontoImportoFisso: number | null
+  /** Articoli col MIO prezzo: la provvigione la applica il server. Assente = nessuna provvigione */
+  provvigionePercentuale?: number
+  provvigioneImportoFisso?: number | null
   mostraSconto: boolean
   note: string
 }
