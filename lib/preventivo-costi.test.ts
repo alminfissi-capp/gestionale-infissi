@@ -112,3 +112,26 @@ describe('righe da un rilievo FP PRO', () => {
     expect(costiArticolo(riga({ config_fppro: null })).spese).toBe(0)
   })
 })
+
+describe('calcolaCostiPreventivo con provvigione', () => {
+  const vuota: ArticoloCosti = {
+    tipo: 'libera', quantita: 1, costo_acquisto_unitario: 0, costo_posa: 0,
+    config_su_misura: null, config_scorrevole: null,
+  }
+  it('la provvigione e un costo: 9.450 incassati, 450 all agente → utile 9.000', () => {
+    const r = calcolaCostiPreventivo([vuota], 9450, 0, { percentuale: 5, importo: 450 })
+    expect(r.provvigione).toBe(450)
+    expect(r.utile).toBeCloseTo(9000, 8)
+  })
+  it('il trasporto si conta senza la sua parte di provvigione', () => {
+    const r = calcolaCostiPreventivo([vuota], 1050, 105, { percentuale: 5, importo: 50 })
+    expect(r.costoTotale).toBeCloseTo(150, 8)
+    expect(r.trasporto).toBeCloseTo(100, 8)
+  })
+  it('senza provvigione nessuna differenza', () => {
+    const r = calcolaCostiPreventivo([vuota], 1000, 100)
+    expect(r.provvigione).toBe(0)
+    expect(r.trasporto).toBe(100)
+    expect(r.utile).toBe(900)
+  })
+})

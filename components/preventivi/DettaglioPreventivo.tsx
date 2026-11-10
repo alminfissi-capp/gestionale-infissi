@@ -17,6 +17,7 @@ import DialogInvioEmail from '@/components/preventivi/DialogInvioEmail'
 import { generaShareToken, revokaShareToken } from '@/actions/condivisione'
 import { formatEuro } from '@/lib/pricing'
 import { costiArticolo, calcolaCostiPreventivo } from '@/lib/preventivo-costi'
+import { senzaProvvigione } from '@/lib/provvigione'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -799,8 +800,9 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
       {(() => {
         // Costi/utile via funzione condivisa (lib/preventivo-costi) — stessa formula delle statistiche
         const getCosti = costiArticolo
-        const { materiali: totaleCostiAcquisto, posa: totalePosa, spese: totaleSpeseVarie, costoTotale, utile } =
-          calcolaCostiPreventivo(p.articoli, p.totale_articoli, p.spese_trasporto)
+        const pctProvv = p.provvigione_percentuale ?? 0
+        const { materiali: totaleCostiAcquisto, posa: totalePosa, spese: totaleSpeseVarie, trasporto: costoTrasporto, provvigione, costoTotale, utile } =
+          calcolaCostiPreventivo(p.articoli, p.totale_articoli, p.spese_trasporto, { percentuale: pctProvv, importo: p.provvigione_importo ?? 0 })
         if (totaleCostiAcquisto === 0 && totalePosa === 0 && totaleSpeseVarie === 0 && p.spese_trasporto === 0) return null
         const percUtile = costoTotale > 0 ? (utile / costoTotale) * 100 : null
         return (
@@ -830,7 +832,8 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
                   {p.articoli.map((a) => {
                     const { acq, posa, spese } = getCosti(a)
                     const costoTotRiga = (acq + posa + spese) * a.quantita
-                    const margineRiga = a.prezzo_totale_riga - costoTotRiga
+                    // Ricavo della riga senza la provvigione (va all'agente, non e' margine)
+                    const margineRiga = senzaProvvigione(a.prezzo_totale_riga, pctProvv) - costoTotRiga
                     return (
                       <tr key={a.id} className="border-b border-amber-100">
                         <td className="py-1.5 pr-2">
@@ -887,7 +890,15 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
               {p.spese_trasporto > 0 && (
                 <div className="flex justify-between text-gray-600">
                   <span className="flex items-center gap-1"><Truck className="h-3.5 w-3.5" />Spese trasporto</span>
-                  <span className="tabular-nums">€ {formatEuro(p.spese_trasporto)}</span>
+                  <span className="tabular-nums">€ {formatEuro(costoTrasporto)}</span>
+                </div>
+              )}
+              {provvigione > 0 && (
+                <div className="flex justify-between text-gray-600">
+                  <span className="flex items-center gap-1">
+                    Provvigione agente{p.provvigione_importo_fisso == null ? ` ${pctProvv.toLocaleString('it-IT', { maximumFractionDigits: 2 })}%` : ''}
+                  </span>
+                  <span className="tabular-nums">€ {formatEuro(provvigione)}</span>
                 </div>
               )}
               {(p.sconto_globale > 0 || (p.sconto_importo_fisso ?? 0) > 0) && (

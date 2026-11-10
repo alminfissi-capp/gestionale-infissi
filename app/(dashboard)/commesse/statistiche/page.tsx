@@ -180,7 +180,7 @@ export default async function StatisticheCommessePage() {
     const [prevRaw, artRaw] = await Promise.all([
       selectAll((da, a) => supabase
         .from('preventivi')
-        .select('id, totale_articoli, spese_trasporto')
+        .select('id, totale_articoli, spese_trasporto, provvigione_percentuale, provvigione_importo')
         .in('id', tuttiPrevIds)
         .order('id').range(da, a)),
       // La tabella piu' grossa della pagina: qui il tetto delle 1000 righe e' una
@@ -205,6 +205,7 @@ export default async function StatisticheCommessePage() {
         arts,
         Number(p.totale_articoli) || 0,
         Number(p.spese_trasporto) || 0,
+        { percentuale: Number(p.provvigione_percentuale) || 0, importo: Number(p.provvigione_importo) || 0 },
       )
       costiPerPrev.set(p.id, { materiali, posa, spese, utile })
     }

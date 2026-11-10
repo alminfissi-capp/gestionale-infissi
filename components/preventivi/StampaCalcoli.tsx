@@ -6,6 +6,7 @@ import { Printer, ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatEuro } from '@/lib/pricing'
 import { costiArticolo, calcolaCostiPreventivo } from '@/lib/preventivo-costi'
+import { senzaProvvigione } from '@/lib/provvigione'
 import type { PreventivoCompleto } from '@/types/preventivo'
 import type { Settings } from '@/types/impostazioni'
 import AllegatoCatalogoPdf from '@/components/preventivi/AllegatoCatalogoPdf'
@@ -110,9 +111,13 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
     materiali: totaleCostiAcquisto,
     posa: totalePosa,
     spese: totaleSpeseVarie,
+    trasporto: costoTrasporto,
+    provvigione,
     costoTotale,
     utile,
-  } = calcolaCostiPreventivo(articoliOrdinati, p.totale_articoli, p.spese_trasporto)
+  } = calcolaCostiPreventivo(articoliOrdinati, p.totale_articoli, p.spese_trasporto,
+    { percentuale: p.provvigione_percentuale ?? 0, importo: p.provvigione_importo ?? 0 })
+  const pctProvv = p.provvigione_percentuale ?? 0
   const percUtile = costoTotale > 0 ? (utile / costoTotale) * 100 : null
 
   return (
@@ -206,9 +211,10 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
           <tbody>
             {articoliOrdinati.map((a, i) => {
               const { acq: costoAcquisto, posa: costoPosa, spese: speseVarie } = costiArticolo(a)
-              const quotaTrasporto = a.quota_trasporto ?? 0
+              // Trasporto e ricavo della riga senza la provvigione (va all'agente, non e' margine)
+              const quotaTrasporto = senzaProvvigione(a.quota_trasporto ?? 0, pctProvv)
               const costoTotRiga = (costoAcquisto + costoPosa + speseVarie) * a.quantita + quotaTrasporto
-              const margineRiga = a.prezzo_totale_riga - costoTotRiga
+              const margineRiga = senzaProvvigione(a.prezzo_totale_riga, pctProvv) - costoTotRiga
               return (
                 <tr key={a.id} className="border-b border-gray-200 align-top">
                   <td className="py-2 text-center text-gray-500 font-mono">
@@ -287,8 +293,14 @@ function DocumentoCalcoli({ p, s, nomeCliente, dataFormattata, titolo, settings,
             )}
             <div className="flex justify-between text-gray-700">
               <span>— Spese trasporto</span>
-              <span className="tabular-nums">€ {formatEuro(p.spese_trasporto)}</span>
+              <span className="tabular-nums">€ {formatEuro(costoTrasporto)}</span>
             </div>
+            {provvigione > 0 && (
+              <div className="flex justify-between text-gray-700">
+                <span>— Provvigione agente{p.provvigione_importo_fisso == null ? ` ${pctProvv.toLocaleString('it-IT', { maximumFractionDigits: 2 })}%` : ''}</span>
+                <span className="tabular-nums">€ {formatEuro(provvigione)}</span>
+              </div>
+            )}
           </div>
           <div className={`flex justify-between font-bold text-[13px] border-t border-amber-300 pt-2 mt-1 ${utile >= 0 ? 'text-green-700' : 'text-red-600'}`}>
             <span>
