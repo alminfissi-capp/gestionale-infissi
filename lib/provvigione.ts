@@ -11,6 +11,11 @@ import { calcolaSubtotale, calcolaRiepilogoIva, calcolaTotalePreventivo, type Ri
 type RigaPrezzo = { prezzo_unitario: number; prezzo_totale_riga: number }
 type RigaConQuantita = RigaPrezzo & { quantita: number; sconto_articolo?: number; omaggio?: boolean }
 
+/** Percentuale come la mostrano i campi del wizard (max 2 decimali) */
+export function formatPercentuale(v: number): string {
+  return Number.isInteger(v) ? String(v) : v.toFixed(2)
+}
+
 /** Arrotonda ai centesimi (le colonne prezzo in DB sono NUMERIC(…,2)) */
 export function arrotondaCent(n: number): number {
   return Math.round(n * 100) / 100
@@ -103,6 +108,8 @@ export function calcolaTotaliConProvvigione<T extends RigaConQuantita & { aliquo
   totaleArticoli: number
   totaleFinale: number
   provvigioneImporto: number
+  /** Sconto in percentuale effettivo: se scritto in euro, quello sul lordo attuale (con provvigione) */
+  scontoPct: number
 } {
   const lordoBase = calcolaSubtotale(p.articoliBase) + p.trasportoBase
   const provvigionePct = percentualeProvvigione(lordoBase, p.provvigionePct, p.provvigioneImportoFisso)
@@ -124,5 +131,8 @@ export function calcolaTotaliConProvvigione<T extends RigaConQuantita & { aliquo
     articoli, quoteTrasporto, provvigionePct, subtotale, speseTrasporto, riepilogoIva, ivaTotale,
     importoSconto, totaleArticoli, totaleFinale,
     provvigioneImporto: importoProvvigione(subtotale + speseTrasporto, totaleArticoli, provvigionePct),
+    scontoPct: p.scontoImportoFisso != null
+      ? (subtotale + speseTrasporto > 0 ? (importoSconto / (subtotale + speseTrasporto)) * 100 : 0)
+      : p.scontoGlobale,
   }
 }

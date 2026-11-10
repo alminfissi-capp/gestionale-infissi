@@ -9,6 +9,7 @@ import {
   calcolaTotaliConProvvigione,
   senzaDatiProvvigione,
   arrotondaCent,
+  formatPercentuale,
 } from '@/lib/provvigione'
 
 describe('percentualeProvvigione', () => {
@@ -168,5 +169,30 @@ describe('senzaDatiProvvigione (link pubblico)', () => {
     const r = senzaDatiProvvigione(p)
     expect(r).toEqual({ id: 'x', totale_finale: 100 })
     expect('provvigione_percentuale' in r).toBe(false)
+  })
+})
+
+describe('formatPercentuale', () => {
+  it('formatta come nei campi del wizard', () => {
+    expect(formatPercentuale(5)).toBe('5')
+    expect(formatPercentuale(4.761904)).toBe('4.76')
+  })
+})
+
+describe('scontoPct effettivo', () => {
+  const riga = (prezzo: number) => ({ prezzo_unitario: prezzo, prezzo_totale_riga: prezzo, aliquota_iva: 22, quantita: 1 })
+  it('sconto in euro: la percentuale salvata segue il lordo con provvigione', () => {
+    const t = calcolaTotaliConProvvigione({
+      articoliBase: [riga(10000)], trasportoBase: 0, quoteBase: [0],
+      scontoGlobale: 10, scontoImportoFisso: 1050, provvigionePct: 5, provvigioneImportoFisso: null,
+    })
+    expect(t.scontoPct).toBeCloseTo(10, 10)
+  })
+  it('sconto in percentuale resta quello scritto', () => {
+    const t = calcolaTotaliConProvvigione({
+      articoliBase: [riga(10000)], trasportoBase: 0, quoteBase: [0],
+      scontoGlobale: 7, scontoImportoFisso: null, provvigionePct: 5, provvigioneImportoFisso: null,
+    })
+    expect(t.scontoPct).toBe(7)
   })
 })

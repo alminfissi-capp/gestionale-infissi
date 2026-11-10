@@ -10,7 +10,7 @@ import { getCurrentOrgId } from '@/actions/listini'
 import { createClient } from '@/lib/supabase/client'
 import { createCliente } from '@/actions/clienti'
 import { db } from '@/lib/db'
-import { calcolaTotaliConProvvigione, percentualeProvvigione, togliProvvigione } from '@/lib/provvigione'
+import { calcolaTotaliConProvvigione, percentualeProvvigione, togliProvvigione, formatPercentuale } from '@/lib/provvigione'
 import type { PendingPreventivo } from '@/lib/db'
 import {
   calcolaSubtotale,
@@ -282,7 +282,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
   }
 
   // Formatta una percentuale di sconto per la visualizzazione (max 2 decimali)
-  const formatPct = (v: number) => Number.isInteger(v) ? String(v) : v.toFixed(2)
+  const formatPct = formatPercentuale
 
   // Campi testo per sconto % e sconto €, sincronizzati bidirezionalmente
   const initPct = preventivo?.sconto_globale ?? 0
@@ -298,15 +298,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
   )
 
   // La provvigione si calcola sul mio prezzo: voci + trasporto, prima dello sconto
-  // Sconto scritto in %: la cifra in euro mostrata segue il nuovo lordo (con la nuova provvigione)
-  const allineaScontoEuro = (pct: number) => {
-    if (scontoImportoFisso != null || scontoGlobale <= 0) return
-    const grosso = totali.lordoBase * (1 + pct / 100)
-    setScontoEuroStr(grosso > 0 ? formatEuro(grosso * scontoGlobale / 100) : '')
-  }
-
   const azzeraProvvigione = () => {
-    allineaScontoEuro(0)
     setProvvigionePct(0)
     setProvvigioneImportoFisso(null)
     setProvvigionePctStr('')
@@ -317,7 +309,6 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
     const val = parseFloat(provvigionePctStr.replace(',', '.'))
     const base = totali.lordoBase
     if (isNaN(val) || val <= 0) return azzeraProvvigione()
-    allineaScontoEuro(val)
     setProvvigionePct(val)
     setProvvigioneImportoFisso(null)
     setProvvigionePctStr(formatPct(val))
@@ -329,7 +320,6 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
     const base = totali.lordoBase
     if (isNaN(val) || val <= 0 || base <= 0) return azzeraProvvigione()
     const pct = percentualeProvvigione(base, 0, val)
-    allineaScontoEuro(pct)
     setProvvigioneImportoFisso(val)
     setProvvigionePct(pct)
     setProvvigionePctStr(formatPct(pct))
@@ -395,6 +385,49 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
     const totalePezzi = articoli.reduce((s, a) => s + a.quantita, 0)
     return { ...t, totalePezzi, dettaglioTrasporto, lordoBase: subtotaleBase + trasportoBase }
   }, [articoli, scontoGlobale, scontoImportoFisso, provvigionePct, provvigioneImportoFisso, listini])
+
+  // Campi sconto/provvigione: quello scritto (% oppure €) e' la fonte; l'altro si mostra ricalcolato
+  // sui totali ATTUALI (cambiano articoli, provvigione, sconto). Uscire da un campo senza
+  // cambiarlo non tocca nulla (prima trasformava un importo esatto in € in una % arrotondata).
+  type Campo = 'scontoPct' | 'scontoEuro' | 'provvPct' | 'provvEuro'
+  const [campoAttivo, setCampoAttivo] = useState<{ campo: Campo; testo: string } | null>(null)
+  const testi: Record<Campo, [string, (v: string) => void]> = {
+    scontoPct: [scontoGlobaleStr, setScontoGlobaleStr],
+    scontoEuro: [scontoEuroStr, setScontoEuroStr],
+    provvPct: [provvigionePctStr, setProvvigionePctStr],
+    provvEuro: [provvigioneEuroStr, setProvvigioneEuroStr],
+  }
+  const valoreMostrato = (campo: Campo): string => {
+    if (campoAttivo?.campo === campo) return testi[campo][0]
+    switch (campo) {
+      case 'scontoPct':
+        return scontoImportoFisso != null ? (totali.scontoPct > 0 ? formatPct(totali.scontoPct) : '') : scontoGlobaleStr
+      case 'scontoEuro':
+        return scontoImportoFisso == null ? (scontoGlobale > 0 ? formatEuro(totali.importoSconto) : '') : scontoEuroStr
+      case 'provvPct':
+        return provvigioneImportoFisso != null ? (totali.provvigionePct > 0 ? formatPct(totali.provvigionePct) : '') : provvigionePctStr
+      case 'provvEuro':
+        return provvigioneImportoFisso == null
+          ? (provvigionePct > 0 ? formatEuro(totali.lordoBase * provvigionePct / 100) : '')
+          : provvigioneEuroStr
+    }
+  }
+  const entraCampo = (campo: Campo) => {
+    const v = valoreMostrato(campo)
+    testi[campo][1](v)
+    setCampoAttivo({ campo, testo: v })
+  }
+  const esciCampo = (campo: Campo, applica: () => void) => {
+    const invariato = campoAttivo?.campo === campo && testi[campo][0].trim() === campoAttivo.testo.trim()
+    setCampoAttivo(null)
+    if (!invariato) applica()
+  }
+  const propsCampo = (campo: Campo, applica: () => void) => ({
+    value: valoreMostrato(campo),
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => testi[campo][1](e.target.value),
+    onFocus: () => entraCampo(campo),
+    onBlur: () => esciCampo(campo, applica),
+  })
 
   const canGoNext = () => {
     if (step === 0) return true
@@ -592,9 +625,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
                   <div className="relative">
                     <Input
                       className="w-24 pr-7"
-                      value={scontoGlobaleStr}
-                      onChange={(e) => setScontoGlobaleStr(e.target.value)}
-                      onBlur={handleScontoGlobaleStrBlur}
+                      {...propsCampo('scontoPct', handleScontoGlobaleStrBlur)}
                       placeholder="0"
                       inputMode="decimal"
                     />
@@ -603,9 +634,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
                   <span className="text-gray-400 text-xs shrink-0">o €</span>
                   <Input
                     className="w-28"
-                    value={scontoEuroStr}
-                    onChange={(e) => setScontoEuroStr(e.target.value)}
-                    onBlur={handleScontoEuroBlur}
+                    {...propsCampo('scontoEuro', handleScontoEuroBlur)}
                     placeholder="0,00"
                     inputMode="decimal"
                   />
@@ -641,9 +670,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
                   <div className="relative">
                     <Input
                       className="w-24 pr-7"
-                      value={provvigionePctStr}
-                      onChange={(e) => setProvvigionePctStr(e.target.value)}
-                      onBlur={handleProvvigionePctBlur}
+                      {...propsCampo('provvPct', handleProvvigionePctBlur)}
                       placeholder="0"
                       inputMode="decimal"
                       aria-label="Provvigione in percentuale"
@@ -653,9 +680,7 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
                   <span className="text-gray-400 text-xs shrink-0">o €</span>
                   <Input
                     className="w-28"
-                    value={provvigioneEuroStr}
-                    onChange={(e) => setProvvigioneEuroStr(e.target.value)}
-                    onBlur={handleProvvigioneEuroBlur}
+                    {...propsCampo('provvEuro', handleProvvigioneEuroBlur)}
                     placeholder="0,00"
                     inputMode="decimal"
                     aria-label="Provvigione in euro"
