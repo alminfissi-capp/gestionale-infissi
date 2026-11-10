@@ -10,12 +10,11 @@ import { getCurrentOrgId } from '@/actions/listini'
 import { createClient } from '@/lib/supabase/client'
 import { createCliente } from '@/actions/clienti'
 import { db } from '@/lib/db'
+import { calcolaTotaliConProvvigione, percentualeProvvigione, togliProvvigione } from '@/lib/provvigione'
 import type { PendingPreventivo } from '@/lib/db'
 import {
   calcolaSubtotale,
   calcolaSpeseTrasportoPezzi,
-  calcolaTotalePreventivo,
-  calcolaRiepilogoIva,
   formatEuro,
 } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
@@ -188,18 +187,22 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
   // Nota: strippiamo i campi DB-only (id, preventivo_id, organization_id, created_at)
   // per evitare che finiscano nel payload dell'INSERT durante updatePreventivo.
   const [articoli, setArticoli] = useState<ArticoloWizard[]>(
-    preventivo?.articoli.map(
+    // In DB le righe hanno gia' la provvigione: nel wizard si lavora col mio prezzo
+    togliProvvigione(preventivo?.articoli ?? [], preventivo?.provvigione_percentuale ?? 0).map(
       ({ id, preventivo_id: _pv, organization_id: _org, created_at: _ca, ...fields }) => ({
         ...fields,
         tempId: id,
       })
-    ) ?? []
+    )
   )
 
   // Step 3 — note/sconto globale
   const [scontoGlobale, setScontoGlobale] = useState(preventivo?.sconto_globale ?? 0)
   const [scontoImportoFisso, setScontoImportoFisso] = useState<number | null>(preventivo?.sconto_importo_fisso ?? null)
   const [mostraSconto, setMostraSconto] = useState(preventivo?.mostra_sconto_riga ?? false)
+  // Provvigione agente: % sul mio prezzo (voci + trasporto) oppure importo esatto in euro
+  const [provvigionePct, setProvvigionePct] = useState(preventivo?.provvigione_percentuale ?? 0)
+  const [provvigioneImportoFisso, setProvvigioneImportoFisso] = useState<number | null>(preventivo?.provvigione_importo_fisso ?? null)
   const [note, setNote] = useState(preventivo?.note ?? '')
   const [noteAperte, setNoteAperte] = useState(!!(preventivo?.note))
   const [importedPdfFile, setImportedPdfFile] = useState<File | null>(null)
@@ -219,6 +222,10 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
       setScontoGlobaleStr(bozza.scontoGlobale > 0 ? formatPct(bozza.scontoGlobale) : '')
       setScontoEuroStr(bozza.scontoImportoFisso ? formatEuro(bozza.scontoImportoFisso) : '')
       setMostraSconto(bozza.mostraSconto)
+      setProvvigionePct(bozza.provvigionePct ?? 0)
+      setProvvigioneImportoFisso(bozza.provvigioneImportoFisso ?? null)
+      setProvvigionePctStr(bozza.provvigionePct ? formatPct(bozza.provvigionePct) : '')
+      setProvvigioneEuroStr(bozza.provvigioneImportoFisso ? formatEuro(bozza.provvigioneImportoFisso) : '')
       setNote(bozza.note)
       setBozzaRipristinata(true)
     })
@@ -245,12 +252,14 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
         scontoGlobale,
         scontoImportoFisso,
         mostraSconto,
+        provvigionePct,
+        provvigioneImportoFisso,
         note,
         updatedAt: new Date().toISOString(),
       })
     }, 1500)
     return () => clearTimeout(timer)
-  }, [preventivo, clienteId, snapshot, numero, articoli, scontoGlobale, scontoImportoFisso, mostraSconto, note])
+  }, [preventivo, clienteId, snapshot, numero, articoli, scontoGlobale, scontoImportoFisso, mostraSconto, provvigionePct, provvigioneImportoFisso, note])
 
   const scartaBozza = async () => {
     await db.bozzeWizard.delete(BOZZA_KEY)
@@ -263,6 +272,10 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
     setScontoGlobaleStr('')
     setScontoEuroStr('')
     setMostraSconto(false)
+    setProvvigionePct(0)
+    setProvvigioneImportoFisso(null)
+    setProvvigionePctStr('')
+    setProvvigioneEuroStr('')
     setNote('')
     setBozzaRipristinata(false)
     setStep(0)
@@ -277,6 +290,51 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
   const [scontoEuroStr, setScontoEuroStr] = useState(
     preventivo?.sconto_importo_fisso ? formatEuro(preventivo.sconto_importo_fisso) : ''
   )
+
+  const initProvv = preventivo?.provvigione_percentuale ?? 0
+  const [provvigionePctStr, setProvvigionePctStr] = useState(initProvv > 0 ? formatPct(initProvv) : '')
+  const [provvigioneEuroStr, setProvvigioneEuroStr] = useState(
+    preventivo?.provvigione_importo_fisso ? formatEuro(preventivo.provvigione_importo_fisso) : ''
+  )
+
+  // La provvigione si calcola sul mio prezzo: voci + trasporto, prima dello sconto
+  // Sconto scritto in %: la cifra in euro mostrata segue il nuovo lordo (con la nuova provvigione)
+  const allineaScontoEuro = (pct: number) => {
+    if (scontoImportoFisso != null || scontoGlobale <= 0) return
+    const grosso = totali.lordoBase * (1 + pct / 100)
+    setScontoEuroStr(grosso > 0 ? formatEuro(grosso * scontoGlobale / 100) : '')
+  }
+
+  const azzeraProvvigione = () => {
+    allineaScontoEuro(0)
+    setProvvigionePct(0)
+    setProvvigioneImportoFisso(null)
+    setProvvigionePctStr('')
+    setProvvigioneEuroStr('')
+  }
+
+  const handleProvvigionePctBlur = () => {
+    const val = parseFloat(provvigionePctStr.replace(',', '.'))
+    const base = totali.lordoBase
+    if (isNaN(val) || val <= 0) return azzeraProvvigione()
+    allineaScontoEuro(val)
+    setProvvigionePct(val)
+    setProvvigioneImportoFisso(null)
+    setProvvigionePctStr(formatPct(val))
+    setProvvigioneEuroStr(base > 0 ? formatEuro(base * val / 100) : '')
+  }
+
+  const handleProvvigioneEuroBlur = () => {
+    const val = parseFloat(provvigioneEuroStr.replace(/[^\d,.]/g, '').replace(',', '.'))
+    const base = totali.lordoBase
+    if (isNaN(val) || val <= 0 || base <= 0) return azzeraProvvigione()
+    const pct = percentualeProvvigione(base, 0, val)
+    allineaScontoEuro(pct)
+    setProvvigioneImportoFisso(val)
+    setProvvigionePct(pct)
+    setProvvigionePctStr(formatPct(pct))
+    setProvvigioneEuroStr(formatEuro(val))
+  }
 
   const handleScontoGlobaleStrBlur = () => {
     const raw = scontoGlobaleStr.replace(',', '.')
@@ -318,26 +376,25 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
     setScontoEuroStr(formatEuro(capped))
   }
 
-  // Calcoli riepilogo
+  // Calcoli riepilogo: articoli col mio prezzo → provvigione su righe e trasporto → sconto → IVA.
+  // Stessa funzione del server (lib/provvigione), cosi' l'anteprima coincide col salvato.
   const totali = useMemo(() => {
-    const subtotale = calcolaSubtotale(articoli)
+    const subtotaleBase = calcolaSubtotale(articoli)
     const articoliListino = articoli.filter((a) => a.tipo === 'listino' || a.tipo === 'listino_libero')
-    const { totale: speseTrasporto, dettaglio: dettaglioTrasporto } =
+    const { totale: trasportoBase, dettaglio: dettaglioTrasporto } =
       calcolaTrasportoPerCategoria(articoliListino, listini)
-    const quoteTrasporto = calcolaQuoteTrasportoWizard(articoli, listini)
-    const articoliConQuota = articoli.map((a, i) => ({ ...a, quota_trasporto: quoteTrasporto[i] }))
-    const riepilogoIva = calcolaRiepilogoIva(articoliConQuota, scontoGlobale, scontoImportoFisso)
-    const ivaTotale = riepilogoIva.reduce((sum, r) => sum + r.iva, 0)
-    const { importoSconto, totaleArticoli, totaleFinale } = calcolaTotalePreventivo(
-      subtotale,
+    const t = calcolaTotaliConProvvigione({
+      articoliBase: articoli,
+      trasportoBase,
+      quoteBase: calcolaQuoteTrasportoWizard(articoli, listini),
       scontoGlobale,
-      speseTrasporto,
-      ivaTotale,
-      scontoImportoFisso
-    )
+      scontoImportoFisso,
+      provvigionePct,
+      provvigioneImportoFisso,
+    })
     const totalePezzi = articoli.reduce((s, a) => s + a.quantita, 0)
-    return { totalePezzi, subtotale, speseTrasporto, dettaglioTrasporto, riepilogoIva, ivaTotale, importoSconto, totaleArticoli, totaleFinale }
-  }, [articoli, scontoGlobale, scontoImportoFisso, listini])
+    return { ...t, totalePezzi, dettaglioTrasporto, lordoBase: subtotaleBase + trasportoBase }
+  }, [articoli, scontoGlobale, scontoImportoFisso, provvigionePct, provvigioneImportoFisso, listini])
 
   const canGoNext = () => {
     if (step === 0) return true
@@ -390,6 +447,8 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
           articoli: articoli.map(({ tempId: _t, ...rest }) => rest),
           scontoGlobale,
           scontoImportoFisso,
+          provvigionePercentuale: provvigionePct,
+          provvigioneImportoFisso,
           mostraSconto,
           note,
         }
@@ -575,6 +634,38 @@ export default function WizardPreventivo({ clienti, listini, aliquote, noteTempl
                     placeholder="es. 2026/001"
                   />
                 )}
+              </div>
+              <div className="col-span-2 space-y-1.5">
+                <Label>Provvigione agente</Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <Input
+                      className="w-24 pr-7"
+                      value={provvigionePctStr}
+                      onChange={(e) => setProvvigionePctStr(e.target.value)}
+                      onBlur={handleProvvigionePctBlur}
+                      placeholder="0"
+                      inputMode="decimal"
+                      aria-label="Provvigione in percentuale"
+                    />
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">%</span>
+                  </div>
+                  <span className="text-gray-400 text-xs shrink-0">o €</span>
+                  <Input
+                    className="w-28"
+                    value={provvigioneEuroStr}
+                    onChange={(e) => setProvvigioneEuroStr(e.target.value)}
+                    onBlur={handleProvvigioneEuroBlur}
+                    placeholder="0,00"
+                    inputMode="decimal"
+                    aria-label="Provvigione in euro"
+                  />
+                  <span className="text-xs text-gray-500">
+                    {totali.provvigioneImporto > 0
+                      ? <>Agente: <span className="font-medium tabular-nums">€ {formatEuro(totali.provvigioneImporto)}</span> — spalmata su voci e trasporto, non visibile al cliente</>
+                      : 'Spalmata su voci e trasporto, non visibile al cliente'}
+                  </span>
+                </div>
               </div>
               <div className="col-span-2 space-y-1.5">
                 <button
