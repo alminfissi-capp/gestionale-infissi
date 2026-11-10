@@ -521,7 +521,7 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
   // Gli articoli arrivano col mio prezzo: la provvigione (se c'e') si applica qui a righe e trasporto,
   // e le righe vengono salvate gia' maggiorate (il cliente vede solo quei prezzi).
   const {
-    articoli: articoliConCosto, provvigionePct, provvigioneImporto,
+    articoli: articoliConCosto, provvigionePct, provvigioneImporto, scontoPct,
     subtotale, speseTrasporto, riepilogoIva, ivaTotale, importoSconto, totaleArticoli, totaleFinale,
   } = calcolaTotaliConProvvigione({
     articoliBase: articoliConCostoBase,
@@ -540,7 +540,8 @@ export async function createPreventivo(input: PreventivoInput): Promise<{ id: st
       cliente_id: clienteIdFinale,
       numero: numeroFinale,
       cliente_snapshot: input.clienteSnapshot,
-      sconto_globale: input.scontoGlobale,
+      // Con sconto in euro, la % salvata e' quella sul lordo attuale (provvigione compresa)
+      sconto_globale: scontoPct,
       sconto_importo_fisso: input.scontoImportoFisso ?? null,
       provvigione_percentuale: provvigionePct,
       provvigione_importo_fisso: provvigionePct > 0 ? (input.provvigioneImportoFisso ?? null) : null,
@@ -600,7 +601,7 @@ export async function updatePreventivo(
   // Gli articoli arrivano col mio prezzo: la provvigione (se c'e') si applica qui a righe e trasporto,
   // e le righe vengono salvate gia' maggiorate (il cliente vede solo quei prezzi).
   const {
-    articoli: articoliConCosto, provvigionePct, provvigioneImporto,
+    articoli: articoliConCosto, provvigionePct, provvigioneImporto, scontoPct,
     subtotale, speseTrasporto, riepilogoIva, ivaTotale, importoSconto, totaleArticoli, totaleFinale,
   } = calcolaTotaliConProvvigione({
     articoliBase: articoliConCostoBase,
@@ -618,7 +619,8 @@ export async function updatePreventivo(
       cliente_id: input.clienteId || null,
       numero: input.numero || null,
       cliente_snapshot: input.clienteSnapshot,
-      sconto_globale: input.scontoGlobale,
+      // Con sconto in euro, la % salvata e' quella sul lordo attuale (provvigione compresa)
+      sconto_globale: scontoPct,
       sconto_importo_fisso: input.scontoImportoFisso ?? null,
       provvigione_percentuale: provvigionePct,
       provvigione_importo_fisso: provvigionePct > 0 ? (input.provvigioneImportoFisso ?? null) : null,
@@ -798,7 +800,7 @@ async function ricalcolaTotaliPreventivo(
   const totalePezzi = calcolaTotalePezzi(righe)
   const totaleCostiAcquisto = righe.reduce((sum, a) => sum + (a.costo_acquisto_unitario ?? 0) * a.quantita, 0)
   const {
-    provvigionePct, provvigioneImporto,
+    provvigionePct, provvigioneImporto, scontoPct,
     subtotale, speseTrasporto, riepilogoIva, ivaTotale, importoSconto, totaleArticoli, totaleFinale,
   } = calcolaTotaliConProvvigione({
     articoliBase: righeBase,
@@ -822,6 +824,7 @@ async function ricalcolaTotaliPreventivo(
       riepilogo_iva: riepilogoIva,
       totale_finale: totaleFinale,
       totale_pezzi: totalePezzi,
+      sconto_globale: scontoPct,
       provvigione_percentuale: provvigionePct,
       provvigione_importo_fisso: null,
       provvigione_importo: provvigioneImporto,
@@ -863,8 +866,10 @@ export async function copiaArticoloInPreventivo(
 
   // La riga sorgente ha i prezzi con la provvigione del SUO preventivo: si torna al mio prezzo
   // e si applica quella del preventivo di destinazione.
-  const { data: sorgente } = await supabase.from('preventivi').select('provvigione_percentuale')
+  const { data: sorgente, error: srcErr } = await supabase.from('preventivi').select('provvigione_percentuale')
     .eq('id', (articolo as ArticoloPreventivoRow).preventivo_id).single()
+  // Senza la provvigione del sorgente la riga arriverebbe col prezzo sbagliato: meglio fermarsi
+  if (srcErr || !sorgente) throw new Error('Preventivo di origine non leggibile, riprova')
   const [articoloTarget] = applicaProvvigione(
     togliProvvigione([articolo as ArticoloPreventivoRow], Number(sorgente?.provvigione_percentuale) || 0),
     Number(target.provvigione_percentuale) || 0,
