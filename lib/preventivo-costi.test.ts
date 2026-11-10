@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { costiArticolo, calcolaCostiPreventivo, type ArticoloCosti } from '@/lib/preventivo-costi'
+import { costiArticolo, calcolaCostiPreventivo, mostraReportInterno, type ArticoloCosti } from '@/lib/preventivo-costi'
 import type { ConfigSuMisuraArticolo } from '@/types/preventivo'
 
 // Config su misura minimale: il form compone il prezzo come
@@ -133,5 +133,18 @@ describe('calcolaCostiPreventivo con provvigione', () => {
     expect(r.provvigione).toBe(0)
     expect(r.trasporto).toBe(100)
     expect(r.utile).toBe(900)
+  })
+})
+
+describe('mostraReportInterno', () => {
+  const zero = { materiali: 0, posa: 0, spese: 0, trasporto: 0, provvigione: 0, costoTotale: 0, utile: 0 }
+  it('nascosto se non ci sono costi ne provvigione', () => {
+    expect(mostraReportInterno(zero)).toBe(false)
+  })
+  it('visibile se c e solo la provvigione', () => {
+    expect(mostraReportInterno({ ...zero, provvigione: 50 })).toBe(true)
+  })
+  it('visibile con il solo trasporto', () => {
+    expect(mostraReportInterno({ ...zero, trasporto: 10 })).toBe(true)
   })
 })

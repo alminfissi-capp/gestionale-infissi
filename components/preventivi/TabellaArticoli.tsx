@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { ArticoloWizard } from '@/types/preventivo'
+import { arrotondaCent } from '@/lib/provvigione'
 
 interface Props {
   articoli: ArticoloWizard[]
@@ -265,7 +266,7 @@ export default function TabellaArticoli({ articoli, aliquote, onChange }: Props)
                     type="number"
                     min={0}
                     step={0.01}
-                    value={a.prezzo_unitario}
+                    value={arrotondaCent(a.prezzo_unitario)}
                     onChange={(e) => updatePrezzoUnitario(a.tempId, parseFloat(e.target.value) || 0)}
                     className="w-24 text-right h-8 ml-auto"
                   />

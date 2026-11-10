@@ -16,7 +16,7 @@ import AllegaPdfButton from '@/components/preventivi/AllegaPdfButton'
 import DialogInvioEmail from '@/components/preventivi/DialogInvioEmail'
 import { generaShareToken, revokaShareToken } from '@/actions/condivisione'
 import { formatEuro } from '@/lib/pricing'
-import { costiArticolo, calcolaCostiPreventivo } from '@/lib/preventivo-costi'
+import { costiArticolo, calcolaCostiPreventivo, mostraReportInterno } from '@/lib/preventivo-costi'
 import { senzaProvvigione } from '@/lib/provvigione'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -803,7 +803,7 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
         const pctProvv = p.provvigione_percentuale ?? 0
         const { materiali: totaleCostiAcquisto, posa: totalePosa, spese: totaleSpeseVarie, trasporto: costoTrasporto, provvigione, costoTotale, utile } =
           calcolaCostiPreventivo(p.articoli, p.totale_articoli, p.spese_trasporto, { percentuale: pctProvv, importo: p.provvigione_importo ?? 0 })
-        if (totaleCostiAcquisto === 0 && totalePosa === 0 && totaleSpeseVarie === 0 && p.spese_trasporto === 0) return null
+        if (!mostraReportInterno({ materiali: totaleCostiAcquisto, posa: totalePosa, spese: totaleSpeseVarie, trasporto: costoTrasporto, provvigione })) return null
         const percUtile = costoTotale > 0 ? (utile / costoTotale) * 100 : null
         return (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-4">

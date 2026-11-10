@@ -68,6 +68,11 @@ export type CostiPreventivo = {
   utile: number       // totaleArticoli − costoTotale
 }
 
+/** Il Report interno ha qualcosa da mostrare: costi, trasporto o provvigione */
+export function mostraReportInterno(c: Pick<CostiPreventivo, 'materiali' | 'posa' | 'spese' | 'trasporto' | 'provvigione'>): boolean {
+  return c.materiali !== 0 || c.posa !== 0 || c.spese !== 0 || c.trasporto !== 0 || c.provvigione !== 0
+}
+
 // Aggrega i costi/utile di un intero preventivo.
 // utile = totaleArticoli − (materiali + posa + speseVarie + trasporto + provvigione).
 // Con provvigione: speseTrasporto (quello salvato, gia' maggiorato) si conta senza la sua
