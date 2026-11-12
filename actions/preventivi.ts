@@ -889,6 +889,57 @@ export async function copiaArticoloInPreventivo(
   revalidatePath(`/preventivi/${targetPreventivoId}`)
 }
 
+/**
+ * Righe di un rilievo FP PRO aggiunte a un preventivo esistente (invece di crearne uno nuovo).
+ * Le righe arrivano col mio prezzo: si applica la provvigione del preventivo, vanno in fondo e
+ * i totali si ricalcolano. sostituisciRilievoId = prima toglie le righe gia' venute da quel
+ * rilievo (scelta dell'utente al momento del trasferimento). Le nuove si scrivono PRIMA di
+ * togliere le vecchie: se l'inserimento fallisce, il preventivo resta com'era.
+ */
+export async function aggiungiRigheRilievoAPreventivo(
+  preventivoId: string,
+  articoli: PreventivoInput['articoli'],
+  sostituisciRilievoId: string | null,
+): Promise<void> {
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const { data: target, error: tgtErr } = await supabase.from('preventivi')
+    .select('id, firma_stato, provvigione_percentuale').eq('id', preventivoId).eq('organization_id', orgId).maybeSingle()
+  if (tgtErr) throw new Error(tgtErr.message)
+  if (!target) throw new Error('Preventivo non trovato')
+  if (target.firma_stato === 'in_attesa' || target.firma_stato === 'firmato') {
+    throw new Error('Il preventivo ha una firma in corso o e\' firmato: non si puo\' modificare')
+  }
+
+  const { data: esistenti, error: eEs } = await supabase.from('articoli_preventivo')
+    .select('id, ordine, config_fppro').eq('preventivo_id', preventivoId).eq('organization_id', orgId)
+  if (eEs) throw new Error(eEs.message)
+  const daTogliere = sostituisciRilievoId
+    ? (esistenti ?? []).filter(r => (r.config_fppro as { rilievoId?: string } | null)?.rilievoId === sostituisciRilievoId).map(r => r.id as string)
+    : []
+  const ordineDa = Math.max(-1, ...(esistenti ?? []).map(r => Number(r.ordine) || 0)) + 1
+
+  const righe = applicaProvvigione(articoli, Number(target.provvigione_percentuale) || 0)
+  if (righe.length > 0) {
+    const { error: insErr } = await supabase.from('articoli_preventivo').insert(
+      righe.map((a, i) => {
+        const { quota_trasporto: _qt, config_scorrevole, config_su_misura, config_fppro, ...articoloDb } = a
+        return { ...articoloDb, omaggio: a.omaggio ?? false, config_scorrevole: config_scorrevole ?? null, config_su_misura: config_su_misura ?? null, config_fppro: config_fppro ?? null, preventivo_id: preventivoId, organization_id: orgId, ordine: ordineDa + i }
+      }),
+    )
+    if (insErr) throw new Error(insErr.message)
+  }
+  if (daTogliere.length > 0) {
+    const { error: delErr } = await supabase.from('articoli_preventivo').delete()
+      .eq('organization_id', orgId).in('id', daTogliere)
+    if (delErr) throw new Error(delErr.message)
+  }
+
+  await ricalcolaTotaliPreventivo(supabase, preventivoId)
+  revalidatePath('/preventivi')
+  revalidatePath(`/preventivi/${preventivoId}`)
+}
+
 export async function deletePreventivo(id: string): Promise<void> {
   const supabase = await createClient()
 
