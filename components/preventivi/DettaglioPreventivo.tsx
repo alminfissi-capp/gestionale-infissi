@@ -18,6 +18,7 @@ import { generaShareToken, revokaShareToken } from '@/actions/condivisione'
 import { formatEuro } from '@/lib/pricing'
 import { costiArticolo, calcolaCostiPreventivo, mostraReportInterno } from '@/lib/preventivo-costi'
 import { senzaProvvigione } from '@/lib/provvigione'
+import { linkWhatsapp } from '@/lib/whatsapp'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -205,11 +206,8 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
     toast.success('Link copiato negli appunti')
   }
 
-  const whatsappUrl = s.telefono ? (() => {
-    const digits = s.telefono.replace(/\D/g, '')
-    // Se il numero salvato ha già il prefisso internazionale (es. "+39 ..."), usalo com'è
-    // Retrocompatibilità: se non inizia con "+", aggiunge il prefisso italiano
-    const number = s.telefono.startsWith('+') ? digits : `39${digits}`
+  // Sempre disponibile: senza telefono WhatsApp si apre col messaggio pronto e il contatto si sceglie li'
+  const whatsappUrl = (() => {
     const link = shareToken && origin ? `${origin}/p/${shareToken}?ref=whatsapp` : null
     const testo = link
       ? (p.numero
@@ -218,8 +216,8 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
       : (p.numero
           ? `Gentile ${nomeCliente}, le inviamo il preventivo n. ${p.numero}. In allegato troverà il documento.`
           : `Gentile ${nomeCliente}, le inviamo il preventivo richiesto. In allegato troverà il documento.`)
-    return `https://wa.me/${number}?text=${encodeURIComponent(testo)}`
-  })() : null
+    return linkWhatsapp(s.telefono, testo)
+  })()
 
   const handleDuplica = () => {
     startDuplicate(async () => {
@@ -487,10 +485,10 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
                   <Copy className="h-3.5 w-3.5 mr-1" />
                   Copia link firma
                 </Button>
-                {p.cliente_snapshot.telefono && (
+                {(
                   <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50" asChild>
                     <a
-                      href={`https://wa.me/${p.cliente_snapshot.telefono.startsWith('+') ? p.cliente_snapshot.telefono.replace(/\D/g, '') : '39' + p.cliente_snapshot.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(`Gentile cliente, la invitiamo a firmare il preventivo${p.numero ? ` n. ${p.numero}` : ''}: ${firmaSigningUrl}`)}`}
+                      href={linkWhatsapp(p.cliente_snapshot.telefono, `Gentile cliente, la invitiamo a firmare il preventivo${p.numero ? ` n. ${p.numero}` : ''}: ${firmaSigningUrl}`)}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
