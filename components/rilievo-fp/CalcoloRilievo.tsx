@@ -19,6 +19,7 @@ import { campiMinuti, minutiDaOre, oreDaMinuti } from '@/lib/fppro/calcolo/corre
 import { avvisoTrasferimento } from '@/lib/fppro/calcolo/trasferimento'
 import { nomeCliente } from './ElencoRilievi'
 import RiepilogoCosti from './RiepilogoCosti'
+import DialogTrasferimento, { type SceltaTrasferimento } from './DialogTrasferimento'
 
 const ORE: { chiave: keyof OreVoce; etichetta: string }[] = [
   { chiave: 'taglio', etichetta: 'Taglio' },
@@ -212,6 +213,7 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
   const [percentuali, setPercentuali] = useState<PercentualiCalcolo>(dati.percentualiRilievo)
   const [finestraPercentuali, setFinestraPercentuali] = useState(false)
   const [vista, setVista] = useState<'voci' | 'costi'>('voci')
+  const [finestraTrasferimento, setFinestraTrasferimento] = useState(false)
   const profiloScelto = dati.profili.find(p => p.fpId === configId)
   // Valori comuni effettivi: quelli del rilievo, altrimenti quelli del profilo scelto.
   const comuni: PercentualiCalcolo = { ...(profiloScelto?.percentuali ?? {}), ...percentuali }
@@ -266,15 +268,20 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
     await calcola()
   }
 
-  const trasferisci = async () => {
-    if (dati.preventivi.length > 0 && !confirm('Da questo rilievo e\' gia\' stato creato un preventivo. Crearne un altro?')) return
+  // Si chiede sempre: preventivo nuovo o uno esistente (finestra DialogTrasferimento)
+  const apriTrasferimento = () => {
     const avviso = calcolo ? avvisoTrasferimento(calcolo.saltate) : null
     if (avviso && !confirm(avviso)) return
+    setFinestraTrasferimento(true)
+  }
+
+  const trasferisci = async (scelta: SceltaTrasferimento) => {
     setInCorso('trasferimento')
     try {
-      const r = await trasferisciInPreventivi(rilievoId)
+      const r = await trasferisciInPreventivi(rilievoId, scelta ?? undefined)
       if ('errore' in r) { toast.error(r.errore); return }
-      toast.success('Preventivo creato')
+      toast.success(scelta ? (scelta.sostituisci ? 'Voci sostituite nel preventivo' : 'Voci aggiunte al preventivo') : 'Preventivo creato')
+      setFinestraTrasferimento(false)
       router.push(`/preventivi/${r.preventivoId}`)
     } finally {
       setInCorso(null)
@@ -388,13 +395,16 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
           )}
           </>}
           <div className="flex flex-wrap items-center gap-2">
-            <Button className="h-11" onClick={trasferisci} disabled={inCorso !== null || calcolo.voci.length === 0 || profiloCambiato || superato !== null}>
+            <Button className="h-11" onClick={apriTrasferimento} disabled={inCorso !== null || calcolo.voci.length === 0 || profiloCambiato || superato !== null}>
               {inCorso === 'trasferimento' && <Loader2 className="mr-2 size-4 animate-spin" />}Trasferisci in Preventivi
             </Button>
             {dati.preventivi.map(p => (
               <a key={p.id} href={`/preventivi/${p.id}`} className="text-sm underline">Preventivo {p.numero ?? ''}</a>
             ))}
           </div>
+          <DialogTrasferimento aperta={finestraTrasferimento} onChiudi={() => setFinestraTrasferimento(false)}
+            cliente={dati.cliente} daRilievo={dati.preventivi.map(p => p.id)} inCorso={inCorso === 'trasferimento'}
+            onScegli={s => void trasferisci(s)} />
         </>
       )}
     </div>

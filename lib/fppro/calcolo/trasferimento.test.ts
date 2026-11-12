@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clienteDelRilievo, clienteEsistente, motivoCalcoloSuperato, motivoVoceNonCalcolabile, noteTelaioTesto, avvisoTrasferimento, MOTIVO_VOCE_DISEGNATA } from './trasferimento'
+import { clienteDelRilievo, clienteEsistente, ordinaPreventiviPerRilievo, motivoCalcoloSuperato, motivoVoceNonCalcolabile, noteTelaioTesto, avvisoTrasferimento, MOTIVO_VOCE_DISEGNATA } from './trasferimento'
 
 describe('clienteEsistente', () => {
   const clienti = [
@@ -129,5 +129,28 @@ describe('motivoCalcoloSuperato con voci disegnate', () => {
       { id: 'dis1', updated_at: '2026-11-08T11:00:00Z', correzioni_fp_at: null },
     ]
     expect(motivoCalcoloSuperato(calcolo, voci)).toBeNull()
+  })
+})
+
+describe('ordinaPreventiviPerRilievo', () => {
+  const p = (id: string, nome: string, cognome: string, created_at: string) =>
+    ({ id, created_at, cliente_snapshot: { tipo: 'privato' as const, ragione_sociale: null, nome, cognome } })
+  const elenco = [
+    p('altro-recente', 'Anna', 'Bianchi', '2026-11-10'),
+    p('cliente-vecchio', 'Mario', 'Rossi', '2026-09-01'),
+    p('dal-rilievo', 'Mario', 'Rossi', '2026-10-01'),
+    p('cliente-recente', 'ROSSI', 'mario', '2026-11-01'),
+    p('altro-vecchio', 'Luca', 'Verdi', '2026-08-01'),
+  ]
+  const cliente = { tipo: 'privato' as const, ragione_sociale: null, nome: 'Mario', cognome: 'Rossi', telefono: null }
+
+  it('prima quelli nati da questo rilievo, poi lo stesso cliente, poi gli altri; dentro ogni gruppo il piu\' recente prima', () => {
+    const r = ordinaPreventiviPerRilievo(elenco, new Set(['dal-rilievo']), cliente)
+    expect(r.map(x => x.id)).toEqual(['dal-rilievo', 'cliente-recente', 'cliente-vecchio', 'altro-recente', 'altro-vecchio'])
+    expect(r.map(x => x.gruppo)).toEqual(['rilievo', 'cliente', 'cliente', 'altri', 'altri'])
+  })
+  it('cliente senza nome: nessuno conta come stesso cliente', () => {
+    const r = ordinaPreventiviPerRilievo(elenco, new Set(), { ...cliente, nome: null, cognome: null })
+    expect(r.every(x => x.gruppo === 'altri')).toBe(true)
   })
 })

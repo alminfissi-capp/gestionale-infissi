@@ -15,7 +15,7 @@ import { fattoreBarreCommessa } from '@/lib/fppro/calcolo/commessa'
 import type { CorrezioniVoce, OreVoce, PercentualiCalcolo, ProfiloCalcolo } from '@/lib/fppro/calcolo/tipi'
 import { tempiConMinuti } from '@/lib/fppro/calcolo/correzioni'
 import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
-import { createPreventivo } from '@/actions/preventivi'
+import { aggiungiRigheRilievoAPreventivo, createPreventivo } from '@/actions/preventivi'
 import type { PreventivoInput } from '@/types/preventivo'
 import type { RifFp, VoceFpDati } from '@/types/rilievo-fp'
 import { coloriAccessori, kitAlternativiDoppi } from '@/lib/fppro/rilievo-fp'
@@ -374,11 +374,17 @@ export async function salvaPercentualiRilievo(rilievoId: string, percentuali: Pe
 }
 
 /**
- * Crea un preventivo nuovo dal calcolo del rilievo: una riga 'libera' per voce, uguale a
+ * Trasferisce il calcolo del rilievo in Preventivi: una riga 'libera' per voce, uguale a
  * quelle importate dal PDF dei costi di FP PRO (immagine, descrizione con misure, note
  * tecniche, prezzo, costo materiali, costo lavorazione e posa) + config_fppro per la fase 5.
+ * Senza destinazione crea un preventivo nuovo; con destinazione aggiunge le righe a quel
+ * preventivo (sostituisci = prima toglie quelle gia' venute da questo rilievo). La scelta la
+ * fa sempre l'utente nella finestra del trasferimento.
  */
-export async function trasferisciInPreventivi(rilievoId: string): Promise<{ preventivoId: string; giaTrasferito: boolean } | { errore: string }> {
+export async function trasferisciInPreventivi(
+  rilievoId: string,
+  destinazione?: { preventivoId: string; sostituisci: boolean },
+): Promise<{ preventivoId: string; giaTrasferito: boolean } | { errore: string }> {
   await requireAccesso('rilievo')
   await requireAccesso('preventivi', 'scrittura')
   try {
@@ -473,6 +479,11 @@ export async function trasferisciInPreventivi(rilievoId: string): Promise<{ prev
         percentuale_utile_bypass: null, omaggio: false,
         config_fppro: { rilievoId, voceId: v.voceId, configPrevFpId: calcolo.configPrevFpId, voce: fp ?? null, calcolo: v.calcolo },
       })
+    }
+
+    if (destinazione) {
+      await aggiungiRigheRilievoAPreventivo(destinazione.preventivoId, articoli, destinazione.sostituisci ? rilievoId : null)
+      return { preventivoId: destinazione.preventivoId, giaTrasferito }
     }
 
     // Cliente: quello del preventivo gia' fatto da questo rilievo, poi l'anagrafica; altrimenti

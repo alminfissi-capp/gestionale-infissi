@@ -97,3 +97,28 @@ export function avvisoTrasferimento(saltate: { posizione: string; motivo: string
   const nomi = disegnate.map(s => s.posizione.trim() || 'voce senza posizione')
   return `${disegnate.length === 1 ? 'Questa voce disegnata non entra' : 'Queste voci disegnate non entrano'} nel preventivo (non hanno ancora un calcolo):\n- ${nomi.join('\n- ')}\n\nTrasferire comunque le altre voci?`
 }
+
+export type GruppoPreventivo = 'rilievo' | 'cliente' | 'altri'
+
+/**
+ * Preventivi proposti quando si trasferisce un rilievo in uno esistente: prima quelli gia'
+ * nati da questo rilievo, poi quelli dello stesso cliente (nome e cognome in qualunque ordine),
+ * poi tutti gli altri; dentro ogni gruppo il piu' recente prima.
+ */
+export function ordinaPreventiviPerRilievo<T extends { id: string; created_at: string; cliente_snapshot: Pick<Snapshot, 'tipo' | 'ragione_sociale' | 'nome' | 'cognome'> }>(
+  preventivi: T[],
+  daRilievo: Set<string>,
+  cliente: Snapshot,
+): (T & { gruppo: GruppoPreventivo })[] {
+  const nome = nomeCompleto(cliente)
+  const rovescio = cliente.tipo === 'azienda' ? nome : normalizzaTesto([cliente.cognome, cliente.nome].filter(Boolean).join(' '))
+  const gruppo = (p: T): GruppoPreventivo => {
+    if (daRilievo.has(p.id)) return 'rilievo'
+    const n = nomeCompleto({ ...p.cliente_snapshot, tipo: p.cliente_snapshot.tipo ?? 'privato', telefono: null })
+    return nome && (n === nome || n === rovescio) ? 'cliente' : 'altri'
+  }
+  const peso: Record<GruppoPreventivo, number> = { rilievo: 0, cliente: 1, altri: 2 }
+  return preventivi
+    .map(p => ({ ...p, gruppo: gruppo(p) }))
+    .sort((a, b) => peso[a.gruppo] - peso[b.gruppo] || b.created_at.localeCompare(a.created_at))
+}
