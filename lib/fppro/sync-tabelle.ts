@@ -359,6 +359,36 @@ export const TABELLE_SYNC: TabellaSync[] = [
     colonne: ['pkid', 'descrizione', 'grptype'],
     mappa: r => ({ fp_id: id(r.pkid), descrizione: testo(r.descrizione), tipo: numero(r.grptype), dati: compatta(r) }),
   },
+  {
+    // Fissaggi dei profili (squadrette, cavallotti) per sistema di giunzione (filtro): FP PRO li
+    // aggiunge a ogni pezzo di profilo. Verificato sulla commessa 183-26G (spec 2026-11-14).
+    mysql: 'fissaggi',
+    supabase: 'fp_fissaggi',
+    sql: 'select f.*, p.codice as codice_profilo, p.serieid as serie_profilo, a.codice as codice_accessorio from fissaggi f ' +
+      'join profili p on p.pkid = f.idprof join accessori a on a.pkid = f.idacc order by f.pkid',
+    colonne: ['pkid', 'idprof', 'idacc', 'num_base', 'dim_rif', 'filtro', 'tipo', 'opzionale'],
+    mappa: r => ({
+      fp_id: id(r.pkid),
+      codice_profilo: testo(r.codice_profilo),
+      codice_accessorio: testo(r.codice_accessorio),
+      serie_fp_id: numero(r.serie_profilo),
+      quantita: numero(r.num_base),
+      dim_rif: numero(r.dim_rif),
+      filtro: testo(r.filtro),
+      dati: compatta(r),
+    }),
+  },
+  {
+    // Sistemi di giunzione per serie: FP PRO usa quello con l'ordine piu' basso.
+    mysql: 'serie_profilo_fissaggi',
+    supabase: 'fp_serie_fissaggi',
+    sql: 'select * from serie_profilo_fissaggi order by pkid',
+    colonne: ['pkid', 'id_serie', 'ordine', 'tipo', 'filtro_guid'],
+    mappa: r => ({
+      fp_id: id(r.pkid), serie_fp_id: numero(r.id_serie), ordine: numero(r.ordine), tipo: numero(r.tipo),
+      filtro: testo(r.filtro_guid), dati: compatta(r),
+    }),
+  },
 ]
 
 /**

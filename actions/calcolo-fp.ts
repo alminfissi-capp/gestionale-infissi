@@ -7,7 +7,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
 import { requireAccesso } from '@/lib/permessi'
 import { selectAll } from '@/lib/supabase/paginate'
-import { regoleDaElenchi, type RegoleAccessori, type RigaKitCatalogo } from '@/lib/fppro/calcolo/accessori'
+import { regoleDaElenchi, type FissaggioProfilo, type RegoleAccessori, type RigaKitCatalogo } from '@/lib/fppro/calcolo/accessori'
+import { fissaggiPredefiniti, type RigaFissaggio, type RigaSerieFissaggio } from '@/lib/fppro/calcolo/fissaggi'
 import { listinoDaRighe, type RigheListino } from '@/lib/fppro/calcolo/listino'
 import { clienteDelRilievo, MOTIVO_VOCE_DISEGNATA, motivoCalcoloSuperato, motivoErroriCalcolo, motivoVoceNonCalcolabile, noteTelaioTesto } from '@/lib/fppro/calcolo/trasferimento'
 import { calcolaVoce, codiceDaDxf, type CalcoloVoce, type InputVoce, type ListinoCalcolo } from '@/lib/fppro/calcolo/voce'
@@ -214,6 +215,22 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       supabase, orgId, 'fp_accessori_collegati', 'fp_id, codice_principale, codice_collegato, serie_collegato, quantita', 'codice_principale', [...codiciAccessori])
     collegati.forEach(c => codiciAccessori.add(c.codice_collegato))
 
+    // Fissaggi dei profili (squadrette, cavallotti) dal sistema di giunzione predefinito della serie.
+    // Tabelle scritte dal ponte: se non ci sono ancora (ponte vecchio) il calcolo va avanti senza, come prima.
+    let fissaggiDi: ((codice: string) => FissaggioProfilo[]) | undefined
+    try {
+      const righeFiss = await inLista<RigaFissaggio>(supabase, orgId, 'fp_fissaggi',
+        'fp_id, codice_profilo, codice_accessorio, serie_fp_id, quantita, dim_rif, filtro', 'codice_profilo', [...codiciProfili])
+      const serieFiss = await inLista<RigaSerieFissaggio>(supabase, orgId, 'fp_serie_fissaggi', 'fp_id, serie_fp_id, ordine, filtro',
+        'serie_fp_id', righeFiss.map(r => r.serie_fp_id).filter((x): x is number => x !== null))
+      if (righeFiss.length > 0) {
+        fissaggiDi = fissaggiPredefiniti(righeFiss, serieFiss)
+        righeFiss.forEach(r => r.codice_accessorio && codiciAccessori.add(r.codice_accessorio))
+      }
+    } catch {
+      fissaggiDi = undefined
+    }
+
     const righeListino: RigheListino = {
       profili,
       componenti,
@@ -257,9 +274,10 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       const s = perStruttura.get(v.fp.strutturaId)
       const motivo = motivoVoceNonCalcolabile(s, v.fp)
       if (motivo || !s || !v.fp.larghezza || !v.fp.altezza) { saltate.push({ voceId: v.id, posizione, motivo: motivo ?? 'Mancano le misure' }); continue }
-      const regole = regoleDaElenchi(s.serie, elencoRigheKit,
+      const regole: RegoleAccessori = regoleDaElenchi(s.serie, elencoRigheKit,
         collegati.map(c => ({ principale: c.codice_principale, collegato: c.codice_collegato, quantita: num(c.quantita), serie: c.serie_collegato ?? '' })),
         catalogoKit)
+      if (fissaggiDi) regole.fissaggi = fissaggiDi
       const colore = (v.fp.coloreEst ?? v.fp.coloreInt)?.fpId ?? null
       const input: InputVoce = {
         albero: s.albero, serie: s.serie, poligoni: s.poligoni,

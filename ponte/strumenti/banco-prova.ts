@@ -14,6 +14,7 @@ import { sezioneDaDxf } from '../../lib/fppro/dxf-sezione'
 import { calcolaVoce, codiceDaDxf, type InputVoce, type ListinoCalcolo } from '../../lib/fppro/calcolo/voce'
 import { regoleDaElenchi, type RigaKitCatalogo } from '../../lib/fppro/calcolo/accessori'
 import { confrontaAccessori, type ConfrontoAccessori } from '../../lib/fppro/calcolo/confronto-fp'
+import { fissaggiPredefiniti } from '../../lib/fppro/calcolo/fissaggi'
 import type { ProfiloCalcolo } from '../../lib/fppro/calcolo/tipi'
 
 process.loadEnvFile(process.env.PONTE_ENV ?? 'C:\\WinStudioPonte\\.env')
@@ -138,28 +139,18 @@ async function bancoCommessa(nome: string): Promise<EsitoVoce[]> {
       // Fissaggi: sistema di giunzione predefinito della serie = filtri con l'ordine piu' basso.
       const codiciProfili = [...new Set([...testo.matchAll(/DXF="[^"]*\\([^"\\]+)\.DXF"/gi)].map(m => m[1]))]
       const fiss = await inLista(
-        'select p.codice prof, a.codice acc, f.num_base, f.dim_rif, f.filtro, sf.ordine from fissaggi f ' +
+        'select p.codice prof, p.serieid serie, a.codice acc, f.num_base, f.dim_rif, f.filtro, sf.ordine from fissaggi f ' +
         'join profili p on p.pkid = f.idprof join accessori a on a.pkid = f.idacc ' +
         'join serie_profilo_fissaggi sf on sf.id_serie = p.serieid and sf.filtro_guid = f.filtro ' +
         'where p.codice in (?)', codiciProfili)
-      const ordineMin = new Map<string, number>()
-      for (const f of fiss) ordineMin.set(s(f.prof), Math.min(ordineMin.get(s(f.prof)) ?? 99, n(f.ordine)))
-      const fissPerProfilo = new Map<string, { codice: string; quantita: number; dimRif: number }[]>()
-      const visti = new Set<string>()
-      for (const f of fiss) {
-        if (n(f.ordine) !== ordineMin.get(s(f.prof))) continue
-        const chiave = `${s(f.prof)}|${s(f.acc)}|${s(f.filtro)}`
-        if (visti.has(chiave)) continue
-        visti.add(chiave)
-        const l = fissPerProfilo.get(s(f.prof)) ?? []
-        l.push({ codice: s(f.acc), quantita: n(f.num_base), dimRif: n(f.dim_rif) })
-        fissPerProfilo.set(s(f.prof), l)
-      }
+      const fissaggiDi = fissaggiPredefiniti(
+        fiss.map(f => ({ codice_profilo: s(f.prof), codice_accessorio: s(f.acc), serie_fp_id: n(f.serie), quantita: n(f.num_base), dim_rif: n(f.dim_rif), filtro: s(f.filtro) })),
+        fiss.map(f => ({ serie_fp_id: n(f.serie), ordine: n(f.ordine), filtro: s(f.filtro) })))
       const regoleBase = regoleDaElenchi(st.serie,
         righeKit.map(r => ({ kit: s(r.kit), codice: s(r.codice), serie: r.serie ? s(r.serie).split(',') : null })),
         collegati.map(c => ({ principale: s(c.principale), collegato: s(c.collegato), quantita: n(c.num_base), serie: '' })),
         catalogo)
-      const regole = { ...regoleBase, fissaggi: (codice: string) => fissPerProfilo.get(codice) ?? [] }
+      const regole = { ...regoleBase, fissaggi: fissaggiDi }
 
       // Listino: prezzi che FP PRO ha usato per questa voce; codici in piu' dal catalogo accessori.
       const accVoce = accFp.filter(a => n(a.voce) === nv)
