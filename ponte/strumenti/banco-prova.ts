@@ -153,7 +153,8 @@ async function bancoCommessa(nome: string): Promise<EsitoVoce[]> {
       const contenitoriKit = new Set(st.albero.flatMap(function tutti(nd): string[] {
         return [...nd.kit.flatMap(k => k.accessori.map(a => a.codice)), ...nd.figli.flatMap(tutti)]
       }))
-      const figliContenitori = new Set(collegati.filter(c => contenitoriKit.has(s(c.principale)) && s(c.principale) !== s(c.collegato)).map(c => s(c.collegato)))
+      // Righe sciolte calcolate: figli dei contenitori dei kit e copie dei codici gia' nei kit.
+      const figliContenitori = new Set([...contenitoriKit, ...collegati.filter(c => contenitoriKit.has(s(c.principale))).map(c => s(c.collegato))])
       const togliScomposti = (nodi: typeof st.albero) => nodi.forEach(nd => {
         nd.accessori = nd.accessori.filter(a => !figliContenitori.has(a.codice))
         togliScomposti(nd.figli)
@@ -221,8 +222,8 @@ async function bancoCommessa(nome: string): Promise<EsitoVoce[]> {
       }
       const accWs = r.righe.filter(x => x.gruppo === 'accessori')
       // FP PRO salva le quantita' della voce per tutti i pezzi (Multiply): si riportano a un pezzo.
-      // Accessori a metro (un_mis 4): FP PRO salva la lunghezza in mm nella colonna l.
-      const accFpPezzo = accVoce.map(a => ({ codice: s(a.codice), quantita: (n(a.un_mis) === 4 ? n(a.qta) * n(a.l) / 1000 : n(a.qta)) / base.pezzi }))
+      // Accessori a metro (un_mis 2 e 4): FP PRO salva la lunghezza in mm nella colonna l.
+      const accFpPezzo = accVoce.map(a => ({ codice: s(a.codice), quantita: ([2, 4].includes(n(a.un_mis)) ? n(a.qta) * n(a.l) / 1000 : n(a.qta)) / base.pezzi }))
       base.costoAccFp = accVoce.reduce((t, a) => t + n(a.costonetto), 0) / base.pezzi
       base.costoAccWs = accWs.reduce((t, a) => t + a.costo, 0)
       base.scartoAcc = base.costoAccWs - base.costoAccFp
