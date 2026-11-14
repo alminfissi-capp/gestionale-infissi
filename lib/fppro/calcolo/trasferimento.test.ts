@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clienteDelRilievo, clienteEsistente, ordinaPreventiviPerRilievo, motivoCalcoloSuperato, motivoVoceNonCalcolabile, noteTelaioTesto, avvisoTrasferimento, MOTIVO_VOCE_DISEGNATA } from './trasferimento'
+import { clienteDelRilievo, motivoErroriCalcolo, clienteEsistente, ordinaPreventiviPerRilievo, motivoCalcoloSuperato, motivoVoceNonCalcolabile, noteTelaioTesto, avvisoTrasferimento, MOTIVO_VOCE_DISEGNATA } from './trasferimento'
 
 describe('clienteEsistente', () => {
   const clienti = [
@@ -152,5 +152,15 @@ describe('ordinaPreventiviPerRilievo', () => {
   it('cliente senza nome: nessuno conta come stesso cliente', () => {
     const r = ordinaPreventiviPerRilievo(elenco, new Set(), { ...cliente, nome: null, cognome: null })
     expect(r.every(x => x.gruppo === 'altri')).toBe(true)
+  })
+})
+
+describe('motivoErroriCalcolo: scelte doppie bloccano il trasferimento', () => {
+  it('nessun errore: si trasferisce', () => {
+    expect(motivoErroriCalcolo({ voci: [{ posizione: 'A', descrizione: 'F1A', calcolo: { errori: [] } }, { posizione: 'B', descrizione: 'F2A', calcolo: {} }] })).toBeNull()
+  })
+  it('una voce con scelte doppie: rifiuto con posizione e motivo', () => {
+    expect(motivoErroriCalcolo({ voci: [{ posizione: '3', descrizione: '06-PLANET62UP-F1A 675x1342', calcolo: { errori: ['Scelte doppie: Sormonto + Scomparsa'] } }] }))
+      .toBe('Voce 3 (06-PLANET62UP-F1A 675x1342): Scelte doppie: Sormonto + Scomparsa. Correggila nel rilievo e ricalcola')
   })
 })

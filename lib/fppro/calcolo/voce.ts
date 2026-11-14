@@ -58,6 +58,8 @@ export interface CalcoloVoce {
   prezzo: PrezzoVoce
   peso: number
   avvisi: string[]
+  /** Errori bloccanti (es. kit con la stessa funzione scelti insieme): il rilievo non va nel preventivo */
+  errori?: string[]
   /** Costi orari e percentuali usati davvero (profilo + correzioni): per il riepilogo costi. Assente nei calcoli vecchi. */
   profilo?: ProfiloCalcolo
   /** Extra fissi della voce (correzioni) */

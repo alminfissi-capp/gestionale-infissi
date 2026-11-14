@@ -3,12 +3,12 @@
 // fp.kit e fp.accessori: il calcolo non cambia. Funzioni pure, usate dal telefono (offline).
 import type { NodoStruttura, KitStruttura } from './strutture-xml'
 import { chiaveKit } from './kit-catalogo'
+import { chiaveNomeKit, nomiBreviGruppo } from './nomi-brevi'
 import type { AccessorioOpzionale, GruppoAccessoriOpzionali } from './rilievo-fp'
 
 const tutti = (nodi: NodoStruttura[]): NodoStruttura[] => nodi.flatMap(n => [n, ...tutti(n.figli)])
 
-export type FamigliaCerniera = 'vista' | 'scomparsa'
-export type TipoDomanda = 'unica' | 'facoltativa' | 'multipla' | 'cerniere'
+export type TipoDomanda = 'unica' | 'facoltativa' | 'multipla'
 
 export interface KitVoce {
   /** `${nodo}:${indice}`: chiave di fp.kit */
@@ -18,13 +18,18 @@ export interface KitVoce {
   descrizione: string
   /** Confermato nella struttura di FP PRO */
   predefinito: boolean
-  famiglia: FamigliaCerniera
+  /** Nome breve da cantiere (nomi-brevi.ts, o corretto a mano) */
+  nome: string
+  /** Variante di lato del kit (…-DX / …-SX): il lato lo decide la mano della voce */
+  lato: 'dx' | 'sx' | null
 }
 
 export interface Domanda {
   id: string
   titolo: string
   tipo: TipoDomanda
+  /** Sigla del gruppo di FP PRO per l'ordine ("01A", "01B"…; "99" senza sigla) */
+  ordine: string
   kit: KitVoce[]
 }
 
@@ -35,10 +40,6 @@ export interface SchemaOpzioni {
   /** Kit base sempre attivi (confermati e senza alternative): solo in Avanzate */
   base: KitVoce[]
 }
-
-const SCOMPARSA = /SCOMPARSA|SECRET|(^|[-_ ])SCF([-_ ]|$)/i
-const famigliaDi = (k: Pick<KitStruttura, 'codice' | 'descrizione'>): FamigliaCerniera =>
-  SCOMPARSA.test(`${k.codice} ${k.descrizione}`) ? 'scomparsa' : 'vista'
 
 /** Famiglie riconosciute dal nome, solo per i kit senza gruppo di FP PRO (es. Easy Door). */
 const FAMIGLIE_NOME: [RegExp, string][] = [
@@ -52,7 +53,8 @@ export const famigliaDaNome = (k: Pick<KitStruttura, 'codice' | 'descrizione'>):
 
 /** "1B -SCELTA CERNIERA 2 A/R" -> "Cerniera 2 A/R" */
 export function titoloGruppo(nome: string | null | undefined): string {
-  let t = (nome ?? '').trim().replace(/^\d*[A-Z]?\s*-\s*/i, '').replace(/^SCELTA\s+/i, '').replace(/^TIPO\s+/i, '').trim()
+  // Sigla del gruppo all'inizio, con o senza trattino ("1B -SCELTA…", "1B SCELTA…", "- SCELTA…").
+  let t = (nome ?? '').trim().replace(/^(\d+[A-Z]\s*-?|\d*[A-Z]?\s*-)\s*/i, '').replace(/^SCELTA\s+/i, '').replace(/^TIPO\s+/i, '').trim()
   if (!t) return 'Scelta'
   t = t.toLowerCase()
   return t.charAt(0).toUpperCase() + t.slice(1)
@@ -70,15 +72,26 @@ const PREFISSO_STESSO_GRUPPO = 10
 
 const tipoDaGruppo = (t: number | null | undefined): TipoDomanda => (t === 1 ? 'facoltativa' : t === 2 ? 'multipla' : 'unica')
 
-export function schemaOpzioni(albero: NodoStruttura[]): SchemaOpzioni {
+/** Sigla del gruppo di FP PRO per l'ordine delle domande: "1B -SCELTA…" -> "01B"; senza sigla in fondo. */
+const sigla = (nome: string | null | undefined) => {
+  const m = /^\s*(\d+)\s*([A-Z]?)/i.exec(nome ?? '')
+  return m ? `${m[1].padStart(2, '0')}${m[2].toUpperCase()}` : '99'
+}
+
+/**
+ * Domande della voce: una per gruppo di FP PRO, nell'ordine delle sigle (1A, 1B, 2A…), a scelta
+ * unica dove FP PRO la vuole unica. `nomi` = nomi brevi corretti a mano (chiaveNomeKit -> nome).
+ */
+export function schemaOpzioni(albero: NodoStruttura[], nomi: Map<string, string> = new Map()): SchemaOpzioni {
   const domande: Domanda[] = []
   const altre: KitVoce[] = []
   const base: KitVoce[] = []
   for (const n of tutti(albero)) {
     const facoltativi = n.kit.map((k, i) => ({ k, i })).filter(x => x.k.opzionale)
     if (facoltativi.length === 0) continue
-    const voce = ({ k, i }: { k: KitStruttura; i: number }): KitVoce => ({
-      chiave: `${n.codice}:${i}`, nodo: n.codice, codice: k.codice, descrizione: k.descrizione, predefinito: k.confermato, famiglia: famigliaDi(k),
+    const voce = ({ k, i }: { k: KitStruttura; i: number }, nome?: string): KitVoce => ({
+      chiave: `${n.codice}:${i}`, nodo: n.codice, codice: k.codice, descrizione: k.descrizione, predefinito: k.confermato,
+      nome: nomi.get(chiaveNomeKit(k.codice)) ?? nome ?? k.descrizione ?? k.codice, lato: latoDi(k.codice),
     })
     // 1. Gruppi di FP PRO; un kit senza gruppo con lo stesso inizio di nome di un kit di un gruppo
     //    (es. "2AR-SORMONTO-RISTUTT", nome storpiato) entra in quel gruppo.
@@ -89,12 +102,12 @@ export function schemaOpzioni(albero: NodoStruttura[]): SchemaOpzioni {
       const simile = facoltativi.find(y => y.k.gruppo && prefissoComune(y.k.codice, x.k.codice) >= PREFISSO_STESSO_GRUPPO)
       if (simile?.k.gruppo) gruppoDi.set(x.i, simile.k.gruppo)
     }
-    const insiemi = new Map<string, { titolo: string; tipo: TipoDomanda; membri: typeof facoltativi }>()
+    const insiemi = new Map<string, { titolo: string; tipo: TipoDomanda; ordine: string; membri: typeof facoltativi }>()
     for (const x of facoltativi) {
       const g = gruppoDi.get(x.i)
       if (!g) continue
       const conNome = facoltativi.find(y => y.k.gruppo === g)?.k
-      const e = insiemi.get(`g${g}`) ?? { titolo: titoloGruppo(conNome?.gruppoNome), tipo: tipoDaGruppo(conNome?.gruppoTipo), membri: [] }
+      const e = insiemi.get(`g${g}`) ?? { titolo: titoloGruppo(conNome?.gruppoNome), tipo: tipoDaGruppo(conNome?.gruppoTipo), ordine: sigla(conNome?.gruppoNome), membri: [] }
       e.membri.push(x)
       insiemi.set(`g${g}`, e)
     }
@@ -103,7 +116,7 @@ export function schemaOpzioni(albero: NodoStruttura[]): SchemaOpzioni {
     for (const x of senza) {
       const f = famigliaDaNome(x.k)
       if (!f) continue
-      const e = insiemi.get(`f${f}`) ?? { titolo: f, tipo: 'unica' as TipoDomanda, membri: [] }
+      const e = insiemi.get(`f${f}`) ?? { titolo: f, tipo: 'unica' as TipoDomanda, ordine: '98', membri: [] }
       e.membri.push(x)
       insiemi.set(`f${f}`, e)
     }
@@ -111,10 +124,9 @@ export function schemaOpzioni(albero: NodoStruttura[]): SchemaOpzioni {
     const inDomanda = new Set<number>()
     for (const [chiave, e] of insiemi) {
       if (e.membri.length < 2) continue
-      const kit = e.membri.map(voce)
-      const famiglie = new Set(kit.map(k => k.famiglia))
-      const cerniere = e.tipo !== 'multipla' && famiglie.size === 2
-      domande.push({ id: `${n.codice}:${chiave}`, titolo: cerniere ? 'Cerniere' : e.titolo, tipo: cerniere ? 'cerniere' : e.tipo, kit })
+      const brevi = nomiBreviGruppo(e.membri.map(m => ({ codice: m.k.codice, descrizione: m.k.descrizione })))
+      const kit = e.membri.map((m, j) => voce(m, brevi[j]))
+      domande.push({ id: `${n.codice}:${chiave}`, titolo: e.titolo, tipo: e.tipo, ordine: e.ordine, kit })
       e.membri.forEach(m => inDomanda.add(m.i))
     }
     for (const x of facoltativi) {
@@ -122,8 +134,8 @@ export function schemaOpzioni(albero: NodoStruttura[]): SchemaOpzioni {
       ;(x.k.confermato ? base : altre).push(voce(x))
     }
   }
-  // Cerniere per prime; titoli ripetuti (piu' nodi) numerati.
-  domande.sort((a, b) => Number(b.tipo === 'cerniere') - Number(a.tipo === 'cerniere'))
+  // Ordine dei gruppi di FP PRO (1A, 1B, 2A…); titoli ripetuti (piu' nodi) numerati.
+  domande.sort((a, b) => a.ordine.localeCompare(b.ordine))
   const visti = new Map<string, number>()
   for (const d of domande) {
     const n = (visti.get(d.titolo) ?? 0) + 1
@@ -150,48 +162,28 @@ export const latoDi = (codice: string): 'dx' | 'sx' | null => {
   const m = codice.match(LATO)
   return m ? (m[2].toLowerCase() as 'dx' | 'sx') : null
 }
-const parole = (codice: string) => chiaveKit(codice).split(/[-_ ]+/).filter(p => p && !/^(SCOMPARSA|SCF|SECRET|DX|SX)$/.test(p))
+/** Risposte da mostrare: le varianti di lato solo per la mano della voce (senza mano: destra). */
+export const risposte = (d: Domanda, mano: 'sx' | 'dx' | null): KitVoce[] =>
+  d.kit.filter(k => k.lato === null || k.lato === (mano ?? 'dx'))
+
+/** La stessa risposta per l'altro lato (F2-DK-SCF-DX <-> F2-DK-SCF-SX). */
+const gemello = (d: Domanda, k: KitVoce, lato: 'dx' | 'sx'): KitVoce | null =>
+  d.kit.find(x => x.lato === lato && x.codice.replace(LATO, '$1$3').toUpperCase() === k.codice.replace(LATO, '$1$3').toUpperCase()) ?? null
 
 /**
- * Variante tecnica di una famiglia (a vista / a scomparsa), come la sceglierebbe chi conosce
- * FP PRO: 1) il lato della mano della voce, se le varianti cambiano per DX/SX (senza mano: il
- * lato del kit confermato, poi DX); 2) il kit confermato; 3) quello piu' simile al confermato
- * (complanare/sormonto, -DS/-RISTRUTT, maniglia 7.5); 4) il primo.
+ * Riallinea le varianti di lato alla mano della voce (senza mano: destra), in tutte le domande:
+ * la risposta scelta resta la stessa, cambia solo il lato. Mai due lati accesi insieme.
  */
-export function varianteFamiglia(d: Domanda, famiglia: FamigliaCerniera, mano: 'sx' | 'dx' | null): KitVoce | null {
-  let candidati = d.kit.filter(k => k.famiglia === famiglia)
-  if (candidati.length === 0) return null
-  const confermato = d.kit.find(k => k.predefinito) ?? null
-  const lati = new Set(candidati.map(k => latoDi(k.codice)).filter(Boolean))
-  if (lati.size > 1) {
-    const voluto = mano ?? (confermato ? latoDi(confermato.codice) : null) ?? 'dx'
-    const stessoLato = candidati.filter(k => latoDi(k.codice) === voluto)
-    if (stessoLato.length > 0) candidati = stessoLato
-  }
-  const conf = candidati.find(k => k.predefinito)
-  if (conf) return conf
-  if (confermato) {
-    const rif = new Set(parole(confermato.codice))
-    const punti = (k: KitVoce) => parole(k.codice).filter(p => rif.has(p)).length
-    return [...candidati].sort((a, b) => punti(b) - punti(a))[0]
-  }
-  return candidati[0]
-}
-
-export function scegliFamiglia(d: Domanda, famiglia: FamigliaCerniera, mano: 'sx' | 'dx' | null, scelte: Record<string, boolean>): Record<string, boolean> {
-  const k = varianteFamiglia(d, famiglia, mano)
-  return k ? scegliKit(d, k.chiave, scelte) : scelte
-}
-
-/** Cambiando la mano della voce, le cerniere DX/SX si riallineano (stessa famiglia). */
 export function riallineaMano(schema: SchemaOpzioni, scelte: Record<string, boolean>, mano: 'sx' | 'dx' | null): Record<string, boolean> {
   let out = scelte
+  const voluto = mano ?? 'dx'
   for (const d of schema.domande) {
-    if (d.tipo !== 'cerniere' || !mano) continue
-    const attuale = sceltoIn(d, out)
+    if (d.tipo === 'multipla' || !d.kit.some(k => k.lato)) continue
+    const accesi = d.kit.filter(k => kitAttivo(k, out))
+    const attuale = accesi.find(k => k.lato === voluto) ?? accesi[0]
     if (!attuale) continue
-    const lato = latoDi(attuale.codice)
-    if (lato && lato !== mano) out = scegliFamiglia(d, attuale.famiglia, mano, out)
+    const giusto = attuale.lato && attuale.lato !== voluto ? gemello(d, attuale, voluto) ?? attuale : attuale
+    out = scegliKit(d, giusto.chiave, out)
   }
   return out
 }
@@ -205,7 +197,7 @@ export const domandeDoppie = (schema: SchemaOpzioni, scelte: Record<string, bool
 export interface DomandaAccessori {
   id: string
   titolo: string
-  tipo: Exclude<TipoDomanda, 'cerniere'>
+  tipo: TipoDomanda
   accessori: AccessorioOpzionale[]
 }
 
