@@ -369,9 +369,14 @@ export function accessoriVoce(
         const kitScelto = !k.opzionale || (kitScelti[`${n.codice}:${i}`] ?? k.confermato)
         if (!kitScelto) return
         const righe = k.accessori.length > 0 ? k.accessori : regole.righeCatalogo(k.codice)
+        // Kit per anta (CodiceMacro = 1, es. cerniere ES40): le righe si contano su ogni anta,
+        // con le misure di quell'anta (una cerniera ogni 600 mm della sua altezza).
+        const anteKit = k.perAnta ? (misureAnte.ante.length > 0 ? misureAnte.ante : misureAnte.scorrevoli) : []
+        const misurePer = anteKit.length > 0 ? anteKit.map(an => ({ ...d, L: an.l, H: an.h, h: an.h, a: an.l })) : [d]
         for (const a of righe) {
           espliciti.add(a.codice)
-          if (scelto(a, chiaveAccessorio(n.codice, i, a.codice)) && valePerSerie(k.codice, a.codice) && valeParametro(a, `${n.codice}:${i}`)) usa(a, d)
+          if (!(scelto(a, chiaveAccessorio(n.codice, i, a.codice)) && valePerSerie(k.codice, a.codice) && valeParametro(a, `${n.codice}:${i}`))) continue
+          for (const dd of misurePer) usa(a, dd)
         }
       })
       visita(n.figli, z)

@@ -304,3 +304,18 @@ describe('condparam: condizioni alternative (ACP 5155, caso Vazzana/192-26G)', (
   it('condparam 1: basta una condizione (anta 675 fuori fascia, H 1342 dentro) -> 1', () => expect(q(1)).toBe(1))
   it('condparam 0: devono valere tutte -> 0', () => expect(q(0)).toBe(0))
 })
+
+describe('kit per anta (CodiceMacro = 1): cerniere ES40 Giesse, 95-2026G e 107-26G', () => {
+  const cerniera = { codice: 'CERN', descrizione: '', serie: 'S', tipo: 1, quantita: 2, dimRif: 0, dimCalcolo: 0, min: null, max: null,
+    passo: 600, formula: null, dimDistribuzione: 1, formulaDistribuzione: null, opzionale: false, confermato: true, numMax: 5 }
+  const albero = (perAnta: boolean) => [{
+    tipo: 8610, codice: 2, x: null, y: null, pezzi: [], figli: [], accessori: [],
+    kit: [{ codice: 'CERN_ES-GIESSE00259U', descrizione: '', serie: '', opzionale: false, confermato: true, perAnta, accessori: [cerniera] }],
+  }]
+  const q = (perAnta: boolean, h: number) => accessoriVoce(albero(perAnta) as never, {}, { 2: { L: 1100, H: h } }, 50, regoleDaElenchi([], [], [], {}), {}, {
+    ante: { 2: { ante: [{ l: 550, h, peso: 20 }, { l: 550, h, peso: 20 }], scorrevoli: [] } },
+  }).filter(a => a.codice === 'CERN').reduce((t, a) => t + a.quantita, 0)
+  it('finestra bassa (H 642): 2 per anta x 2 ante = 4', () => expect(q(true, 642)).toBe(4))
+  it('porta-finestra (H 2400): 4 per anta x 2 ante = 8', () => expect(q(true, 2400)).toBe(8))
+  it('kit normale: una volta sola', () => expect(q(false, 642)).toBe(2))
+})
