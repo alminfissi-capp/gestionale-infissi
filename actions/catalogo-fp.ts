@@ -5,6 +5,8 @@ import { getOrgId } from '@/lib/auth'
 import { getMyPermissions } from '@/lib/permessi'
 import { selectAll } from '@/lib/supabase/paginate'
 import { pulisciRicerca, rigaAccessorio, rigaColore, rigaProfilo, rigaVetro } from '@/lib/fppro/catalogo'
+import { gruppoDaDati } from '@/lib/fppro/kit-catalogo'
+import { elencoNomiBrevi, type GruppoNomiBrevi } from '@/lib/fppro/nomi-brevi'
 import {
   TABELLE_CONTEGGIO,
   type CatalogoFpStato, type FiltriStrutture, type RichiestaPonte, type RigaCatalogo, type SerieFp,
@@ -234,4 +236,44 @@ export async function getElenchiBreviFp(): Promise<{ colori: { id: number; testo
   } catch (e) {
     return { errore: e instanceof Error ? e.message : 'Elenchi non disponibili' }
   }
+}
+
+// ---- Nomi brevi da cantiere (spec 2026-11-14-kit-come-fppro) ----
+
+/** Kit con gruppo di FP PRO, raggruppati come le domande della voce, con nome automatico e corretto. */
+export async function getNomiBreviFp(): Promise<{ gruppi: GruppoNomiBrevi[] } | { errore: string }> {
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+    type RigaKit = { nome: string; descrizione: string | null; dati: Record<string, unknown> | null }
+    const kit = await selectAll<RigaKit>((da, a) => supabase.from('fp_kit').select('nome, descrizione, dati')
+      .eq('organization_id', orgId).eq('presente', true).order('fp_id').range(da, a) as unknown as PromiseLike<{ data: RigaKit[] | null; error: { message: string } | null }>)
+    const { data: gruppi, error: eG } = await supabase.from('fp_kit_gruppi').select('fp_id, descrizione').eq('organization_id', orgId).eq('presente', true)
+    if (eG) return { errore: eG.message }
+    const { data: nomi, error: eN } = await supabase.from('fp_nomi_brevi').select('chiave, nome').eq('organization_id', orgId)
+    if (eN) return { errore: eN.message }
+    const nomeGruppo = new Map((gruppi ?? []).map(g => [g.fp_id as number, g.descrizione as string | null]))
+    return {
+      gruppi: elencoNomiBrevi(
+        kit.map(k => ({ nome: k.nome, descrizione: k.descrizione, gruppo: gruppoDaDati(k.dati), gruppoNome: nomeGruppo.get(gruppoDaDati(k.dati) ?? -1) ?? null })),
+        new Map((nomi ?? []).map(n => [n.chiave as string, n.nome as string])),
+      ),
+    }
+  } catch (e) {
+    return { errore: e instanceof Error ? e.message : 'Nomi brevi non disponibili' }
+  }
+}
+
+/** Salva il nome breve corretto a mano; vuoto = torna quello automatico. */
+export async function salvaNomeBreveFp(chiave: string, nome: string): Promise<{ ok: true } | { errore: string }> {
+  const { permessi } = await getMyPermissions()
+  if (permessi.rilievo !== 'scrittura') return { errore: 'Non hai i permessi per modificare i nomi brevi.' }
+  if (!/^kit:.+/.test(chiave)) return { errore: 'Chiave non valida' }
+  const supabase = await createClient()
+  const orgId = await getOrgId()
+  const pulito = nome.trim().replace(/\s+/g, ' ').slice(0, 60)
+  const { error } = pulito
+    ? await supabase.from('fp_nomi_brevi').upsert({ organization_id: orgId, chiave, nome: pulito, aggiornato_at: new Date().toISOString() }, { onConflict: 'organization_id,chiave' })
+    : await supabase.from('fp_nomi_brevi').delete().eq('organization_id', orgId).eq('chiave', chiave)
+  return error ? { errore: error.message } : { ok: true }
 }

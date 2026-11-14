@@ -3,7 +3,9 @@
 // fp.kit e fp.accessori: il calcolo non cambia. Funzioni pure, usate dal telefono (offline).
 import type { NodoStruttura, KitStruttura } from './strutture-xml'
 import { chiaveKit } from './kit-catalogo'
-import { chiaveNomeKit, nomiBreviGruppo } from './nomi-brevi'
+import { chiaveNomeKit, nomiBreviGruppo, sigla, titoloGruppo } from './nomi-brevi'
+
+export { titoloGruppo }
 import type { AccessorioOpzionale, GruppoAccessoriOpzionali } from './rilievo-fp'
 
 const tutti = (nodi: NodoStruttura[]): NodoStruttura[] => nodi.flatMap(n => [n, ...tutti(n.figli)])
@@ -51,15 +53,6 @@ const FAMIGLIE_NOME: [RegExp, string][] = [
 export const famigliaDaNome = (k: Pick<KitStruttura, 'codice' | 'descrizione'>): string | null =>
   FAMIGLIE_NOME.find(([re]) => re.test(`${k.codice} ${k.descrizione}`))?.[1] ?? null
 
-/** "1B -SCELTA CERNIERA 2 A/R" -> "Cerniera 2 A/R" */
-export function titoloGruppo(nome: string | null | undefined): string {
-  // Sigla del gruppo all'inizio, con o senza trattino ("1B -SCELTA…", "1B SCELTA…", "- SCELTA…").
-  let t = (nome ?? '').trim().replace(/^(\d+[A-Z]\s*-?|\d*[A-Z]?\s*-)\s*/i, '').replace(/^SCELTA\s+/i, '').replace(/^TIPO\s+/i, '').trim()
-  if (!t) return 'Scelta'
-  t = t.toLowerCase()
-  return t.charAt(0).toUpperCase() + t.slice(1)
-}
-
 /** Lunghezza del prefisso comune (senza maiuscole): per ricondurre al gruppo un kit con nome storpiato. */
 const prefissoComune = (a: string, b: string): number => {
   const x = chiaveKit(a)
@@ -71,12 +64,6 @@ const prefissoComune = (a: string, b: string): number => {
 const PREFISSO_STESSO_GRUPPO = 10
 
 const tipoDaGruppo = (t: number | null | undefined): TipoDomanda => (t === 1 ? 'facoltativa' : t === 2 ? 'multipla' : 'unica')
-
-/** Sigla del gruppo di FP PRO per l'ordine delle domande: "1B -SCELTA…" -> "01B"; senza sigla in fondo. */
-const sigla = (nome: string | null | undefined) => {
-  const m = /^\s*(\d+)\s*([A-Z]?)/i.exec(nome ?? '')
-  return m ? `${m[1].padStart(2, '0')}${m[2].toUpperCase()}` : '99'
-}
 
 /**
  * Domande della voce: una per gruppo di FP PRO, nell'ordine delle sigle (1A, 1B, 2A…), a scelta

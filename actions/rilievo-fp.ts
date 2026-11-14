@@ -415,3 +415,16 @@ export async function getAccessoriAColoreFp(): Promise<AccessorioAColore[] | { e
     return { errore: messaggio(e, 'Colori degli accessori non disponibili') }
   }
 }
+
+/** Nomi brevi corretti a mano (fp_nomi_brevi), per il telefono: pochi, si scaricano interi col catalogo. */
+export async function getNomiBreviCorretti(): Promise<{ chiave: string; nome: string }[] | { errore: string }> {
+  try {
+    const supabase = await createClient()
+    const orgId = await getOrgId()
+    const { data, error } = await supabase.from('fp_nomi_brevi').select('chiave, nome').eq('organization_id', orgId)
+    if (error) return { errore: error.message }
+    return (data ?? []) as { chiave: string; nome: string }[]
+  } catch (e) {
+    return { errore: messaggio(e, 'Nomi brevi non disponibili') }
+  }
+}

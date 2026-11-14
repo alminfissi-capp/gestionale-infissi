@@ -147,7 +147,9 @@ export default function SchermataVoce({ rilievoId, voceId, copiaDa = null, onFin
 
   const divisioni = useMemo(() => (struttura ? divisioniStruttura(struttura.albero) : []), [struttura])
   const campi = useMemo(() => (struttura ? campiRiempimento(struttura.albero) : []), [struttura])
-  const schema = useMemo(() => schemaOpzioni(struttura ? struttura.albero : []), [struttura])
+  // Nomi brevi corretti a mano (Catalogo FP PRO -> Nomi brevi), anche offline.
+  const nomiBrevi = useLiveQuery(async () => new Map((await db.fpNomiBrevi.toArray()).map(n => [n.chiave, n.nome])), [], new Map<string, string>())
+  const schema = useMemo(() => schemaOpzioni(struttura ? struttura.albero : [], nomiBrevi), [struttura, nomiBrevi])
   const telaiDefault = useMemo(() => (struttura ? telaiStruttura(struttura.albero) : {}), [struttura])
 
   const pref = (tipo: 'colore' | 'vetro') => new Set(preferenze.filter(p => p.tipo === tipo).map(p => String(p.rif)))
