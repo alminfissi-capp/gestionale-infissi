@@ -264,7 +264,7 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       const input: InputVoce = {
         albero: s.albero, serie: s.serie, poligoni: s.poligoni,
         L: v.fp.larghezza, H: v.fp.altezza, L0: s.l_nominale ?? v.fp.larghezza, H0: s.h_nominale ?? v.fp.altezza,
-        quote: v.fp.quote ?? {}, kitScelti: v.fp.kit ?? {}, accessoriScelti: v.fp.accessori ?? {},
+        quote: v.fp.quote ?? {}, kitScelti: v.fp.kit ?? {}, accessoriScelti: v.fp.accessori ?? {}, mano: v.fp.mano ?? null,
         vetriScelti: Object.fromEntries(Object.entries(v.fp.vetri ?? {}).map(([k, x]) => [k, x.codice])),
         pannelliScelti: Object.fromEntries(Object.entries(v.fp.pannelli ?? {}).map(([k, x]) => [k, x.codice])),
         accessoriAggiunti: v.fp.accessoriAggiunti ?? [],

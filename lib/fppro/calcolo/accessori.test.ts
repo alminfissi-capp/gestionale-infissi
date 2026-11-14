@@ -217,3 +217,51 @@ describe('righe del catalogo con tutte le regole (caso Vazzana)', () => {
     expect(p.apertura).toBe(0)
   })
 })
+
+describe('cerniere a scomparsa: una sola, per mano e per peso (caso Vazzana)', () => {
+  const riga = (fp_id: number, codice: string, apertura: number, pesoMin: number, pesoMax: number): RigaKitCatalogo => ({
+    fp_id, codice, tipo: 1, quantita: 1, opzionale: false, dim_rif: 5, lim_inf: 600.1, lim_sup: 1500, passo: 0,
+    formula_r: 'O1+AE+AE', formula_dist: null,
+    dati: { apertura, dimrif2: 201, liminfrange2: pesoMin, limsuprange2: pesoMax },
+  })
+  const catalogo = {
+    'PLANET 1AR-SCOMPARSA-RISTRUTT': [
+      riga(1, 'ACP 5151/D', 1, 1, 100), riga(2, 'ACP 5151/S', 2, 1, 100),
+      riga(3, 'ACP 5163/D', 1, 100.1, 150), riga(4, 'ACP 5163/S', 2, 100.1, 150),
+    ],
+  }
+  const albero = [{
+    tipo: 8610, codice: 2, elementi: 1, x: null, y: null, prm: [], macro: null, ante: [], ird: [], pezzi: [], figli: [], accessori: [],
+    kit: [{ codice: 'PLANET 1AR-SCOMPARSA-RISTRUTT', descrizione: '', serie: 'AL_SISTEM', opzionale: true, confermato: true, accessori: [] }],
+  }]
+  const regole = regoleDaElenchi([], [], [], catalogo)
+  const codici = (mano: 'sx' | 'dx' | null, pesoAnta: number) =>
+    accessoriVoce(albero as never, {}, { 2: { L: 675, H: 1342 } }, 60, regole, {}, {
+      mano, ante: { 2: { ante: [{ l: 675, h: 1342, peso: pesoAnta }], scorrevoli: [] } },
+    }).filter(a => a.quantita > 0).map(a => a.codice)
+
+  it('mano destra, anta sotto 100 kg: solo ACP 5151/D', () => expect(codici('dx', 40)).toEqual(['ACP 5151/D']))
+  it('mano sinistra: solo ACP 5151/S', () => expect(codici('sx', 40)).toEqual(['ACP 5151/S']))
+  it('senza mano: un solo kit, il destro', () => expect(codici(null, 40)).toEqual(['ACP 5151/D']))
+  it('anta da 120 kg: solo ACP 5163/D', () => expect(codici('dx', 120)).toEqual(['ACP 5163/D']))
+})
+
+describe('anta passiva e codici sconosciuti', () => {
+  const acc = (codice: string, dimRif: number, min: number, max: number) => ({
+    codice, descrizione: codice, serie: 'S', tipo: 1, quantita: 1, dimRif, dimCalcolo: 0, min, max, passo: null, formula: null,
+    dimDistribuzione: 0, formulaDistribuzione: null, opzionale: false, confermato: true,
+  })
+  const albero = [{
+    tipo: 8610, codice: 2, x: null, y: null, pezzi: [], figli: [], kit: [],
+    accessori: [acc('PASSIVA', 202, 50, 100), acc('ATTIVA', 201, 50, 100), acc('STRANO', 999, 1, 5000)],
+  }]
+  const risultato = accessoriVoce(albero as never, {}, { 2: { L: 1200, H: 1400 } }, 100, regoleDaElenchi([], [], [], {}), {}, {
+    mano: 'dx', ante: { 2: { ante: [{ l: 600, h: 1400, peso: 40 }, { l: 600, h: 1400, peso: 60 }], scorrevoli: [] } },
+  })
+  it('peso anta 2 (passiva) 60 kg: la riga 202 50-100 vale, la 201 no', () => {
+    expect(risultato.filter(a => a.quantita > 0).map(a => a.codice)).toEqual(['PASSIVA'])
+  })
+  it('codice di misura sconosciuto: riga esclusa e avviso', () => {
+    expect(risultato.find(a => a.codice === 'STRANO')).toMatchObject({ quantita: 0, avviso: 'Regola FP PRO non gestita: misura 999 su STRANO' })
+  })
+})

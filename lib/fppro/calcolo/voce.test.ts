@@ -252,3 +252,17 @@ describe('barre sulla commessa', () => {
     expect(gruppo(r, 'profili')).toBeLessThanOrEqual(gruppo(sola, 'profili') + 1e-9)
   })
 })
+
+describe('peso di ogni anta (serve alle regole 2xx e 23 di FP PRO)', () => {
+  const { dati, input, regole } = inputDa('170-26G', alm2026, 0.03)
+  const r = calcolaVoce(input, listinoDa(dati, 1.03), regole)
+  it('scorrevole a 2 ante: due ante con peso, insieme non oltre il serramento', () => {
+    expect(r.ante ?? []).toHaveLength(2)
+    expect((r.ante ?? []).every(a => a.peso > 0)).toBe(true)
+    expect((r.ante ?? []).reduce((t, a) => t + a.peso, 0)).toBeLessThanOrEqual(r.peso)
+  })
+  it('misure dell\'anta dalla geometria', () => {
+    expect(r.ante?.[0].l).toBeGreaterThan(800)
+    expect(r.ante?.[0].h).toBeGreaterThan(2000)
+  })
+})

@@ -9,6 +9,7 @@
 //   righe dal catalogo dei kit; tra le alternative di uno stesso gruppo vale la prima.
 import type { AccessorioStruttura, CondizioneRiga, NodoStruttura } from '../strutture-xml'
 import { chiaveKit } from '../kit-catalogo'
+import { condizioneVera, misuraRif, type MisuraAnta, type MisureRif } from './misure-riferimento'
 
 /**
  * Chiave della scelta di un accessorio opzionale nella voce (VoceFpDati.accessori): nodo,
@@ -28,6 +29,14 @@ export interface QuantitaAccessorio {
   quantita: number
   metri: boolean
   regolaIgnota: boolean
+  /** Regola di FP PRO che il motore non sa applicare: la riga non e' contata (quantita 0) */
+  avviso?: string
+}
+
+/** Mano della voce e misure delle ante per nodo (codice nodo -> ante, la principale per prima). */
+export interface OpzioniAccessori {
+  mano?: 'sx' | 'dx' | null
+  ante?: Record<number, { ante: MisuraAnta[]; scorrevoli: MisuraAnta[] }>
 }
 
 export interface RegoleAccessori {
@@ -121,7 +130,9 @@ function altreCondizioniCatalogo(d: Record<string, unknown>): CondizioneRiga[] {
 }
 
 /** a = larghezza di UNA anta (nei nodi con piu' ante e' L diviso il numero di ante), per la formula O1 */
-type Misure = { L: number; H: number; w: number; h: number; a?: number }
+type Misure = { L: number; H: number; w: number; h: number; a?: number; rif?: MisureRif }
+
+const rifDi = (d: Misure): MisureRif => d.rif ?? { L: d.L, H: d.H, peso: d.w, ante: [], scorrevoli: [] }
 
 /** Regole costruite dagli elenchi letti dal database (o dalle fixture). */
 export function regoleDaElenchi(
@@ -218,33 +229,57 @@ export function valutaFormula(f: string, d: Misure): number | null {
   return v !== null && i === testo.length && Number.isFinite(v) ? v : null
 }
 
-/** Misura di riferimento di FP PRO: 1 = H, 2 = L, 3 = perimetro, 4 = 2H + L (telaio senza il lato in basso). */
-function misura(codice: number, d: Misure): number {
-  if (codice === 2) return d.L
-  if (codice === 3) return 2 * (d.L + d.H)
-  if (codice === 4) return 2 * d.H + d.L
-  return d.H
+/**
+ * Misura di riferimento di FP PRO (tabella in misure-riferimento.ts). 0 = altezza, come il motore
+ * ha sempre fatto per le righe senza codice; null = codice che il motore non sa misurare.
+ */
+function misura(codice: number, d: Misure): number | null {
+  return codice === 0 ? d.H : misuraRif(codice, rifDi(d))
 }
 
-function quantitaDi(a: AccessorioStruttura, d: Misure): { quantita: number; ignota: boolean } {
-  // Fascia di validita' (es. 4 chiusure per H tra 1500 e 2500).
+type Esito = { quantita: number; ignota: boolean; avviso?: string }
+
+const nonGestita = (dim: number, a: AccessorioStruttura): Esito =>
+  ({ quantita: 0, ignota: false, avviso: `Regola FP PRO non gestita: misura ${dim} su ${a.codice}` })
+
+function quantitaDi(a: AccessorioStruttura, d: Misure): Esito {
+  // Prima condizione (es. 4 chiusure per H tra 1500 e 2500); 5 = formula (O1+AE+AE...).
   if (a.min !== null && a.max !== null && a.max > 0) {
-    const rif = a.dimRif === 5 ? (a.formula ? valutaFormula(a.formula, d) : null) : misura(a.dimRif, d)
-    if (rif === null) return { quantita: a.quantita, ignota: true }
-    if (rif < a.min || rif > a.max) return { quantita: 0, ignota: false }
+    if (a.dimRif === 5 || a.dimRif === 0) {
+      const rif = a.dimRif === 5 ? (a.formula ? valutaFormula(a.formula, d) : null) : d.H
+      if (rif === null) return { quantita: a.quantita, ignota: true }
+      if (rif < a.min || rif > a.max) return { quantita: 0, ignota: false }
+    } else {
+      const c = condizioneVera({ dim: a.dimRif, min: a.min, max: a.max }, rifDi(d))
+      if (c.ignoto !== undefined) return nonGestita(c.ignoto, a)
+      if (!c.vera) return { quantita: 0, ignota: false }
+    }
   }
+  // Seconda, terza e quarta condizione: devono valere tutte.
+  for (const cond of a.altreCondizioni ?? []) {
+    const c = condizioneVera(cond, rifDi(d))
+    if (c.ignoto !== undefined) return nonGestita(c.ignoto, a)
+    if (!c.vera) return { quantita: 0, ignota: false }
+  }
+  const limita = (q: number) => (a.numMax && a.numMax > 0 ? Math.min(q, a.numMax) : q)
   if (a.tipo === 2 || a.tipo === 4) {
-    return { quantita: (a.quantita * misura(a.dimCalcolo || 1, d)) / 1000 * MAGGIORAZIONE_METRO, ignota: false }
+    const lung = a.formulaL ? valutaFormula(a.formulaL, d) : misura(a.dimCalcolo || 1, d)
+    if (lung === null) return { quantita: a.quantita, ignota: true }
+    return { quantita: (a.quantita * (lung + (a.corrMl ?? 0))) / 1000 * MAGGIORAZIONE_METRO, ignota: false }
   }
   if (a.passo !== null && a.passo > 0) {
     const rif = a.dimDistribuzione === 5
       ? (a.formulaDistribuzione ? valutaFormula(a.formulaDistribuzione, d) : null)
       : misura(a.dimDistribuzione || 3, d)
     if (rif === null) return { quantita: a.quantita, ignota: true }
-    return { quantita: Math.max(a.quantita, Math.round(rif / a.passo)), ignota: false }
+    return { quantita: limita(Math.max(a.quantita, Math.round(rif / a.passo))), ignota: false }
   }
-  return { quantita: a.quantita, ignota: false }
+  return { quantita: limita(a.quantita), ignota: false }
 }
+
+/** La riga vale per la mano della voce? 0 = sempre; 1 = destra; 2 = sinistra. Senza mano: destra. */
+const valePerMano = (a: AccessorioStruttura, mano: 'sx' | 'dx' | null | undefined) =>
+  !a.apertura || a.apertura === ((mano ?? 'dx') === 'dx' ? 1 : 2)
 
 export function accessoriVoce(
   albero: NodoStruttura[],
@@ -254,15 +289,34 @@ export function accessoriVoce(
   regole: RegoleAccessori,
   /** Scelte fatte nella voce sugli accessori opzionali (chiaveAccessorio); assente = come FP PRO */
   accessoriScelti: Record<string, boolean> = {},
+  opzioni: OpzioniAccessori = {},
 ): QuantitaAccessorio[] {
   const trovati: QuantitaAccessorio[] = []
+  const avvisi: QuantitaAccessorio[] = []
   const espliciti = new Set<string>()
   const usa = (a: AccessorioStruttura, d: Misure) => {
-    const { quantita, ignota } = quantitaDi(a, d)
-    if (quantita > 0) {
-      trovati.push({ codice: a.codice, serie: a.serie, descrizione: a.descrizione, quantita, metri: a.tipo === 2 || a.tipo === 4, regolaIgnota: ignota })
-    }
+    if (!valePerMano(a, opzioni.mano)) return
+    const { quantita, ignota, avviso } = quantitaDi(a, d)
+    const metri = a.tipo === 2 || a.tipo === 4
+    if (avviso) avvisi.push({ codice: a.codice, serie: a.serie, descrizione: a.descrizione, quantita: 0, metri, regolaIgnota: false, avviso })
+    if (quantita > 0) trovati.push({ codice: a.codice, serie: a.serie, descrizione: a.descrizione, quantita, metri, regolaIgnota: ignota })
   }
+  // Righe parametriche (es. cilindro 25/30/35): una sola per parametro del kit. Senza valore
+  // scelto vale il primo incontrato, mai tutti insieme.
+  const parametriPresi = new Map<string, string>()
+  const valeParametro = (a: AccessorioStruttura, chiaveKitNodo: string) => {
+    if (!a.parametro) return true
+    const chiave = `${chiaveKitNodo}:${a.parametro.codice.toLowerCase()}`
+    const preso = parametriPresi.get(chiave)
+    if (preso === undefined) {
+      parametriPresi.set(chiave, a.parametro.valore)
+      return true
+    }
+    return preso === a.parametro.valore
+  }
+  /** Ante del nodo o del primo discendente che le ha (un kit del telaio puo' guardare il peso dell'anta). */
+  const anteDi = (n: NodoStruttura): { ante: MisuraAnta[]; scorrevoli: MisuraAnta[] } | null =>
+    opzioni.ante?.[n.codice] ?? n.figli.map(anteDi).find(x => x !== null) ?? null
   const scelto = (a: AccessorioStruttura, chiave: string) => !a.opzionale || (accessoriScelti[chiave] ?? a.confermato)
   const valePerSerie = (kit: string, codice: string) => {
     const serie = regole.serieRigaKit(kit, codice)
@@ -274,10 +328,14 @@ export function accessoriVoce(
       // Nodo anta di FP PRO che contiene piu' ante (2 ante = 8 profili d'anta): larghezza di una.
       const profiliAnta = n.pezzi.filter(p => p.tipo === 8090 || p.tipo === 8100).length
       const ante = profiliAnta >= 4 ? Math.round(profiliAnta / 4) : 1
-      const d: Misure = { L: z.L, H: z.H, w: peso, h: z.H, a: z.L / ante }
+      // Senza misure delle ante dal calcolo: ante uguali, peso del serramento diviso fra le ante.
+      const uguali = Array.from({ length: ante }, () => ({ l: z.L / ante, h: z.H, peso: peso / ante }))
+      const misureAnte = anteDi(n) ?? { ante: n.tipo === 8620 ? [] : uguali, scorrevoli: n.tipo === 8620 ? uguali : [] }
+      const rif: MisureRif = { L: z.L, H: z.H, peso, ...misureAnte }
+      const d: Misure = { L: z.L, H: z.H, w: peso, h: z.H, a: z.L / ante, rif }
       for (const a of n.accessori) {
         espliciti.add(a.codice)
-        if (scelto(a, chiaveAccessorio(n.codice, null, a.codice))) usa(a, d)
+        if (scelto(a, chiaveAccessorio(n.codice, null, a.codice)) && valeParametro(a, `${n.codice}:a`)) usa(a, d)
       }
       n.kit.forEach((k, i) => {
         const kitScelto = !k.opzionale || (kitScelti[`${n.codice}:${i}`] ?? k.confermato)
@@ -285,7 +343,7 @@ export function accessoriVoce(
         const righe = k.accessori.length > 0 ? k.accessori : regole.righeCatalogo(k.codice)
         for (const a of righe) {
           espliciti.add(a.codice)
-          if (scelto(a, chiaveAccessorio(n.codice, i, a.codice)) && valePerSerie(k.codice, a.codice)) usa(a, d)
+          if (scelto(a, chiaveAccessorio(n.codice, i, a.codice)) && valePerSerie(k.codice, a.codice) && valeParametro(a, `${n.codice}:${i}`)) usa(a, d)
         }
       })
       visita(n.figli, z)
@@ -306,5 +364,5 @@ export function accessoriVoce(
       out.push({ codice: f.codice, serie: f.serie, descrizione: a.descrizione, quantita: f.quantita * a.quantita, metri: false, regolaIgnota: a.regolaIgnota })
     }
   }
-  return out
+  return [...out, ...avvisi]
 }
