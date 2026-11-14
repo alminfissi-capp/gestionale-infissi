@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { commessaFp } from '../__fixtures__/commesse'
-import { accessoriVoce, chiaveAccessorio, regoleDaElenchi, valutaFormula, type RigaKitCatalogo } from './accessori'
+import { accessoriDaCatalogo, accessoriVoce, chiaveAccessorio, regoleDaElenchi, valutaFormula, type RigaKitCatalogo } from './accessori'
 import { LARGHEZZE_PREDEFINITE, pezziECampi } from './geometria'
 
 function accessoriDi(nome: string, telaio: number, peso: number, scelti: (albero: ReturnType<typeof commessaFp>['struttura']['albero']) => Record<string, boolean> = () => ({})) {
@@ -188,4 +188,32 @@ describe('ribalta su finestre a piu ante: il braccio si sceglie sulla larghezza 
   it('2 ante su 1200 mm: anta da 600 -> solo il braccio 538, niente supplementare', () => expect(codici(2, 1200)).toEqual(['ACP 50446/538']))
   it('3 ante su 1500 mm: anta da 500 -> braccio 415', () => expect(codici(3, 1500)).toEqual(['ACP 50446/415']))
   it('1 anta da 1200 mm: braccio 538 + supplementare', () => expect(codici(1, 1200)).toEqual(['ACP 50446/538', 'ACP 5153']))
+})
+
+describe('righe del catalogo con tutte le regole (caso Vazzana)', () => {
+  const [d, p] = accessoriDaCatalogo([
+    {
+      fp_id: 61554, codice: 'ACP 5151/D', tipo: 1, quantita: 1, opzionale: false, dim_rif: 5, lim_inf: 600.1, lim_sup: 1500, passo: 0,
+      formula_r: 'O1+AE+AE', formula_dist: null,
+      dati: { apertura: 1, dimrif2: 201, liminfrange2: 1, limsuprange2: 100, dim_rif3: 0, num_max: 0, corr_ml: 0 },
+    },
+    {
+      fp_id: 61600, codice: 'G-22135', tipo: 1, quantita: 1, opzionale: false, dim_rif: 401, lim_inf: 350, lim_sup: 450.9, passo: 0,
+      formula_r: null, formula_dist: null,
+      dati: { dimrif2: 301, liminfrange2: 192, limsuprange2: 394.9, dim_rif3: 9, lim_inf_range3: 120, lim_sup_range3: 120,
+        parametrica: 1, codice_param: 'scelta cr. Cilindro', valore_param: '30', num_max: 10, corr_ml: -28, formulal: '2*L' },
+    },
+  ])
+  it('mano e seconda condizione', () => {
+    expect(d.apertura).toBe(1)
+    expect(d.altreCondizioni).toEqual([{ dim: 201, min: 1, max: 100 }])
+  })
+  it('terza condizione, parametro, massimo, correzione, formula a metro', () => {
+    expect(p.altreCondizioni).toEqual([{ dim: 301, min: 192, max: 394.9 }, { dim: 9, min: 120, max: 120 }])
+    expect(p.parametro).toEqual({ codice: 'scelta cr. Cilindro', valore: '30' })
+    expect(p.numMax).toBe(10)
+    expect(p.corrMl).toBe(-28)
+    expect(p.formulaL).toBe('2*L')
+    expect(p.apertura).toBe(0)
+  })
 })

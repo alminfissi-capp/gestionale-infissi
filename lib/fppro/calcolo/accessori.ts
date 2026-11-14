@@ -7,7 +7,7 @@
 // - accessori "contenitore" (kit cerniere) sostituiti dai loro accessori, se non gia' presenti;
 // - un kit scelto senza righe nello STR (FP PRO scrive solo quelle del kit confermato) prende le
 //   righe dal catalogo dei kit; tra le alternative di uno stesso gruppo vale la prima.
-import type { AccessorioStruttura, NodoStruttura } from '../strutture-xml'
+import type { AccessorioStruttura, CondizioneRiga, NodoStruttura } from '../strutture-xml'
 import { chiaveKit } from '../kit-catalogo'
 
 /**
@@ -94,7 +94,29 @@ export function accessoriDaCatalogo(righe: RigaKitCatalogo[]): AccessorioStruttu
       opzionale: r.opzionale,
       confermato,
       gruppo: gruppo > 0 ? gruppo : null,
+      apertura: numero(d.apertura),
+      altreCondizioni: altreCondizioniCatalogo(d),
+      numMax: numero(d.num_max) > 0 ? numero(d.num_max) : null,
+      parametro: numero(d.parametrica) === 1 && d.codice_param ? { codice: String(d.codice_param), valore: String(d.valore_param ?? '') } : null,
+      formulaL: d.formulal ? String(d.formulal) : null,
+      corrMl: numero(d.corr_ml),
     }
+  })
+}
+
+/** Seconda, terza e quarta condizione delle righe di fp_kit_righe (nomi delle colonne di FP PRO). */
+function altreCondizioniCatalogo(d: Record<string, unknown>): CondizioneRiga[] {
+  const campi: [string, string, string][] = [
+    ['dimrif2', 'liminfrange2', 'limsuprange2'],
+    ['dim_rif3', 'lim_inf_range3', 'lim_sup_range3'],
+    ['dimrif4', 'liminfrange4', 'limsuprange4'],
+  ]
+  return campi.flatMap(([c, inf, sup]) => {
+    const dim = numero(d[c])
+    if (dim === 0) return []
+    const min = numero(d[inf])
+    const max = numero(d[sup])
+    return [{ dim, min: min === 0 && max === 0 ? null : min, max: min === 0 && max === 0 ? null : max }]
   })
 }
 
