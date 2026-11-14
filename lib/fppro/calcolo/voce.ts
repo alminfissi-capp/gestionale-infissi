@@ -268,7 +268,8 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
     })
     ante.push(...pesate)
     const misure = pesate.map(({ l, h, peso: p }) => ({ l, h, peso: p }))
-    anteRegole[nodo] = gruppo[0].tipo === 8620 ? { ante: [], scorrevoli: misure } : { ante: misure, scorrevoli: [] }
+    const mobili = pesate.filter((_, i) => !antaFissa(trovaNodo(albero, nodo), ordinate[i].indice)).map(({ l, h, peso: p }) => ({ l, h, peso: p }))
+    anteRegole[nodo] = gruppo[0].tipo === 8620 ? { ante: [], scorrevoli: mobili } : { ante: misure, scorrevoli: [] }
   }
 
   // Accessori (le formule dei kit usano il peso del serramento) + quelli aggiunti a mano nella voce.
@@ -322,4 +323,10 @@ function trovaNodo(nodi: NodoStruttura[], codice: number): NodoStruttura | null 
     if (f) return f
   }
   return null
+}
+
+/** Anta scorrevole fissa: ha pezzi 8101 (ID_ANTA_SCORREVOLE_FISSA di FP PRO) e nessun 8100; i riporti (8210) non contano. */
+export function antaFissa(nodo: NodoStruttura | null, indice: number): boolean {
+  const pezzi = nodo?.pezzi.filter(p => p.indice === indice) ?? []
+  return pezzi.some(p => p.tipo === 8101) && !pezzi.some(p => p.tipo === 8100)
 }

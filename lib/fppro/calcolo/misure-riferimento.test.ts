@@ -47,3 +47,13 @@ describe('condizione di una riga', () => {
     expect(condizioneVera({ dim: 999, min: 1, max: 10 }, m)).toEqual({ vera: false, ignoto: 999 })
   })
 })
+
+describe('codici 901-904: righe dell\'anta passiva (catenacci, incontri)', () => {
+  const una: MisureRif = { ...m, ante: [{ l: 675, h: 1342, peso: 30 }] }
+  it('una sola anta: la riga non vale', () => expect(condizioneVera({ dim: 902, min: null, max: null }, una)).toEqual({ vera: false }))
+  it('due ante: la riga vale', () => expect(condizioneVera({ dim: 902, min: null, max: null }, m)).toEqual({ vera: true }))
+  it('901 e 904 come 902', () => {
+    expect(condizioneVera({ dim: 901, min: 0, max: 0 }, una).vera).toBe(false)
+    expect(condizioneVera({ dim: 904, min: null, max: null }, m).vera).toBe(true)
+  })
+})

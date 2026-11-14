@@ -49,6 +49,8 @@ export const codiceNoto = (codice: number) =>
 
 /** Condizione senza fascia: vale sempre. Codice sconosciuto con fascia: non vale e si segnala. */
 export function condizioneVera(c: CondizioneRiga, m: MisureRif): { vera: boolean; ignoto?: number } {
+  // 901-904: righe dell'anta passiva (catenacci, incontri, banco di prova 85-2026G): solo con 2 ante o piu'.
+  if (c.dim >= 901 && c.dim <= 904) return { vera: m.ante.length >= 2 }
   if (c.min === null || c.max === null || c.max <= 0) return { vera: true }
   if (!codiceNoto(c.dim)) return { vera: false, ignoto: c.dim }
   const v = misuraRif(c.dim, m)

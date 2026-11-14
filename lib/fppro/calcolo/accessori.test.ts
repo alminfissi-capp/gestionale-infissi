@@ -265,3 +265,27 @@ describe('anta passiva e codici sconosciuti', () => {
     expect(risultato.find(a => a.codice === 'STRANO')).toMatchObject({ quantita: 0, avviso: 'Regola FP PRO non gestita: misura 999 su STRANO' })
   })
 })
+
+describe('catenacci (902) solo con l\'anta passiva', () => {
+  const albero = [{
+    tipo: 8610, codice: 2, x: null, y: null, pezzi: [], figli: [], kit: [],
+    accessori: [{ codice: 'ACP 50452', descrizione: '', serie: 'S', tipo: 1, quantita: 1, dimRif: 902, dimCalcolo: 0, min: 0, max: 0,
+      passo: null, formula: null, dimDistribuzione: 0, formulaDistribuzione: null, opzionale: false, confermato: true }],
+  }]
+  const codici = (ante: number) => accessoriVoce(albero as never, {}, { 2: { L: 1200, H: 1400 } }, 60, regoleDaElenchi([], [], [], {}), {}, {
+    ante: { 2: { ante: Array.from({ length: ante }, () => ({ l: 1200 / ante, h: 1400, peso: 30 })), scorrevoli: [] } },
+  }).filter(a => a.quantita > 0).map(a => a.codice)
+  it('finestra a 1 anta: niente catenacci', () => expect(codici(1)).toEqual([]))
+  it('finestra a 2 ante: catenacci', () => expect(codici(2)).toEqual(['ACP 50452']))
+})
+
+describe('righe per anta scorrevole (codici 22-24): una per ogni anta', () => {
+  const asta = { codice: 'ACP 90213/2750', descrizione: '', serie: 'S', tipo: 1, quantita: 1, dimRif: 24, dimCalcolo: 0, min: 2150.1, max: 2750,
+    passo: null, formula: null, dimDistribuzione: 0, formulaDistribuzione: null, opzionale: false, confermato: true }
+  const albero = [{ tipo: 8620, codice: 3, x: null, y: null, pezzi: [], figli: [], kit: [], accessori: [asta] }]
+  const q = (altezze: number[]) => accessoriVoce(albero as never, {}, { 3: { L: 3000, H: 2500 } }, 120, regoleDaElenchi([], [], [], {}), {}, {
+    ante: { 3: { ante: [], scorrevoli: altezze.map(h => ({ l: 1500, h, peso: 60 })) } },
+  }).filter(a => a.codice === 'ACP 90213/2750').reduce((t, a) => t + a.quantita, 0)
+  it('2 ante scorrevoli nella fascia: 2 aste', () => expect(q([2500, 2500])).toBe(2))
+  it('una sola anta nella fascia: 1 asta', () => expect(q([2500, 2000])).toBe(1))
+})

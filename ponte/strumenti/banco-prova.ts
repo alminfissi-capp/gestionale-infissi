@@ -46,6 +46,11 @@ interface EsitoVoce {
   costoAccFp: number
   costoAccWs: number
   scartoAcc: number
+  /** Profili: non confrontati (sempre 0). Vetri: m² WS - FP per pezzo */
+  scartoProf: number
+  scartoVet: number
+  /** Scarto stimato sul prezzo dovuto agli accessori: accessori x ricarico FP della voce */
+  scartoPrezzo: number
   confronto: ConfrontoAccessori
   avvisi: string[]
   errore?: string
@@ -91,14 +96,14 @@ async function bancoCommessa(nome: string): Promise<EsitoVoce[]> {
   const filtroV = 'where nomecommessa = ? and idversionecommessa = ?'
   const accFp = await q(`select voce, codice, qta, l, un_mis, prezzo, un_vend, costonetto from preventivoprezziaccessori ${filtroV}`, [nome, ver])
   const profFp = await q(`select voce, codice, lung, qta, costonetto from preventivoprezziprofili ${filtroV}`, [nome, ver])
-  const vetFp = await q(`select voce, codice, prezzo from preventivoprezzivetri ${filtroV}`, [nome, ver])
+  const vetFp = await q(`select voce, codice, prezzo, qta, l, h, costonetto from preventivoprezzivetri ${filtroV}`, [nome, ver])
   const esiti: EsitoVoce[] = []
   const files = readdirSync(cartella)
 
   for (const rv of righeVoci) {
     const nv = n(rv.voce)
     const base: Omit<EsitoVoce, 'confronto' | 'avvisi'> = {
-      commessa: nome, voce: nv, struttura: '', mano: null, pezzi: 1, costoAccFp: 0, costoAccWs: 0, scartoAcc: 0,
+      commessa: nome, voce: nv, struttura: '', mano: null, pezzi: 1, costoAccFp: 0, costoAccWs: 0, scartoAcc: 0, scartoProf: 0, scartoVet: 0, scartoPrezzo: 0,
     }
     const file = files.find(f => new RegExp(`_jobrecord_0*${nv}\\.xml$`, 'i').test(f))
     if (!file) continue
@@ -193,8 +198,20 @@ async function bancoCommessa(nome: string): Promise<EsitoVoce[]> {
         albero: st.albero, serie: st.serie, poligoni: st.poligoni, L, H, L0: L, H0: H, quote: {},
         kitScelti: {}, vetriScelti: {}, tempi: st.tempi ?? { taglio: 0, lavorazione: 0, montaggio: 0, assemblaggio: 0, posa: 0 },
         profilo: PROFILO, maggiorazioni: { vetri: 0, pannelli: 0 }, mano: base.mano as 'sx' | 'dx' | null,
+        fattoreBarre: 1,
       }
       const r = calcolaVoce(input, listino, regole)
+      // Diagnosi di una voce: DEBUG_VOCE=101-26G:31
+      if (process.env.DEBUG_VOCE === `${nome}:${nv}`) {
+        console.log('\nante', JSON.stringify(r.ante))
+        console.log('accessori WS', JSON.stringify(r.righe.filter(x => x.gruppo === 'accessori').map(x => [x.codice, x.quantita])))
+        console.log('accessori FP', JSON.stringify(accVoce.map(a => [a.codice, a.qta])))
+        console.log('vetri WS', JSON.stringify(r.righe.filter(x => x.gruppo === 'vetri').map(x => [x.codice, x.descrizione])))
+        const kitNodi = (nodi: typeof st.albero): string[] => nodi.flatMap(nd => [
+          ...nd.kit.map((k, i) => `${nd.codice}:${i} ${k.codice} conf=${k.confermato} righe=${k.accessori.map(a => `${a.codice}[${a.dimRif};${(a.altreCondizioni ?? []).map(c => c.dim).join(',')}]`).join(' ')}`),
+          ...kitNodi(nd.figli)])
+        console.log(kitNodi(st.albero).join('\n'))
+      }
       const accWs = r.righe.filter(x => x.gruppo === 'accessori')
       // FP PRO salva le quantita' della voce per tutti i pezzi (Multiply): si riportano a un pezzo.
       // Accessori a metro (un_mis 4): FP PRO salva la lunghezza in mm nella colonna l.
@@ -202,6 +219,17 @@ async function bancoCommessa(nome: string): Promise<EsitoVoce[]> {
       base.costoAccFp = accVoce.reduce((t, a) => t + n(a.costonetto), 0) / base.pezzi
       base.costoAccWs = accWs.reduce((t, a) => t + a.costo, 0)
       base.scartoAcc = base.costoAccWs - base.costoAccFp
+      const somma = (righe: Riga[], f: (x: Riga) => number) => righe.reduce((t, x) => t + f(x), 0)
+      base.scartoProf = 0 // profili: confronto non affidabile qui (composti e barre di FP PRO non ricostruiti)
+      const vetVoce = vetFp.filter(x => n(x.voce) === nv)
+      const mqFp = somma(vetVoce, x => n(x.qta) * n(x.l) * n(x.h) / 1e6) / base.pezzi
+      const costoVetFp = somma(vetVoce, x => n(x.costonetto)) / base.pezzi
+      const mqWs = r.righe.filter(x => x.gruppo === "vetri").reduce((t, x) => t + x.quantita, 0)
+      base.scartoVet = mqWs - mqFp // m² di vetro in piu' (+) o in meno (-) per pezzo; costoVetFp solo per il riepilogo
+      void costoVetFp
+      const matFp = n(rv.costoprofili) + n(rv.costoaccessori) + n(rv.costoguarnizioni) + n(rv.costovetri) + n(rv.costopannelli)
+      // Stima sul prezzo da accessori: ricarico medio di FP PRO sui materiali (imponibile / materiali della voce).
+      base.scartoPrezzo = base.scartoAcc * (matFp > 0 && n(rv.imponibile) > 0 ? Math.min(3, n(rv.imponibile) / matFp) : 1.6)
       esiti.push({ ...base, confronto: confrontaAccessori(accWs.map(a => ({ codice: a.codice, quantita: a.quantita })), accFpPezzo), avvisi: r.avvisi })
     } catch (e) {
       esiti.push({ ...base, confronto: { inPiu: [], mancanti: [], diverse: [] }, avvisi: [], errore: String(e) })
@@ -221,7 +249,7 @@ for (const c of commesse) {
 await db.chiudi()
 
 const valide = tutti.filter(e => !e.errore)
-const fascia = (e: EsitoVoce) => Math.abs(e.scartoAcc)
+const fascia = (e: EsitoVoce) => Math.abs(e.scartoPrezzo)
 const conteggio = {
   voci: valide.length,
   errori: tutti.length - valide.length,
@@ -240,7 +268,7 @@ writeFileSync(join(USCITA, 'banco-prova.json'), JSON.stringify({ conteggio, rego
 console.log('\n', conteggio)
 console.log('codici di misura non gestiti:', Object.fromEntries(regoleNonGestite))
 for (const e of peggiori) {
-  console.log(`${e.commessa} v${e.voce} ${e.struttura} mano=${e.mano} x${e.pezzi}: WS ${e.costoAccWs.toFixed(2)} FP ${e.costoAccFp.toFixed(2)} (${e.scartoAcc.toFixed(2)})`,
+  console.log(`${e.commessa} v${e.voce} ${e.struttura} mano=${e.mano} x${e.pezzi}: prezzo~ ${e.scartoPrezzo.toFixed(0)} | accessori ${e.scartoAcc.toFixed(2)} | vetro m² ${e.scartoVet.toFixed(3)}`,
     'piu', JSON.stringify(e.confronto.inPiu.slice(0, 6)), 'meno', JSON.stringify(e.confronto.mancanti.slice(0, 6)), 'diverse', JSON.stringify(e.confronto.diverse.slice(0, 4)))
 }
 for (const e of tutti.filter(x => x.errore).slice(0, 10)) console.log('ERRORE', e.commessa, e.voce, e.errore)

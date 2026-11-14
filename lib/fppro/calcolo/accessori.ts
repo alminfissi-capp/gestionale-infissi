@@ -253,6 +253,8 @@ const nonGestita = (dim: number, a: AccessorioStruttura): Esito =>
 
 function quantitaDi(a: AccessorioStruttura, d: Misure): Esito {
   // Prima condizione (es. 4 chiusure per H tra 1500 e 2500); 5 = formula (O1+AE+AE...).
+  // Prima condizione senza fascia ma con un codice di presenza (901-904 = anta passiva).
+  if (a.dimRif >= 901 && a.dimRif <= 904 && !condizioneVera({ dim: a.dimRif, min: null, max: null }, rifDi(d)).vera) return { quantita: 0, ignota: false }
   if (a.min !== null && a.max !== null && a.max > 0) {
     if (a.dimRif === 5 || a.dimRif === 0) {
       const rif = a.dimRif === 5 ? (a.formula ? valutaFormula(a.formula, d) : null) : d.H
@@ -305,7 +307,15 @@ export function accessoriVoce(
   const espliciti = new Set<string>()
   const usa = (a: AccessorioStruttura, d: Misure) => {
     if (!valePerMano(a, opzioni.mano)) return
-    const { quantita, ignota, avviso } = quantitaDi(a, d)
+    // Righe con misure dell'anta scorrevole (22-24): FP PRO le conta una volta per ogni anta scorrevole.
+    const perScorrevole = [a.dimRif, ...(a.altreCondizioni ?? []).map(c => c.dim)].some(x => x >= 22 && x <= 24)
+    const scorrevoli = d.rif?.scorrevoli ?? []
+    const esiti = perScorrevole && scorrevoli.length > 1
+      ? scorrevoli.map(s => quantitaDi(a, { ...d, rif: { ...rifDi(d), scorrevoli: [s] } }))
+      : [quantitaDi(a, d)]
+    const quantita = esiti.reduce((t, e) => t + e.quantita, 0)
+    const ignota = esiti.some(e => e.ignota)
+    const avviso = esiti.find(e => e.avviso)?.avviso
     const metri = a.tipo === 2 || a.tipo === 4
     if (avviso) avvisi.push({ codice: a.codice, serie: a.serie, descrizione: a.descrizione, quantita: 0, metri, regolaIgnota: false, avviso })
     if (quantita > 0) trovati.push({ codice: a.codice, serie: a.serie, descrizione: a.descrizione, quantita, metri, regolaIgnota: ignota })

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { commessaFp, type CommessaFp } from '../__fixtures__/commesse'
 import { regoleDaElenchi } from './accessori'
 import type { ProfiloCalcolo } from './tipi'
-import { calcolaVoce, codiceDaDxf, type InputVoce, type ListinoCalcolo } from './voce'
+import { antaFissa, calcolaVoce, codiceDaDxf, type InputVoce, type ListinoCalcolo } from './voce'
 import { fattoreBarreCommessa } from './commessa'
 import { LARGHEZZE_PREDEFINITE, pezziECampi } from './geometria'
 
@@ -286,5 +286,18 @@ describe('fissaggi dei profili (squadrette e cavallotti di FP PRO)', () => {
   })
   it('senza fissaggi nelle regole: nessuna riga in piu\'', () => {
     expect(calcolaVoce(input, listino, regole).righe.some(x => x.codice.startsWith('SQ-'))).toBe(false)
+  })
+})
+
+describe('ante scorrevoli fisse (pezzi 8101): non contano come ante mobili', () => {
+  const nodo = { tipo: 8620, codice: 3, elementi: 2, x: null, y: null, prm: [], macro: null, ante: [], ird: [], figli: [], accessori: [], kit: [],
+    pezzi: [
+      ...[0, 1, 2, 3].map(i => ({ tipo: 8100, dxf: 'S\A.DXF', serie: 'S', indice: 0, _i: i })),
+      ...[0, 1, 2, 3].map(i => ({ tipo: 8101, dxf: 'S\F.DXF', serie: 'S', indice: 1, _i: i })),
+      { tipo: 8210, dxf: 'S\R.DXF', serie: 'S', indice: 1 },
+    ] }
+  it('anta 0 mobile, anta 1 fissa', () => {
+    expect(antaFissa(nodo as never, 0)).toBe(false)
+    expect(antaFissa(nodo as never, 1)).toBe(true)
   })
 })
