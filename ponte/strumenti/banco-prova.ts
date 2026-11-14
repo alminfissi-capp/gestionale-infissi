@@ -153,7 +153,7 @@ async function bancoCommessa(nome: string): Promise<EsitoVoce[]> {
       const contenitoriKit = new Set(st.albero.flatMap(function tutti(nd): string[] {
         return [...nd.kit.flatMap(k => k.accessori.map(a => a.codice)), ...nd.figli.flatMap(tutti)]
       }))
-      const figliContenitori = new Set(collegati.filter(c => contenitoriKit.has(s(c.principale))).map(c => s(c.collegato)))
+      const figliContenitori = new Set(collegati.filter(c => contenitoriKit.has(s(c.principale)) && s(c.principale) !== s(c.collegato)).map(c => s(c.collegato)))
       const togliScomposti = (nodi: typeof st.albero) => nodi.forEach(nd => {
         nd.accessori = nd.accessori.filter(a => !figliContenitori.has(a.codice))
         togliScomposti(nd.figli)

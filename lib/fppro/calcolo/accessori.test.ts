@@ -319,3 +319,28 @@ describe('kit per anta (CodiceMacro = 1): cerniere ES40 Giesse, 95-2026G e 107-2
   it('porta-finestra (H 2400): 4 per anta x 2 ante = 8', () => expect(q(true, 2400)).toBe(8))
   it('kit normale: una volta sola', () => expect(q(false, 642)).toBe(2))
 })
+
+describe('accessorio collegato a se stesso (A3532NEOPA.2 -> A3532NEOPA.2): non e\' un contenitore', () => {
+  const albero = [{
+    tipo: 8610, codice: 2, x: null, y: null, pezzi: [], figli: [], kit: [],
+    accessori: [{ codice: 'A3532NEOPA.2', descrizione: '', serie: 'S', tipo: 1, quantita: 1, dimRif: 0, dimCalcolo: 0, min: null, max: null,
+      passo: null, formula: null, dimDistribuzione: 0, formulaDistribuzione: null, opzionale: false, confermato: true }],
+  }]
+  const regole = regoleDaElenchi([], [], [{ principale: 'A3532NEOPA.2', collegato: 'A3532NEOPA.2', quantita: 1, serie: '' }], {})
+  it('resta contato una volta', () => {
+    expect(accessoriVoce(albero as never, {}, { 2: { L: 700, H: 1300 } }, 30, regole).map(a => [a.codice, a.quantita])).toEqual([['A3532NEOPA.2', 1]])
+  })
+})
+
+describe('variabili delle ante scorrevoli nelle formule (TOPSLIDE: SX, HSX, hsx)', () => {
+  const rif = { L: 6780, H: 2400, peso: 500, ante: [], scorrevoli: [{ l: 1720, h: 2343, peso: 120 }] }
+  const d = { L: 6780, H: 2400, w: 500, h: 2400, rif }
+  it('SX = larghezza dell\'anta scorrevole', () => expect(valutaFormula('SX', d)).toBe(1720))
+  it('HSX e hsx = altezza dell\'anta scorrevole', () => {
+    expect(valutaFormula('HSX', d)).toBe(2343)
+    expect(valutaFormula('hsx', d)).toBe(2343)
+  })
+  it('senza ante scorrevoli: larghezza e altezza della zona', () => {
+    expect(valutaFormula('SX+HSX', { L: 900, H: 1200, w: 10, h: 1200 })).toBe(2100)
+  })
+})

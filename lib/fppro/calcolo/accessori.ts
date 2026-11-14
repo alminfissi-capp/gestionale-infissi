@@ -163,6 +163,8 @@ export function regoleDaElenchi(
   }
   const perPrincipale = new Map<string, { codice: string; serie: string; quantita: number }[]>()
   for (const c of collegati) {
+    // Collegato a se stesso (A3532NEOPA.2 -> A3532NEOPA.2 in FP PRO): non e' un contenitore.
+    if (c.collegato === c.principale) continue
     const l = perPrincipale.get(c.principale) ?? []
     l.push({ codice: c.collegato, serie: c.serie, quantita: c.quantita })
     perPrincipale.set(c.principale, l)
@@ -186,11 +188,14 @@ export function valutaFormula(f: string, d: Misure): number | null {
   // Variabili dei kit a fasce (bracci della ribalta): O1+AE+AE = larghezza dell'anta. O1 e'
   // la larghezza di UNA anta (la ribalta va su un'anta sola, anche nelle finestre a piu' ante),
   // AE la sovrapposizione, presa a 0: vicino ai limiti di fascia puo' uscire il braccio accanto.
+  // Ante scorrevoli (TOPSLIDE): HSX/hsx = altezza, SX = larghezza dell'anta scorrevole (senza: la zona).
   const testo = f.replace(/,/g, '.').replace(/\s+/g, '').replace(/O1/g, 'a').replace(/AE/g, '0')
-  if (!/^[0-9wWhHlLa.+\-*/()]+$/.test(testo)) return null
+    .replace(/HSX/gi, 'y').replace(/SX/g, 'x')
+  if (!/^[0-9wWhHlLaxy.+\-*/()]+$/.test(testo)) return null
   let i = 0
   const variabile = (c: string): number | null =>
-    c === 'w' || c === 'W' ? d.w : c === 'h' ? d.h : c === 'H' ? d.H : c === 'l' || c === 'L' ? d.L : c === 'a' ? (d.a ?? d.L) : null
+    c === 'w' || c === 'W' ? d.w : c === 'h' ? d.h : c === 'H' ? d.H : c === 'l' || c === 'L' ? d.L : c === 'a' ? (d.a ?? d.L)
+      : c === 'x' ? (d.rif?.scorrevoli[0]?.l ?? d.L) : c === 'y' ? (d.rif?.scorrevoli[0]?.h ?? d.H) : null
   const fattore = (): number | null => {
     const c = testo[i]
     if (c === '(') {
