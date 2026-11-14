@@ -64,6 +64,8 @@ export interface AccessorioStruttura {
   apertura?: number
   /** Seconda, terza e quarta condizione di FP PRO (la prima e' dimRif/min/max); limiti null = condizione senza fascia */
   altreCondizioni?: CondizioneRiga[]
+  /** Condizioni alternative (FP PRO: CondParametric / condparam = 1): basta che ne valga una */
+  condizioniAlternative?: boolean
   /** Quantita' massima (FP PRO: NMax / num_max) */
   numMax?: number | null
   /** Riga valida solo con questo valore del parametro del kit */
@@ -223,6 +225,7 @@ function accessorio(f: Ogg): AccessorioStruttura {
       return [{ dim, min: min === null ? null : min / 100, max: max === null ? null : max / 100 }]
     }),
     numMax: num(f.NMax),
+    condizioniAlternative: vero(f.CondParametric),
     formulaL: testo(f.LFormula),
   }
 }

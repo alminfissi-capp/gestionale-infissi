@@ -289,3 +289,18 @@ describe('righe per anta scorrevole (codici 22-24): una per ogni anta', () => {
   it('2 ante scorrevoli nella fascia: 2 aste', () => expect(q([2500, 2500])).toBe(2))
   it('una sola anta nella fascia: 1 asta', () => expect(q([2500, 2000])).toBe(1))
 })
+
+describe('condparam: condizioni alternative (ACP 5155, caso Vazzana/192-26G)', () => {
+  const riga = (condparam: number): RigaKitCatalogo => ({
+    fp_id: 1, codice: 'ACP 5155', tipo: 1, quantita: 1, opzionale: false, dim_rif: 5, lim_inf: 1000, lim_sup: 1500, passo: 0,
+    formula_r: 'O1+AE+AE', formula_dist: null, dati: { dimrif2: 1, liminfrange2: 1200, limsuprange2: 3000, condparam },
+  })
+  const albero = [{
+    tipo: 8610, codice: 2, elementi: 1, x: null, y: null, prm: [], macro: null, ante: [], ird: [], pezzi: [], figli: [], accessori: [],
+    kit: [{ codice: 'K', descrizione: '', serie: '', opzionale: false, confermato: true, accessori: [] }],
+  }]
+  const q = (condparam: number) => accessoriVoce(albero as never, {}, { 2: { L: 675, H: 1342 } }, 30, regoleDaElenchi([], [], [], { K: [riga(condparam)] }))
+    .filter(a => a.codice === 'ACP 5155').reduce((t, a) => t + a.quantita, 0)
+  it('condparam 1: basta una condizione (anta 675 fuori fascia, H 1342 dentro) -> 1', () => expect(q(1)).toBe(1))
+  it('condparam 0: devono valere tutte -> 0', () => expect(q(0)).toBe(0))
+})

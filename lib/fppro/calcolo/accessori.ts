@@ -114,6 +114,7 @@ export function accessoriDaCatalogo(righe: RigaKitCatalogo[]): AccessorioStruttu
       gruppo: gruppo > 0 ? gruppo : null,
       apertura: numero(d.apertura),
       altreCondizioni: altreCondizioniCatalogo(d),
+      condizioniAlternative: numero(d.condparam) === 1,
       numMax: numero(d.num_max) > 0 ? numero(d.num_max) : null,
       parametro: numero(d.parametrica) === 1 && d.codice_param ? { codice: String(d.codice_param), valore: String(d.valore_param ?? '') } : null,
       formulaL: d.formulal ? String(d.formulal) : null,
@@ -252,26 +253,34 @@ const nonGestita = (dim: number, a: AccessorioStruttura): Esito =>
   ({ quantita: 0, ignota: false, avviso: `Regola FP PRO non gestita: misura ${dim} su ${a.codice}` })
 
 function quantitaDi(a: AccessorioStruttura, d: Misure): Esito {
-  // Prima condizione (es. 4 chiusure per H tra 1500 e 2500); 5 = formula (O1+AE+AE...).
-  // Prima condizione senza fascia ma con un codice di presenza (901-904 = anta passiva).
-  if (a.dimRif >= 901 && a.dimRif <= 904 && !condizioneVera({ dim: a.dimRif, min: null, max: null }, rifDi(d)).vera) return { quantita: 0, ignota: false }
-  if (a.min !== null && a.max !== null && a.max > 0) {
+  // Condizioni della riga: la prima (fascia su dimRif; 5 = formula O1+AE+AE; 0 = H; 901-904 =
+  // anta passiva) e le altre (seconda, terza, quarta). Di norma devono valere tutte; con
+  // condizioni alternative (condparam = 1, es. ACP 5155 su 192-26G) basta una.
+  const esiti: ('si' | 'no' | 'ignota')[] = []
+  let avviso: Esito | null = null
+  if (a.dimRif >= 901 && a.dimRif <= 904) {
+    esiti.push(condizioneVera({ dim: a.dimRif, min: null, max: null }, rifDi(d)).vera ? 'si' : 'no')
+  } else if (a.min !== null && a.max !== null && a.max > 0) {
     if (a.dimRif === 5 || a.dimRif === 0) {
       const rif = a.dimRif === 5 ? (a.formula ? valutaFormula(a.formula, d) : null) : d.H
-      if (rif === null) return { quantita: a.quantita, ignota: true }
-      if (rif < a.min || rif > a.max) return { quantita: 0, ignota: false }
+      esiti.push(rif === null ? 'ignota' : rif >= a.min && rif <= a.max ? 'si' : 'no')
     } else {
       const c = condizioneVera({ dim: a.dimRif, min: a.min, max: a.max }, rifDi(d))
-      if (c.ignoto !== undefined) return nonGestita(c.ignoto, a)
-      if (!c.vera) return { quantita: 0, ignota: false }
+      if (c.ignoto !== undefined) avviso = nonGestita(c.ignoto, a)
+      esiti.push(c.ignoto !== undefined ? 'no' : c.vera ? 'si' : 'no')
     }
   }
-  // Seconda, terza e quarta condizione: devono valere tutte.
   for (const cond of a.altreCondizioni ?? []) {
     const c = condizioneVera(cond, rifDi(d))
-    if (c.ignoto !== undefined) return nonGestita(c.ignoto, a)
-    if (!c.vera) return { quantita: 0, ignota: false }
+    if (c.ignoto !== undefined) avviso ??= nonGestita(c.ignoto, a)
+    esiti.push(c.ignoto !== undefined ? 'no' : c.vera ? 'si' : 'no')
   }
+  const alternative = a.condizioniAlternative && esiti.length > 1
+  const vale = alternative ? esiti.some(e => e !== 'no') : esiti.every(e => e !== 'no')
+  if (!vale) return avviso ?? { quantita: 0, ignota: false }
+  // Formula non interpretata: si conta come da kit, segnalata (come prima).
+  const ignotaFascia = esiti.includes('ignota') && !(alternative && esiti.includes('si'))
+  if (ignotaFascia) return { quantita: a.quantita, ignota: true }
   const limita = (q: number) => (a.numMax && a.numMax > 0 ? Math.min(q, a.numMax) : q)
   if (a.tipo === 2 || a.tipo === 4) {
     const lung = a.formulaL ? valutaFormula(a.formulaL, d) : misura(a.dimCalcolo || 1, d)
