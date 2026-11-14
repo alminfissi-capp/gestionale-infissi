@@ -46,7 +46,16 @@ export interface RegoleAccessori {
   collegati: (codice: string) => { codice: string; serie: string; quantita: number }[]
   /** Righe del kit dal catalogo di FP PRO, per i kit che nello STR non hanno righe */
   righeCatalogo: (kit: string) => AccessorioStruttura[]
+  /**
+   * Fissaggi del profilo (squadrette, cavallotti: tabella fissaggi di FP PRO) gia' filtrati sul
+   * sistema di giunzione predefinito della serie; tipo = tipo del pezzo (8050 telaio, 8090 anta...).
+   * Assente = nessun fissaggio (calcoli vecchi).
+   */
+  fissaggi?: (codiceProfilo: string, tipo: number) => FissaggioProfilo[]
 }
+
+/** Accessorio di giunzione per pezzo di profilo: dimRif 1 = per pezzo (le altre regole le decide il banco di prova). */
+export interface FissaggioProfilo { codice: string; quantita: number; dimRif: number; serie?: string; descrizione?: string }
 
 /** Riga di fp_kit_righe come la legge il calcolo */
 export interface RigaKitCatalogo {

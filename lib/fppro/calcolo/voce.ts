@@ -272,7 +272,20 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
   }
 
   // Accessori (le formule dei kit usano il peso del serramento) + quelli aggiunti a mano nella voce.
+  // Fissaggi dei profili: squadrette e cavallotti per ogni pezzo, dal sistema di giunzione della serie.
+  const fissaggi: QuantitaAccessorio[] = []
+  if (regole.fissaggi) {
+    for (const pezzo of pezzi) {
+      const codice = codiceDaDxf(pezzo.dxf)
+      if (!codice.trim()) continue
+      for (const f of regole.fissaggi(codice, pezzo.tipo)) {
+        if (f.dimRif !== 1 || f.quantita <= 0) continue
+        fissaggi.push({ codice: f.codice, serie: f.serie ?? '', descrizione: f.descrizione ?? '', quantita: f.quantita, metri: false, regolaIgnota: false })
+      }
+    }
+  }
   const accessori: QuantitaAccessorio[] = [
+    ...fissaggi,
     ...accessoriVoce(albero, input.kitScelti, zone, peso, regole, input.accessoriScelti, { mano: input.mano ?? null, ante: anteRegole }),
     ...(input.accessoriAggiunti ?? []).filter(a => a.quantita > 0)
       .map(a => ({ codice: a.codice, serie: a.serie, descrizione: a.descrizione, quantita: a.quantita, metri: false, regolaIgnota: false })),
