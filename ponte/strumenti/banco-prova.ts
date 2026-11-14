@@ -13,6 +13,7 @@ import { OPZIONI_XML, strutturaDaXml } from '../../lib/fppro/strutture-xml'
 import { sezioneDaDxf } from '../../lib/fppro/dxf-sezione'
 import { calcolaVoce, codiceDaDxf, type InputVoce, type ListinoCalcolo } from '../../lib/fppro/calcolo/voce'
 import { regoleDaElenchi, type RigaKitCatalogo } from '../../lib/fppro/calcolo/accessori'
+import { LARGHEZZE_PREDEFINITE, pezziECampi } from '../../lib/fppro/calcolo/geometria'
 import { confrontaAccessori, type ConfrontoAccessori } from '../../lib/fppro/calcolo/confronto-fp'
 import { fissaggiPredefiniti } from '../../lib/fppro/calcolo/fissaggi'
 import type { ProfiloCalcolo } from '../../lib/fppro/calcolo/tipi'
@@ -146,6 +147,19 @@ async function bancoCommessa(nome: string): Promise<EsitoVoce[]> {
       const fissaggiDi = fissaggiPredefiniti(
         fiss.map(f => ({ codice_profilo: s(f.prof), codice_accessorio: s(f.acc), serie_fp_id: n(f.serie), quantita: n(f.num_base), dim_rif: n(f.dim_rif), filtro: s(f.filtro) })),
         fiss.map(f => ({ serie_fp_id: n(f.serie), ordine: n(f.ordine), filtro: s(f.filtro) })))
+      // Nel file della commessa FP PRO scrive anche il risultato della scomposizione dei contenitori
+      // (es. 00259500U sciolto nel nodo accanto al kit con CERN_GIESSE00259500U): nelle .STR usate
+      // in produzione non c'e', quindi qui si toglie per confrontare alla pari.
+      const contenitoriKit = new Set(st.albero.flatMap(function tutti(nd): string[] {
+        return [...nd.kit.flatMap(k => k.accessori.map(a => a.codice)), ...nd.figli.flatMap(tutti)]
+      }))
+      // Righe sciolte calcolate: figli dei contenitori dei kit e copie dei codici gia' nei kit.
+      const figliContenitori = new Set([...contenitoriKit, ...collegati.filter(c => contenitoriKit.has(s(c.principale))).map(c => s(c.collegato))])
+      const togliScomposti = (nodi: typeof st.albero) => nodi.forEach(nd => {
+        nd.accessori = nd.accessori.filter(a => !figliContenitori.has(a.codice))
+        togliScomposti(nd.figli)
+      })
+      togliScomposti(st.albero)
       const regoleBase = regoleDaElenchi(st.serie,
         righeKit.map(r => ({ kit: s(r.kit), codice: s(r.codice), serie: r.serie ? s(r.serie).split(',') : null })),
         collegati.map(c => ({ principale: s(c.principale), collegato: s(c.collegato), quantita: n(c.num_base), serie: '' })),
@@ -202,11 +216,14 @@ async function bancoCommessa(nome: string): Promise<EsitoVoce[]> {
           ...nd.kit.map((k, i) => `${nd.codice}:${i} ${k.codice} conf=${k.confermato} righe=${k.accessori.map(a => `${a.codice}[${a.dimRif};${(a.altreCondizioni ?? []).map(c => c.dim).join(',')}]`).join(' ')}`),
           ...kitNodi(nd.figli)])
         console.log(kitNodi(st.albero).join('\n'))
+        const { pezzi } = pezziECampi(st.albero, input, LARGHEZZE_PREDEFINITE)
+        console.log('pezzi', JSON.stringify(pezzi.map(p => [p.tipo, codiceDaDxf(p.dxf), Math.round(p.lunghezza)])))
+        console.log('fissaggi FP', JSON.stringify(fiss.map(f => [s(f.prof), s(f.acc), n(f.num_base), n(f.dim_rif), s(f.filtro).slice(0, 8), n(f.ordine)])))
       }
       const accWs = r.righe.filter(x => x.gruppo === 'accessori')
       // FP PRO salva le quantita' della voce per tutti i pezzi (Multiply): si riportano a un pezzo.
-      // Accessori a metro (un_mis 4): FP PRO salva la lunghezza in mm nella colonna l.
-      const accFpPezzo = accVoce.map(a => ({ codice: s(a.codice), quantita: (n(a.un_mis) === 4 ? n(a.qta) * n(a.l) / 1000 : n(a.qta)) / base.pezzi }))
+      // Accessori a metro (un_mis 2 e 4): FP PRO salva la lunghezza in mm nella colonna l.
+      const accFpPezzo = accVoce.map(a => ({ codice: s(a.codice), quantita: ([2, 4].includes(n(a.un_mis)) ? n(a.qta) * n(a.l) / 1000 : n(a.qta)) / base.pezzi }))
       base.costoAccFp = accVoce.reduce((t, a) => t + n(a.costonetto), 0) / base.pezzi
       base.costoAccWs = accWs.reduce((t, a) => t + a.costo, 0)
       base.scartoAcc = base.costoAccWs - base.costoAccFp

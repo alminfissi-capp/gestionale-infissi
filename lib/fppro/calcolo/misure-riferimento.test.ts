@@ -38,7 +38,7 @@ describe('condizione di una riga', () => {
     expect(condizioneVera({ dim: 201, min: 1, max: 100 }, m)).toEqual({ vera: true })
     expect(condizioneVera({ dim: 201, min: 100.1, max: 150 }, m)).toEqual({ vera: false })
   })
-  it('condizione senza fascia: sempre vera', () => expect(condizioneVera({ dim: 903, min: null, max: null }, m)).toEqual({ vera: true }))
+  it('condizione senza fascia: sempre vera', () => expect(condizioneVera({ dim: 201, min: null, max: null }, m)).toEqual({ vera: true }))
   it('anta passiva assente: la riga della passiva non vale', () => {
     const una: MisureRif = { ...m, ante: [{ l: 675, h: 1342, peso: 30 }] }
     expect(condizioneVera({ dim: 202, min: 1, max: 100 }, una)).toEqual({ vera: false })
@@ -48,12 +48,17 @@ describe('condizione di una riga', () => {
   })
 })
 
-describe('codici 901-904: righe dell\'anta passiva (catenacci, incontri)', () => {
-  const una: MisureRif = { ...m, ante: [{ l: 675, h: 1342, peso: 30 }] }
-  it('una sola anta: la riga non vale', () => expect(condizioneVera({ dim: 902, min: null, max: null }, una)).toEqual({ vera: false }))
-  it('due ante: la riga vale', () => expect(condizioneVera({ dim: 902, min: null, max: null }, m)).toEqual({ vera: true }))
-  it('901 e 904 come 902', () => {
-    expect(condizioneVera({ dim: 901, min: 0, max: 0 }, una).vera).toBe(false)
-    expect(condizioneVera({ dim: 904, min: null, max: null }, m).vera).toBe(true)
+describe('codici 901-904: numero di ante del nodo (A4011.20 x2 su 902, x4 su 903, x6 su 904)', () => {
+  const ante = (k: number): MisureRif => ({ ...m, ante: Array.from({ length: k }, () => ({ l: 500, h: 1300, peso: 30 })) })
+  it('902 vale solo con 2 ante', () => {
+    expect(condizioneVera({ dim: 902, min: null, max: null }, ante(1)).vera).toBe(false)
+    expect(condizioneVera({ dim: 902, min: null, max: null }, ante(2)).vera).toBe(true)
+    expect(condizioneVera({ dim: 902, min: null, max: null }, ante(3)).vera).toBe(false)
+  })
+  it('903 con 3 ante, 904 con 4, 901 con una', () => {
+    expect(condizioneVera({ dim: 903, min: 0, max: 0 }, ante(3)).vera).toBe(true)
+    expect(condizioneVera({ dim: 904, min: null, max: null }, ante(4)).vera).toBe(true)
+    expect(condizioneVera({ dim: 901, min: null, max: null }, ante(1)).vera).toBe(true)
+    expect(condizioneVera({ dim: 901, min: null, max: null }, ante(2)).vera).toBe(false)
   })
 })

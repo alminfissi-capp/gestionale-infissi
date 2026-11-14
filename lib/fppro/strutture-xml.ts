@@ -88,6 +88,8 @@ export interface KitStruttura {
   /** Per i kit opzionali: quello scelto nella struttura */
   confermato: boolean
   accessori: AccessorioStruttura[]
+  /** Kit contato per ogni anta del nodo (FP PRO: CodiceMacro = 1, es. kit cerniere ES40) */
+  perAnta?: boolean
   /**
    * Gruppo di alternative di FP PRO (gruppiopzkit, es. "SCELTA CERNIERA 2 A/R"): nello stesso
    * nodo se ne sceglie UNO. Lo aggiunge il server all'albero per il telefono (fp_kit.raggruppamentoid).
@@ -259,6 +261,7 @@ function nodo(n: Ogg): NodoStruttura {
       opzionale: vero(k.Optional),
       confermato: k.Confirmed === undefined ? !vero(k.Optional) : vero(k.Confirmed),
       accessori: lista(k.FP_FITTING).map(accessorio),
+      perAnta: num(k.CodiceMacro) === 1,
     })),
     figli: lista(n.FP_NODE).map(nodo),
   }

@@ -49,8 +49,9 @@ export const codiceNoto = (codice: number) =>
 
 /** Condizione senza fascia: vale sempre. Codice sconosciuto con fascia: non vale e si segnala. */
 export function condizioneVera(c: CondizioneRiga, m: MisureRif): { vera: boolean; ignoto?: number } {
-  // 901-904: righe dell'anta passiva (catenacci, incontri, banco di prova 85-2026G): solo con 2 ante o piu'.
-  if (c.dim >= 901 && c.dim <= 904) return { vera: m.ante.length >= 2 }
+  // 901-904: numero di ante del nodo (90n = esattamente n ante). Verificato su FP PRO: A4011.20
+  // x2 con 902, x4 con 903, x6 con 904 nello stesso kit (95-2026G); catenacci 902 solo sulle 2 ante.
+  if (c.dim >= 901 && c.dim <= 904) return { vera: (m.ante.length || m.scorrevoli.length) === c.dim - 900 }
   if (c.min === null || c.max === null || c.max <= 0) return { vera: true }
   if (!codiceNoto(c.dim)) return { vera: false, ignoto: c.dim }
   const v = misuraRif(c.dim, m)
