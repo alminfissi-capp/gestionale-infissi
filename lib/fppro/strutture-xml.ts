@@ -35,6 +35,13 @@ export interface PezzoStruttura {
   indice: number
 }
 
+/** Condizione di validita' di una riga: misura di riferimento (codice FP PRO) dentro [min, max] */
+export interface CondizioneRiga {
+  dim: number
+  min: number | null
+  max: number | null
+}
+
 export interface AccessorioStruttura {
   codice: string
   descrizione: string
@@ -53,6 +60,20 @@ export interface AccessorioStruttura {
   formulaDistribuzione: string | null
   opzionale: boolean
   confermato: boolean
+  /** Mano a cui vale la riga: 0 = sempre, 1 = destra, 2 = sinistra (FP PRO: Apertura) */
+  apertura?: number
+  /** Seconda, terza e quarta condizione di FP PRO (la prima e' dimRif/min/max); limiti null = condizione senza fascia */
+  altreCondizioni?: CondizioneRiga[]
+  /** Condizioni alternative (FP PRO: CondParametric / condparam = 1): basta che ne valga una */
+  condizioniAlternative?: boolean
+  /** Quantita' massima (FP PRO: NMax / num_max) */
+  numMax?: number | null
+  /** Riga valida solo con questo valore del parametro del kit */
+  parametro?: { codice: string; valore: string } | null
+  /** Formula della lunghezza per gli accessori a metro */
+  formulaL?: string | null
+  /** Correzione in mm sulla lunghezza degli accessori a metro */
+  corrMl?: number
   /** Gruppo di alternative di FP PRO dell'accessorio facoltativo (gruppoid) e suo tipo/nome: li mette il server per il telefono */
   gruppo?: number | null
   gruppoTipo?: number | null
@@ -194,6 +215,18 @@ function accessorio(f: Ogg): AccessorioStruttura {
     opzionale: vero(f.Optional),
     // Senza Confirmed: scelto se obbligatorio, non scelto se opzionale (come calcola FP PRO).
     confermato: f.Confirmed === undefined ? !vero(f.Optional) : vero(f.Confirmed),
+    apertura: num(f.Apertura) ?? 0,
+    // Nello STR i limiti della seconda/terza/quarta condizione sono in centesimi (RMin2x100).
+    altreCondizioni: [2, 3, 4].flatMap(i => {
+      const dim = num(f[`RefDim${i}`]) ?? 0
+      if (dim === 0) return []
+      const min = num(f[`RMin${i}x100`])
+      const max = num(f[`RMax${i}x100`])
+      return [{ dim, min: min === null ? null : min / 100, max: max === null ? null : max / 100 }]
+    }),
+    numMax: num(f.NMax),
+    condizioniAlternative: vero(f.CondParametric),
+    formulaL: testo(f.LFormula),
   }
 }
 

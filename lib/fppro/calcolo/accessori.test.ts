@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { commessaFp } from '../__fixtures__/commesse'
-import { accessoriVoce, chiaveAccessorio, regoleDaElenchi, valutaFormula, type RigaKitCatalogo } from './accessori'
+import { accessoriDaCatalogo, accessoriVoce, chiaveAccessorio, regoleDaElenchi, valutaFormula, type RigaKitCatalogo } from './accessori'
 import { LARGHEZZE_PREDEFINITE, pezziECampi } from './geometria'
 
 function accessoriDi(nome: string, telaio: number, peso: number, scelti: (albero: ReturnType<typeof commessaFp>['struttura']['albero']) => Record<string, boolean> = () => ({})) {
@@ -188,4 +188,119 @@ describe('ribalta su finestre a piu ante: il braccio si sceglie sulla larghezza 
   it('2 ante su 1200 mm: anta da 600 -> solo il braccio 538, niente supplementare', () => expect(codici(2, 1200)).toEqual(['ACP 50446/538']))
   it('3 ante su 1500 mm: anta da 500 -> braccio 415', () => expect(codici(3, 1500)).toEqual(['ACP 50446/415']))
   it('1 anta da 1200 mm: braccio 538 + supplementare', () => expect(codici(1, 1200)).toEqual(['ACP 50446/538', 'ACP 5153']))
+})
+
+describe('righe del catalogo con tutte le regole (caso Vazzana)', () => {
+  const [d, p] = accessoriDaCatalogo([
+    {
+      fp_id: 61554, codice: 'ACP 5151/D', tipo: 1, quantita: 1, opzionale: false, dim_rif: 5, lim_inf: 600.1, lim_sup: 1500, passo: 0,
+      formula_r: 'O1+AE+AE', formula_dist: null,
+      dati: { apertura: 1, dimrif2: 201, liminfrange2: 1, limsuprange2: 100, dim_rif3: 0, num_max: 0, corr_ml: 0 },
+    },
+    {
+      fp_id: 61600, codice: 'G-22135', tipo: 1, quantita: 1, opzionale: false, dim_rif: 401, lim_inf: 350, lim_sup: 450.9, passo: 0,
+      formula_r: null, formula_dist: null,
+      dati: { dimrif2: 301, liminfrange2: 192, limsuprange2: 394.9, dim_rif3: 9, lim_inf_range3: 120, lim_sup_range3: 120,
+        parametrica: 1, codice_param: 'scelta cr. Cilindro', valore_param: '30', num_max: 10, corr_ml: -28, formulal: '2*L' },
+    },
+  ])
+  it('mano e seconda condizione', () => {
+    expect(d.apertura).toBe(1)
+    expect(d.altreCondizioni).toEqual([{ dim: 201, min: 1, max: 100 }])
+  })
+  it('terza condizione, parametro, massimo, correzione, formula a metro', () => {
+    expect(p.altreCondizioni).toEqual([{ dim: 301, min: 192, max: 394.9 }, { dim: 9, min: 120, max: 120 }])
+    expect(p.parametro).toEqual({ codice: 'scelta cr. Cilindro', valore: '30' })
+    expect(p.numMax).toBe(10)
+    expect(p.corrMl).toBe(-28)
+    expect(p.formulaL).toBe('2*L')
+    expect(p.apertura).toBe(0)
+  })
+})
+
+describe('cerniere a scomparsa: una sola, per mano e per peso (caso Vazzana)', () => {
+  const riga = (fp_id: number, codice: string, apertura: number, pesoMin: number, pesoMax: number): RigaKitCatalogo => ({
+    fp_id, codice, tipo: 1, quantita: 1, opzionale: false, dim_rif: 5, lim_inf: 600.1, lim_sup: 1500, passo: 0,
+    formula_r: 'O1+AE+AE', formula_dist: null,
+    dati: { apertura, dimrif2: 201, liminfrange2: pesoMin, limsuprange2: pesoMax },
+  })
+  const catalogo = {
+    'PLANET 1AR-SCOMPARSA-RISTRUTT': [
+      riga(1, 'ACP 5151/D', 1, 1, 100), riga(2, 'ACP 5151/S', 2, 1, 100),
+      riga(3, 'ACP 5163/D', 1, 100.1, 150), riga(4, 'ACP 5163/S', 2, 100.1, 150),
+    ],
+  }
+  const albero = [{
+    tipo: 8610, codice: 2, elementi: 1, x: null, y: null, prm: [], macro: null, ante: [], ird: [], pezzi: [], figli: [], accessori: [],
+    kit: [{ codice: 'PLANET 1AR-SCOMPARSA-RISTRUTT', descrizione: '', serie: 'AL_SISTEM', opzionale: true, confermato: true, accessori: [] }],
+  }]
+  const regole = regoleDaElenchi([], [], [], catalogo)
+  const codici = (mano: 'sx' | 'dx' | null, pesoAnta: number) =>
+    accessoriVoce(albero as never, {}, { 2: { L: 675, H: 1342 } }, 60, regole, {}, {
+      mano, ante: { 2: { ante: [{ l: 675, h: 1342, peso: pesoAnta }], scorrevoli: [] } },
+    }).filter(a => a.quantita > 0).map(a => a.codice)
+
+  it('mano destra, anta sotto 100 kg: solo ACP 5151/D', () => expect(codici('dx', 40)).toEqual(['ACP 5151/D']))
+  it('mano sinistra: solo ACP 5151/S', () => expect(codici('sx', 40)).toEqual(['ACP 5151/S']))
+  it('senza mano: un solo kit, il destro', () => expect(codici(null, 40)).toEqual(['ACP 5151/D']))
+  it('anta da 120 kg: solo ACP 5163/D', () => expect(codici('dx', 120)).toEqual(['ACP 5163/D']))
+})
+
+describe('anta passiva e codici sconosciuti', () => {
+  const acc = (codice: string, dimRif: number, min: number, max: number) => ({
+    codice, descrizione: codice, serie: 'S', tipo: 1, quantita: 1, dimRif, dimCalcolo: 0, min, max, passo: null, formula: null,
+    dimDistribuzione: 0, formulaDistribuzione: null, opzionale: false, confermato: true,
+  })
+  const albero = [{
+    tipo: 8610, codice: 2, x: null, y: null, pezzi: [], figli: [], kit: [],
+    accessori: [acc('PASSIVA', 202, 50, 100), acc('ATTIVA', 201, 50, 100), acc('STRANO', 999, 1, 5000)],
+  }]
+  const risultato = accessoriVoce(albero as never, {}, { 2: { L: 1200, H: 1400 } }, 100, regoleDaElenchi([], [], [], {}), {}, {
+    mano: 'dx', ante: { 2: { ante: [{ l: 600, h: 1400, peso: 40 }, { l: 600, h: 1400, peso: 60 }], scorrevoli: [] } },
+  })
+  it('peso anta 2 (passiva) 60 kg: la riga 202 50-100 vale, la 201 no', () => {
+    expect(risultato.filter(a => a.quantita > 0).map(a => a.codice)).toEqual(['PASSIVA'])
+  })
+  it('codice di misura sconosciuto: riga esclusa e avviso', () => {
+    expect(risultato.find(a => a.codice === 'STRANO')).toMatchObject({ quantita: 0, avviso: 'Regola FP PRO non gestita: misura 999 su STRANO' })
+  })
+})
+
+describe('catenacci (902) solo con l\'anta passiva', () => {
+  const albero = [{
+    tipo: 8610, codice: 2, x: null, y: null, pezzi: [], figli: [], kit: [],
+    accessori: [{ codice: 'ACP 50452', descrizione: '', serie: 'S', tipo: 1, quantita: 1, dimRif: 902, dimCalcolo: 0, min: 0, max: 0,
+      passo: null, formula: null, dimDistribuzione: 0, formulaDistribuzione: null, opzionale: false, confermato: true }],
+  }]
+  const codici = (ante: number) => accessoriVoce(albero as never, {}, { 2: { L: 1200, H: 1400 } }, 60, regoleDaElenchi([], [], [], {}), {}, {
+    ante: { 2: { ante: Array.from({ length: ante }, () => ({ l: 1200 / ante, h: 1400, peso: 30 })), scorrevoli: [] } },
+  }).filter(a => a.quantita > 0).map(a => a.codice)
+  it('finestra a 1 anta: niente catenacci', () => expect(codici(1)).toEqual([]))
+  it('finestra a 2 ante: catenacci', () => expect(codici(2)).toEqual(['ACP 50452']))
+})
+
+describe('righe per anta scorrevole (codici 22-24): una per ogni anta', () => {
+  const asta = { codice: 'ACP 90213/2750', descrizione: '', serie: 'S', tipo: 1, quantita: 1, dimRif: 24, dimCalcolo: 0, min: 2150.1, max: 2750,
+    passo: null, formula: null, dimDistribuzione: 0, formulaDistribuzione: null, opzionale: false, confermato: true }
+  const albero = [{ tipo: 8620, codice: 3, x: null, y: null, pezzi: [], figli: [], kit: [], accessori: [asta] }]
+  const q = (altezze: number[]) => accessoriVoce(albero as never, {}, { 3: { L: 3000, H: 2500 } }, 120, regoleDaElenchi([], [], [], {}), {}, {
+    ante: { 3: { ante: [], scorrevoli: altezze.map(h => ({ l: 1500, h, peso: 60 })) } },
+  }).filter(a => a.codice === 'ACP 90213/2750').reduce((t, a) => t + a.quantita, 0)
+  it('2 ante scorrevoli nella fascia: 2 aste', () => expect(q([2500, 2500])).toBe(2))
+  it('una sola anta nella fascia: 1 asta', () => expect(q([2500, 2000])).toBe(1))
+})
+
+describe('condparam: condizioni alternative (ACP 5155, caso Vazzana/192-26G)', () => {
+  const riga = (condparam: number): RigaKitCatalogo => ({
+    fp_id: 1, codice: 'ACP 5155', tipo: 1, quantita: 1, opzionale: false, dim_rif: 5, lim_inf: 1000, lim_sup: 1500, passo: 0,
+    formula_r: 'O1+AE+AE', formula_dist: null, dati: { dimrif2: 1, liminfrange2: 1200, limsuprange2: 3000, condparam },
+  })
+  const albero = [{
+    tipo: 8610, codice: 2, elementi: 1, x: null, y: null, prm: [], macro: null, ante: [], ird: [], pezzi: [], figli: [], accessori: [],
+    kit: [{ codice: 'K', descrizione: '', serie: '', opzionale: false, confermato: true, accessori: [] }],
+  }]
+  const q = (condparam: number) => accessoriVoce(albero as never, {}, { 2: { L: 675, H: 1342 } }, 30, regoleDaElenchi([], [], [], { K: [riga(condparam)] }))
+    .filter(a => a.codice === 'ACP 5155').reduce((t, a) => t + a.quantita, 0)
+  it('condparam 1: basta una condizione (anta 675 fuori fascia, H 1342 dentro) -> 1', () => expect(q(1)).toBe(1))
+  it('condparam 0: devono valere tutte -> 0', () => expect(q(0)).toBe(0))
 })

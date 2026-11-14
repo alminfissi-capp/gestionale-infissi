@@ -7,9 +7,10 @@ import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
 import { requireAccesso } from '@/lib/permessi'
 import { selectAll } from '@/lib/supabase/paginate'
-import { regoleDaElenchi, type RegoleAccessori, type RigaKitCatalogo } from '@/lib/fppro/calcolo/accessori'
+import { regoleDaElenchi, type FissaggioProfilo, type RegoleAccessori, type RigaKitCatalogo } from '@/lib/fppro/calcolo/accessori'
+import { fissaggiPredefiniti, type RigaFissaggio, type RigaSerieFissaggio } from '@/lib/fppro/calcolo/fissaggi'
 import { listinoDaRighe, type RigheListino } from '@/lib/fppro/calcolo/listino'
-import { clienteDelRilievo, MOTIVO_VOCE_DISEGNATA, motivoCalcoloSuperato, motivoVoceNonCalcolabile, noteTelaioTesto } from '@/lib/fppro/calcolo/trasferimento'
+import { clienteDelRilievo, MOTIVO_VOCE_DISEGNATA, motivoCalcoloSuperato, motivoErroriCalcolo, motivoVoceNonCalcolabile, noteTelaioTesto } from '@/lib/fppro/calcolo/trasferimento'
 import { calcolaVoce, codiceDaDxf, type CalcoloVoce, type InputVoce, type ListinoCalcolo } from '@/lib/fppro/calcolo/voce'
 import { fattoreBarreCommessa } from '@/lib/fppro/calcolo/commessa'
 import type { CorrezioniVoce, OreVoce, PercentualiCalcolo, ProfiloCalcolo } from '@/lib/fppro/calcolo/tipi'
@@ -214,6 +215,22 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       supabase, orgId, 'fp_accessori_collegati', 'fp_id, codice_principale, codice_collegato, serie_collegato, quantita', 'codice_principale', [...codiciAccessori])
     collegati.forEach(c => codiciAccessori.add(c.codice_collegato))
 
+    // Fissaggi dei profili (squadrette, cavallotti) dal sistema di giunzione predefinito della serie.
+    // Tabelle scritte dal ponte: se non ci sono ancora (ponte vecchio) il calcolo va avanti senza, come prima.
+    let fissaggiDi: ((codice: string) => FissaggioProfilo[]) | undefined
+    try {
+      const righeFiss = await inLista<RigaFissaggio>(supabase, orgId, 'fp_fissaggi',
+        'fp_id, codice_profilo, codice_accessorio, serie_fp_id, quantita, dim_rif, filtro', 'codice_profilo', [...codiciProfili])
+      const serieFiss = await inLista<RigaSerieFissaggio>(supabase, orgId, 'fp_serie_fissaggi', 'fp_id, serie_fp_id, ordine, filtro',
+        'serie_fp_id', righeFiss.map(r => r.serie_fp_id).filter((x): x is number => x !== null))
+      if (righeFiss.length > 0) {
+        fissaggiDi = fissaggiPredefiniti(righeFiss, serieFiss)
+        righeFiss.forEach(r => r.codice_accessorio && codiciAccessori.add(r.codice_accessorio))
+      }
+    } catch {
+      fissaggiDi = undefined
+    }
+
     const righeListino: RigheListino = {
       profili,
       componenti,
@@ -257,14 +274,15 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       const s = perStruttura.get(v.fp.strutturaId)
       const motivo = motivoVoceNonCalcolabile(s, v.fp)
       if (motivo || !s || !v.fp.larghezza || !v.fp.altezza) { saltate.push({ voceId: v.id, posizione, motivo: motivo ?? 'Mancano le misure' }); continue }
-      const regole = regoleDaElenchi(s.serie, elencoRigheKit,
+      const regole: RegoleAccessori = regoleDaElenchi(s.serie, elencoRigheKit,
         collegati.map(c => ({ principale: c.codice_principale, collegato: c.codice_collegato, quantita: num(c.quantita), serie: c.serie_collegato ?? '' })),
         catalogoKit)
+      if (fissaggiDi) regole.fissaggi = fissaggiDi
       const colore = (v.fp.coloreEst ?? v.fp.coloreInt)?.fpId ?? null
       const input: InputVoce = {
         albero: s.albero, serie: s.serie, poligoni: s.poligoni,
         L: v.fp.larghezza, H: v.fp.altezza, L0: s.l_nominale ?? v.fp.larghezza, H0: s.h_nominale ?? v.fp.altezza,
-        quote: v.fp.quote ?? {}, kitScelti: v.fp.kit ?? {}, accessoriScelti: v.fp.accessori ?? {},
+        quote: v.fp.quote ?? {}, kitScelti: v.fp.kit ?? {}, accessoriScelti: v.fp.accessori ?? {}, mano: v.fp.mano ?? null,
         vetriScelti: Object.fromEntries(Object.entries(v.fp.vetri ?? {}).map(([k, x]) => [k, x.codice])),
         pannelliScelti: Object.fromEntries(Object.entries(v.fp.pannelli ?? {}).map(([k, x]) => [k, x.codice])),
         accessoriAggiunti: v.fp.accessoriAggiunti ?? [],
@@ -283,8 +301,9 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       // I pezzi servivano solo al fattore: non si salvano.
       const calcolo = calcolaVoce({ ...input, fattoreBarre: fattore }, listino, regole)
       delete calcolo.tagli
+      // Due kit con la stessa funzione (stesso gruppo di FP PRO): errore bloccante, non un avviso.
       for (const doppi of kitAlternativiDoppi(s.albero, v.fp.kit ?? {}, k => gruppoKit.get(chiaveKit(k)))) {
-        calcolo.avvisi.push(`Kit alternativi scelti insieme (FP PRO ne vuole uno): ${doppi.join(' + ')}. Togline uno nella voce`)
+        calcolo.errori = [...(calcolo.errori ?? []), `Scelte doppie: ${doppi.join(' + ')}`]
       }
       if (!s.tempi) calcolo.avvisi.push('Ore della struttura non lette: sincronizza FP PRO')
       calcolate.push({
@@ -407,6 +426,8 @@ export async function trasferisciInPreventivi(
     if (eVoci) throw new Error(eVoci.message)
     const superato = motivoCalcoloSuperato(calcolo, (voci ?? []) as { id: string; updated_at: string; correzioni_fp_at: string | null }[])
     if (superato) return { errore: superato }
+    const bloccato = motivoErroriCalcolo(calcolo)
+    if (bloccato) return { errore: bloccato }
     const fpPerVoce = new Map((voci ?? []).map(v => [v.id as string, v.fp as VoceFpDati]))
 
     // Immagine = disegno della voce come nel rilievo (misure vere, traversi alle quote, aperture,

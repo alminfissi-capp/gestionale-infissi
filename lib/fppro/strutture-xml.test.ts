@@ -160,3 +160,27 @@ describe('posizioniDaOrigine', () => {
     expect(telaio.figli[0].figli.map(f => f.y)).toEqual([697.5, 2037.5])
   })
 })
+
+describe('regole complete delle righe accessorio (caso Vazzana, cerniere a scomparsa)', () => {
+  const xml = `<FP_TREE><FP_NODE ElementType="8610" Code="2"><FP_KIT Code="PLANET 1AR-SCOMPARSA-RISTRUTT" Optional="1" Confirmed="1">
+    <FP_FITTING Code="ACP 5151/D" Type="1" Multiply="1" RefDim="5" RMin="600.100000" RMax="1500.000000" RFormula="O1+AE+AE"
+      RefDim2="201" RMin2x100="100" RMax2x100="10000" Apertura="1" NMax="5" LFormula="4*L+4*H" />
+    <FP_FITTING Code="ACP 50422" Type="1" Multiply="1" RefDim="902" RefDim3="903" RefDim4="904" />
+  </FP_KIT></FP_NODE></FP_TREE>`
+  const s = strutturaDaXml(new XMLParser(OPZIONI_XML).parse(xml))
+  const [cerniera, catenaccio] = s.albero[0].kit[0].accessori
+
+  it('mano e seconda condizione dallo STR (limiti in centesimi)', () => {
+    expect(cerniera.apertura).toBe(1)
+    expect(cerniera.altreCondizioni).toEqual([{ dim: 201, min: 1, max: 100 }])
+  })
+  it('numero massimo e formula a metro', () => {
+    expect(cerniera.numMax).toBe(5)
+    expect(cerniera.formulaL).toBe('4*L+4*H')
+  })
+  it('condizioni senza fascia (codici 9xx) restano lette, con limiti nulli', () => {
+    expect(catenaccio.dimRif).toBe(902)
+    expect(catenaccio.altreCondizioni).toEqual([{ dim: 903, min: null, max: null }, { dim: 904, min: null, max: null }])
+    expect(catenaccio.apertura).toBe(0)
+  })
+})

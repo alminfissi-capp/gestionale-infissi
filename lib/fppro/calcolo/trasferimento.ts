@@ -65,6 +65,18 @@ export function motivoCalcoloSuperato(
   return null
 }
 
+/**
+ * Errori bloccanti del calcolo (es. due kit con la stessa funzione scelti insieme): finche' ci
+ * sono, il rilievo non va nel preventivo. null = nessun errore.
+ */
+export function motivoErroriCalcolo(
+  calcolo: { voci: { posizione: string; descrizione: string; calcolo: { errori?: string[] } }[] },
+): string | null {
+  const v = calcolo.voci.find(x => (x.calcolo.errori ?? []).length > 0)
+  if (!v) return null
+  return `Voce ${v.posizione || '?'} (${v.descrizione}): ${(v.calcolo.errori ?? []).join('; ')}. Correggila nel rilievo e ricalcola`
+}
+
 /** Perche' una voce non si puo' calcolare (null = si calcola). */
 export function motivoVoceNonCalcolabile(
   struttura: { errore: string | null; albero: unknown[] } | undefined,

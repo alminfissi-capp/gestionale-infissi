@@ -38,13 +38,29 @@ describe('conversioni', () => {
 })
 
 describe('mappature', () => {
-  it('ci sono le 17 tabelle, nell\'ordine giusto', () => {
+  it('ci sono le 19 tabelle, in ordine', () => {
     expect(TABELLE_SYNC.map(t => t.supabase)).toEqual([
       'fp_serie', 'fp_profili', 'fp_profili_costi', 'fp_colori', 'fp_accessori',
       'fp_accessori_costi', 'fp_vetri', 'fp_kit', 'fp_kit_righe',
       'fp_config_prev', 'fp_barre', 'fp_pannelli', 'fp_profili_componenti', 'fp_scarti',
       'fp_kit_righe_serie', 'fp_accessori_collegati', 'fp_kit_gruppi',
+      'fp_fissaggi', 'fp_serie_fissaggi',
     ])
+  })
+
+  it('fissaggio: squadretta ACP 5008 per pezzo sul telaio UP61802 (filtro squadretta cianfrinare)', () => {
+    expect(tabella('fp_fissaggi').mappa({
+      pkid: 2134, idprof: 762, idacc: 8205, codice_profilo: 'UP61802', codice_accessorio: 'ACP 5008', serie_profilo: 14,
+      num_base: 1, dim_rif: 1, filtro: '07a9bd5b-7d80-47d5-817b-579496084101', tipo: 1, opzionale: 0,
+    })).toMatchObject({
+      fp_id: 2134, codice_profilo: 'UP61802', codice_accessorio: 'ACP 5008', serie_fp_id: 14,
+      quantita: 1, dim_rif: 1, filtro: '07a9bd5b-7d80-47d5-817b-579496084101',
+    })
+  })
+
+  it('sistema di giunzione della serie: ordine e filtro', () => {
+    expect(tabella('fp_serie_fissaggi').mappa({ pkid: 1, id_serie: 14, ordine: 1, tipo: 0, filtro_guid: '07a9bd5b' }))
+      .toMatchObject({ fp_id: 1, serie_fp_id: 14, ordine: 1, tipo: 0, filtro: '07a9bd5b' })
   })
 
   it('profilo TT8002', () => {

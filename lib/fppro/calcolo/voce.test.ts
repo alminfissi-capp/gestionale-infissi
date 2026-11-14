@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { commessaFp, type CommessaFp } from '../__fixtures__/commesse'
 import { regoleDaElenchi } from './accessori'
 import type { ProfiloCalcolo } from './tipi'
-import { calcolaVoce, codiceDaDxf, type InputVoce, type ListinoCalcolo } from './voce'
+import { antaFissa, calcolaVoce, codiceDaDxf, type InputVoce, type ListinoCalcolo } from './voce'
 import { fattoreBarreCommessa } from './commessa'
+import { LARGHEZZE_PREDEFINITE, pezziECampi } from './geometria'
 
 /** Listino con i prezzi che FP PRO ha usato in quella commessa. */
 function listinoDa(d: CommessaFp, fattorePeso: number): ListinoCalcolo {
@@ -250,5 +251,53 @@ describe('barre sulla commessa', () => {
     const { fattore } = fattoreBarreCommessa([{ quantita: 2, tagli: sola.tagli ?? [] }])
     const r = calcolaVoce({ ...input, fattoreBarre: fattore }, listino, regole)
     expect(gruppo(r, 'profili')).toBeLessThanOrEqual(gruppo(sola, 'profili') + 1e-9)
+  })
+})
+
+describe('peso di ogni anta (serve alle regole 2xx e 23 di FP PRO)', () => {
+  const { dati, input, regole } = inputDa('170-26G', alm2026, 0.03)
+  const r = calcolaVoce(input, listinoDa(dati, 1.03), regole)
+  it('scorrevole a 2 ante: due ante con peso, insieme non oltre il serramento', () => {
+    expect(r.ante ?? []).toHaveLength(2)
+    expect((r.ante ?? []).every(a => a.peso > 0)).toBe(true)
+    expect((r.ante ?? []).reduce((t, a) => t + a.peso, 0)).toBeLessThanOrEqual(r.peso)
+  })
+  it('misure dell\'anta dalla geometria', () => {
+    expect(r.ante?.[0].l).toBeGreaterThan(800)
+    expect(r.ante?.[0].h).toBeGreaterThan(2000)
+  })
+})
+
+describe('fissaggi dei profili (squadrette e cavallotti di FP PRO)', () => {
+  const { dati, input, regole } = inputDa('170-26G', alm2026, 0.03)
+  const listino = listinoDa(dati, 1.03)
+  const pezzi = pezziECampi(input.albero, input, LARGHEZZE_PREDEFINITE).pezzi.filter(p => codiceDaDxf(p.dxf).trim())
+  const conFissaggi = { ...regole, fissaggi: (_codice: string, tipo: number) => [
+    { codice: 'SQ-PEZZO', quantita: 1, dimRif: 1 },
+    ...(tipo === 8050 ? [{ codice: 'SQ-TELAIO', quantita: 2, dimRif: 1 }] : []),
+  ] }
+  const accessorio = (r: ReturnType<typeof calcolaVoce>, codice: string) => r.righe.filter(x => x.codice === codice).reduce((t, x) => t + x.quantita, 0)
+
+  it('una squadretta per ogni pezzo di profilo', () => {
+    expect(accessorio(calcolaVoce(input, listino, conFissaggi), 'SQ-PEZZO')).toBe(pezzi.length)
+  })
+  it('quantita\' per pezzo e solo sul tipo di pezzo indicato', () => {
+    expect(accessorio(calcolaVoce(input, listino, conFissaggi), 'SQ-TELAIO')).toBe(2 * pezzi.filter(p => p.tipo === 8050).length)
+  })
+  it('senza fissaggi nelle regole: nessuna riga in piu\'', () => {
+    expect(calcolaVoce(input, listino, regole).righe.some(x => x.codice.startsWith('SQ-'))).toBe(false)
+  })
+})
+
+describe('ante scorrevoli fisse (pezzi 8101): non contano come ante mobili', () => {
+  const nodo = { tipo: 8620, codice: 3, elementi: 2, x: null, y: null, prm: [], macro: null, ante: [], ird: [], figli: [], accessori: [], kit: [],
+    pezzi: [
+      ...[0, 1, 2, 3].map(i => ({ tipo: 8100, dxf: 'S\A.DXF', serie: 'S', indice: 0, _i: i })),
+      ...[0, 1, 2, 3].map(i => ({ tipo: 8101, dxf: 'S\F.DXF', serie: 'S', indice: 1, _i: i })),
+      { tipo: 8210, dxf: 'S\R.DXF', serie: 'S', indice: 1 },
+    ] }
+  it('anta 0 mobile, anta 1 fissa', () => {
+    expect(antaFissa(nodo as never, 0)).toBe(false)
+    expect(antaFissa(nodo as never, 1)).toBe(true)
   })
 })

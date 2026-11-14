@@ -357,6 +357,7 @@ export default function CalcoloRilievo({ rilievoId, dati }: { rilievoId: string;
                             <span className="block font-medium">{v.posizione ? `${v.posizione} · ` : ''}{v.struttura}</span>
                             <span className="block text-xs text-muted-foreground">{v.larghezza} × {v.altezza} mm</span>
                             {correzioni[v.voceId] && <span className="block text-xs text-blue-700">con correzioni</span>}
+                            {(v.calcolo.errori ?? []).map((a, i) => <span key={`e${i}`} className="block text-xs font-medium text-red-700">{a}: correggi la voce, poi ricalcola</span>)}
                             {v.calcolo.avvisi.map((a, i) => <span key={i} className="block text-xs text-amber-700">{a}</span>)}
                           </span>
                         </button>

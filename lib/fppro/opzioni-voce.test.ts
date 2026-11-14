@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { KitStruttura, NodoStruttura } from './strutture-xml'
 import {
-  accessoriScoperti, codiciAColore, coperturaColori, domandeAccessori, domandeDoppie, famigliaDaNome, riallineaMano,
-  scegliAccessorio, scegliFamiglia, scegliKit, schemaOpzioni, sceltoIn, titoloGruppo, varianteFamiglia, type AccessorioAColore,
+  accessoriScoperti, codiciAColore, coperturaColori, domandeAccessori, domandeDoppie, famigliaDaNome, riallineaMano, risposte,
+  scegliAccessorio, scegliKit, schemaOpzioni, sceltoIn, titoloGruppo, type AccessorioAColore,
 } from './opzioni-voce'
 import type { GruppoAccessoriOpzionali } from './rilievo-fp'
 
@@ -16,37 +16,51 @@ const nodo = (codice: number, tipo: number, k: KitStruttura[], figli: NodoStrutt
   tipo, codice, elementi: 1, x: null, y: null, prm: [], macro: null, ante: [], ird: [], pezzi: [], accessori: [], kit: k, figli,
 })
 
-// PLANET 62 2 ante a ribalta, come la voce del caso Agrusa.
-const planet = [nodo(1, 8600, [kit('PLANET TEL01- L', 5), kit('PLANET TEL01- Z/T', 5, true)], [
+// PLANET 62 2 ante a ribalta, come la voce del caso Agrusa (descrizioni come in FP PRO).
+const planet = [nodo(1, 8600, [
+  kit('PLANET TEL01- L', 5, false, { descrizione: 'Telaio generico a L per finestra' }),
+  kit('PLANET TEL01- Z/T', 5, true, { descrizione: 'Telaio generico a Z/T per finestra' }),
+], [
   nodo(2, 8610, [
     kit('PLANET 2AR COMPLANARE-DS', 74, true), kit('PLANET 2AR-SCOMPARSA-DS', 74), kit('PLANET 2AR-SCOMPARSA-RISTRUTT', 74),
     kit('PLANET 2AR-SORMONTO-DS', 74), kit('PLANET 2AR-SORMONTO-RISTRUTT', 74),
-    kit('PLANET  CREMONESE A/R-DS', 3), kit('PLANET  EXENS A/R-DS', 3, true), kit('PLANET  MARTELLINA A/R-DS', 3),
+    kit('PLANET  CREMONESE A/R-DS', 3, false, { descrizione: 'Kit Cremonese anta ribalta' }),
+    kit('PLANET  EXENS A/R-DS', 3, true, { descrizione: 'Kit Exens anta ribalta' }),
+    kit('PLANET  MARTELLINA A/R-DS', 3, false, { descrizione: 'Kit martellina anta ribalta' }),
   ]),
 ])]
 
-describe('schemaOpzioni', () => {
+describe('schemaOpzioni: una domanda per gruppo di FP PRO', () => {
   const s = schemaOpzioni(planet)
 
-  it('PLANET 2 ante: tre domande, cerniere per prime con A vista / A scomparsa', () => {
+  it('domande in ordine dei gruppi di FP PRO (1A, 1B, 2A), tutte a scelta unica', () => {
     expect(s.domande.map(d => [d.titolo, d.tipo, d.kit.length])).toEqual([
-      ['Cerniere', 'cerniere', 5], ['Telaio', 'unica', 2], ['Maniglia per ribalta', 'unica', 3],
+      ['Telaio', 'unica', 2], ['Cerniera 2 a/r', 'unica', 5], ['Maniglia per ribalta', 'unica', 3],
     ])
-    expect(s.domande[0].kit.filter(k => k.famiglia === 'scomparsa').map(k => k.codice)).toEqual(['PLANET 2AR-SCOMPARSA-DS', 'PLANET 2AR-SCOMPARSA-RISTRUTT'])
     expect(s.altre).toEqual([])
     expect(s.base).toEqual([])
   })
 
-  it('caso Agrusa: sormonto + scomparsa spuntati insieme = doppione', () => {
-    expect(domandeDoppie(s, { '2:0': false, '2:2': true, '2:3': true }).map(d => d.titolo)).toEqual(['Cerniere'])
+  it('nomi brevi da cantiere', () => {
+    expect(s.domande[0].kit.map(k => k.nome)).toEqual(['Telaio L', 'Telaio Z/T'])
+    expect(s.domande[1].kit.map(k => k.nome)).toEqual(['Complanare', 'Scomparsa', 'Scomparsa ristrutturazione', 'Sormonto', 'Sormonto ristrutturazione'])
+    expect(s.domande[2].kit.map(k => k.nome)).toEqual(['Kit Cremonese', 'Kit Exens', 'Kit Martellina'])
   })
 
-  it('A scomparsa: la variante piu\' simile al kit confermato (complanare -DS -> scomparsa -DS), le altre spente', () => {
-    const cerniere = s.domande[0]
-    const scelte = scegliFamiglia(cerniere, 'scomparsa', null, {})
+  it('nome corretto a mano (pagina nomi brevi): vince su quello automatico', () => {
+    const s2 = schemaOpzioni(planet, new Map([['kit:planet 2ar-scomparsa-ds', 'A scomparsa Secret']]))
+    expect(s2.domande[1].kit[1].nome).toBe('A scomparsa Secret')
+  })
+
+  it('caso Agrusa: sormonto + scomparsa spuntati insieme = doppione', () => {
+    expect(domandeDoppie(s, { '2:0': false, '2:2': true, '2:3': true }).map(d => d.titolo)).toEqual(['Cerniera 2 a/r'])
+  })
+
+  it('scegliere una risposta spegne tutte le altre della domanda', () => {
+    const cerniere = s.domande[1]
+    const scelte = scegliKit(cerniere, cerniere.kit[1].chiave, {})
     expect(sceltoIn(cerniere, scelte)?.codice).toBe('PLANET 2AR-SCOMPARSA-DS')
-    expect(Object.values(scelte).filter(Boolean)).toHaveLength(1)
-    expect(sceltoIn(cerniere, scegliFamiglia(cerniere, 'vista', null, scelte))?.codice).toBe('PLANET 2AR COMPLANARE-DS')
+    expect(cerniere.kit.filter(k => scelte[k.chiave] ?? k.predefinito)).toHaveLength(1)
   })
 
   it('kit con nome storpiato senza gruppo ("RISTUTT") entra nel gruppo delle cerniere, non resta acceso da solo', () => {
@@ -56,22 +70,28 @@ describe('schemaOpzioni', () => {
   })
 })
 
-describe('ferramenta GU (PVC): a vista / a scomparsa e mano DX/SX', () => {
+describe('ferramenta GU (PVC): varianti DX/SX = una sola risposta, il lato viene dalla mano', () => {
   const gu = [nodo(3, 8610, [
     kit('F2-DK-DX', 59, true), kit('F2-DK-SX', 59), kit('F2-DK-SCF-DX', 59), kit('F2-DK-SCF-SX', 59), kit('F2-DK-7.5-DX', 59), kit('F2-DK-7.5-SX', 59),
   ])]
-  const d = schemaOpzioni(gu).domande[0]
+  const s = schemaOpzioni(gu)
+  const d = s.domande[0]
 
-  it('una domanda Cerniere', () => expect([d.titolo, d.tipo]).toEqual(['Cerniere', 'cerniere']))
-  it('variante dalla mano della voce', () => {
-    expect(varianteFamiglia(d, 'vista', 'sx')?.codice).toBe('F2-DK-SX')
-    expect(varianteFamiglia(d, 'scomparsa', 'sx')?.codice).toBe('F2-DK-SCF-SX')
-    expect(varianteFamiglia(d, 'scomparsa', null)?.codice).toBe('F2-DK-SCF-DX')
+  it('una domanda a scelta unica col titolo del gruppo', () => expect([d.titolo, d.tipo]).toEqual(['Ferramenta per 2 ante', 'unica']))
+  it('risposte visibili: una per variante, del lato della mano (senza mano: destra)', () => {
+    expect(risposte(d, 'sx').map(k => k.codice)).toEqual(['F2-DK-SX', 'F2-DK-SCF-SX', 'F2-DK-7.5-SX'])
+    expect(risposte(d, null).map(k => k.codice)).toEqual(['F2-DK-DX', 'F2-DK-SCF-DX', 'F2-DK-7.5-DX'])
   })
-  it('cambiando la mano si riallinea, restando nella stessa famiglia', () => {
-    const s = schemaOpzioni(gu)
-    const scomparsaDx = scegliFamiglia(d, 'scomparsa', 'dx', {})
-    expect(sceltoIn(d, riallineaMano(s, scomparsaDx, 'sx'))?.codice).toBe('F2-DK-SCF-SX')
+  it('stesso nome per le due varianti di lato', () => {
+    expect(risposte(d, 'dx').map(k => k.nome)).toEqual(risposte(d, 'sx').map(k => k.nome))
+  })
+  it('cambiando la mano la scelta passa al lato giusto dello stesso kit', () => {
+    const scfDx = scegliKit(d, d.kit.find(k => k.codice === 'F2-DK-SCF-DX')!.chiave, {})
+    expect(sceltoIn(d, riallineaMano(s, scfDx, 'sx'))?.codice).toBe('F2-DK-SCF-SX')
+  })
+  it('senza mano non restano mai accese due varianti di lato', () => {
+    const scelte = riallineaMano(s, { '3:0': true, '3:1': true }, null)
+    expect(d.kit.filter(k => scelte[k.chiave] ?? k.predefinito).map(k => k.codice)).toEqual(['F2-DK-DX'])
   })
 })
 
