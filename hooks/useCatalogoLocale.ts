@@ -4,7 +4,7 @@
 // riprende da dove era rimasta se interrotta.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { db } from '@/lib/db'
-import { firmeImmagini, getAccessoriAColoreFp, getPreferenzeFp, scaricaCatalogo } from '@/actions/rilievo-fp'
+import { firmeImmagini, getAccessoriAColoreFp, getNomiBreviCorretti, getPreferenzeFp, scaricaCatalogo } from '@/actions/rilievo-fp'
 import { posizioneSicura } from '@/lib/fppro/sync-rilievi'
 import type {
   ColoreLocale, PannelloLocale, PosizioneFp, SerieLocale, SezioneLocale, StrutturaLocale, TabellaCatalogoLocale, TelaioLocale, VetroLocale,
@@ -94,6 +94,15 @@ export function useCatalogoLocale() {
         await db.transaction('rw', db.fpAccessoriColori, async () => {
           await db.fpAccessoriColori.clear()
           await db.fpAccessoriColori.bulkPut(aColore)
+        })
+      }
+
+      // Nomi brevi corretti a mano: pochi, si sostituiscono per intero.
+      const nomiBrevi = await getNomiBreviCorretti()
+      if (!('errore' in nomiBrevi)) {
+        await db.transaction('rw', db.fpNomiBrevi, async () => {
+          await db.fpNomiBrevi.clear()
+          await db.fpNomiBrevi.bulkPut(nomiBrevi)
         })
       }
 

@@ -13,8 +13,9 @@ import { cercaCatalogo, getCatalogoFpStato, richiediSincronizzazione } from '@/a
 import { statoPonte } from '@/lib/fppro/ponte-regole'
 import type { CatalogoFpStato, RigaCatalogo, SerieFp, TipoCatalogo } from '@/types/fppro'
 import StruttureFp from './StruttureFp'
+import NomiBreviFp from './NomiBreviFp'
 
-type Scheda = TipoCatalogo | 'strutture'
+type Scheda = TipoCatalogo | 'strutture' | 'nomi'
 
 const dataOra = new Intl.DateTimeFormat('it-IT', { dateStyle: 'short', timeStyle: 'short' })
 const quando = (iso: string | null) => (iso ? dataOra.format(new Date(iso)) : 'mai')
@@ -31,6 +32,7 @@ const SCHEDE: { valore: Scheda; etichetta: string }[] = [
   { valore: 'accessori', etichetta: 'Accessori' },
   { valore: 'vetri', etichetta: 'Vetri' },
   { valore: 'colori', etichetta: 'Finiture' },
+  { valore: 'nomi', etichetta: 'Nomi brevi' },
 ]
 
 interface Props {
@@ -79,7 +81,7 @@ export default function CatalogoFpClient({ statoIniziale, serie }: Props) {
 
   // Ricerca con attesa di 300 ms dopo l'ultima lettera.
   useEffect(() => {
-    if (tipo === 'strutture') return
+    if (tipo === 'strutture' || tipo === 'nomi') return
     let annullata = false
     const id = setTimeout(async () => {
       setCercando(true)
@@ -164,7 +166,7 @@ export default function CatalogoFpClient({ statoIniziale, serie }: Props) {
             {SCHEDE.map(s => <TabsTrigger key={s.valore} value={s.valore}>{s.etichetta}</TabsTrigger>)}
           </TabsList>
         </Tabs>
-        {tipo !== 'strutture' && <Input
+        {tipo !== 'strutture' && tipo !== 'nomi' && <Input
           className="sm:max-w-xs"
           placeholder="Cerca codice o descrizione"
           value={testo}
@@ -172,7 +174,7 @@ export default function CatalogoFpClient({ statoIniziale, serie }: Props) {
         />}
       </div>
 
-      {tipo === 'strutture' ? <StruttureFp /> : <>
+      {tipo === 'nomi' ? <NomiBreviFp /> : tipo === 'strutture' ? <StruttureFp /> : <>
 
       <div className="rounded-md border overflow-x-auto">
         <Table>

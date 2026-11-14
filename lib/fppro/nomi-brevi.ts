@@ -50,3 +50,56 @@ export function nomiBreviGruppo(voci: { codice: string; descrizione: string }[])
   })
   return nomi
 }
+
+/** "1B -SCELTA CERNIERA 2 A/R" -> "Cerniera 2 A/R" */
+export function titoloGruppo(nome: string | null | undefined): string {
+  // Sigla del gruppo all'inizio, con o senza trattino ("1B -SCELTA…", "1B SCELTA…", "- SCELTA…").
+  let t = (nome ?? '').trim().replace(/^(\d+[A-Z]\s*-?|\d*[A-Z]?\s*-)\s*/i, '').replace(/^SCELTA\s+/i, '').replace(/^TIPO\s+/i, '').trim()
+  if (!t) return 'Scelta'
+  t = t.toLowerCase()
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
+/** Sigla del gruppo di FP PRO per l'ordine delle domande: "1B -SCELTA…" -> "01B"; senza sigla in fondo. */
+export const sigla = (nome: string | null | undefined) => {
+  const m = /^\s*(\d+)\s*([A-Z]?)/i.exec(nome ?? '')
+  return m ? `${m[1].padStart(2, '0')}${m[2].toUpperCase()}` : '99'
+}
+
+/** Kit del catalogo per la pagina dei nomi brevi: gruppi di FP PRO in ordine di sigla, nome automatico e corretto. */
+export interface GruppoNomiBrevi {
+  titolo: string
+  ordine: string
+  kit: { chiave: string; codice: string; descrizione: string; automatico: string; corretto: string | null }[]
+}
+
+export function elencoNomiBrevi(
+  kit: { nome: string; descrizione: string | null; gruppo: number | null; gruppoNome: string | null }[],
+  corretti: Map<string, string>,
+): GruppoNomiBrevi[] {
+  // Un gruppo di FP PRO mescola serie diverse (PLANET, CIELO…): nella voce compaiono solo i kit
+  // della serie, quindi i nomi automatici si calcolano per famiglia (prima parola del codice).
+  const famiglia = (nome: string) => nome.trim().split(/[\s_-]+/)[0].toUpperCase()
+  const perGruppo = new Map<string, typeof kit>()
+  for (const k of kit) {
+    if (!k.gruppo) continue
+    const chiave = `${k.gruppo}|${famiglia(k.nome)}`
+    perGruppo.set(chiave, [...(perGruppo.get(chiave) ?? []), k])
+  }
+  const famigliePerGruppo = new Map<number, Set<string>>()
+  for (const k of kit) if (k.gruppo) famigliePerGruppo.set(k.gruppo, (famigliePerGruppo.get(k.gruppo) ?? new Set()).add(famiglia(k.nome)))
+  const out: GruppoNomiBrevi[] = []
+  for (const membri of perGruppo.values()) {
+    const auto = nomiBreviGruppo(membri.map(m => ({ codice: m.nome, descrizione: m.descrizione ?? '' })))
+    const piuFamiglie = (famigliePerGruppo.get(membri[0].gruppo!)?.size ?? 1) > 1
+    out.push({
+      titolo: titoloGruppo(membri[0].gruppoNome) + (piuFamiglie ? ` · ${famiglia(membri[0].nome)}` : ''),
+      ordine: sigla(membri[0].gruppoNome),
+      kit: membri.map((m, i) => ({
+        chiave: chiaveNomeKit(m.nome), codice: m.nome, descrizione: m.descrizione ?? '', automatico: auto[i],
+        corretto: corretti.get(chiaveNomeKit(m.nome)) ?? null,
+      })),
+    })
+  }
+  return out.sort((a, b) => a.ordine.localeCompare(b.ordine) || a.titolo.localeCompare(b.titolo))
+}

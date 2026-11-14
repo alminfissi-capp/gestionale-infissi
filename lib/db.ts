@@ -87,6 +87,8 @@ class GestionaleDB extends Dexie {
   fpVetri!: EntityTable<VetroLocale, 'fp_id'>
   fpPannelli!: EntityTable<PannelloLocale, 'fp_id'>
   fpAccessoriColori!: EntityTable<AccessorioAColore, 'codice'>
+  /** Nomi brevi corretti a mano (fp_nomi_brevi): chiave 'kit:<codice minuscolo>' */
+  fpNomiBrevi!: EntityTable<{ chiave: string; nome: string }, 'chiave'>
   fpTelai!: EntityTable<TelaioLocale, 'fp_id'>
   fpSezioni!: EntityTable<SezioneLocale, 'fp_id'>
   fpSerie!: EntityTable<SerieLocale, 'fp_id'>
@@ -346,6 +348,8 @@ class GestionaleDB extends Dexie {
     // Rilievo unico (2026-11-08): il vecchio rilievo grafico separato non c'e' piu' (le voci
     // disegnate stanno in vociFp). Si tolgono solo le sue due tabelle, le altre restano.
     this.version(13).stores({ rilieviGrafici: null, eliminatiGrafici: null })
+    // Nomi brevi da cantiere corretti a mano (2026-11-14): tabella nuova, le altre restano come sono.
+    this.version(14).stores({ fpNomiBrevi: 'chiave' })
   }
 }
 
