@@ -19,8 +19,8 @@ le chiavi di accesso dei servizi (openapi.it per la firma e i crediti, Stripe pe
 3. Il cliente vede "Paga ora" sulla pagina del preventivo `/p/[token]` e sulla pagina di ringraziamento dopo la
    firma, solo a preventivo accettato o firmato; paga su Stripe Checkout; torna a una pagina di esito.
 4. A pagamento riuscito: riga in `acconti_commessa` (metodo `carta` o `rate`) se la commessa esiste; se non esiste
-   ancora, l'acconto si aggiunge quando la commessa viene creata dal preventivo. Email "Acconto pagato online" e
-   etichetta "Pagato online" su preventivo e commessa.
+   ancora, l'acconto si aggiunge quando la commessa viene creata dal preventivo. Avviso **in dashboard**
+   (Attivita' recenti, come gli altri acconti) **e per email**, etichetta "Pagato online" su preventivo e commessa.
 
 ## Non obiettivi
 
@@ -123,6 +123,12 @@ normalizzati come nel modulo, idempotente. Su "riuscito":
 senza acconto diventano acconti della nuova commessa (stessa regola del punto 2, una volta sola grazie al vincolo
 unico). La commessa nasce nello stato che sceglie l'utente, come oggi.
 
+**Dashboard** (`actions/dashboard.ts`, "Attivita' recenti"): voce nuova `tipo: 'pagamento'` da `pagamenti_online`
+in stato `pagato` (anche senza commessa): "Pagato online — € X (Klarna)", cliente, link al preventivo (o alla
+commessa se collegata). Gli acconti con `pagamento_online_id` non compaiono anche come "Acconto ricevuto": una riga
+sola per pagamento. Rimborso totale: voce "Pagamento online rimborsato". Richiesta dell'utente: l'avviso come
+oggi per gli altri acconti, piu' l'email.
+
 **Etichette**: "Pagato online" (con importo) nella lista preventivi e nel dettaglio commessa, dalla vista
 `v_pagamenti_preventivo` del modulo.
 
@@ -133,6 +139,10 @@ unico). La commessa nasce nello stato che sceglie l'utente, come oggi.
   gateway finto in memoria.
 - Incassi verso Fatture in Cloud: gli acconti `carta`/`rate` passano dal motore esistente come gli altri;
   verificare il conto di pagamento usato su FiC per i due metodi nuovi.
+
+## Note
+
+- L'utente ha gia' un account Stripe: si parte con le sue chiavi di prova (`sk_test_…`).
 
 ## Ordine
 
