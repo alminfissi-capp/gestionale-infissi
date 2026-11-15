@@ -82,7 +82,8 @@ export type ScadenzaInput = {
   conto_id: string | null
 }
 
-export type MetodoPagamento = 'contanti' | 'bonifico' | 'riba' | 'altro'
+/** carta e rate: pagamenti online dei preventivi (Stripe), registrati da soli */
+export type MetodoPagamento = 'contanti' | 'bonifico' | 'riba' | 'altro' | 'carta' | 'rate'
 export type Reparto = 'alluminio' | 'ferro' | 'servizi' | 'rivendita' | 'ebay'
 export const REPARTI: { value: Reparto; label: string }[] = [
   { value: 'alluminio', label: 'Alluminio' },

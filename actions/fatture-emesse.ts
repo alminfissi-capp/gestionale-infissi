@@ -204,6 +204,8 @@ export async function salvaMetodiIncasso(abbinamento: MetodiIncassoFic): Promise
     contanti: Number(abbinamento.contanti) || null,
     riba: Number(abbinamento.riba) || null,
     altro: Number(abbinamento.altro) || null,
+    carta: Number(abbinamento.carta) || null,
+    rate: Number(abbinamento.rate) || null,
   }
   const orgId = await getOrgId()
   const svc = createServiceClient()

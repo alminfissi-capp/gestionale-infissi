@@ -54,6 +54,8 @@ const METODI: { value: MetodoPagamento; label: string }[] = [
   { value: 'contanti', label: 'Contanti' },
   { value: 'bonifico', label: 'Bonifico' },
   { value: 'riba', label: 'Ri.Ba.' },
+  { value: 'carta', label: 'Carta (online)' },
+  { value: 'rate', label: 'Rate (online)' },
   { value: 'altro', label: 'Altro' },
 ]
 

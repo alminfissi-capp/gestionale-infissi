@@ -179,7 +179,7 @@ async function fatturePerIncasso(
 
 async function metodiIncasso(svc: SupabaseClient, orgId: string): Promise<MetodiIncassoFic> {
   const { data } = await svc.from('fic_collegamenti').select('metodi_incasso').eq('organization_id', orgId).maybeSingle()
-  return (data?.metodi_incasso as MetodiIncassoFic | null) ?? { bonifico: null, contanti: null, riba: null, altro: null }
+  return (data?.metodi_incasso as MetodiIncassoFic | null) ?? { bonifico: null, contanti: null, riba: null, altro: null, carta: null, rate: null }
 }
 
 // ── Fatture collegate a una commessa ────────────────────────────────────────

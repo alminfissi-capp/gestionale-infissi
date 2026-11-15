@@ -11,6 +11,8 @@ const ETICHETTE: Record<MetodoIncasso, string> = {
   bonifico: 'Bonifico',
   contanti: 'Contanti',
   riba: 'Ri.Ba.',
+  carta: 'Carta (pagamenti online)',
+  rate: 'Rate (pagamenti online)',
   altro: 'Altro',
 }
 const NESSUNO = 'nessuno'

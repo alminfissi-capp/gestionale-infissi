@@ -182,9 +182,9 @@ describe('abbinaMetodiIncasso', () => {
       { id: 546835, nome: 'Bonifico' },
       { id: 9, nome: 'Ri.Ba.' },
     ]
-    expect(abbinaMetodiIncasso(metodi)).toEqual({ bonifico: 546835, contanti: 546833, riba: 9, altro: null })
+    expect(abbinaMetodiIncasso(metodi)).toEqual({ bonifico: 546835, contanti: 546833, riba: 9, altro: null, carta: null, rate: null })
   })
   it('senza corrispondenze: tutto null', () => {
-    expect(abbinaMetodiIncasso([{ id: 1, nome: 'Carta' }])).toEqual({ bonifico: null, contanti: null, riba: null, altro: null })
+    expect(abbinaMetodiIncasso([{ id: 1, nome: 'Carta' }])).toEqual({ bonifico: null, contanti: null, riba: null, altro: null, carta: null, rate: null })
   })
 })

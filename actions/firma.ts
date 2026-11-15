@@ -1,5 +1,6 @@
 'use server'
 
+import { tokenFirmaObbligatorio } from '@/lib/integrazioni'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getOrgId } from '@/lib/auth'
@@ -86,7 +87,7 @@ export async function richiediFirmaPreventivo(
   const res = await fetch(`${EU_SES_BASE}/EU-SES`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${process.env.OPENAPI_IT_TOKEN}`,
+      Authorization: `Bearer ${await tokenFirmaObbligatorio(orgId)}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
@@ -144,7 +145,7 @@ export async function verificaERecuperaFirma(
   try {
     const pdfRes = await fetch(
       `https://esignature.openapi.com/signatures/${prev.firma_documento_id}/signedDocument`,
-      { headers: { Authorization: `Bearer ${process.env.OPENAPI_IT_TOKEN}` }, cache: 'no-store' }
+      { headers: { Authorization: `Bearer ${await tokenFirmaObbligatorio(orgId)}` }, cache: 'no-store' }
     )
 
     if (!pdfRes.ok) return { firmato: false }
@@ -219,7 +220,7 @@ export async function recuperaPdfFirmato(
   const pdfRes = await fetch(
     `https://esignature.openapi.com/signatures/${prev.firma_documento_id}/signedDocument`,
     {
-      headers: { Authorization: `Bearer ${process.env.OPENAPI_IT_TOKEN}` },
+      headers: { Authorization: `Bearer ${await tokenFirmaObbligatorio(orgId)}` },
       cache: 'no-store',
     }
   )

@@ -3,9 +3,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
 import { formatEuro } from '@/lib/pricing'
+import { vociPagamentiDashboard } from '@/lib/pagamenti/attivita'
 
 export type ActivityItem = {
-  tipo: 'preventivo' | 'cliente' | 'commessa' | 'acconto'
+  tipo: 'preventivo' | 'cliente' | 'commessa' | 'acconto' | 'pagamento'
   azione: string
   descrizione: string
   href: string
@@ -70,6 +71,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     commesseResult,
     accontiResult,
     prevAnnoResult,
+    pagamentiResult,
   ] = await Promise.all([
     supabase
       .from('preventivi')
@@ -108,7 +110,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       .limit(10),
     supabase
       .from('acconti_commessa')
-      .select('id, importo, created_at, commesse!inner(id, cliente_nome, anonima)')
+      .select('id, importo, created_at, pagamento_online_id, commesse!inner(id, cliente_nome, anonima)')
       .eq('organization_id', orgId)
       .eq('commesse.anonima', false)
       .order('created_at', { ascending: false })
@@ -119,6 +121,14 @@ export async function getDashboardData(): Promise<DashboardData> {
       .eq('organization_id', orgId)
       .gte('created_at', startOfYear)
       .order('created_at', { ascending: true }),
+    // Pagamenti online riusciti o rimborsati (anche prima che esista la commessa)
+    supabase
+      .from('pagamenti_online')
+      .select('id, importo, stato, metodo, pagato_at, updated_at, preventivo_id, preventivi(cliente_snapshot), acconti_commessa!pagamenti_online_acconto_commessa_id_fkey(commessa_id)')
+      .eq('organization_id', orgId)
+      .in('stato', ['pagato', 'rimborsato'])
+      .order('updated_at', { ascending: false })
+      .limit(10),
   ])
 
   // ── Attività recenti ────────────────────────────────────────────────────────
@@ -173,8 +183,9 @@ export async function getDashboardData(): Promise<DashboardData> {
   }))
 
   type CommessaRef = { id: string; cliente_nome: string }
-  type AccontoRaw = { id: string; importo: number; created_at: string; commesse: CommessaRef | CommessaRef[] | null }
-  const accontiItems: ActivityItem[] = ((accontiResult.data ?? []) as unknown as AccontoRaw[]).map((a) => {
+  type AccontoRaw = { id: string; importo: number; created_at: string; pagamento_online_id: string | null; commesse: CommessaRef | CommessaRef[] | null }
+  // Gli acconti dei pagamenti online compaiono come "Pagato online": una riga sola per pagamento.
+  const accontiItems: ActivityItem[] = ((accontiResult.data ?? []) as unknown as AccontoRaw[]).filter((a) => !a.pagamento_online_id).map((a) => {
     const raw = a.commesse
     const c: CommessaRef | null = Array.isArray(raw) ? (raw[0] ?? null) : (raw ?? null)
     return {
@@ -186,7 +197,25 @@ export async function getDashboardData(): Promise<DashboardData> {
     }
   })
 
+  type PagamentoRaw = {
+    id: string; importo: number; stato: string; metodo: string | null; pagato_at: string | null; updated_at: string; preventivo_id: string
+    preventivi: { cliente_snapshot: { tipo?: string; nome?: string; cognome?: string; ragione_sociale?: string } | null } | null
+    acconti_commessa: { commessa_id: string } | { commessa_id: string }[] | null
+  }
+  // Tabella assente (migration non ancora applicata): nessuna voce, la dashboard resta com'era.
+  const pagamentiItems: ActivityItem[] = vociPagamentiDashboard(((pagamentiResult.data ?? []) as unknown as PagamentoRaw[]).map((r) => {
+    const c = r.preventivi?.cliente_snapshot
+    const acc = Array.isArray(r.acconti_commessa) ? r.acconti_commessa[0] : r.acconti_commessa
+    return {
+      id: r.id, importo: Number(r.importo), stato: r.stato, metodo: r.metodo, pagato_at: r.pagato_at, updated_at: r.updated_at,
+      preventivo_id: r.preventivo_id,
+      cliente: c?.tipo === 'azienda' ? (c.ragione_sociale ?? '') : [c?.nome, c?.cognome].filter(Boolean).join(' '),
+      commessa_id: acc?.commessa_id ?? null,
+    }
+  }))
+
   const attivitaRecenti = [
+    ...pagamentiItems,
     ...prevCreati,
     ...prevStato,
     ...prevModificati,

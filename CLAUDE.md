@@ -117,7 +117,23 @@ NEXT_PUBLIC_APP_URL=https://gestionale-infissi.vercel.app
 - **WhatsApp firma**: apre wa.me con il link di firma pre-compilato
 - **"Scarica PDF firmato"**: visibile quando `firma_stato = firmato` e `firma_pdf_path` è valorizzato
 
+## Chiavi dei servizi (Impostazioni → Collegamenti)
+- openapi.it (email, APIkey, token firma) e Stripe (chiave segreta) si scrivono in WinStudio: Vault di Supabase
+  (`integrazione_salva/leggi/elimina`, solo service role), stato in `integrazioni` (mai il valore).
+- Lettura solo da server: `leggiSegreto(orgId, servizio, campo)` / `tokenFirma(orgId)` in `lib/integrazioni.ts`;
+  ripiego sulle variabili `OPENAPI_IT_*` finche' la chiave non e' scritta in WinStudio. Mai `process.env.OPENAPI_IT_TOKEN` diretto.
+
+## Pagamenti online dei preventivi (Stripe Checkout)
+- Motore in `lib/pagamenti/` (dal modulo alm-pagamenti): regole, servizio, gateway; spec
+  `docs/superpowers/specs/2026-11-15-pagamenti-online-design.md`.
+- Route: `POST /api/pagamenti/checkout` (cliente, importo ricalcolato dal server), `POST /api/stripe/webhook/[orgId]`
+  (webhook creato da WinStudio al salvataggio della chiave, segreto per organizzazione), pagina `/p/[token]/esito`.
+- Pagamento riuscito -> `acconti_commessa` con metodo `carta`/`rate` e `pagamento_online_id` UNIQUE (mai due acconti);
+  senza commessa l'acconto arriva in `setPreventiviCommessa`. La commessa non cambia stato da sola.
+- Blocchi: pagamento spento di default, `con_detrazione_fiscale` blocca, rate escluse per aziende.
+
 ## Note operative
+- La pagina `/conferma/[token]/grazie` segna "firmato" solo se openapi.it consegna il PDF firmato (come il callback)
 - Il token openapi.it ha restrizioni IP: funziona solo da Vercel (produzione), non da localhost
 - In locale `NODE_ENV=development` → endpoint `https://test.esignature.openapi.com` → il token di produzione restituisce 401. Testare sempre in produzione
 - Le sessioni di firma vecchie (con callback sbagliato registrato) non riceveranno mai il callback — serve creare una nuova sessione

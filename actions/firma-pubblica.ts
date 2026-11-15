@@ -1,5 +1,6 @@
 'use server'
 
+import { tokenFirmaObbligatorio } from '@/lib/integrazioni'
 import { createServiceClient } from '@/lib/supabase/service'
 
 const EU_SES_BASE =
@@ -128,7 +129,7 @@ export async function avviaFirmaPreventivo(
   const res = await fetch(`${EU_SES_BASE}/EU-SES`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${process.env.OPENAPI_IT_TOKEN}`,
+      Authorization: `Bearer ${await tokenFirmaObbligatorio(prev.organization_id)}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
