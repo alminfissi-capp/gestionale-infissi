@@ -31,6 +31,7 @@ import { getOrariLavoro, getChiusure, getTipiAttivita } from '@/actions/calendar
 import FormOrariLavoro from '@/components/impostazioni/FormOrariLavoro'
 import FormChiusure from '@/components/impostazioni/FormChiusure'
 import FormTipiAttivita from '@/components/impostazioni/FormTipiAttivita'
+import CreditoOpenapi from '@/components/impostazioni/CreditoOpenapi'
 
 export default async function ImpostazioniPage() {
   await requireAccesso('impostazioni')
@@ -296,6 +297,19 @@ export default async function ImpostazioniPage() {
 
         {/* ── Preventivi e altro: tutto il resto ── */}
         <TabsContent value="altro" className="space-y-6">
+
+      {/* Crediti openapi.it (firma elettronica) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Crediti openapi.it</CardTitle>
+          <CardDescription>
+            Saldo dell&apos;account openapi.it usato per la firma elettronica dei preventivi.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CreditoOpenapi />
+        </CardContent>
+      </Card>
 
       {/* Tema */}
       <Card>
