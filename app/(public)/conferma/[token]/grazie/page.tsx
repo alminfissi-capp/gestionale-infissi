@@ -1,4 +1,5 @@
 import { CheckCircle } from 'lucide-react'
+import { tokenFirmaObbligatorio } from '@/lib/integrazioni'
 import { createServiceClient } from '@/lib/supabase/service'
 import { revalidatePath } from 'next/cache'
 
@@ -11,13 +12,14 @@ export const metadata = { title: 'Firma completata' }
 async function tentaDownloadPdfFirmato(
   service: ReturnType<typeof createServiceClient>,
   prevId: string,
-  documentId: string
+  documentId: string,
+  orgId: string,
 ): Promise<string | null> {
   try {
     const pdfRes = await fetch(
       `https://esignature.openapi.com/signatures/${documentId}/signedDocument`,
       {
-        headers: { Authorization: `Bearer ${process.env.OPENAPI_IT_TOKEN}` },
+        headers: { Authorization: `Bearer ${await tokenFirmaObbligatorio(orgId)}` },
         cache: 'no-store',
       }
     )
@@ -59,24 +61,24 @@ export default async function GraziePerLaFirmaPage({ params }: Props) {
     const service = createServiceClient()
     const { data: prev } = await service
       .from('preventivi')
-      .select('id, firma_stato, firma_documento_id, firma_pdf_path')
+      .select('id, organization_id, firma_stato, firma_documento_id, firma_pdf_path')
       .eq('token_conferma', token)
       .single()
 
-    if (prev && prev.firma_stato === 'in_attesa') {
-      const updates: Record<string, unknown> = {
-        firma_stato: 'firmato',
-        firma_completata_at: new Date().toISOString(),
-        stato: 'accettato',
+    // Sicurezza: arrivare su questa pagina non prova la firma (il link contiene un codice che il cliente
+    // riceve nel browser). "Firmato" solo se openapi.it consegna il PDF firmato, come nel callback.
+    if (prev && prev.firma_stato === 'in_attesa' && prev.firma_documento_id) {
+      const pdfPath = prev.firma_pdf_path
+        ?? await tentaDownloadPdfFirmato(service, prev.id, prev.firma_documento_id, prev.organization_id)
+      if (pdfPath) {
+        await service.from('preventivi').update({
+          firma_stato: 'firmato',
+          firma_completata_at: new Date().toISOString(),
+          stato: 'accettato',
+          firma_pdf_path: pdfPath,
+        }).eq('id', prev.id)
+        revalidatePath(`/preventivi/${prev.id}`)
       }
-
-      if (prev.firma_documento_id && !prev.firma_pdf_path) {
-        const pdfPath = await tentaDownloadPdfFirmato(service, prev.id, prev.firma_documento_id)
-        if (pdfPath) updates.firma_pdf_path = pdfPath
-      }
-
-      await service.from('preventivi').update(updates).eq('id', prev.id)
-      revalidatePath(`/preventivi/${prev.id}`)
     }
   } catch {
     // Non bloccare la pagina per errori

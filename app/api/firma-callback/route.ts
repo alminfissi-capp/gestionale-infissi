@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/service'
+import { tokenFirmaObbligatorio } from '@/lib/integrazioni'
 import { revalidatePath } from 'next/cache'
 import type { NextRequest } from 'next/server'
 
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   let q = service
     .from('preventivi')
-    .select('id')
+    .select('id, organization_id')
     .eq('token_conferma', token)
 
   q = q.eq('firma_documento_id', documentId)
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
         const pdfRes = await fetch(
           `${EU_SES_BASE}/signatures/${documentId}/signedDocument`,
           {
-            headers: { Authorization: `Bearer ${process.env.OPENAPI_IT_TOKEN}` },
+            headers: { Authorization: `Bearer ${await tokenFirmaObbligatorio(prev.organization_id)}` },
             cache: 'no-store',
           }
         )

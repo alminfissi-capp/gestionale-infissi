@@ -1,13 +1,15 @@
 'use server'
 
 import { requireAccesso } from '@/lib/permessi'
+import { getOrgId } from '@/lib/auth'
+import { leggiSegreto } from '@/lib/integrazioni'
 import { intestazioneBasic, leggiRispostaCredito, URL_CREDITO_OPENAPI, type EsitoCredito } from '@/lib/openapi-credito'
 
 /** Saldo dei crediti openapi.it, per la scheda in Impostazioni. Le credenziali restano sul server. */
 export async function getCreditoOpenapi(): Promise<EsitoCredito> {
   await requireAccesso('impostazioni')
-  const email = process.env.OPENAPI_IT_EMAIL
-  const apikey = process.env.OPENAPI_IT_APIKEY
+  const orgId = await getOrgId()
+  const [email, apikey] = await Promise.all([leggiSegreto(orgId, 'openapi', 'email'), leggiSegreto(orgId, 'openapi', 'apikey')])
   if (!email || !apikey) return { stato: 'non_configurato' }
   try {
     const res = await fetch(URL_CREDITO_OPENAPI, {
