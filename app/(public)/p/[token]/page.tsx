@@ -6,6 +6,8 @@ import StampaPreventivo from '@/components/preventivi/StampaPreventivo'
 import type { PreventivoCompleto } from '@/types/preventivo'
 import { CAMPI_SETTINGS_PUBBLICI, preventivoPerCliente, settingsPerCliente } from '@/lib/preventivo-pubblico'
 import type { Settings } from '@/types/impostazioni'
+import RiquadroPagamento from '@/components/pagamenti/RiquadroPagamento'
+import { caricaSituazionePubblica } from '@/lib/pagamenti/situazione-server'
 
 // Il token del link e' l'unica chiave: deve essere un uuid (share_token), altrimenti 404 senza toccare il database.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -146,13 +148,19 @@ export default async function PreventivoPublicoPage({ params, searchParams }: Pr
     logoUrl = data?.signedUrl ?? null
   }
 
+  // Il riquadro dei pagamenti non deve mai impedire di vedere il preventivo.
+  const pagamento = await caricaSituazionePubblica(token).catch(() => null)
+
   return (
-    <StampaPreventivo
-      preventivo={preventivo}
-      settings={settings}
-      logoUrl={logoUrl}
-      showBack={false}
-      token={token}
-    />
+    <>
+      <StampaPreventivo
+        preventivo={preventivo}
+        settings={settings}
+        logoUrl={logoUrl}
+        showBack={false}
+        token={token}
+      />
+      {pagamento && <div className="print:hidden bg-gray-100 px-0 sm:px-4 pb-8"><RiquadroPagamento token={token} situazione={pagamento} /></div>}
+    </>
   )
 }
