@@ -46,6 +46,10 @@ export interface GiuntoPezzo {
   chiave: string
   /** Angolo della giunzione in gradi (90 = squadra) */
   angolo: number
+  /** Tipo di giunzione di FP PRO: 4 = angolo (taglio a 45), 2 = a T (montanti, traversi, soglie); 0 = sconosciuto */
+  tipo?: number
+  /** I due profili della giunzione come li ha scritti FP PRO (DXF1, DXF2: codici senza cartella) */
+  profili?: [string, string]
   /** Filtri della tabella fissaggi di FP PRO (GUID); vuoto = nessuno scritto su questa estremita' */
   filtri: string[]
 }
@@ -224,10 +228,12 @@ function giunto(p: Ogg, estremo: 'LEFTUPPER' | 'RIGHTLOWER', lato: 'SX' | 'DX'):
   const haGiunto = p[`FP_PIECE_${estremo}_TYPE`] !== undefined
   if (!haGiunto && filtri.length === 0) return null
   const parte = (nome: string) => testo(p[`FP_PIECE_${estremo}_${nome}`]) ?? ''
+  const codice = (dxf: string) => dxf.slice(Math.max(dxf.lastIndexOf('\\'), dxf.lastIndexOf('/')) + 1).replace(/\.dxf$/i, '')
   return {
     chiave: haGiunto ? `${parte('FATHERNODECODE')}|${parte('XPER100')}|${parte('YPER100')}` : '',
     angolo: num(p[`FP_PIECE_${estremo}_ANGLE`]) ?? 90,
     filtri,
+    ...(haGiunto ? { tipo: num(p[`FP_PIECE_${estremo}_TYPE`]) ?? 0, profili: [codice(parte('DXF1')), codice(parte('DXF2'))] as [string, string] } : {}),
   }
 }
 

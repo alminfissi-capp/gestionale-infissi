@@ -224,8 +224,12 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       const serieFiss = await inLista<RigaSerieFissaggio>(supabase, orgId, 'fp_serie_fissaggi', 'fp_id, serie_fp_id, ordine, filtro',
         'serie_fp_id', righeFiss.map(r => r.serie_fp_id).filter((x): x is number => x !== null))
       if (righeFiss.length > 0) {
-        fissaggiDi = datiFissaggi(righeFiss, serieFiss)
-        righeFiss.forEach(r => r.codice_accessorio && codiciAccessori.add(r.codice_accessorio))
+        // Accessori fittizi di FP PRO (VITE_FITT, SALD): nella tabella fissaggi ma mai in preventivo.
+        const codiciFiss = righeFiss.map(r => r.codice_accessorio).filter((x): x is string => !!x)
+        const fittizi = new Set((await inLista<{ codice: string; fittizio: string | number | null }>(supabase, orgId, 'fp_accessori',
+          'fp_id, codice, fittizio:dati->>fittizio', 'codice', codiciFiss)).filter(a => Number(a.fittizio) === 1).map(a => a.codice))
+        fissaggiDi = datiFissaggi(righeFiss, serieFiss, fittizi)
+        codiciFiss.forEach(c => !fittizi.has(c) && codiciAccessori.add(c))
       }
     } catch {
       fissaggiDi = undefined
