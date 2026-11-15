@@ -3,7 +3,10 @@
 // Lunghezze sui bordi esterni della zona occupata (taglio a 45°): FP PRO aggiunge a volte
 // qualche centimetro per le alette dei profili, che raramente cambia il numero di barre.
 import type { SezioneProfilo } from '../dxf-sezione'
-import { aperturaAnta, type AperturaAnta, type NodoStruttura, type PezzoStruttura } from '../strutture-xml'
+import { aperturaAnta, type AperturaAnta, type GiuntoPezzo, type NodoStruttura, type PezzoStruttura } from '../strutture-xml'
+
+/** Codice del profilo dal percorso del DXF (come codiceDaDxf di voce.ts, che importa da qui) */
+const codiceDxf = (dxf: string) => dxf.slice(Math.max(dxf.lastIndexOf('\\'), dxf.lastIndexOf('/')) + 1).replace(/\.dxf$/i, '')
 
 export interface PezzoCalcolo { dxf: string; tipo: number; lunghezza: number }
 export interface CampoCalcolo {
@@ -120,11 +123,28 @@ export function pezziECampi(
       // Pezzi del telaio nell'ordine sinistra, alto, destra, basso (un telaio a 3 lati non ha il basso).
       const telai = profili.filter(p => p.tipo === 8050)
       const lati = ['sinistra', 'alto', 'destra', 'basso'] as const
-      // L'aletta dei telai a Z sporge oltre la misura esterna: il taglio e' piu' lungo (TT8002: 2350 + 2 x 22).
-      telai.slice(0, 4).forEach((p, i) =>
-        aggiungi(p.dxf, p.tipo, (lati[i] === 'sinistra' || lati[i] === 'destra' ? alt(z) : larg(z)) + 2 * aletta(p)))
       const lato = (nome: (typeof lati)[number]) => telai[lati.indexOf(nome)]
       const spessore = (nome: (typeof lati)[number]) => (lato(nome) ? vista(lato(nome), larghezze.telaio) : 0)
+      // Giunto dritto (FP PRO tipo 2) contro un altro pezzo di questo telaio: il pezzo sta fra i due
+      // e si accorcia della loro vista (monoblocco ES40, 117-26G: traversi ES4311 2320 - 2 x 70,5 = 2179).
+      // Contro un pezzo fuori dal telaio (il cassonetto) no: la zona e' gia' ridotta.
+      const codiciTelaio = new Set(telai.slice(0, 4).map(p => codiceDxf(p.dxf)))
+      const dritto = (g: GiuntoPezzo | null | undefined, proprio: string) =>
+        g?.tipo === 2 && (g.profili ?? []).some(c => c !== proprio && codiciTelaio.has(c))
+      telai.slice(0, 4).forEach((p, i) => {
+        const verticale = lati[i] === 'sinistra' || lati[i] === 'destra'
+        const [primo, secondo] = verticale ? (['alto', 'basso'] as const) : (['sinistra', 'destra'] as const)
+        const sx = dritto(p.giunti?.sx, codiceDxf(p.dxf))
+        const dx = dritto(p.giunti?.dx, codiceDxf(p.dxf))
+        const base = verticale ? alt(z) : larg(z)
+        // L'aletta dei telai a Z sporge oltre la misura esterna: il taglio a 45 e' piu' lungo (TT8002: 2350 + 2 x 22).
+        // Solo alle estremita' a 45: dritte o libere (montante del monoblocco sotto il cassonetto) no.
+        // Strutture lette prima delle giunzioni: aletta su entrambe, come prima.
+        const conAletta = (g: GiuntoPezzo | null | undefined) => (!p.giunti || g?.tipo === 4 ? aletta(p) : 0)
+        const lunghezza = base - (sx ? spessore(primo) : 0) - (dx ? spessore(secondo) : 0)
+          + (sx ? 0 : conAletta(p.giunti?.sx)) + (dx ? 0 : conAletta(p.giunti?.dx))
+        aggiungi(p.dxf, p.tipo, lunghezza)
+      })
       const dentro: Zona = {
         x0: z.x0 + spessore('sinistra'), x1: z.x1 - spessore('destra'),
         y0: z.y0 + spessore('basso'), y1: z.y1 - spessore('alto'),
@@ -204,6 +224,15 @@ export function pezziECampi(
       // Zoccolo: in basso, sotto ai riempimenti.
       profili.forEach(p => aggiungi(p.dxf, p.tipo, larg(z)))
       n.figli.forEach(f => visita(f, { ...z, y0: Math.min(z.y1, z.y0 + vista(profili[0], larghezze.zoccolo)) }, inFermavetro))
+      return
+    }
+
+    if (n.tipo === 8290) {
+      // Monoblocco: il cassonetto sta in alto e il telaio dentro perde la sua vista
+      // (117-26G, 142-26G, 80-2026G: montanti = H - 319, vista di AS4865A 318,6).
+      profili.forEach(p => aggiungi(p.dxf, p.tipo, larg(z)))
+      const cassonetto = profili.length > 0 ? vista(profili[0], 0) : 0
+      n.figli.forEach(f => visita(f, { ...z, y1: Math.max(z.y0, z.y1 - cassonetto) }, inFermavetro))
       return
     }
 

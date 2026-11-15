@@ -344,3 +344,24 @@ describe('variabili delle ante scorrevoli nelle formule (TOPSLIDE: SX, HSX, hsx)
     expect(valutaFormula('SX+HSX', { L: 900, H: 1200, w: 10, h: 1200 })).toBe(2100)
   })
 })
+
+describe('accessori a metro quadro (FP PRO tipo 3: tapparelle)', () => {
+  // 117-26G voce 8: TAPPALL.FG LFormula 2312, HFormula 2000 = 4,624 m² (x 37 EUR = 171,09 come FP PRO).
+  const tapparella = (extra: object = {}) => ({
+    codice: 'TAPPALL.FG', descrizione: '', serie: 'TAPPARELLE', tipo: 3, quantita: 1, opzionale: false, confermato: true,
+    dimRif: 0, dimCalcolo: 3, min: null, max: null, passo: null, formula: null, ...extra,
+  })
+  const albero = (acc: object) => [{
+    tipo: 8290, codice: 1, elementi: 1, x: null, y: null, prm: [], macro: null, ante: [], ird: [], pezzi: [], figli: [], kit: [],
+    accessori: [acc],
+  }]
+  const regole = regoleDaElenchi(['ED_ES40'], [], [], {})
+  const q = (acc: object) => accessoriVoce(albero(acc) as never, {}, { 1: { L: 2320, H: 3080 } }, 80, regole)
+  it('quantita\' x L x H delle formule della riga, in m², senza maggiorazione', () => {
+    const [a] = q(tapparella({ formulaL: '2312', formulaH: '2000' }))
+    entro(a.quantita, 4.624, 0.0001)
+    expect(a.mq).toBe(true)
+    expect(a.metri).toBe(false)
+  })
+  it('senza formule: misure della zona del nodo', () => entro(q(tapparella())[0].quantita, 2.32 * 3.08, 0.0001))
+})

@@ -308,7 +308,7 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
     if (prezzo?.avviso) avvisi.push(prezzo.avviso)
     if (a.regolaIgnota) avvisi.push(`Regola dell'accessorio ${a.codice} non interpretata: contato come da kit`)
     const costo = prezzo && prezzo.unitaVendita > 0 ? (prezzo.prezzo / prezzo.unitaVendita) * a.quantita : 0
-    righe.push({ gruppo: 'accessori', codice: a.codice, descrizione: a.descrizione, quantita: tondo(a.quantita), unita: a.metri ? 'm' : 'pz', costo })
+    righe.push({ gruppo: 'accessori', codice: a.codice, descrizione: a.descrizione, quantita: tondo(a.quantita), unita: a.mq ? 'm²' : a.metri ? 'm' : 'pz', costo })
   }
 
   const materiali = righe.reduce((s, r) => s + r.costo, 0)
