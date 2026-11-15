@@ -17,7 +17,8 @@ const serie = [
 ]
 const dati = datiFissaggi(fissaggi, serie)
 
-const g = (chiave: string, filtri: string[], angolo = 90): GiuntoPezzo => ({ chiave, angolo, filtri })
+const g = (chiave: string, filtri: string[], angolo = 90, profili?: [string, string], tipo = 4): GiuntoPezzo =>
+  ({ chiave, angolo, filtri, tipo, ...(profili ? { profili } : {}) })
 const pezzo = (sx: GiuntoPezzo | null, dx: GiuntoPezzo | null, codice = 'UP61802'): PezzoFissaggi =>
   ({ codice, pezzo: { tipo: 8050, dxf: `AL\\${codice}.DXF`, serie: 'AL', indice: 0, giunti: { sx, dx } } })
 const somma = (r: { codice: string; quantita: number }[]) => {
@@ -71,5 +72,34 @@ describe('fissaggiStruttura: per angolo, coi filtri scritti nella struttura', ()
   it('struttura letta prima delle giunzioni: predefiniti su ogni pezzo, come prima', () => {
     const vecchi = finestra.map(p => ({ ...p, pezzo: { ...p.pezzo, giunti: undefined } }))
     expect(somma(fissaggiStruttura(vecchi, dati))).toEqual({ 'ACP 5008': 4, 'ACP 5801M': 4, 'ACP 50153': 4 })
+  })
+  describe('angolo fra due profili diversi: decide il secondo (zoccolo)', () => {
+    // Montante UP61802 + zoccolo ZOC (senza righe proprie), giunzione DXF1 = montante, DXF2 = zoccolo.
+    const ang = (filtriMontante: string[], filtriZoccolo: string[]) => [
+      pezzo(null, g('4|100|0', filtriMontante, 90, ['UP61802', 'ZOC'])),
+      pezzo(g('4|0|0', filtriZoccolo, 90, ['UP61802', 'ZOC']), g('4|100|0', filtriZoccolo, 90, ['UP61802', 'ZOC']), 'ZOC'),
+      pezzo(g('4|0|100', F), null), // un filtro nella struttura c'e' (niente predefiniti)
+    ]
+    it('12-2026G: il montante scrive i filtri, lo zoccolo no = niente squadrette in basso', () => {
+      expect(somma(fissaggiStruttura(ang(F, []), dati))['ACP 5008']).toBe(1)
+    })
+    it('04-2026G: lo zoccolo scrive i filtri ma non ha righe = squadrette del montante, su entrambi gli angoli', () => {
+      expect(somma(fissaggiStruttura(ang([], F), dati))['ACP 5008']).toBe(3)
+    })
+  })
+  it('158-26G: pezzo sostituito dopo (la giunzione nomina un altro profilo) = filtri predefiniti', () => {
+    const r = fissaggiStruttura([
+      pezzo(g('1|0|0', [], 90, ['UP61810', 'UP61810']), null),
+      pezzo(g('2|0|0', ['C2'], 90, ['UP61802', 'UP61802']), null),
+    ], dati)
+    expect(somma(r)).toEqual({ 'ACP 5008': 1, 'ACP 5801M': 1, 'ACP 50153': 1, 'ACP 5800': 2 })
+  })
+  it('righe dim_rif 0 (viti dei montanti) per angolo, a qualunque angolo; accessori fittizi esclusi', () => {
+    const d = datiFissaggi([
+      { codice_profilo: 'MONT', codice_accessorio: 'TCE4819Z', serie_fp_id: 1, quantita: 2, dim_rif: 0, filtro: 'T' },
+      { codice_profilo: 'MONT', codice_accessorio: 'VITE_FITT', serie_fp_id: 1, quantita: 1, dim_rif: 1, filtro: 'T' },
+    ], [], new Set(['VITE_FITT']))
+    const montante = [pezzo(g('1|50|100', ['T'], 86, ['TEL', 'MONT'], 2), g('1|50|0', ['T'], 90, ['TEL', 'MONT'], 2), 'MONT')]
+    expect(somma(fissaggiStruttura(montante, d))).toEqual({ TCE4819Z: 4 })
   })
 })

@@ -199,11 +199,12 @@ describe('giunzioni e filtri di fissaggio dei pezzi (squadrette per angolo)', ()
       '<FP_PIECE_LEFTUPPER_YPER100>47329</FP_PIECE_LEFTUPPER_YPER100>' +
       '<FP_PIECE_RIGHTLOWER_FATHERNODECODE>1</FP_PIECE_RIGHTLOWER_FATHERNODECODE><FP_PIECE_RIGHTLOWER_TYPE>4</FP_PIECE_RIGHTLOWER_TYPE>' +
       '<FP_PIECE_RIGHTLOWER_ANGLE>90.000000</FP_PIECE_RIGHTLOWER_ANGLE><FP_PIECE_RIGHTLOWER_XPER100>527500</FP_PIECE_RIGHTLOWER_XPER100>' +
-      '<FP_PIECE_RIGHTLOWER_YPER100>2500</FP_PIECE_RIGHTLOWER_YPER100>',
+      '<FP_PIECE_RIGHTLOWER_YPER100>2500</FP_PIECE_RIGHTLOWER_YPER100>' +
+      '<FP_PIECE_RIGHTLOWER_DXF1>AL_62UP\\UP61978.DXF</FP_PIECE_RIGHTLOWER_DXF1><FP_PIECE_RIGHTLOWER_DXF2>AL_62UP\\UP61978B.DXF</FP_PIECE_RIGHTLOWER_DXF2>',
     )
     expect(p.giunti).toEqual({
-      sx: { chiave: '1|2500|47329', angolo: 86.221802, filtri: ['aaa', 'bbb'] },
-      dx: { chiave: '1|527500|2500', angolo: 90, filtri: ['aaa'] },
+      sx: { chiave: '1|2500|47329', angolo: 86.221802, filtri: ['aaa', 'bbb'], tipo: 4, profili: ['', ''] },
+      dx: { chiave: '1|527500|2500', angolo: 90, filtri: ['aaa'], tipo: 4, profili: ['UP61978', 'UP61978B'] },
     })
   })
   it('estremita\' senza giunzione e senza filtri: null; pezzo senza nulla: niente giunti', () => {
