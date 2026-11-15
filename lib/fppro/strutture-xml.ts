@@ -38,6 +38,22 @@ export interface PezzoStruttura {
    * scritti nella struttura. Assente nelle strutture lette prima della versione 8 del ponte.
    */
   giunti?: { sx: GiuntoPezzo | null; dx: GiuntoPezzo | null }
+  /**
+   * Posizione e misura del pezzo nel disegno di FP PRO (RealX/RealY/RealL/RealH, mm, y dal basso:
+   * il pezzo occupa x..x+l, y-h..y). Ci sono solo nei file JOB delle commesse calcolate, non nelle .STR.
+   */
+  reale?: { x: number; y: number; l: number; h: number }
+}
+
+/**
+ * Accostamento delle sezioni come l'ha disegnato FP PRO (l'operatore accosta i DXF con le tolleranze):
+ * ricavato da una commessa calcolata con la stessa struttura (calcolo/accostamenti.ts), vale a qualsiasi misura.
+ */
+export interface AccostamentoNodo {
+  /** Ante (8610/8620): distanza dei bordi esterni delle ante dai bordi della zona e fuga fra due ante (negativa = sormonto) */
+  ante?: { sx: number; dx: number; alto: number; basso: number; fuga: number }
+  /** Riempimento: quanto il vetro/pannello e' piu' piccolo della zona, in larghezza e in altezza */
+  riempimento?: { l: number; h: number }
 }
 
 /** Estremita' di un pezzo: dove si unisce agli altri e con quali sistemi di giunzione (filtri) */
@@ -147,6 +163,8 @@ export interface NodoStruttura {
   figli: NodoStruttura[]
   /** Codici degli accessori sciolti del nodo con un prezzo per colore (li mette il server per il telefono) */
   codiciColore?: string[]
+  /** Accostamento delle sezioni di FP PRO (dalla commessa campione della struttura); assente = stima di WinStudio */
+  accostamento?: AccostamentoNodo
 }
 
 /**
@@ -301,7 +319,13 @@ function nodo(n: Ogg): NodoStruttura {
       const dxf = testo(p.DXF) ?? ''
       const sx = giunto(p, 'LEFTUPPER', 'SX')
       const dx = giunto(p, 'RIGHTLOWER', 'DX')
-      return { tipo: num(p.Type) ?? 0, dxf, serie: serieDaDxf(dxf), indice: num(p.ElementIndex) ?? 0, ...(sx || dx ? { giunti: { sx, dx } } : {}) }
+      const l = num(p.RealL)
+      const h = num(p.RealH)
+      const reale = l !== null && h !== null ? { x: num(p.RealX) ?? 0, y: num(p.RealY) ?? 0, l, h } : null
+      return {
+        tipo: num(p.Type) ?? 0, dxf, serie: serieDaDxf(dxf), indice: num(p.ElementIndex) ?? 0,
+        ...(sx || dx ? { giunti: { sx, dx } } : {}), ...(reale ? { reale } : {}),
+      }
     }),
     accessori: lista(n.FP_FITTING).map(accessorio),
     kit: lista(n.FP_KIT).map(k => ({

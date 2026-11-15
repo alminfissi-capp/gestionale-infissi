@@ -37,6 +37,8 @@ export const LARGHEZZE_PREDEFINITE: Larghezze = {
 }
 
 interface Zona { x0: number; y0: number; x1: number; y1: number }
+/** Zona di un nodo: misure (per le regole dei kit) e posizione (mm, y dal basso) */
+export interface ZonaNodo { L: number; H: number; zona: Zona }
 const larg = (z: Zona) => z.x1 - z.x0
 const alt = (z: Zona) => z.y1 - z.y0
 /** Riporti centrali e simili: corrono per tutta l'altezza della zona delle ante */
@@ -90,10 +92,10 @@ export function pezziECampi(
   larghezze: Larghezze,
   /** Misure vere del profilo di un pezzo (dal suo DXF); senza, valgono le larghezze predefinite */
   sezione: (dxf: string) => SezioneProfilo | null = () => null,
-): { pezzi: PezzoCalcolo[]; campi: CampoCalcolo[]; zone: Record<number, { L: number; H: number }>; ante: AntaGeometria[] } {
+): { pezzi: PezzoCalcolo[]; campi: CampoCalcolo[]; zone: Record<number, ZonaNodo>; ante: AntaGeometria[] } {
   const pezzi: PezzoCalcolo[] = []
   // Misure della zona di ogni nodo: le regole dei kit (L, H, perimetro) si misurano sul nodo.
-  const zone: Record<number, { L: number; H: number }> = {}
+  const zone: Record<number, ZonaNodo> = {}
   const campi: CampoCalcolo[] = []
   const anteTrovate: AntaGeometria[] = []
   const aggiungi = (dxf: string, tipo: number, lunghezza: number) => {
@@ -106,7 +108,7 @@ export function pezziECampi(
 
   const visita = (n: NodoStruttura, z: Zona, inFermavetro: boolean) => {
     if (larg(z) <= 0 || alt(z) <= 0) return
-    zone[n.codice] = { L: larg(z), H: alt(z) }
+    zone[n.codice] = { L: larg(z), H: alt(z), zona: { ...z } }
     const riempimento = n.pezzi.find(p => p.tipo === 8510 || p.tipo === 8500)
     // Nodo riempimento (8650) che porta insieme fermavetri e vetro (TOPSLIDE): il vetro sta dentro
     // i fermavetri come in un nodo fermavetro (101-26G voce 3: 2026 x 2170 come FP PRO, non 2055 x 2210).
@@ -114,9 +116,11 @@ export function pezziECampi(
     if (fermavetriNelNodo) inFermavetro = true
     if (riempimento) {
       // Bordo tolto per lato: il fermavetro copre, la cava allarga (172-26G: 733 su una zona di 747).
+      // Con l'accostamento di FP PRO il vetro e' piu' piccolo della zona di quanto FP PRO l'ha disegnato.
       const r = (inFermavetro ? larghezze.fermavetro : 0) - larghezze.incastroVetro
-      const l = larg(z) - 2 * r
-      const h = alt(z) - 2 * r
+      const acc = n.accostamento?.riempimento
+      const l = acc ? larg(z) - acc.l : larg(z) - 2 * r
+      const h = acc ? alt(z) - acc.h : alt(z) - 2 * r
       if (l > 0 && h > 0) {
         campi.push({ codiceNodo: String(n.codice), tipo: riempimento.tipo === 8510 ? 'vetro' : 'pannello', dxf: riempimento.dxf, l, h, zona: { ...z } })
       }
@@ -183,10 +187,20 @@ export function pezziECampi(
       const sormonto = n.tipo === 8620 ? larghezze.sormonto : 0
       const incasso = n.tipo === 8620 ? larghezze.incassoScorrevole / 2 : 0
       const ante: Zona[] = []
-      let x = z.x0
-      for (const w of larghezzeAnte(larg(z) + (k - 1) * sormonto, k, n.ante)) {
-        ante.push({ x0: x, x1: x + w, y0: z.y0 - incasso, y1: z.y1 + incasso })
-        x += w - sormonto
+      const acc = n.accostamento?.ante
+      if (acc) {
+        // Ante accostate come le ha disegnate FP PRO: bordi dalla zona e fuga fra le ante (PLANET62UPCVI 11-2026G: 11,5 e 40,1).
+        let x = z.x0 + acc.sx
+        for (const w of larghezzeAnte(larg(z) - acc.sx - acc.dx - (k - 1) * acc.fuga, k, n.ante)) {
+          ante.push({ x0: x, x1: x + w, y0: z.y0 + acc.basso, y1: z.y1 - acc.alto })
+          x += w + acc.fuga
+        }
+      } else {
+        let x = z.x0
+        for (const w of larghezzeAnte(larg(z) + (k - 1) * sormonto, k, n.ante)) {
+          ante.push({ x0: x, x1: x + w, y0: z.y0 - incasso, y1: z.y1 + incasso })
+          x += w - sormonto
+        }
       }
       const principale = Number(n.macro?.MainSashIndex ?? 0)
       const apertura = n.tipo === 8610 ? aperturaAnta(n) : 'battente'

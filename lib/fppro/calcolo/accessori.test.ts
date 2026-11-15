@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+﻿import { describe, expect, it } from 'vitest'
 import { commessaFp } from '../__fixtures__/commesse'
 import { accessoriDaCatalogo, accessoriVoce, chiaveAccessorio, regoleDaElenchi, valutaFormula, type RigaKitCatalogo } from './accessori'
 import { LARGHEZZE_PREDEFINITE, pezziECampi } from './geometria'
@@ -143,7 +143,7 @@ describe('kit scelto senza righe nella struttura (caso Palazzotto, SLIDE 60)', (
   it('kit obbligatorio senza righe nello STR: righe dal catalogo (rapid block a passo su 2H, per difetto: 2480 / 700 = 3)', () => expect(q('RB304')).toBe(3))
   it('kit scelto in cantiere: carrelli, spazzolino a metro e fasce come da catalogo', () => {
     expect(q('ACP 6012')).toBe(1)
-    entro(q('AGP 6906'), 4 * 1.92 * 1.06, 0.001)
+    entro(q('AGP 6906'), 4 * 1.92 * 1.1, 0.001)
     expect(q('F-LOCK')).toBe(2)
   })
   it('alternative dello stesso gruppo: vale la prima, come FP PRO', () => {
@@ -346,7 +346,7 @@ describe('variabili delle ante scorrevoli nelle formule (TOPSLIDE: SX, HSX, hsx)
 })
 
 describe('accessori a metro quadro (FP PRO tipo 3: tapparelle)', () => {
-  // 117-26G voce 8: TAPPALL.FG LFormula 2312, HFormula 2000 = 4,624 m² (x 37 EUR = 171,09 come FP PRO).
+  // 117-26G voce 8: TAPPALL.FG LFormula 2312, HFormula 2000 = 4,624 mÂ² (x 37 EUR = 171,09 come FP PRO).
   const tapparella = (extra: object = {}) => ({
     codice: 'TAPPALL.FG', descrizione: '', serie: 'TAPPARELLE', tipo: 3, quantita: 1, opzionale: false, confermato: true,
     dimRif: 0, dimCalcolo: 3, min: null, max: null, passo: null, formula: null, ...extra,
@@ -357,7 +357,7 @@ describe('accessori a metro quadro (FP PRO tipo 3: tapparelle)', () => {
   }]
   const regole = regoleDaElenchi(['ED_ES40'], [], [], {})
   const q = (acc: object) => accessoriVoce(albero(acc) as never, {}, { 1: { L: 2320, H: 3080 } }, 80, regole)
-  it('quantita\' x L x H delle formule della riga, in m², senza maggiorazione', () => {
+  it('quantita\' x L x H delle formule della riga, in mÂ², senza maggiorazione', () => {
     const [a] = q(tapparella({ formulaL: '2312', formulaH: '2000' }))
     entro(a.quantita, 4.624, 0.0001)
     expect(a.mq).toBe(true)
@@ -386,11 +386,11 @@ describe('kit ripetuti per tipo di anta scorrevole e moltiplicatore del kit (TOP
   it('kit delle ante mobili (TipoAnta 4) sul nodo scorrevole: una volta per anta mobile, con la sua altezza', () => {
     const q = conta([nodo(8620, 2, [kit('ALZ', [riga('MANIGLIA'), riga('SPAZZ', { tipo: 4, quantita: 2, formulaL: 'hsx' })], { tipoAnta: 4 })])])
     expect(q('MANIGLIA')).toBe(2)
-    entro(q('SPAZZ'), 2 * 2 * 2.4 * 1.06, 0.001)
+    entro(q('SPAZZ'), 2 * 2 * 2.4 * 1.1, 0.001)
   })
   it('kit delle ante fisse (TipoAnta 2): una volta per anta fissa; righe binario 25 / 26, ne vale una per anta', () => {
     const q = conta([nodo(8620, 2, [kit('FIX', [riga('SPAZZ', { tipo: 4, dimRif: 25, formulaL: 'HSX' }), riga('SPAZZ', { tipo: 4, dimRif: 26, formulaL: 'HSX' })], { tipoAnta: 2 })])])
-    entro(q('SPAZZ'), 2 * 2.4 * 1.06, 0.001)
+    entro(q('SPAZZ'), 2 * 2.4 * 1.1, 0.001)
   })
   it('stessa marcatura sul kit del telaio: vale una volta sola', () => {
     expect(conta([nodo(8600, 1, [kit('TEL', [riga('TAPPO', { quantita: 2 })], { tipoAnta: 4 })], [nodo(8620, 2, [])])])('TAPPO')).toBe(2)
