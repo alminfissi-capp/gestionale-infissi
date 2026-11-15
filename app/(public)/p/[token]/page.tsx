@@ -1,12 +1,14 @@
 import { notFound } from 'next/navigation'
 import { headers } from 'next/headers'
 import type { Metadata } from 'next'
-import { createPublicClient } from '@/lib/supabase/public'
 import { createServiceClient } from '@/lib/supabase/service'
 import StampaPreventivo from '@/components/preventivi/StampaPreventivo'
 import type { PreventivoCompleto } from '@/types/preventivo'
-import { senzaDatiProvvigione } from '@/lib/provvigione'
+import { CAMPI_SETTINGS_PUBBLICI, preventivoPerCliente, settingsPerCliente } from '@/lib/preventivo-pubblico'
 import type { Settings } from '@/types/impostazioni'
+
+// Il token del link e' l'unica chiave: deve essere un uuid (share_token), altrimenti 404 senza toccare il database.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 interface Props {
   params: Promise<{ token: string }>
@@ -23,7 +25,10 @@ async function isLinkPreviewBot(): Promise<boolean> {
 }
 
 async function getPreventivoByToken(token: string): Promise<PreventivoCompleto | null> {
-  const supabase = createPublicClient()
+  // Lettura dal server del SOLO preventivo del link (nessun accesso pubblico al database: prima la
+  // chiave anon permetteva di leggere e modificare tutti i preventivi condivisi).
+  if (!UUID.test(token)) return null
+  const supabase = createServiceClient()
   const { data: prev, error } = await supabase
     .from('preventivi')
     .select('*')
@@ -72,21 +77,19 @@ async function getPreventivoByToken(token: string): Promise<PreventivoCompleto |
     url: supabase.storage.from('preventivi-allegati').getPublicUrl(a.storage_path).data.publicUrl,
   }))
 
-  // config_fppro contiene il calcolo interno (costi, utile, provvigione): non va nella pagina del cliente.
-  const articoliCliente = (articoli ?? []).map(({ config_fppro: _calcoloInterno, ...a }) => a)
-  // La provvigione agente non deve arrivare nel browser del cliente (i prezzi la contengono gia').
-  return { ...senzaDatiProvvigione(prev as PreventivoCompleto), provvigione_percentuale: 0, provvigione_importo: 0, provvigione_importo_fisso: null,
-    articoli: articoliCliente, cataloghi_allegati_data, allegati_pdf_data, allegati_calcoli_data: [] }
+  // Nel browser del cliente vanno solo i dati del documento: niente costi, provvigione, calcolo interno, token di firma.
+  return preventivoPerCliente({ ...(prev as PreventivoCompleto), articoli: articoli ?? [], cataloghi_allegati_data, allegati_pdf_data, allegati_calcoli_data: [] })
 }
 
 async function getSettingsPubblici(orgId: string): Promise<Settings | null> {
-  const supabase = createPublicClient()
+  // Solo intestazione e contatti: firme, timbro, IBAN e tariffe non escono dal server.
+  const supabase = createServiceClient()
   const { data } = await supabase
     .from('settings')
-    .select('*')
+    .select(CAMPI_SETTINGS_PUBBLICI.join(', '))
     .eq('organization_id', orgId)
     .maybeSingle()
-  return data
+  return settingsPerCliente(data as Settings | null)
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -124,7 +127,7 @@ export default async function PreventivoPublicoPage({ params, searchParams }: Pr
   // Registra la visualizzazione solo se è un accesso umano reale (non bot/anteprima link)
   if (!await isLinkPreviewBot()) {
     const via = ref === 'email' ? 'email' : ref === 'whatsapp' ? 'whatsapp' : 'link'
-    const supabase = createPublicClient()
+    const supabase = createServiceClient()
     await supabase
       .from('preventivi')
       .update({ visualizzato_at: new Date().toISOString(), visualizzato_via: via })
