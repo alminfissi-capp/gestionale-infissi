@@ -19,6 +19,7 @@ import { formatEuro } from '@/lib/pricing'
 import { costiArticolo, calcolaCostiPreventivo, mostraReportInterno } from '@/lib/preventivo-costi'
 import { senzaProvvigione } from '@/lib/provvigione'
 import { linkWhatsapp } from '@/lib/whatsapp'
+import PannelloPagamentoOnline from '@/components/pagamenti/PannelloPagamentoOnline'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -70,6 +71,8 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isDuplicating, startDuplicate] = useTransition()
   const [shareToken, setShareToken] = useState(p.share_token)
+  // Frase del pagamento online da aggiungere al messaggio WhatsApp (dal pannello Pagamento online)
+  const [testoPagamento, setTestoPagamento] = useState('')
   const [condivisoAt, setCondivisoAt] = useState(p.condiviso_at)
   const [visualizzatoAt, setVisualizzatoAt] = useState(p.visualizzato_at)
   const [visualizzatoVia, setVisualizzatoVia] = useState(p.visualizzato_via)
@@ -216,7 +219,7 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
       : (p.numero
           ? `Gentile ${nomeCliente}, le inviamo il preventivo n. ${p.numero}. In allegato troverà il documento.`
           : `Gentile ${nomeCliente}, le inviamo il preventivo richiesto. In allegato troverà il documento.`)
-    return linkWhatsapp(s.telefono, testo)
+    return linkWhatsapp(s.telefono, testoPagamento ? `${testo}\n\n${testoPagamento}` : testo)
   })()
 
   const handleDuplica = () => {
@@ -529,6 +532,17 @@ export default function DettaglioPreventivo({ preventivo: p, backHref = '/preven
             Link scaduto
           </span>
         )}
+      </div>
+
+      {/* Pagamento online */}
+      <div className="bg-white rounded-lg border p-4">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Pagamento online</p>
+        <PannelloPagamentoOnline
+          preventivoId={p.id}
+          link={shareToken && origin ? `${origin}/p/${shareToken}` : null}
+          clienteAzienda={p.cliente_snapshot.tipo === 'azienda'}
+          onTestoWhatsapp={setTestoPagamento}
+        />
       </div>
 
       {/* Articoli */}
