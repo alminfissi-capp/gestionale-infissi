@@ -31,7 +31,8 @@ import { getOrariLavoro, getChiusure, getTipiAttivita } from '@/actions/calendar
 import FormOrariLavoro from '@/components/impostazioni/FormOrariLavoro'
 import FormChiusure from '@/components/impostazioni/FormChiusure'
 import FormTipiAttivita from '@/components/impostazioni/FormTipiAttivita'
-import CreditoOpenapi from '@/components/impostazioni/CreditoOpenapi'
+import SezioneCollegamenti from '@/components/impostazioni/SezioneCollegamenti'
+import { getStatoIntegrazioni } from '@/actions/integrazioni'
 
 export default async function ImpostazioniPage() {
   await requireAccesso('impostazioni')
@@ -44,7 +45,7 @@ export default async function ImpostazioniPage() {
     .eq('id', user!.id)
     .single()
 
-  const [settings, templates, icone, archivio, conti, orariLavoro, chiusure, tipiAttivita, linee, anticipi, collegamentoFic, { permessi }, parametriContabilita, preferenze] =
+  const [settings, templates, icone, archivio, conti, orariLavoro, chiusure, tipiAttivita, linee, anticipi, collegamentoFic, { permessi }, parametriContabilita, preferenze, statoIntegrazioni] =
     await Promise.all([
       getSettings(),
       getNoteTemplates(),
@@ -60,6 +61,7 @@ export default async function ImpostazioniPage() {
       getMyPermissions(),
       getParametriContabilita(),
       getPreferenzeInterfaccia(),
+      getStatoIntegrazioni(),
     ])
 
   // Quanti anticipi porterebbe via la cancellazione di una linea (ON DELETE CASCADE).
@@ -99,6 +101,7 @@ export default async function ImpostazioniPage() {
           <TabsTrigger value="commesse">Commesse e scadenze</TabsTrigger>
           <TabsTrigger value="banca">Banca</TabsTrigger>
           <TabsTrigger value="fic">Fatture in Cloud</TabsTrigger>
+          <TabsTrigger value="collegamenti">Collegamenti</TabsTrigger>
           <TabsTrigger value="altro">Preventivi e altro</TabsTrigger>
         </TabsList>
 
@@ -296,20 +299,11 @@ export default async function ImpostazioniPage() {
         </TabsContent>
 
         {/* ── Preventivi e altro: tutto il resto ── */}
-        <TabsContent value="altro" className="space-y-6">
+        <TabsContent value="collegamenti" className="space-y-6">
+          <SezioneCollegamenti stato={statoIntegrazioni} puoModificare={permessi.impostazioni === 'scrittura'} />
+        </TabsContent>
 
-      {/* Crediti openapi.it (firma elettronica) */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Crediti openapi.it</CardTitle>
-          <CardDescription>
-            Saldo dell&apos;account openapi.it usato per la firma elettronica dei preventivi.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <CreditoOpenapi />
-        </CardContent>
-      </Card>
+        <TabsContent value="altro" className="space-y-6">
 
       {/* Tema */}
       <Card>
