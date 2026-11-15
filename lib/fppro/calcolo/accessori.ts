@@ -330,7 +330,7 @@ export function accessoriVoce(
   const trovati: QuantitaAccessorio[] = []
   const avvisi: QuantitaAccessorio[] = []
   const espliciti = new Set<string>()
-  const usa = (a: AccessorioStruttura, d: Misure) => {
+  const usa = (a: AccessorioStruttura, d: Misure, volte = 1) => {
     if (!valePerMano(a, opzioni.mano)) return
     // Righe con misure dell'anta scorrevole (22-24): FP PRO le conta una volta per ogni anta scorrevole.
     const perScorrevole = [a.dimRif, ...(a.altreCondizioni ?? []).map(c => c.dim)].some(x => x >= 22 && x <= 24)
@@ -338,7 +338,7 @@ export function accessoriVoce(
     const esiti = perScorrevole && scorrevoli.length > 1
       ? scorrevoli.map(s => quantitaDi(a, { ...d, rif: { ...rifDi(d), scorrevoli: [s] } }))
       : [quantitaDi(a, d)]
-    const quantita = esiti.reduce((t, e) => t + e.quantita, 0)
+    const quantita = esiti.reduce((t, e) => t + e.quantita, 0) * volte
     const ignota = esiti.some(e => e.ignota)
     const avviso = esiti.find(e => e.avviso)?.avviso
     const metri = a.tipo === 2 || a.tipo === 4
@@ -393,7 +393,9 @@ export function accessoriVoce(
         for (const a of righe) {
           espliciti.add(a.codice)
           if (!(scelto(a, chiaveAccessorio(n.codice, i, a.codice)) && valePerSerie(k.codice, a.codice) && valeParametro(a, `${n.codice}:${i}`))) continue
-          for (const dd of misurePer) usa(a, dd)
+          // Moltiplicatore del kit (30-2026G, scorrevole 3 ante: kit x 2 = 4 carrelli ACP 6012, come FP PRO).
+          // Nei kit per anta e' il numero di ante (142-26G: cerniere Multiply 3 su 3 ante), gia' contate una per una.
+          for (const dd of misurePer) usa(a, dd, k.perAnta ? 1 : k.moltiplica ?? 1)
         }
       })
       visita(n.figli, z)
