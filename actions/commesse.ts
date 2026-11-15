@@ -23,6 +23,7 @@ import type {
 import { TIPI_DOCUMENTO_PRODUZIONE_VALUES } from '@/types/produzione'
 import { selectAll } from '@/lib/supabase/paginate'
 import { liberaIncassoPerEliminazione } from '@/lib/fic/allinea-incasso'
+import { registraPagamentiInCommessa } from '@/lib/pagamenti/in-commessa'
 
 // I documenti di produzione (disegni, DDT, ordini fornitore, ...) sono di
 // competenza della sezione Produzione e NON devono comparire nel lato Commesse.
@@ -437,6 +438,15 @@ export async function setPreventiviCommessa(
       .from('preventivi_commessa')
       .insert(items.map((item) => ({ ...item, commessa_id: commessaId, organization_id: orgId })))
     if (error) throw new Error(error.message)
+
+    // Pagamenti online gia' fatti sui preventivi collegati: diventano acconti di questa commessa (una volta sola).
+    // Un problema qui non deve impedire di salvare i collegamenti.
+    try {
+      const { data: mia } = await supabase.from('commesse').select('id').eq('id', commessaId).eq('organization_id', orgId).maybeSingle()
+      if (mia) await registraPagamentiInCommessa(createServiceClient(), commessaId)
+    } catch (e) {
+      console.error('[commesse] pagamenti online non portati in commessa', commessaId, e)
+    }
   }
 
   revalidatePath('/commesse', 'layout')

@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown, RotateCcw, MailCheck, MessageCircle, Briefcase, Banknote, FileSignature } from 'lucide-react'
+import { Plus, Search, Trash2, Eye, Clock, Printer, BarChart2, CheckCircle2, Copy, ChevronDown, RotateCcw, MailCheck, MessageCircle, Briefcase, Banknote, FileSignature, CreditCard } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { deletePreventivo, duplicaPreventivo, aggiornaStatoPreventivo } from '@/actions/preventivi'
 import { usePermissions } from '@/contexts/PermissionsContext'
@@ -64,9 +64,11 @@ function nomeCliente(p: Preventivo): string {
 interface Props {
   preventivi: Preventivo[]
   commessePerPreventivo?: Record<string, { commessa_id: string; gruppo_id: string | null }>
+  /** Importo pagato online per preventivo (solo quelli con pagamenti riusciti) */
+  pagatiOnline?: Record<string, number>
 }
 
-export default function TabellaPreventivi({ preventivi, commessePerPreventivo = {} }: Props) {
+export default function TabellaPreventivi({ preventivi, commessePerPreventivo = {}, pagatiOnline = {} }: Props) {
   const router = useRouter()
   const { canEdit } = usePermissions()
   const editEnabled = canEdit('preventivi')
@@ -308,6 +310,11 @@ export default function TabellaPreventivi({ preventivi, commessePerPreventivo = 
                                 : p.visualizzato_via === 'whatsapp'
                                 ? <MessageCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
                                 : <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />}
+                            </span>
+                          )}
+                          {pagatiOnline[p.id] > 0 && (
+                            <span title={`Pagato online € ${formatEuro(pagatiOnline[p.id])}`}>
+                              <CreditCard className="h-3.5 w-3.5 text-violet-600 shrink-0" />
                             </span>
                           )}
                           {p.firma_stato === 'firmato' && (

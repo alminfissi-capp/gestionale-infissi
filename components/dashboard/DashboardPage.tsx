@@ -1,6 +1,6 @@
 'use client'
 
-import { Activity, FileText, User, Briefcase, Coins } from 'lucide-react'
+import { Activity, FileText, User, Briefcase, Coins, CreditCard } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import {
@@ -27,6 +27,7 @@ function TipoIcon({ tipo }: { tipo: ActivityItem['tipo'] }) {
   if (tipo === 'preventivo') return <FileText className="h-4 w-4 text-teal-600 shrink-0" />
   if (tipo === 'cliente') return <User className="h-4 w-4 text-blue-600 shrink-0" />
   if (tipo === 'commessa') return <Briefcase className="h-4 w-4 text-orange-500 shrink-0" />
+  if (tipo === 'pagamento') return <CreditCard className="h-4 w-4 text-violet-600 shrink-0" />
   return <Coins className="h-4 w-4 text-emerald-600 shrink-0" />
 }
 

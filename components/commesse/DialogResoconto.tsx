@@ -43,6 +43,8 @@ const METODI: Record<MetodoPagamento, string> = {
   contanti: 'Contanti',
   bonifico: 'Bonifico bancario',
   riba: 'Ri.Ba.',
+  carta: 'Carta (pagamento online)',
+  rate: 'Rate (pagamento online)',
   altro: 'Altro',
 }
 

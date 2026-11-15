@@ -68,7 +68,10 @@ export function creaArchivioSupabase(db: SupabaseClient): Archivio {
     async commessaDelPreventivo(preventivoId) {
       const { data, error } = await db.from('preventivi_commessa').select('commessa_id').eq('preventivo_id', preventivoId).limit(1).maybeSingle()
       if (error) throw error
-      return (data?.commessa_id as string | undefined) ?? null
+      if (data?.commessa_id) return data.commessa_id as string
+      // Commesse vecchie: legame nella colonna commesse.preventivo_id (vale quando la tabella dei collegamenti e' vuota)
+      const { data: vecchia } = await db.from('commesse').select('id').eq('preventivo_id', preventivoId).limit(1).maybeSingle()
+      return (vecchia?.id as string | undefined) ?? null
     },
     async registraAccontoDaPagamento(p, commessaId, metodo) {
       const { data: pr } = await db.from('preventivi').select('numero').eq('id', p.preventivo_id).maybeSingle()

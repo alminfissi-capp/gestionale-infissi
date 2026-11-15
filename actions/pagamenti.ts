@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { getOrgId } from '@/lib/auth'
 import { requireAccesso } from '@/lib/permessi'
 import { createServiceClient } from '@/lib/supabase/service'
+import { createClient } from '@/lib/supabase/server'
 import { leggiSegreto } from '@/lib/integrazioni'
 import { creaArchivioSupabase } from '@/lib/pagamenti/archivio-supabase'
 import { parametriPagamenti } from '@/lib/pagamenti/dipendenze'
@@ -64,4 +65,13 @@ export async function salvaImpostazioniPagamento(
   await archivio.salvaImpostazioni(valide, orgId)
   revalidatePath(`/preventivi/${p.id}`)
   return {}
+}
+
+/** Quanto e' stato pagato online per preventivo (lista preventivi). Rispetta la RLS: vista security_invoker. */
+export async function getPagatiOnline(): Promise<Record<string, number>> {
+  await requireAccesso('preventivi')
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('v_pagamenti_preventivo').select('preventivo_id, pagato_online')
+  if (error) return {}
+  return Object.fromEntries((data ?? []).filter(r => Number(r.pagato_online) > 0).map(r => [r.preventivo_id as string, Number(r.pagato_online)]))
 }

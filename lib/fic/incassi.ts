@@ -148,7 +148,7 @@ const NOMI_METODO: { metodo: keyof MetodiIncassoFic; regola: RegExp }[] = [
 
 /** Prima proposta dell'abbinamento metodo WinStudio → conto FiC, per nome. "Altro" si sceglie a mano. */
 export function abbinaMetodiIncasso(metodiFic: { id: number; nome: string }[]): MetodiIncassoFic {
-  const abbinati: MetodiIncassoFic = { bonifico: null, contanti: null, riba: null, altro: null }
+  const abbinati: MetodiIncassoFic = { bonifico: null, contanti: null, riba: null, altro: null, carta: null, rate: null }
   for (const { metodo, regola } of NOMI_METODO) {
     abbinati[metodo] = metodiFic.find((m) => regola.test(m.nome))?.id ?? null
   }

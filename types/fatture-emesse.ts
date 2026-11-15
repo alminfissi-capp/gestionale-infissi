@@ -52,7 +52,7 @@ export type SyncEmesse = {
   ultimi_conteggi: ConteggiSync | null
 }
 
-export type MetodoIncasso = 'bonifico' | 'contanti' | 'riba' | 'altro'
+export type MetodoIncasso = 'bonifico' | 'contanti' | 'riba' | 'altro' | 'carta' | 'rate'
 /** Metodo WinStudio → conto di pagamento FiC (null = non abbinato: non si scrive). */
 export type MetodiIncassoFic = Record<MetodoIncasso, number | null>
 
