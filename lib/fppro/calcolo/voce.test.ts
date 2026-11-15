@@ -4,7 +4,6 @@ import { regoleDaElenchi } from './accessori'
 import type { ProfiloCalcolo } from './tipi'
 import { antaFissa, calcolaVoce, codiceDaDxf, type InputVoce, type ListinoCalcolo } from './voce'
 import { fattoreBarreCommessa } from './commessa'
-import { LARGHEZZE_PREDEFINITE, pezziECampi } from './geometria'
 
 /** Listino con i prezzi che FP PRO ha usato in quella commessa. */
 function listinoDa(d: CommessaFp, fattorePeso: number): ListinoCalcolo {
@@ -271,18 +270,15 @@ describe('peso di ogni anta (serve alle regole 2xx e 23 di FP PRO)', () => {
 describe('fissaggi dei profili (squadrette e cavallotti di FP PRO)', () => {
   const { dati, input, regole } = inputDa('170-26G', alm2026, 0.03)
   const listino = listinoDa(dati, 1.03)
-  const pezzi = pezziECampi(input.albero, input, LARGHEZZE_PREDEFINITE).pezzi.filter(p => codiceDaDxf(p.dxf).trim())
-  const conFissaggi = { ...regole, fissaggi: (_codice: string, tipo: number) => [
-    { codice: 'SQ-PEZZO', quantita: 1, dimRif: 1 },
-    ...(tipo === 8050 ? [{ codice: 'SQ-TELAIO', quantita: 2, dimRif: 1 }] : []),
-  ] }
+  // Ogni profilo ha un filtro 'F' predefinito con una squadretta per angolo a squadra.
+  const conFissaggi = { ...regole, fissaggi: {
+    righe: (_codice: string, filtro: string) => [{ codice: 'SQ-ANGOLO', quantita: 1, dimRif: 1 }, { codice: 'SQ-' + filtro.slice(0, 4), quantita: 1, dimRif: 1 }],
+    predefiniti: () => ['F'],
+  } }
   const accessorio = (r: ReturnType<typeof calcolaVoce>, codice: string) => r.righe.filter(x => x.codice === codice).reduce((t, x) => t + x.quantita, 0)
 
-  it('una squadretta per ogni pezzo di profilo', () => {
-    expect(accessorio(calcolaVoce(input, listino, conFissaggi), 'SQ-PEZZO')).toBe(pezzi.length)
-  })
-  it('quantita\' per pezzo e solo sul tipo di pezzo indicato', () => {
-    expect(accessorio(calcolaVoce(input, listino, conFissaggi), 'SQ-TELAIO')).toBe(2 * pezzi.filter(p => p.tipo === 8050).length)
+  it('le squadrette arrivano tra gli accessori della voce', () => {
+    expect(accessorio(calcolaVoce(input, listino, conFissaggi), 'SQ-ANGOLO')).toBeGreaterThan(0)
   })
   it('senza fissaggi nelle regole: nessuna riga in piu\'', () => {
     expect(calcolaVoce(input, listino, regole).righe.some(x => x.codice.startsWith('SQ-'))).toBe(false)

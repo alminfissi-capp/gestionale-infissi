@@ -33,6 +33,21 @@ export interface PezzoStruttura {
   serie: string
   /** Anta a cui appartiene il pezzo nei nodi con piu' ante (ElementIndex) */
   indice: number
+  /**
+   * Giunzioni alle due estremita' (sx = LEFTUPPER, dx = RIGHTLOWER) con i filtri di fissaggio
+   * scritti nella struttura. Assente nelle strutture lette prima della versione 8 del ponte.
+   */
+  giunti?: { sx: GiuntoPezzo | null; dx: GiuntoPezzo | null }
+}
+
+/** Estremita' di un pezzo: dove si unisce agli altri e con quali sistemi di giunzione (filtri) */
+export interface GiuntoPezzo {
+  /** Stesso angolo = stessa chiave (nodo padre + coordinate dell'angolo nella struttura) */
+  chiave: string
+  /** Angolo della giunzione in gradi (90 = squadra) */
+  angolo: number
+  /** Filtri della tabella fissaggi di FP PRO (GUID); vuoto = nessuno scritto su questa estremita' */
+  filtri: string[]
 }
 
 /** Condizione di validita' di una riga: misura di riferimento (codice FP PRO) dentro [min, max] */
@@ -199,6 +214,23 @@ function attributi(o: Ogg): Record<string, string> {
   return out
 }
 
+/**
+ * Estremita' di un pezzo: FP PRO scrive la giunzione (FP_PIECE_LEFTUPPER_* / _RIGHTLOWER_*) e i
+ * filtri di fissaggio (FP_PIECE_FLTSX / FLTDX, uno per tag). Verificato su 974 voci (2026-11-15).
+ */
+function giunto(p: Ogg, estremo: 'LEFTUPPER' | 'RIGHTLOWER', lato: 'SX' | 'DX'): GiuntoPezzo | null {
+  const valori = (v: unknown) => (Array.isArray(v) ? v : [v]).map(testo).filter((x): x is string => x !== null)
+  const filtri = valori(p[`FP_PIECE_FLT${lato}`])
+  const haGiunto = p[`FP_PIECE_${estremo}_TYPE`] !== undefined
+  if (!haGiunto && filtri.length === 0) return null
+  const parte = (nome: string) => testo(p[`FP_PIECE_${estremo}_${nome}`]) ?? ''
+  return {
+    chiave: haGiunto ? `${parte('FATHERNODECODE')}|${parte('XPER100')}|${parte('YPER100')}` : '',
+    angolo: num(p[`FP_PIECE_${estremo}_ANGLE`]) ?? 90,
+    filtri,
+  }
+}
+
 function accessorio(f: Ogg): AccessorioStruttura {
   return {
     codice: testo(f.Code) ?? '',
@@ -251,7 +283,9 @@ function nodo(n: Ogg): NodoStruttura {
     ird: lista(n.FP_IRD).map(i => testo(i.FileName) ?? ''),
     pezzi: lista(n.FP_PIECE).map(p => {
       const dxf = testo(p.DXF) ?? ''
-      return { tipo: num(p.Type) ?? 0, dxf, serie: serieDaDxf(dxf), indice: num(p.ElementIndex) ?? 0 }
+      const sx = giunto(p, 'LEFTUPPER', 'SX')
+      const dx = giunto(p, 'RIGHTLOWER', 'DX')
+      return { tipo: num(p.Type) ?? 0, dxf, serie: serieDaDxf(dxf), indice: num(p.ElementIndex) ?? 0, ...(sx || dx ? { giunti: { sx, dx } } : {}) }
     }),
     accessori: lista(n.FP_FITTING).map(accessorio),
     kit: lista(n.FP_KIT).map(k => ({

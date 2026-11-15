@@ -2,9 +2,10 @@
 // accessori, vetri, pannelli), ore della struttura, formula di prezzo.
 // Puro: il listino arriva da fuori (actions/calcolo-fp.ts lo legge dal database).
 import type { SezioneProfilo } from '../dxf-sezione'
-import type { NodoStruttura } from '../strutture-xml'
+import type { NodoStruttura, PezzoStruttura } from '../strutture-xml'
 import { accessoriVoce, type OpzioniAccessori, type QuantitaAccessorio, type RegoleAccessori } from './accessori'
 import { ottimizzaBarre } from './barre'
+import { fissaggiStruttura } from './fissaggi'
 import { larghezzeDaPoligoni, pezziECampi, type CampoCalcolo, type Larghezze } from './geometria'
 import { applicaCorrezioni, prezzoComeFp, type PrezzoVoce } from './prezzo'
 import type { CorrezioniVoce, OreVoce, ProfiloCalcolo } from './tipi'
@@ -143,6 +144,8 @@ function conAntaScelta(albero: NodoStruttura[], anta: string | undefined): NodoS
   })
 }
 
+const tuttiPezziAlbero = (nodi: NodoStruttura[]): PezzoStruttura[] => nodi.flatMap(n => [...n.pezzi, ...tuttiPezziAlbero(n.figli)])
+
 export function codiceDaDxf(dxf: string): string {
   return dxf.slice(Math.max(dxf.lastIndexOf('\\'), dxf.lastIndexOf('/')) + 1).replace(/\.dxf$/i, '')
 }
@@ -275,18 +278,13 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
   }
 
   // Accessori (le formule dei kit usano il peso del serramento) + quelli aggiunti a mano nella voce.
-  // Fissaggi dei profili: squadrette e cavallotti per ogni pezzo, dal sistema di giunzione della serie.
-  const fissaggi: QuantitaAccessorio[] = []
-  if (regole.fissaggi) {
-    for (const pezzo of pezzi) {
-      const codice = codiceDaDxf(pezzo.dxf)
-      if (!codice.trim()) continue
-      for (const f of regole.fissaggi(codice, pezzo.tipo)) {
-        if (f.dimRif !== 1 || f.quantita <= 0) continue
-        fissaggi.push({ codice: f.codice, serie: f.serie ?? '', descrizione: f.descrizione ?? '', quantita: f.quantita, metri: false, regolaIgnota: false })
-      }
-    }
-  }
+  // Fissaggi dei profili: squadrette e cavallotti per angolo, dai filtri scritti nella struttura.
+  const fissaggi: QuantitaAccessorio[] = regole.fissaggi
+    ? fissaggiStruttura(
+      tuttiPezziAlbero(albero).map(pezzo => ({ codice: codiceDaDxf(pezzo.dxf), pezzo })).filter(p => p.codice.trim()),
+      regole.fissaggi,
+    ).map(f => ({ codice: f.codice, serie: '', descrizione: '', quantita: f.quantita, metri: false, regolaIgnota: false }))
+    : []
   const accessori: QuantitaAccessorio[] = [
     ...fissaggi,
     ...accessoriVoce(albero, input.kitScelti, zone, peso, regole, input.accessoriScelti, { mano: input.mano ?? null, ante: anteRegole }),

@@ -361,7 +361,7 @@ export const TABELLE_SYNC: TabellaSync[] = [
   },
   {
     // Fissaggi dei profili (squadrette, cavallotti) per sistema di giunzione (filtro): FP PRO li
-    // aggiunge a ogni pezzo di profilo. Verificato sulla commessa 183-26G (spec 2026-11-14).
+    // conta per angolo coi filtri scritti nella struttura (lib/fppro/calcolo/fissaggi.ts, 2026-11-15).
     mysql: 'fissaggi',
     supabase: 'fp_fissaggi',
     sql: 'select f.*, p.codice as codice_profilo, p.serieid as serie_profilo, a.codice as codice_accessorio from fissaggi f ' +
@@ -379,7 +379,7 @@ export const TABELLE_SYNC: TabellaSync[] = [
     }),
   },
   {
-    // Sistemi di giunzione per serie: FP PRO usa quello con l'ordine piu' basso.
+    // Sistemi di giunzione per serie: senza filtri nella struttura FP PRO usa quelli con l'ordine piu' basso.
     mysql: 'serie_profilo_fissaggi',
     supabase: 'fp_serie_fissaggi',
     sql: 'select * from serie_profilo_fissaggi order by pkid',

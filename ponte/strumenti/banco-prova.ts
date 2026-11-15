@@ -15,7 +15,7 @@ import { calcolaVoce, codiceDaDxf, type InputVoce, type ListinoCalcolo } from '.
 import { regoleDaElenchi, type RigaKitCatalogo } from '../../lib/fppro/calcolo/accessori'
 import { LARGHEZZE_PREDEFINITE, pezziECampi } from '../../lib/fppro/calcolo/geometria'
 import { confrontaAccessori, type ConfrontoAccessori } from '../../lib/fppro/calcolo/confronto-fp'
-import { fissaggiPredefiniti } from '../../lib/fppro/calcolo/fissaggi'
+import { datiFissaggi } from '../../lib/fppro/calcolo/fissaggi'
 import type { ProfiloCalcolo } from '../../lib/fppro/calcolo/tipi'
 
 process.loadEnvFile(process.env.PONTE_ENV ?? 'C:\\WinStudioPonte\\.env')
@@ -137,16 +137,16 @@ async function bancoCommessa(nome: string): Promise<EsitoVoce[]> {
       const collegati = await inLista(
         'select ap.codice principale, ac.codice collegato, c.num_base from accessoricollegati c ' +
         'join accessori ap on ap.pkid = c.idaccprincipale join accessori ac on ac.pkid = c.idacccollegato where ap.codice in (?)', codiciAcc)
-      // Fissaggi: sistema di giunzione predefinito della serie = filtri con l'ordine piu' basso.
+      // Fissaggi per profilo e filtro (contati per angolo nel calcolo) + ordini dei filtri della serie.
       const codiciProfili = [...new Set([...testo.matchAll(/DXF="[^"]*\\([^"\\]+)\.DXF"/gi)].map(m => m[1]))]
       const fiss = await inLista(
         'select p.codice prof, p.serieid serie, a.codice acc, f.num_base, f.dim_rif, f.filtro, sf.ordine from fissaggi f ' +
         'join profili p on p.pkid = f.idprof join accessori a on a.pkid = f.idacc ' +
-        'join serie_profilo_fissaggi sf on sf.id_serie = p.serieid and sf.filtro_guid = f.filtro ' +
+        'left join serie_profilo_fissaggi sf on sf.id_serie = p.serieid and sf.filtro_guid = f.filtro ' +
         'where p.codice in (?)', codiciProfili)
-      const fissaggiDi = fissaggiPredefiniti(
+      const fissaggiDi = datiFissaggi(
         fiss.map(f => ({ codice_profilo: s(f.prof), codice_accessorio: s(f.acc), serie_fp_id: n(f.serie), quantita: n(f.num_base), dim_rif: n(f.dim_rif), filtro: s(f.filtro) })),
-        fiss.map(f => ({ serie_fp_id: n(f.serie), ordine: n(f.ordine), filtro: s(f.filtro) })))
+        fiss.filter(f => f.ordine !== null).map(f => ({ serie_fp_id: n(f.serie), ordine: n(f.ordine), filtro: s(f.filtro) })))
       // Nel file della commessa FP PRO scrive anche il risultato della scomposizione dei contenitori
       // (es. 00259500U sciolto nel nodo accanto al kit con CERN_GIESSE00259500U): nelle .STR usate
       // in produzione non c'e', quindi qui si toglie per confrontare alla pari.
