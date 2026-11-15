@@ -26,9 +26,11 @@ export interface QuantitaAccessorio {
   codice: string
   serie: string
   descrizione: string
-  /** Pezzi, oppure metri se `metri` */
+  /** Pezzi, oppure metri se `metri`, oppure metri quadri se `mq` */
   quantita: number
   metri: boolean
+  /** Accessorio a metro quadro (FP PRO tipo 3, es. tapparelle): quantita' in m² */
+  mq?: boolean
   regolaIgnota: boolean
   /** Regola di FP PRO che il motore non sa applicare: la riga non e' contata (quantita 0) */
   avviso?: string
@@ -118,6 +120,7 @@ export function accessoriDaCatalogo(righe: RigaKitCatalogo[]): AccessorioStruttu
       numMax: numero(d.num_max) > 0 ? numero(d.num_max) : null,
       parametro: numero(d.parametrica) === 1 && d.codice_param ? { codice: String(d.codice_param), valore: String(d.valore_param ?? '') } : null,
       formulaL: d.formulal ? String(d.formulal) : null,
+      formulaH: d.formulah ? String(d.formulah) : null,
       corrMl: numero(d.corr_ml),
     }
   })
@@ -292,6 +295,14 @@ function quantitaDi(a: AccessorioStruttura, d: Misure): Esito {
     if (lung === null) return { quantita: a.quantita, ignota: true }
     return { quantita: (a.quantita * (lung + (a.corrMl ?? 0))) / 1000 * MAGGIORAZIONE_METRO, ignota: false }
   }
+  // Metro quadro (tipo 3, tapparelle): quantita' x L x H delle formule della riga, senza maggiorazione.
+  // 117-26G voce 8: TAPPALL.FG LFormula 2312, HFormula 2000 = 4,624 m² x 37 EUR = 171,09 (come FP PRO).
+  if (a.tipo === 3) {
+    const l = a.formulaL ? valutaFormula(a.formulaL, d) : d.L
+    const h = a.formulaH ? valutaFormula(a.formulaH, d) : d.H
+    if (l === null || h === null) return { quantita: a.quantita, ignota: true }
+    return { quantita: (a.quantita * l * h) / 1e6, ignota: false }
+  }
   if (a.passo !== null && a.passo > 0) {
     const rif = a.dimDistribuzione === 5
       ? (a.formulaDistribuzione ? valutaFormula(a.formulaDistribuzione, d) : null)
@@ -331,8 +342,9 @@ export function accessoriVoce(
     const ignota = esiti.some(e => e.ignota)
     const avviso = esiti.find(e => e.avviso)?.avviso
     const metri = a.tipo === 2 || a.tipo === 4
-    if (avviso) avvisi.push({ codice: a.codice, serie: a.serie, descrizione: a.descrizione, quantita: 0, metri, regolaIgnota: false, avviso })
-    if (quantita > 0) trovati.push({ codice: a.codice, serie: a.serie, descrizione: a.descrizione, quantita, metri, regolaIgnota: ignota })
+    const mq = a.tipo === 3
+    if (avviso) avvisi.push({ codice: a.codice, serie: a.serie, descrizione: a.descrizione, quantita: 0, metri, mq, regolaIgnota: false, avviso })
+    if (quantita > 0) trovati.push({ codice: a.codice, serie: a.serie, descrizione: a.descrizione, quantita, metri, mq, regolaIgnota: ignota })
   }
   // Righe parametriche (es. cilindro 25/30/35): una sola per parametro del kit. Senza valore
   // scelto vale il primo incontrato, mai tutti insieme.

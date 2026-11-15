@@ -96,7 +96,7 @@ async function bancoCommessa(nome: string): Promise<EsitoVoce[]> {
   const ver = voci[0]?.idversionecommessa
   const righeVoci = voci.filter(v => v.idversionecommessa === ver)
   const filtroV = 'where nomecommessa = ? and idversionecommessa = ?'
-  const accFp = await q(`select voce, codice, qta, l, un_mis, prezzo, un_vend, costonetto from preventivoprezziaccessori ${filtroV}`, [nome, ver])
+  const accFp = await q(`select voce, codice, qta, l, h, un_mis, prezzo, un_vend, costonetto from preventivoprezziaccessori ${filtroV}`, [nome, ver])
   const profFp = await q(`select voce, codice, lung, qta, costonetto from preventivoprezziprofili ${filtroV}`, [nome, ver])
   const vetFp = await q(`select voce, codice, prezzo, qta, l, h, costonetto from preventivoprezzivetri ${filtroV}`, [nome, ver])
   const esiti: EsitoVoce[] = []
@@ -169,6 +169,9 @@ async function bancoCommessa(nome: string): Promise<EsitoVoce[]> {
 
       // Listino: prezzi che FP PRO ha usato per questa voce; codici in piu' dal catalogo accessori.
       const accVoce = accFp.filter(a => n(a.voce) === nv)
+      // Quantita' FP PRO per un accessorio: metri (un_mis 2, 4: mm in colonna l), metri quadri (un_mis 3, tapparelle: l x h).
+      // Accessori a metro quadro (un_mis 3, tapparelle): FP PRO salva larghezza e altezza in mm (colonne l, h).
+      const qtaFp = (a: Riga) => [2, 4].includes(n(a.un_mis)) ? n(a.qta) * n(a.l) / 1000 : n(a.un_mis) === 3 ? n(a.qta) * n(a.l) * n(a.h) / 1e6 : n(a.qta)
       const profVoce = profFp.filter(a => n(a.voce) === nv)
       const codiciDxf = [...new Set([...testo.matchAll(/DXF="[^"]*\\([^"\\]+)\.DXF"/gi)].map(m => m[1]))]
       const profili = await inLista('select pkid, codice, composto, kg_ml from profili where codice in (?)', codiciDxf)
@@ -217,14 +220,26 @@ async function bancoCommessa(nome: string): Promise<EsitoVoce[]> {
           ...nd.kit.map((k, i) => `${nd.codice}:${i} ${k.codice} conf=${k.confermato} righe=${k.accessori.map(a => `${a.codice}[${a.dimRif};${(a.altreCondizioni ?? []).map(c => c.dim).join(',')}]`).join(' ')}`),
           ...kitNodi(nd.figli)])
         console.log(kitNodi(st.albero).join('\n'))
-        const { pezzi } = pezziECampi(st.albero, input, LARGHEZZE_PREDEFINITE)
+        const { pezzi } = pezziECampi(st.albero, input, LARGHEZZE_PREDEFINITE, d => listino.sezione(codiceDaDxf(d)))
         console.log('pezzi', JSON.stringify(pezzi.map(p => [p.tipo, codiceDaDxf(p.dxf), Math.round(p.lunghezza)])))
         console.log('fissaggi FP', JSON.stringify(fiss.map(f => [s(f.prof), s(f.acc), n(f.num_base), n(f.dim_rif), s(f.filtro).slice(0, 8), n(f.ordine)])))
+        // Costo per codice: quantita' e costo di WinStudio contro FP PRO (per un pezzo), scarti maggiori prima.
+        const costi = new Map<string, { qWs: number; cWs: number; qFp: number; cFp: number; prezzoFp: number; unVend: number; unMis: number }>()
+        const riga = (c: string) => costi.get(c) ?? { qWs: 0, cWs: 0, qFp: 0, cFp: 0, prezzoFp: 0, unVend: 0, unMis: 0 }
+        for (const x of r.righe.filter(x => x.gruppo === 'accessori')) costi.set(x.codice, { ...riga(x.codice), qWs: riga(x.codice).qWs + x.quantita, cWs: riga(x.codice).cWs + x.costo })
+        for (const a of accVoce) {
+          const c = s(a.codice), v = riga(c)
+          costi.set(c, { ...v, qFp: v.qFp + qtaFp(a) / base.pezzi, cFp: v.cFp + n(a.costonetto) / base.pezzi, prezzoFp: n(a.prezzo), unVend: n(a.un_vend), unMis: n(a.un_mis) })
+        }
+        console.log('codice | q WS | costo WS | q FP | costo FP | prezzo FP | un_vend | un_mis')
+        for (const [c, v] of [...costi].sort((a, b) => Math.abs(b[1].cWs - b[1].cFp) - Math.abs(a[1].cWs - a[1].cFp)).slice(0, 25)) {
+          console.log(c, '|', v.qWs.toFixed(2), '|', v.cWs.toFixed(2), '|', v.qFp.toFixed(2), '|', v.cFp.toFixed(2), '|', v.prezzoFp, '|', v.unVend, '|', v.unMis)
+        }
       }
       const accWs = r.righe.filter(x => x.gruppo === 'accessori')
       // FP PRO salva le quantita' della voce per tutti i pezzi (Multiply): si riportano a un pezzo.
       // Accessori a metro (un_mis 2 e 4): FP PRO salva la lunghezza in mm nella colonna l.
-      const accFpPezzo = accVoce.map(a => ({ codice: s(a.codice), quantita: ([2, 4].includes(n(a.un_mis)) ? n(a.qta) * n(a.l) / 1000 : n(a.qta)) / base.pezzi }))
+      const accFpPezzo = accVoce.map(a => ({ codice: s(a.codice), quantita: qtaFp(a) / base.pezzi }))
       base.costoAccFp = accVoce.reduce((t, a) => t + n(a.costonetto), 0) / base.pezzi
       base.costoAccWs = accWs.reduce((t, a) => t + a.costo, 0)
       base.scartoAcc = base.costoAccWs - base.costoAccFp

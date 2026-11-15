@@ -141,3 +141,30 @@ describe('misure vere dei profili dai DXF (sezioni)', () => {
     expect(Math.abs(vetro.l - 733)).toBeLessThan(3)
   })
 })
+
+describe('monoblocco ES40 (117-26G voce 8, 2320 x 3080): cassonetto e telaio a giunti dritti', () => {
+  const nodo = (n: Partial<NodoStruttura>): NodoStruttura => ({
+    tipo: 0, codice: 1, elementi: 1, x: null, y: null, prm: [], macro: null, ante: [], ird: [], pezzi: [], accessori: [], kit: [], figli: [], ...n,
+  })
+  const g = (tipo: number, profili: [string, string]) => ({ chiave: `${tipo}${profili.join()}`, angolo: 90, filtri: [], tipo, profili })
+  // Montanti ES4053A dritti contro il cassonetto in alto e liberi in basso; traversi ES4311 dritti fra i montanti.
+  const montante = { tipo: 8050, dxf: 'ED_ES40\\ES4053A.DXF', serie: 'ED_ES40', indice: 0, giunti: { sx: g(2, ['AS4865A', 'ES4053A']), dx: null } }
+  const traverso = { tipo: 8050, dxf: 'ED_ES40\\ES4311.DXF', serie: 'ED_ES40', indice: 0, giunti: { sx: g(2, ['ES4053A', 'ES4311']), dx: g(2, ['ES4053A', 'ES4311']) } }
+  const albero = [nodo({
+    tipo: 8290, pezzi: [{ tipo: 8290, dxf: 'ED_ES40\\AS4865A.DXF', serie: 'ED_ES40', indice: 0 }],
+    figli: [nodo({ tipo: 8600, codice: 2, pezzi: [montante, traverso, montante, traverso] })],
+  })]
+  const sezioni: Record<string, { vista: number; aletta: number }> = {
+    'ED_ES40\\AS4865A.DXF': { vista: 318.6, aletta: 12.2 }, 'ED_ES40\\ES4053A.DXF': { vista: 70.5, aletta: 21 }, 'ED_ES40\\ES4311.DXF': { vista: 41.6, aletta: 0 },
+  }
+  const r = pezziECampi(albero, { L: 2320, H: 3080, L0: 2320, H0: 3080, quote: {} }, LARGHEZZE_PREDEFINITE, d => sezioni[d] ?? null)
+  const lung = (codice: string) => r.pezzi.filter(p => codiceDaDxf(p.dxf) === codice).map(p => Math.round(p.lunghezza))
+  it('cassonetto lungo quanto la larghezza', () => expect(lung('AS4865A')).toEqual([2320]))
+  it('montanti sotto il cassonetto, senza aletta: 3080 - 319 = 2761 come FP PRO', () => expect(lung('ES4053A')).toEqual([2761, 2761]))
+  it('traversi fra i montanti: 2320 - 2 x 70,5 = 2179 come FP PRO', () => expect(lung('ES4311')).toEqual([2179, 2179]))
+  it('telaio a 45 (senza giunti dritti): aletta su entrambe le estremita\', come prima', () => {
+    const a45 = [nodo({ tipo: 8600, pezzi: [1, 2, 3, 4].map(() => ({ tipo: 8050, dxf: 'ED_ES40\\ES4053A.DXF', serie: 'ED_ES40', indice: 0 })) })]
+    const p = pezziECampi(a45, { L: 1000, H: 1200, L0: 1000, H0: 1200, quote: {} }, LARGHEZZE_PREDEFINITE, d => sezioni[d] ?? null).pezzi
+    expect(p.map(x => x.lunghezza)).toEqual([1242, 1042, 1242, 1042])
+  })
+})

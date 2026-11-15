@@ -89,8 +89,10 @@ export interface AccessorioStruttura {
   numMax?: number | null
   /** Riga valida solo con questo valore del parametro del kit */
   parametro?: { codice: string; valore: string } | null
-  /** Formula della lunghezza per gli accessori a metro */
+  /** Formula della lunghezza per gli accessori a metro e a metro quadro (FP PRO: LFormula / formulal) */
   formulaL?: string | null
+  /** Formula dell'altezza per gli accessori a metro quadro (FP PRO: HFormula / formulah; tapparelle) */
+  formulaH?: string | null
   /** Correzione in mm sulla lunghezza degli accessori a metro */
   corrMl?: number
   /** Gruppo di alternative di FP PRO dell'accessorio facoltativo (gruppoid) e suo tipo/nome: li mette il server per il telefono */
@@ -267,6 +269,7 @@ function accessorio(f: Ogg): AccessorioStruttura {
     numMax: num(f.NMax),
     condizioniAlternative: vero(f.CondParametric),
     formulaL: testo(f.LFormula),
+    formulaH: testo(f.HFormula),
   }
 }
 
