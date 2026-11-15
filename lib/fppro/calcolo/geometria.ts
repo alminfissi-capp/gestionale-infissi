@@ -108,6 +108,10 @@ export function pezziECampi(
     if (larg(z) <= 0 || alt(z) <= 0) return
     zone[n.codice] = { L: larg(z), H: alt(z) }
     const riempimento = n.pezzi.find(p => p.tipo === 8510 || p.tipo === 8500)
+    // Nodo riempimento (8650) che porta insieme fermavetri e vetro (TOPSLIDE): il vetro sta dentro
+    // i fermavetri come in un nodo fermavetro (101-26G voce 3: 2026 x 2170 come FP PRO, non 2055 x 2210).
+    const fermavetriNelNodo = n.tipo === 8650 && n.pezzi.some(p => p.tipo === 8180 || p.tipo === 8270)
+    if (fermavetriNelNodo) inFermavetro = true
     if (riempimento) {
       // Bordo tolto per lato: il fermavetro copre, la cava allarga (172-26G: 733 su una zona di 747).
       const r = (inFermavetro ? larghezze.fermavetro : 0) - larghezze.incastroVetro
@@ -201,7 +205,7 @@ export function pezziECampi(
       return
     }
 
-    if (n.tipo === 8180 || n.tipo === 8270) {
+    if (n.tipo === 8180 || n.tipo === 8270 || fermavetriNelNodo) {
       // Fermavetro / fermapannello: 4 pezzi intorno al campo.
       profili.forEach((p, j) => aggiungi(p.dxf, p.tipo, j % 2 === 0 ? alt(z) : larg(z)))
       n.figli.forEach(f => visita(f, z, true))

@@ -168,3 +168,18 @@ describe('monoblocco ES40 (117-26G voce 8, 2320 x 3080): cassonetto e telaio a g
     expect(p.map(x => x.lunghezza)).toEqual([1242, 1042, 1242, 1042])
   })
 })
+
+describe('nodo riempimento con fermavetri e vetro insieme (TOPSLIDE)', () => {
+  const nodo = (n: Partial<NodoStruttura>): NodoStruttura => ({
+    tipo: 0, codice: 1, elementi: 1, x: null, y: null, prm: [], macro: null, ante: [], ird: [], pezzi: [], accessori: [], kit: [], figli: [], ...n,
+  })
+  const fv = { tipo: 8180, dxf: 'X\\FV.DXF', serie: 'X', indice: 0 }
+  const albero = [nodo({ tipo: 8650, pezzi: [fv, fv, fv, fv, { tipo: 8510, dxf: 'GLASSES\\V.DXF', serie: 'GLASSES', indice: 0 }] })]
+  const r = pezziECampi(albero, { L: 2040, H: 2185, L0: 2040, H0: 2185, quote: {} }, LARGHEZZE_PREDEFINITE)
+  it('il vetro sta dentro i fermavetri: zona - 2 x (20 - 12,5)', () => {
+    expect([r.campi[0].l, r.campi[0].h]).toEqual([2025, 2170])
+  })
+  it('fermavetri: due alti quanto la zona e due larghi', () => {
+    expect(r.pezzi.map(p => p.lunghezza)).toEqual([2185, 2040, 2185, 2040])
+  })
+})

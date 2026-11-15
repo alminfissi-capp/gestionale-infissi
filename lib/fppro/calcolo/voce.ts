@@ -273,8 +273,11 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
     })
     ante.push(...pesate)
     const misure = pesate.map(({ l, h, peso: p }) => ({ l, h, peso: p }))
-    const mobili = pesate.filter((_, i) => !antaFissa(trovaNodo(albero, nodo), ordinate[i].indice)).map(({ l, h, peso: p }) => ({ l, h, peso: p }))
-    anteRegole[nodo] = gruppo[0].tipo === 8620 ? { ante: [], scorrevoli: mobili } : { ante: misure, scorrevoli: [] }
+    const conPosto = pesate.map(({ l, h, peso: p }, i) => ({ l, h, peso: p, indice: ordinate[i].indice }))
+    const fissa = (i: number) => antaFissa(trovaNodo(albero, nodo), ordinate[i].indice)
+    const mobili = conPosto.filter((_, i) => !fissa(i))
+    const fisse = conPosto.filter((_, i) => fissa(i))
+    anteRegole[nodo] = gruppo[0].tipo === 8620 ? { ante: [], scorrevoli: mobili, fisse } : { ante: misure, scorrevoli: [] }
   }
 
   // Accessori (le formule dei kit usano il peso del serramento) + quelli aggiunti a mano nella voce.

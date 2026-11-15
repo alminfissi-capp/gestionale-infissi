@@ -111,6 +111,11 @@ export interface KitStruttura {
   accessori: AccessorioStruttura[]
   /** Kit contato per ogni anta del nodo (FP PRO: CodiceMacro = 1, es. kit cerniere ES40) */
   perAnta?: boolean
+  /**
+   * Kit ripetuto per ogni anta scorrevole di un tipo (FP PRO: CodiceMacro = 3 "Ripeti per ogni anta
+   * scorrevole" + TipoAnta): 2 = ante fisse, 3 = ante scorrevoli, 4 = ante alzanti scorrevoli.
+   */
+  tipoAnta?: number
   /** Moltiplicatore del kit (FP PRO: Multiply sul kit): tutte le sue righe valgono n volte. Assente = 1 */
   moltiplica?: number
   /**
@@ -307,6 +312,7 @@ function nodo(n: Ogg): NodoStruttura {
       confermato: k.Confirmed === undefined ? !vero(k.Optional) : vero(k.Confirmed),
       accessori: lista(k.FP_FITTING).map(accessorio),
       perAnta: num(k.CodiceMacro) === 1,
+      ...(num(k.CodiceMacro) === 3 && (num(k.TipoAnta) ?? 0) > 0 ? { tipoAnta: num(k.TipoAnta)! } : {}),
       ...((num(k.Multiply) ?? 1) > 1 ? { moltiplica: num(k.Multiply)! } : {}),
     })),
     figli: lista(n.FP_NODE).map(nodo),
