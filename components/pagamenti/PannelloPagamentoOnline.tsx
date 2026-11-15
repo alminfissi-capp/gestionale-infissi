@@ -13,6 +13,7 @@ import { ETICHETTE_STATO, euro, testoWhatsappPagamento } from '@/lib/pagamenti/f
 import { MESSAGGI_BLOCCO } from '@/lib/pagamenti/regole'
 import { nomeMetodo } from '@/lib/pagamenti/metodo'
 import type { ImpostazioniPreventivo } from '@/lib/pagamenti/tipi'
+import { usePermissions } from '@/contexts/PermissionsContext'
 
 interface Props {
   preventivoId: string
@@ -28,12 +29,21 @@ const PERCENTUALI = [20, 30, 40, 50]
 /** Pannello "Pagamento online" del preventivo: l'operatore decide preventivo per preventivo. */
 export default function PannelloPagamentoOnline({ preventivoId, link, clienteAzienda, onTestoWhatsapp }: Props) {
   const [dati, setDati] = useState<PannelloPagamento | null>(null)
+  const [errore, setErrore] = useState<string | null>(null)
   const [inCorso, avvia] = useTransition()
+  const { canEdit } = usePermissions()
+  const puoModificare = canEdit('preventivi')
 
+  // Un errore del pannello non deve mai far cadere la pagina del preventivo: si mostra qui.
   const aggiorna = useCallback(async () => {
-    const d = await getPannelloPagamento(preventivoId)
-    setDati(d)
-    onTestoWhatsapp(link ? testoWhatsappPagamento(d.anteprima, link) : '')
+    try {
+      const d = await getPannelloPagamento(preventivoId)
+      setDati(d)
+      setErrore(null)
+      onTestoWhatsapp(link ? testoWhatsappPagamento(d.anteprima, link) : '')
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : 'Pagamenti non disponibili')
+    }
   }, [preventivoId, link, onTestoWhatsapp])
 
   useEffect(() => { avvia(aggiorna) }, [aggiorna])
@@ -42,12 +52,17 @@ export default function PannelloPagamentoOnline({ preventivoId, link, clienteAzi
     if (!dati) return
     const { preventivo_id: _id, ...attuali } = dati.impostazioni
     avvia(async () => {
-      const r = await salvaImpostazioniPagamento(preventivoId, { ...attuali, ...patch })
-      if (r.errore) { toast.error(r.errore); return }
-      await aggiorna()
+      try {
+        const r = await salvaImpostazioniPagamento(preventivoId, { ...attuali, ...patch })
+        if (r.errore) { toast.error(r.errore); return }
+        await aggiorna()
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Impostazioni non salvate')
+      }
     })
   }
 
+  if (errore && !dati) return <p className="text-sm text-red-600">{errore}</p>
   if (!dati) return <p className="text-sm text-gray-400 flex items-center gap-2"><Loader2 className="size-4 animate-spin" /> Caricamento…</p>
   const imp = dati.impostazioni
   const a = dati.anteprima
@@ -63,7 +78,7 @@ export default function PannelloPagamentoOnline({ preventivoId, link, clienteAzi
         </p>
       )}
       <div className="flex flex-wrap items-center gap-3">
-        <Switch id="pag-attivo" checked={imp.abilitato} onCheckedChange={v => salva({ abilitato: v })} disabled={inCorso} />
+        <Switch id="pag-attivo" checked={imp.abilitato} onCheckedChange={v => salva({ abilitato: v })} disabled={inCorso || !puoModificare} />
         <label htmlFor="pag-attivo" className="font-medium">Pagamento online {imp.abilitato ? 'attivo' : 'spento'}</label>
         {dati.modalita === 'prova' && <Badge variant="secondary">Modalità prova</Badge>}
         {inCorso && <Loader2 className="size-4 animate-spin text-gray-400" />}
@@ -74,28 +89,28 @@ export default function PannelloPagamentoOnline({ preventivoId, link, clienteAzi
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-gray-500 w-24">Si chiede</span>
             {PERCENTUALI.map(p => (
-              <Button key={p} type="button" size="sm" disabled={inCorso}
+              <Button key={p} type="button" size="sm" disabled={inCorso || !puoModificare}
                 variant={imp.modalita === 'percentuale' && imp.acconto_percentuale === p ? 'default' : 'outline'}
                 onClick={() => salva({ modalita: 'percentuale', acconto_percentuale: p })}>{p}%</Button>
             ))}
-            <Input key={String(percentualeLibera)} type="number" min={1} max={99} className="w-20 h-8" placeholder="%" disabled={inCorso}
+            <Input key={String(percentualeLibera)} type="number" min={1} max={99} className="w-20 h-8" placeholder="%" disabled={inCorso || !puoModificare}
               defaultValue={percentualeLibera}
               onBlur={e => { const v = Number(e.target.value); if (v > 0 && v < 100 && v !== imp.acconto_percentuale) salva({ modalita: 'percentuale', acconto_percentuale: v }) }} />
-            <Button type="button" size="sm" disabled={inCorso} variant={imp.modalita === 'totale' ? 'default' : 'outline'}
+            <Button type="button" size="sm" disabled={inCorso || !puoModificare} variant={imp.modalita === 'totale' ? 'default' : 'outline'}
               onClick={() => salva({ modalita: 'totale' })}>Totale</Button>
           </div>
           <label className="flex items-center gap-2">
-            <Switch checked={imp.rate_abilitate && !clienteAzienda} disabled={inCorso || clienteAzienda} onCheckedChange={v => salva({ rate_abilitate: v })} />
+            <Switch checked={imp.rate_abilitate && !clienteAzienda} disabled={inCorso || clienteAzienda || !puoModificare} onCheckedChange={v => salva({ rate_abilitate: v })} />
             Pagamento a rate {clienteAzienda && <span className="text-gray-400">(non disponibile per le aziende)</span>}
           </label>
           {imp.modalita === 'percentuale' && (
             <label className="flex items-center gap-2">
-              <Switch checked={imp.saldo_online} disabled={inCorso} onCheckedChange={v => salva({ saldo_online: v })} />
+              <Switch checked={imp.saldo_online} disabled={inCorso || !puoModificare} onCheckedChange={v => salva({ saldo_online: v })} />
               Dopo l&apos;acconto, il cliente può pagare online anche il saldo
             </label>
           )}
           <label className="flex items-center gap-2">
-            <Switch checked={imp.con_detrazione_fiscale} disabled={inCorso} onCheckedChange={v => salva({ con_detrazione_fiscale: v })} />
+            <Switch checked={imp.con_detrazione_fiscale} disabled={inCorso || !puoModificare} onCheckedChange={v => salva({ con_detrazione_fiscale: v })} />
             Lavoro con detrazione fiscale <span className="text-gray-400">(blocca il pagamento online: serve il bonifico parlante)</span>
           </label>
           <p className="font-medium">

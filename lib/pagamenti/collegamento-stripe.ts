@@ -39,3 +39,18 @@ export async function ricreaWebhook(stripe: StripeLike, url: string, orgId: stri
   if (!nuovo.secret) throw new Error('Stripe non ha restituito il segreto del webhook')
   return { id: nuovo.id, segreto: nuovo.secret }
 }
+
+/**
+ * Toglie il webhook creato con la chiave precedente, usando la chiave precedente: Stripe tiene separati i
+ * webhook di prova, reali e di account diversi, quindi la chiave nuova non li vede. Senza questo il vecchio
+ * resterebbe attivo e fallirebbe a ogni evento. Mai bloccante: chiave revocata o webhook gia' tolto = false.
+ */
+export async function rimuoviWebhookPrecedente(stripeVecchio: StripeLike | null, idVecchio: string | null): Promise<boolean> {
+  if (!stripeVecchio || !idVecchio) return false
+  try {
+    await stripeVecchio.webhookEndpoints.del(idVecchio)
+    return true
+  } catch {
+    return false
+  }
+}

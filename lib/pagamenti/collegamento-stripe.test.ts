@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EVENTI_WEBHOOK, modalitaChiave, ricreaWebhook, type StripeLike } from './collegamento-stripe'
+import { EVENTI_WEBHOOK, modalitaChiave, ricreaWebhook, rimuoviWebhookPrecedente, type StripeLike } from './collegamento-stripe'
 
 function stripeFinto(iniziali: { id: string; url: string; metadata: Record<string, string> }[]) {
   const endpoint = [...iniziali]
@@ -37,5 +37,22 @@ describe('collegamento Stripe', () => {
     expect(modalitaChiave('sk_live_abc')).toBe('reale')
     expect(modalitaChiave('pk_test_abc')).toBeNull()
     expect(modalitaChiave('qualcosa')).toBeNull()
+  })
+})
+
+describe('cambio di chiave fra prova e reale (account separati per Stripe)', () => {
+  it('il webhook della chiave vecchia si toglie con la chiave vecchia', async () => {
+    const prova = stripeFinto([{ id: 'we_prova', url: 'https://winstudio/api/stripe/webhook/org1', metadata: { winstudio_org: 'org1' } }])
+    const reale = stripeFinto([])
+    await rimuoviWebhookPrecedente(prova.s, 'we_prova')
+    await ricreaWebhook(reale.s, 'https://winstudio/api/stripe/webhook/org1', 'org1')
+    expect(prova.endpoint).toEqual([])
+    expect(reale.endpoint).toHaveLength(1)
+  })
+
+  it("chiave vecchia revocata o webhook gia' tolto: non blocca il nuovo collegamento", async () => {
+    const rotto: StripeLike = { webhookEndpoints: { list: async () => ({ data: [] }), del: async () => { throw new Error('revoked') }, create: async () => ({ id: 'x' }) } }
+    await expect(rimuoviWebhookPrecedente(rotto, 'we_x')).resolves.toBe(false)
+    await expect(rimuoviWebhookPrecedente(null, null)).resolves.toBe(false)
   })
 })

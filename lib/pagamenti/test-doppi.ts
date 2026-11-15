@@ -69,8 +69,21 @@ export class ArchivioMemoria implements Archivio {
     Object.assign(p, patch)
     return { ...p }
   }
-  async commessaDelPreventivo(id: string) { return this.db.commesse.get(id) ?? null }
+  /** Chiamate a commessaDelPreventivo: (preventivo, organizzazione) */
+  chiamateCommessa: [string, string][] = []
+  /** Quante registrazioni di acconto falliscono prima di riuscire (guasto del database) */
+  guastiRegistrazione = 0
+  async commessaDelPreventivo(id: string, organizationId: string) {
+    this.chiamateCommessa.push([id, organizationId])
+    return this.db.commesse.get(id) ?? null
+  }
+  async eliminaAccontoDaPagamento(p: Pagamento) {
+    const prima = this.acconti.length
+    this.acconti = this.acconti.filter(a => a.pagamento_id !== p.id)
+    return this.acconti.length < prima
+  }
   async registraAccontoDaPagamento(p: Pagamento, commessaId: string, metodo: string | null) {
+    if (this.guastiRegistrazione > 0) { this.guastiRegistrazione--; throw new Error('database non raggiungibile') }
     if (this.acconti.some(a => a.pagamento_id === p.id)) return null
     const id = `acc_${this.acconti.length + 1}`
     this.acconti.push({ id, pagamento_id: p.id, commessa_id: commessaId, importo: p.importo, metodo })
@@ -87,5 +100,10 @@ export class GatewayFinto implements Gateway {
     return { id, url: `https://checkout.example/${id}` }
   }
   async scadiSessione(id: string) { this.scadute.push(id) }
-  async metodoDaPaymentIntent() { return 'klarna' }
+  /** Stripe non risponde sul metodo (chiave limitata, account cambiato) */
+  metodoGuasto = false
+  async metodoDaPaymentIntent() {
+    if (this.metodoGuasto) throw new Error('permission denied')
+    return 'klarna'
+  }
 }

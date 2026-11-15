@@ -419,6 +419,15 @@ export async function setPreventiviCommessa(
   const supabase = await createClient()
   const orgId = await getOrgId()
 
+  // Solo preventivi della propria organizzazione (la RLS di preventivi_commessa controlla solo organization_id):
+  // un preventivo altrui collegato porterebbe in commessa i suoi pagamenti online.
+  const idPreventivi = [...new Set(items.map((i) => i.preventivo_id).filter((x): x is string => !!x))]
+  if (idPreventivi.length > 0) {
+    const { data: miei, error: eMiei } = await supabase.from('preventivi').select('id').in('id', idPreventivi).eq('organization_id', orgId)
+    if (eMiei) throw new Error(eMiei.message)
+    if ((miei ?? []).length !== idPreventivi.length) throw new Error('Preventivo non trovato')
+  }
+
   const { data: existing } = await supabase
     .from('preventivi_commessa')
     .select('storage_path')

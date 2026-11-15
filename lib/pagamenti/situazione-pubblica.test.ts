@@ -41,3 +41,16 @@ describe('cosa vede il cliente', () => {
     expect(situazioneDaEsito(p, esito, [], { iban: '', intestatario: 'x' }).bonifico).toBeNull()
   })
 })
+
+describe('subito dopo la firma', () => {
+  it('firma non ancora confermata e pagamento attivo: avviso "tra un momento" invece di niente', () => {
+    const p = prev({ stato: 'inviato', firma_stato: 'in_attesa' })
+    const esito = calcolaOpzioni({ preventivo: p, impostazioni: { ...IMPOSTAZIONI_PREDEFINITE, preventivo_id: 'p1', abilitato: true }, pagamenti: [], parametri: PARAMETRI_PROVA })
+    expect(situazioneDaEsito(p, esito, [], banca).inAttesaFirma).toBe(true)
+  })
+  it('pagamento non attivo: nessun avviso', () => {
+    const p = prev({ stato: 'inviato', firma_stato: 'in_attesa' })
+    const esito = calcolaOpzioni({ preventivo: p, impostazioni: null, pagamenti: [], parametri: PARAMETRI_PROVA })
+    expect(situazioneDaEsito(p, esito, [], banca).inAttesaFirma).toBe(false)
+  })
+})

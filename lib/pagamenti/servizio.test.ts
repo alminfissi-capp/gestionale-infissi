@@ -106,3 +106,40 @@ describe("metodo dell'acconto", () => {
     expect(metodoAcconto(null)).toBe('carta')
   })
 })
+
+describe('correzioni della revisione finale', () => {
+  it("se la registrazione dell'acconto fallisce, il nuovo tentativo di Stripe la completa", async () => {
+    await avviaPagamento('demo-privato-1700', 'acconto', d)
+    d.archivio.guastiRegistrazione = 1
+    const ev = { tipo: 'riuscito' as const, sessionId: 'cs_test_1', paymentIntentId: 'pi_1' }
+    await expect(gestisciEvento(ev, d)).rejects.toThrow()
+    const r = await gestisciEvento(ev, d)
+    expect(r.esito).toBe('aggiornato')
+    expect(d.archivio.acconti).toHaveLength(1)
+    expect((await d.archivio.pagamentoDaSessione('cs_test_1'))?.acconto_commessa_id).toBeTruthy()
+    expect((await gestisciEvento(ev, d)).esito).toBe('ignorato') // terzo arrivo: niente di nuovo
+  })
+
+  it('se Stripe non dice il metodo, il pagamento si registra lo stesso', async () => {
+    await avviaPagamento('demo-privato-1700', 'acconto', d)
+    d.gateway.metodoGuasto = true
+    const r = await gestisciEvento({ tipo: 'riuscito', sessionId: 'cs_test_1', paymentIntentId: 'pi_1' }, d)
+    expect(r.pagamento).toMatchObject({ stato: 'pagato', metodo: null })
+    expect(d.archivio.acconti).toHaveLength(1)
+  })
+
+  it("rimborso totale: l'acconto esce dalla commessa (niente doppio conteggio col pagamento successivo)", async () => {
+    await avviaPagamento('demo-privato-1700', 'acconto', d)
+    await gestisciEvento({ tipo: 'riuscito', sessionId: 'cs_test_1', paymentIntentId: 'pi_1' }, d)
+    expect(d.archivio.acconti).toHaveLength(1)
+    await gestisciEvento({ tipo: 'rimborsato', paymentIntentId: 'pi_1' }, d)
+    expect(d.archivio.acconti).toHaveLength(0)
+    expect((await d.archivio.pagamentoDaSessione('cs_test_1'))?.stato).toBe('rimborsato')
+  })
+
+  it("la commessa si cerca nell'organizzazione del preventivo", async () => {
+    await avviaPagamento('demo-privato-1700', 'acconto', d)
+    await gestisciEvento({ tipo: 'riuscito', sessionId: 'cs_test_1', paymentIntentId: 'pi_1' }, d)
+    expect(d.archivio.chiamateCommessa).toEqual([['00000000-0000-4000-9000-000000000001', '00000000-0000-4000-8000-000000000001']])
+  })
+})

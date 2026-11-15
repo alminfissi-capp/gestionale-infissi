@@ -19,5 +19,5 @@ export const parametriPagamenti = (): ParametriPagamenti => ({
 export async function dipendenzePagamenti(orgId: string): Promise<Dipendenze | null> {
   const chiave = await leggiSegreto(orgId, 'stripe', 'chiave_segreta')
   if (!chiave) return null
-  return { archivio: creaArchivioSupabase(createServiceClient()), gateway: creaGatewayStripe(chiave), parametri: parametriPagamenti() }
+  return { archivio: creaArchivioSupabase(createServiceClient(), orgId), gateway: creaGatewayStripe(chiave), parametri: parametriPagamenti() }
 }

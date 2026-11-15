@@ -9,9 +9,10 @@ import { situazioneDaEsito, type SituazionePubblica } from './situazione-pubblic
 /** null = preventivo inesistente. Senza Stripe collegato il pagamento online risulta non attivo. */
 export async function caricaSituazionePubblica(shareToken: string): Promise<SituazionePubblica | null> {
   const service = createServiceClient()
-  const archivio = creaArchivioSupabase(service)
-  const p = await archivio.preventivoDaToken(shareToken)
+  const p = await creaArchivioSupabase(service).preventivoDaToken(shareToken)
   if (!p) return null
+  // Da qui in poi tutto nell'organizzazione del preventivo
+  const archivio = creaArchivioSupabase(service, p.organization_id)
   const [impostazioni, pagamenti, chiave, { data: s }] = await Promise.all([
     archivio.impostazioni(p.id),
     archivio.pagamenti(p.id),

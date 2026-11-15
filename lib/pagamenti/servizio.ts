@@ -121,6 +121,15 @@ export function normalizzaEventoStripe(e: Stripe.Event): EventoPagamento | null 
 }
 
 
+/** Acconto in commessa se il preventivo ne ha gia' una (nella sua organizzazione); altrimenti arriva alla creazione. */
+async function registraAcconto(p: Pagamento, metodo: string | null, d: Dipendenze): Promise<Pagamento | null> {
+  const commessa = await d.archivio.commessaDelPreventivo(p.preventivo_id, p.organization_id);
+  if (!commessa) return null;
+  const idAcconto = await d.archivio.registraAccontoDaPagamento(p, commessa, metodo);
+  if (!idAcconto) return null;
+  return (await d.archivio.aggiornaStato(p.stripe_session_id, ['pagato'], { acconto_commessa_id: idAcconto })) ?? p;
+}
+
 export async function gestisciEvento(
   ev: EventoPagamento,
   d: Dipendenze,
@@ -128,8 +137,9 @@ export async function gestisciEvento(
   const { archivio } = d;
   switch (ev.tipo) {
     case 'riuscito': {
+      // Il metodo e' un di piu': se Stripe non risponde (chiave limitata, account cambiato) si registra senza.
       const metodo =
-        ev.metodo ?? (ev.paymentIntentId ? await d.gateway.metodoDaPaymentIntent(ev.paymentIntentId) : null);
+        ev.metodo ?? (ev.paymentIntentId ? await d.gateway.metodoDaPaymentIntent(ev.paymentIntentId).catch(() => null) : null);
       // Anche una sessione "annullata/scaduta" può risultare pagata (il cliente era già dentro
       // il checkout): i soldi sono arrivati, quindi va registrata comunque.
       const p = await archivio.aggiornaStato(ev.sessionId, ['creato', 'in_attesa', 'annullato', 'scaduto', 'fallito'], {
@@ -138,17 +148,15 @@ export async function gestisciEvento(
         stripe_payment_intent: ev.paymentIntentId,
         pagato_at: new Date().toISOString(),
       });
-      if (!p) return { esito: 'ignorato' }; // già registrato (evento ripetuto) o sessione sconosciuta
-      // Acconto in commessa se il preventivo ne ha gia' una; altrimenti arriva quando la commessa viene creata.
-      const commessa = await archivio.commessaDelPreventivo(p.preventivo_id);
-      if (commessa) {
-        const idAcconto = await archivio.registraAccontoDaPagamento(p, commessa, metodo);
-        if (idAcconto) {
-          const agg = await archivio.aggiornaStato(ev.sessionId, ['pagato'], { acconto_commessa_id: idAcconto });
-          return { esito: 'aggiornato', pagamento: agg ?? p };
-        }
+      if (!p) {
+        // Gia' pagato (evento ripetuto). Se il tentativo precedente si era fermato dopo il "pagato" e prima
+        // dell'acconto, Stripe riprova: qui si completa l'acconto (idempotente).
+        const gia = await archivio.pagamentoDaSessione(ev.sessionId);
+        if (gia?.stato !== 'pagato' || gia.acconto_commessa_id) return { esito: 'ignorato' };
+        const completato = await registraAcconto(gia, gia.metodo, d);
+        return completato ? { esito: 'aggiornato', pagamento: completato } : { esito: 'ignorato' };
       }
-      return { esito: 'aggiornato', pagamento: p };
+      return { esito: 'aggiornato', pagamento: (await registraAcconto(p, metodo, d)) ?? p };
     }
     case 'in_attesa': {
       const p = await archivio.aggiornaStato(ev.sessionId, ['creato'], {
@@ -169,7 +177,11 @@ export async function gestisciEvento(
       const trovato = await archivio.pagamentoDaPaymentIntent(ev.paymentIntentId);
       if (!trovato) return { esito: 'ignorato' };
       const p = await archivio.aggiornaStato(trovato.stripe_session_id, ['pagato'], { stato: 'rimborsato' });
-      return p ? { esito: 'aggiornato', pagamento: p } : { esito: 'ignorato' };
+      if (!p) return { esito: 'ignorato' };
+      // I soldi sono tornati al cliente: l'acconto esce dalla commessa (saldo, incassi e statistiche giusti,
+      // e un nuovo pagamento non viene contato due volte).
+      await archivio.eliminaAccontoDaPagamento(p);
+      return { esito: 'aggiornato', pagamento: { ...p, acconto_commessa_id: null } };
     }
   }
 }

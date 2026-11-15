@@ -10,7 +10,7 @@ import type { TipoPagamento } from '@/lib/pagamenti/tipi'
 export default function RiquadroPagamento({ token, situazione: s }: { token: string; situazione: SituazionePubblica }) {
   const [inCorso, setInCorso] = useState<TipoPagamento | null>(null)
   const [errore, setErrore] = useState<string | null>(null)
-  if (!s.pagabile && !s.bonifico && !s.inConferma) return null
+  if (!s.pagabile && !s.bonifico && !s.inConferma && !s.inAttesaFirma) return null
 
   const paga = async (tipo: TipoPagamento) => {
     setInCorso(tipo)
@@ -45,7 +45,12 @@ export default function RiquadroPagamento({ token, situazione: s }: { token: str
           </button>
         </div>
       ))}
-      {!s.pagabile && s.messaggio && !s.inConferma && <p className="text-sm text-gray-600">{s.messaggio}</p>}
+      {s.inAttesaFirma ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-600">
+          <p>Stiamo ricevendo la conferma della firma: il pagamento sarà disponibile tra pochi secondi.</p>
+          <button type="button" onClick={() => window.location.reload()} className="rounded-md border px-3 py-1.5">Aggiorna</button>
+        </div>
+      ) : !s.pagabile && s.messaggio && !s.inConferma && <p className="text-sm text-gray-600">{s.messaggio}</p>}
       {errore && <p className="text-sm text-red-600">{errore}</p>}
       {s.bonifico && (
         <div className="rounded-lg bg-gray-50 p-4 text-sm space-y-1">

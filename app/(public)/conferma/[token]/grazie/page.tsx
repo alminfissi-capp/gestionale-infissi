@@ -102,7 +102,7 @@ export default async function GraziePerLaFirmaPage({ params }: Props) {
           Grazie! La firma è stata acquisita correttamente.
           Riceverete conferma via email con il documento firmato.
         </p>
-        {!pagamento?.pagabile && (
+        {!pagamento?.pagabile && !pagamento?.inAttesaFirma && (
           <p className="text-xs text-gray-400 pt-2">
             Questa pagina può essere chiusa.
           </p>

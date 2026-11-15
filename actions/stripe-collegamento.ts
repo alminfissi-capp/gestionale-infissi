@@ -5,7 +5,7 @@ import { getOrgId } from '@/lib/auth'
 import { requireAccesso } from '@/lib/permessi'
 import { cancellaSegreto, leggiSegreto, scriviSegreto } from '@/lib/integrazioni'
 import { clientStripe } from '@/lib/pagamenti/gateway'
-import { modalitaChiave, ricreaWebhook, type StripeLike } from '@/lib/pagamenti/collegamento-stripe'
+import { modalitaChiave, ricreaWebhook, rimuoviWebhookPrecedente, type StripeLike } from '@/lib/pagamenti/collegamento-stripe'
 
 const urlWebhook = (orgId: string) => `${(process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')}/api/stripe/webhook/${orgId}`
 
@@ -26,6 +26,11 @@ export async function collegaStripe(chiave: string): Promise<{ errore?: string; 
     await stripe.balance.retrieve()
   } catch (e) {
     return { errore: `Stripe rifiuta la chiave: ${e instanceof Error ? e.message : String(e)}` }
+  }
+  // Webhook della chiave precedente (altra modalita' o altro account): si toglie con quella chiave.
+  const [chiaveVecchia, idVecchio] = await Promise.all([leggiSegreto(orgId, 'stripe', 'chiave_segreta'), leggiSegreto(orgId, 'stripe', 'id_webhook')])
+  if (chiaveVecchia && chiaveVecchia !== k) {
+    await rimuoviWebhookPrecedente(clientStripe(chiaveVecchia) as unknown as StripeLike, idVecchio)
   }
   let webhook: { id: string; segreto: string }
   try {

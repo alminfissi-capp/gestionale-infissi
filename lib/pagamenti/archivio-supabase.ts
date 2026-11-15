@@ -13,21 +13,28 @@ const prev = (r: Record<string, unknown> | null): Preventivo | null =>
   r ? { ...(r as unknown as Preventivo), numero: String(r.numero ?? ''), totale_finale: Number(r.totale_finale ?? 0) } : null
 const pag = (r: Record<string, unknown> | null): Pagamento | null => (r ? { ...(r as unknown as Pagamento), importo: Number(r.importo) } : null)
 
-export function creaArchivioSupabase(db: SupabaseClient): Archivio {
+/**
+ * `orgId`: se dato, ogni lettura e scrittura dei pagamenti resta in quell'organizzazione (webhook e checkout
+ * sanno di quale organizzazione si tratta: un evento non puo' toccare pagamenti di un'altra).
+ */
+export function creaArchivioSupabase(db: SupabaseClient, orgId?: string): Archivio {
+  // Filtro dell'organizzazione sulla query (tipo generico: i builder di PostgREST sono troppo profondi per i generici di TS).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const inOrg = <Q,>(q: Q): Q => (orgId ? (q as any).eq('organization_id', orgId) : q)
   return {
     async preventivoDaToken(token) {
       if (!UUID.test(token)) return null
-      const { data, error } = await db.from('preventivi').select(CAMPI_PREVENTIVO).eq('share_token', token).maybeSingle()
+      const { data, error } = await inOrg(db.from('preventivi').select(CAMPI_PREVENTIVO).eq('share_token', token)).maybeSingle()
       if (error) throw error
       return prev(data)
     },
     async preventivoDaId(id) {
-      const { data, error } = await db.from('preventivi').select(CAMPI_PREVENTIVO).eq('id', id).maybeSingle()
+      const { data, error } = await inOrg(db.from('preventivi').select(CAMPI_PREVENTIVO).eq('id', id)).maybeSingle()
       if (error) throw error
       return prev(data)
     },
     async impostazioni(preventivoId) {
-      const { data, error } = await db.from('pagamenti_impostazioni_preventivo').select(CAMPI_IMPOSTAZIONI).eq('preventivo_id', preventivoId).maybeSingle()
+      const { data, error } = await inOrg(db.from('pagamenti_impostazioni_preventivo').select(CAMPI_IMPOSTAZIONI).eq('preventivo_id', preventivoId)).maybeSingle()
       if (error) throw error
       return normalizzaImpostazioni(data)
     },
@@ -39,17 +46,17 @@ export function creaArchivioSupabase(db: SupabaseClient): Archivio {
       return normalizzaImpostazioni(data)!
     },
     async pagamenti(preventivoId) {
-      const { data, error } = await db.from('pagamenti_online').select('*').eq('preventivo_id', preventivoId).order('created_at')
+      const { data, error } = await inOrg(db.from('pagamenti_online').select('*').eq('preventivo_id', preventivoId)).order('created_at')
       if (error) throw error
       return (data ?? []).map(r => pag(r)!)
     },
     async pagamentoDaSessione(sessionId) {
-      const { data, error } = await db.from('pagamenti_online').select('*').eq('stripe_session_id', sessionId).maybeSingle()
+      const { data, error } = await inOrg(db.from('pagamenti_online').select('*').eq('stripe_session_id', sessionId)).maybeSingle()
       if (error) throw error
       return pag(data)
     },
     async pagamentoDaPaymentIntent(pi) {
-      const { data, error } = await db.from('pagamenti_online').select('*').eq('stripe_payment_intent', pi).maybeSingle()
+      const { data, error } = await inOrg(db.from('pagamenti_online').select('*').eq('stripe_payment_intent', pi)).maybeSingle()
       if (error) throw error
       return pag(data)
     },
@@ -60,18 +67,29 @@ export function creaArchivioSupabase(db: SupabaseClient): Archivio {
     },
     async aggiornaStato(sessionId: string, daStati: StatoPagamento[], patch) {
       // Update condizionato e atomico: due webhook identici in parallelo ne aggiornano uno solo.
-      const { data, error } = await db.from('pagamenti_online').update({ ...patch, updated_at: new Date().toISOString() })
-        .eq('stripe_session_id', sessionId).in('stato', daStati).select('*').maybeSingle()
+      const { data, error } = await inOrg(db.from('pagamenti_online').update({ ...patch, updated_at: new Date().toISOString() })
+        .eq('stripe_session_id', sessionId)).in('stato', daStati).select('*').maybeSingle()
       if (error) throw error
       return pag(data)
     },
-    async commessaDelPreventivo(preventivoId) {
-      const { data, error } = await db.from('preventivi_commessa').select('commessa_id').eq('preventivo_id', preventivoId).limit(1).maybeSingle()
+    async commessaDelPreventivo(preventivoId, organizationId) {
+      // Solo commesse dell'organizzazione del preventivo: un collegamento verso un preventivo altrui non conta.
+      const { data, error } = await db.from('preventivi_commessa').select('commessa_id, commesse!inner(organization_id, created_at)')
+        .eq('preventivo_id', preventivoId).eq('organization_id', organizationId).eq('commesse.organization_id', organizationId)
+        .order('created_at', { ascending: true }).limit(1).maybeSingle()
       if (error) throw error
       if (data?.commessa_id) return data.commessa_id as string
       // Commesse vecchie: legame nella colonna commesse.preventivo_id (vale quando la tabella dei collegamenti e' vuota)
-      const { data: vecchia } = await db.from('commesse').select('id').eq('preventivo_id', preventivoId).limit(1).maybeSingle()
+      const { data: vecchia } = await db.from('commesse').select('id').eq('preventivo_id', preventivoId)
+        .eq('organization_id', organizationId).order('created_at', { ascending: true }).limit(1).maybeSingle()
       return (vecchia?.id as string | undefined) ?? null
+    },
+    async eliminaAccontoDaPagamento(p) {
+      const { data, error } = await db.from('acconti_commessa').delete()
+        .eq('pagamento_online_id', p.id).eq('organization_id', p.organization_id).select('id')
+      // Errore = l'acconto e' gia' stato scritto come incasso su Fatture in Cloud (vincolo): resta, si toglie a mano.
+      if (error) { console.error('[pagamenti] acconto del rimborso non tolto', p.id, error.message); return false }
+      return (data ?? []).length > 0
     },
     async registraAccontoDaPagamento(p, commessaId, metodo) {
       const { data: pr } = await db.from('preventivi').select('numero').eq('id', p.preventivo_id).maybeSingle()

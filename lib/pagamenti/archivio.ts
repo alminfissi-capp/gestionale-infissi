@@ -28,7 +28,10 @@ export interface Archivio {
     patch: Partial<Pick<Pagamento, 'stato' | 'metodo' | 'stripe_payment_intent' | 'pagato_at' | 'acconto_commessa_id'>>,
   ): Promise<Pagamento | null>
   pagamentoDaPaymentIntent(paymentIntentId: string): Promise<Pagamento | null>
-  commessaDelPreventivo(preventivoId: string): Promise<string | null>
+  /** Commessa del preventivo nella sua organizzazione (mai una commessa di un'altra organizzazione) */
+  commessaDelPreventivo(preventivoId: string, organizationId: string): Promise<string | null>
+  /** Toglie l'acconto di un pagamento rimborsato; false se non c'era o non si puo' togliere (gia' su Fatture in Cloud) */
+  eliminaAccontoDaPagamento(p: Pagamento): Promise<boolean>
   /** Acconto in commessa per un pagamento riuscito; null se c'e' gia' (vincolo unico su pagamento_online_id). */
   registraAccontoDaPagamento(p: Pagamento, commessaId: string, metodo: string | null): Promise<string | null>
 }

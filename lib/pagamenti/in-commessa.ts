@@ -7,12 +7,16 @@ import type { Pagamento } from './tipi'
 
 /** Restituisce quanti acconti ha aggiunto. Va chiamata dopo aver verificato che la commessa e' dell'utente. */
 export async function registraPagamentiInCommessa(db: SupabaseClient, commessaId: string): Promise<number> {
-  const { data: link, error } = await db.from('preventivi_commessa').select('preventivo_id').eq('commessa_id', commessaId)
+  const { data: comm } = await db.from('commesse').select('organization_id').eq('id', commessaId).maybeSingle()
+  const orgId = comm?.organization_id as string | undefined
+  if (!orgId) return 0
+  // Solo pagamenti dell'organizzazione della commessa: un preventivo altrui collegato per errore non porta niente.
+  const { data: link, error } = await db.from('preventivi_commessa').select('preventivo_id').eq('commessa_id', commessaId).eq('organization_id', orgId)
   if (error) throw new Error(error.message)
   const preventivi = [...new Set((link ?? []).map(l => l.preventivo_id as string | null).filter((x): x is string => !!x))]
   if (preventivi.length === 0) return 0
 
-  const { data: pag, error: e2 } = await db.from('pagamenti_online').select('*').in('preventivo_id', preventivi).eq('stato', 'pagato')
+  const { data: pag, error: e2 } = await db.from('pagamenti_online').select('*').in('preventivo_id', preventivi).eq('organization_id', orgId).eq('stato', 'pagato')
   if (e2) throw new Error(e2.message)
   const pagamenti = (pag ?? []) as Pagamento[]
   if (pagamenti.length === 0) return 0

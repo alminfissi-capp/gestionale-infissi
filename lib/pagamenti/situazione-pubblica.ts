@@ -8,6 +8,8 @@ export interface SituazionePubblica {
   messaggio: string | null
   opzioni: { tipo: TipoPagamento; importo: number; etichetta: string; rateIndicative: string[] }[]
   inConferma: boolean
+  /** Firma fatta ma non ancora confermata da openapi.it, con pagamento attivo: "disponibile tra un momento" */
+  inAttesaFirma: boolean
   giaPagato: number
   bonifico: { iban: string; intestatario: string; causale: string } | null
 }
@@ -29,6 +31,8 @@ export function situazioneDaEsito(
     messaggio: esito.pagabile ? null : MESSAGGI_BLOCCO[esito.motivo],
     opzioni: esito.pagabile ? esito.opzioni.map(o => ({ tipo: o.tipo, importo: o.importo, etichetta: o.etichetta, rateIndicative: o.rateIndicative })) : [],
     inConferma: pagamenti.some(x => x.stato === 'in_attesa'),
+    // 'non_accettato' arriva solo dopo i controlli di attivazione e detrazione: il pagamento e' attivo
+    inAttesaFirma: !esito.pagabile && esito.motivo === 'non_accettato' && p.firma_stato === 'in_attesa',
     giaPagato: esito.giaPagato,
     bonifico,
   }

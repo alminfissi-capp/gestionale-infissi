@@ -24,7 +24,7 @@ export interface PannelloPagamento {
 /** Preventivo della propria organizzazione, o errore: il service role non deve aprire preventivi altrui. */
 async function preventivoMio(preventivoId: string) {
   const orgId = await getOrgId()
-  const archivio = creaArchivioSupabase(createServiceClient())
+  const archivio = creaArchivioSupabase(createServiceClient(), orgId)
   const p = await archivio.preventivoDaId(preventivoId)
   if (!p || p.organization_id !== orgId) throw new Error('Preventivo non trovato')
   return { orgId, archivio, p }
