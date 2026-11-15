@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from 'vitest'
-import { accostamentiDaCampione, applicaAccostamenti } from './accostamenti'
+import { accostamentiDaCampione, accostamentiPlausibili, applicaAccostamenti, firmaProfili, sceltaAccostamenti } from './accostamenti'
 import { LARGHEZZE_PREDEFINITE, pezziECampi } from './geometria'
 import type { NodoStruttura, PezzoStruttura } from '../strutture-xml'
 
@@ -43,5 +43,31 @@ describe('accostamenti di FP PRO', () => {
   it('senza accostamento resta la stima di WinStudio', () => {
     const { campi } = pezziECampi(campione(), { L: 1480, H: 2410, L0: 1480, H0: 2410, quote: {} }, LARGHEZZE_PREDEFINITE, sezione)
     expect(Math.round(campi[0].l)).toBe(659)
+  })
+})
+
+describe('scelta degli accostamenti per profili', () => {
+  it('firma = profili senza vetri, maiuscoli, ordinati, senza doppioni', () => {
+    expect(firmaProfili(campione())).toBe('UP61833,UP61851')
+  })
+
+  it('vale solo la variante con gli stessi profili', () => {
+    const nodi = accostamentiDaCampione(campione(), { L: 1480, H: 2410 }, LARGHEZZE_PREDEFINITE, sezione)
+    const varianti = [{ profili: 'UP61810,UP61851', nodi: {} }, { profili: 'UP61833,UP61851', nodi }]
+    expect(sceltaAccostamenti(campione(), varianti)).toMatchObject({ nodi, esatta: true })
+    expect(sceltaAccostamenti(campione(), undefined)).toBeNull()
+    expect(sceltaAccostamenti(campione(), [])).toBeNull()
+  })
+
+  it('senza la variante esatta usa quella con piu\' profili in comune', () => {
+    const vicina = { profili: 'UP61810,UP61833,UP61851', nodi: {} }
+    const lontana = { profili: 'ES2350,ES2354', nodi: {} }
+    expect(sceltaAccostamenti(campione(), [lontana, vicina])).toMatchObject({ profili: vicina.profili, esatta: false })
+  })
+
+  it('scarta campioni vuoti o sballati', () => {
+    expect(accostamentiPlausibili({})).toBe(false)
+    expect(accostamentiPlausibili({ 2: { ante: { sx: 11.5, dx: 11.5, alto: 11.5, basso: 11.5, fuga: 40.1 } } })).toBe(true)
+    expect(accostamentiPlausibili({ 3: { riempimento: { l: 900, h: 17 } } })).toBe(false)
   })
 })

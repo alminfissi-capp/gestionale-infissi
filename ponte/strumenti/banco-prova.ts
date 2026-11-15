@@ -16,7 +16,7 @@ import { regoleDaElenchi, type RigaKitCatalogo } from '../../lib/fppro/calcolo/a
 import { LARGHEZZE_PREDEFINITE, pezziECampi } from '../../lib/fppro/calcolo/geometria'
 import { confrontaAccessori, type ConfrontoAccessori } from '../../lib/fppro/calcolo/confronto-fp'
 import { datiFissaggi } from '../../lib/fppro/calcolo/fissaggi'
-import { accostamentiDaCampione, applicaAccostamenti } from '../../lib/fppro/calcolo/accostamenti'
+import { accostamentiDaCampione, applicaAccostamenti, firmaProfili } from '../../lib/fppro/calcolo/accostamenti'
 import { larghezzeDaPoligoni } from '../../lib/fppro/calcolo/geometria'
 import type { AccostamentoNodo } from '../../lib/fppro/strutture-xml'
 import type { ProfiloCalcolo } from '../../lib/fppro/calcolo/tipi'
@@ -100,11 +100,9 @@ let usatiAccostamenti = 0
 
 // Chiave del campione: struttura + profili usati (vetri e pannelli esclusi): un telaio diverso sposta le ante
 // (02-MOND_FIN2A_ZOCC: ES2352 -7,6 mm, ES2350 +12,35 mm).
-const profiliDi = (nodi: ReturnType<typeof strutturaDaXml>['albero']): string[] =>
-  nodi.flatMap(nd => [...nd.pezzi.filter(p => p.tipo !== 8510 && p.tipo !== 8500).map(p => codiceDaDxf(p.dxf)), ...profiliDi(nd.figli)])
 
 function campioneDi(nomeCommessa: string, nv: number, nomeStruttura: string, albero: ReturnType<typeof strutturaDaXml>, L: number, H: number) {
-  const struttura = `${nomeStruttura}|${[...new Set(profiliDi(albero.albero))].sort().join(',')}`
+  const struttura = `${nomeStruttura}|${firmaProfili(albero.albero)}`
   const c = campioni.get(struttura)
   if (c) return c.commessa === nomeCommessa && c.voce === nv ? null : c
   const acc = accostamentiDaCampione(albero.albero, { L, H }, larghezzeDaPoligoni(albero.poligoni), d => sezione(d))

@@ -77,3 +77,52 @@ export function applicaAccostamenti(albero: NodoStruttura[], accostamenti: Recor
   })
   return copia
 }
+
+/** Accostamenti di una struttura con un certo insieme di profili (riga di fp_accostamenti) */
+export interface VarianteAccostamenti {
+  /** Codici dei profili usati, senza vetri e pannelli, ordinati e separati da virgola (firmaProfili) */
+  profili: string
+  nodi: Record<string, AccostamentoNodo>
+}
+
+const profiliDi = (nodi: NodoStruttura[]): string[] => nodi.flatMap(n => [
+  ...n.pezzi.filter(p => p.tipo !== 8510 && p.tipo !== 8500)
+    .map(p => p.dxf.slice(Math.max(p.dxf.lastIndexOf('\\'), p.dxf.lastIndexOf('/')) + 1).replace(/\.dxf$/i, '').toUpperCase()),
+  ...profiliDi(n.figli),
+])
+
+/**
+ * Firma dei profili di un albero: un telaio o un'anta diversi spostano le ante
+ * (02-MOND_FIN2A_ZOCC: telaio ES2352 -7,6 mm, ES2350 +12,35 mm), quindi gli accostamenti valgono solo a profili uguali.
+ */
+export function firmaProfili(albero: NodoStruttura[]): string {
+  return [...new Set(profiliDi(albero))].filter(Boolean).sort().join(',')
+}
+
+/**
+ * Variante da usare per l'albero della voce: quella con gli stessi profili; altrimenti quella della
+ * stessa struttura con piu' profili in comune (piccole variazioni, es. il profilo in basso di una porta,
+ * non spostano ante e vetri: scelta dell'utente 2026-11-15). null = struttura mai calcolata in FP PRO.
+ */
+export function sceltaAccostamenti(
+  albero: NodoStruttura[], varianti: VarianteAccostamenti[] | undefined,
+): (VarianteAccostamenti & { esatta: boolean }) | null {
+  if (!varianti || varianti.length === 0) return null
+  const firma = firmaProfili(albero)
+  const esatta = varianti.find(v => v.profili === firma)
+  if (esatta) return { ...esatta, esatta: true }
+  const miei = new Set(firma.split(','))
+  const somiglianza = (v: VarianteAccostamenti) => {
+    const suoi = v.profili.split(',')
+    const comuni = suoi.filter(c => miei.has(c)).length
+    return comuni / (miei.size + suoi.length - comuni)
+  }
+  const migliore = [...varianti].sort((a, b) => somiglianza(b) - somiglianza(a))[0]
+  return { ...migliore, esatta: false }
+}
+
+/** Accostamenti plausibili: un campione strano (ante non trovate, misure sballate) non si salva. */
+export function accostamentiPlausibili(nodi: Record<string, AccostamentoNodo>): boolean {
+  const valori = Object.values(nodi).flatMap(a => [...Object.values(a.ante ?? {}), ...Object.values(a.riempimento ?? {})])
+  return valori.length > 0 && valori.every(v => Number.isFinite(v) && Math.abs(v) <= 300)
+}
