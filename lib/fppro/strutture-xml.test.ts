@@ -184,3 +184,30 @@ describe('regole complete delle righe accessorio (caso Vazzana, cerniere a scomp
     expect(catenaccio.apertura).toBe(0)
   })
 })
+
+describe('giunzioni e filtri di fissaggio dei pezzi (squadrette per angolo)', () => {
+  const parser = new XMLParser(OPZIONI_XML)
+  const pezzo = (interno: string) => strutturaDaXml(parser.parse(
+    `<FP_TREE><FP_NODE ElementType="8600" Code="1"><FP_PIECE Type="8050" DXF="AL\T.DXF">${interno}</FP_PIECE></FP_NODE></FP_TREE>`,
+  )).albero[0].pezzi[0]
+  it('due filtri a sinistra, uno a destra, coordinate e angolo della giunzione', () => {
+    const p = pezzo(
+      '<FP_PIECE_FLTSX>aaa</FP_PIECE_FLTSX><FP_PIECETYPE_FLTSX>D</FP_PIECETYPE_FLTSX><FP_PIECE_FLTSX>bbb</FP_PIECE_FLTSX>' +
+      '<FP_PIECE_FLTDX>aaa</FP_PIECE_FLTDX>' +
+      '<FP_PIECE_LEFTUPPER_FATHERNODECODE>1</FP_PIECE_LEFTUPPER_FATHERNODECODE><FP_PIECE_LEFTUPPER_TYPE>4</FP_PIECE_LEFTUPPER_TYPE>' +
+      '<FP_PIECE_LEFTUPPER_ANGLE>86.221802</FP_PIECE_LEFTUPPER_ANGLE><FP_PIECE_LEFTUPPER_XPER100>2500</FP_PIECE_LEFTUPPER_XPER100>' +
+      '<FP_PIECE_LEFTUPPER_YPER100>47329</FP_PIECE_LEFTUPPER_YPER100>' +
+      '<FP_PIECE_RIGHTLOWER_FATHERNODECODE>1</FP_PIECE_RIGHTLOWER_FATHERNODECODE><FP_PIECE_RIGHTLOWER_TYPE>4</FP_PIECE_RIGHTLOWER_TYPE>' +
+      '<FP_PIECE_RIGHTLOWER_ANGLE>90.000000</FP_PIECE_RIGHTLOWER_ANGLE><FP_PIECE_RIGHTLOWER_XPER100>527500</FP_PIECE_RIGHTLOWER_XPER100>' +
+      '<FP_PIECE_RIGHTLOWER_YPER100>2500</FP_PIECE_RIGHTLOWER_YPER100>',
+    )
+    expect(p.giunti).toEqual({
+      sx: { chiave: '1|2500|47329', angolo: 86.221802, filtri: ['aaa', 'bbb'] },
+      dx: { chiave: '1|527500|2500', angolo: 90, filtri: ['aaa'] },
+    })
+  })
+  it('estremita\' senza giunzione e senza filtri: null; pezzo senza nulla: niente giunti', () => {
+    expect(pezzo('<FP_PIECE_FLTSX /><FP_PIECE_LEFTUPPER_TYPE>4</FP_PIECE_LEFTUPPER_TYPE>').giunti?.dx).toBeNull()
+    expect(pezzo('<FP_PIECE_FLTSX /><FP_PIECE_FLTDX />').giunti).toBeUndefined()
+  })
+})

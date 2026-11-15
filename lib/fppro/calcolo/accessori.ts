@@ -10,6 +10,7 @@
 import type { AccessorioStruttura, CondizioneRiga, NodoStruttura } from '../strutture-xml'
 import { chiaveKit } from '../kit-catalogo'
 import { condizioneVera, misuraRif, type MisuraAnta, type MisureRif } from './misure-riferimento'
+import type { DatiFissaggi } from './fissaggi'
 
 /**
  * Chiave della scelta di un accessorio opzionale nella voce (VoceFpDati.accessori): nodo,
@@ -47,14 +48,13 @@ export interface RegoleAccessori {
   /** Righe del kit dal catalogo di FP PRO, per i kit che nello STR non hanno righe */
   righeCatalogo: (kit: string) => AccessorioStruttura[]
   /**
-   * Fissaggi del profilo (squadrette, cavallotti: tabella fissaggi di FP PRO) gia' filtrati sul
-   * sistema di giunzione predefinito della serie; tipo = tipo del pezzo (8050 telaio, 8090 anta...).
-   * Assente = nessun fissaggio (calcoli vecchi).
+   * Fissaggi dei profili (squadrette, cavallotti: tabella fissaggi di FP PRO) per profilo e filtro,
+   * contati per angolo da lib/fppro/calcolo/fissaggi.ts. Assente = nessun fissaggio (calcoli vecchi).
    */
-  fissaggi?: (codiceProfilo: string, tipo: number) => FissaggioProfilo[]
+  fissaggi?: DatiFissaggi
 }
 
-/** Accessorio di giunzione per pezzo di profilo: dimRif 1 = per pezzo (le altre regole le decide il banco di prova). */
+/** Riga della tabella fissaggi: dimRif 1 = angolo a 90 gradi, 2 = angolo inclinato (0 non usato da FP PRO qui). */
 export interface FissaggioProfilo { codice: string; quantita: number; dimRif: number; serie?: string; descrizione?: string }
 
 /** Riga di fp_kit_righe come la legge il calcolo */

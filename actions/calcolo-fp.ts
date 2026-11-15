@@ -7,8 +7,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getOrgId } from '@/lib/auth'
 import { requireAccesso } from '@/lib/permessi'
 import { selectAll } from '@/lib/supabase/paginate'
-import { regoleDaElenchi, type FissaggioProfilo, type RegoleAccessori, type RigaKitCatalogo } from '@/lib/fppro/calcolo/accessori'
-import { fissaggiPredefiniti, type RigaFissaggio, type RigaSerieFissaggio } from '@/lib/fppro/calcolo/fissaggi'
+import { regoleDaElenchi, type RegoleAccessori, type RigaKitCatalogo } from '@/lib/fppro/calcolo/accessori'
+import { datiFissaggi, type DatiFissaggi, type RigaFissaggio, type RigaSerieFissaggio } from '@/lib/fppro/calcolo/fissaggi'
 import { listinoDaRighe, type RigheListino } from '@/lib/fppro/calcolo/listino'
 import { clienteDelRilievo, MOTIVO_VOCE_DISEGNATA, motivoCalcoloSuperato, motivoErroriCalcolo, motivoVoceNonCalcolabile, noteTelaioTesto } from '@/lib/fppro/calcolo/trasferimento'
 import { calcolaVoce, codiceDaDxf, type CalcoloVoce, type InputVoce, type ListinoCalcolo } from '@/lib/fppro/calcolo/voce'
@@ -215,16 +215,16 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
       supabase, orgId, 'fp_accessori_collegati', 'fp_id, codice_principale, codice_collegato, serie_collegato, quantita', 'codice_principale', [...codiciAccessori])
     collegati.forEach(c => codiciAccessori.add(c.codice_collegato))
 
-    // Fissaggi dei profili (squadrette, cavallotti) dal sistema di giunzione predefinito della serie.
+    // Fissaggi dei profili (squadrette, cavallotti) per filtro: si contano per angolo nel calcolo.
     // Tabelle scritte dal ponte: se non ci sono ancora (ponte vecchio) il calcolo va avanti senza, come prima.
-    let fissaggiDi: ((codice: string) => FissaggioProfilo[]) | undefined
+    let fissaggiDi: DatiFissaggi | undefined
     try {
       const righeFiss = await inLista<RigaFissaggio>(supabase, orgId, 'fp_fissaggi',
         'fp_id, codice_profilo, codice_accessorio, serie_fp_id, quantita, dim_rif, filtro', 'codice_profilo', [...codiciProfili])
       const serieFiss = await inLista<RigaSerieFissaggio>(supabase, orgId, 'fp_serie_fissaggi', 'fp_id, serie_fp_id, ordine, filtro',
         'serie_fp_id', righeFiss.map(r => r.serie_fp_id).filter((x): x is number => x !== null))
       if (righeFiss.length > 0) {
-        fissaggiDi = fissaggiPredefiniti(righeFiss, serieFiss)
+        fissaggiDi = datiFissaggi(righeFiss, serieFiss)
         righeFiss.forEach(r => r.codice_accessorio && codiciAccessori.add(r.codice_accessorio))
       }
     } catch {
