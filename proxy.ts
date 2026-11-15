@@ -31,7 +31,9 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Route pubbliche: accessibili senza autenticazione
-  const PUBLIC_PREFIXES = ['/p/', '/o/', '/offline', '/api/track/', '/conferma/', '/api/firma-callback', '/api/avvia-firma', '/api/firma-pdf/', '/api/cron/']
+  // /api/pagamenti/ (Paga ora del cliente) e /api/stripe/webhook/ (ricevute di Stripe): senza login per natura,
+  // proteggono da sole (token del preventivo, firma del webhook).
+  const PUBLIC_PREFIXES = ['/p/', '/o/', '/offline', '/api/track/', '/conferma/', '/api/firma-callback', '/api/avvia-firma', '/api/firma-pdf/', '/api/cron/', '/api/pagamenti/', '/api/stripe/webhook/']
   if (PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return supabaseResponse
   }
