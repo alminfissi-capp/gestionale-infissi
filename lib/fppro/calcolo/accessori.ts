@@ -39,7 +39,7 @@ export interface QuantitaAccessorio {
 /** Mano della voce e misure delle ante per nodo (codice nodo -> ante, la principale per prima). */
 export interface OpzioniAccessori {
   mano?: 'sx' | 'dx' | null
-  ante?: Record<number, { ante: MisuraAnta[]; scorrevoli: MisuraAnta[] }>
+  ante?: Record<number, { ante: MisuraAnta[]; scorrevoli: MisuraAnta[]; fisse?: MisuraAnta[] }>
 }
 
 export interface RegoleAccessori {
@@ -266,7 +266,7 @@ function quantitaDi(a: AccessorioStruttura, d: Misure): Esito {
   // condizioni alternative (condparam = 1, es. ACP 5155 su 192-26G) basta una.
   const esiti: ('si' | 'no' | 'ignota')[] = []
   let avviso: Esito | null = null
-  if (a.dimRif >= 901 && a.dimRif <= 904) {
+  if ((a.dimRif >= 901 && a.dimRif <= 904) || a.dimRif === 25 || a.dimRif === 26) {
     esiti.push(condizioneVera({ dim: a.dimRif, min: null, max: null }, rifDi(d)).vera ? 'si' : 'no')
   } else if (a.min !== null && a.max !== null && a.max > 0) {
     if (a.dimRif === 5 || a.dimRif === 0) {
@@ -308,7 +308,11 @@ function quantitaDi(a: AccessorioStruttura, d: Misure): Esito {
       ? (a.formulaDistribuzione ? valutaFormula(a.formulaDistribuzione, d) : null)
       : misura(a.dimDistribuzione || 3, d)
     if (rif === null) return { quantita: a.quantita, ignota: true }
-    return { quantita: limita(Math.max(a.quantita, Math.round(rif / a.passo))), ignota: false }
+    // Per difetto, come FP PRO (banco 2026-11-15, confronto codice per codice: RB304 uguale in 281
+    // voci in piu', ACP 50128 in 68, cerniere 00259500U in 39, nessun codice peggiorato). Il costo
+    // totale delle voci NON e' un buon giudice: il pezzo in piu' compensava le guarnizioni corte.
+    const nPassi = Math.floor(rif / a.passo)
+    return { quantita: limita(Math.max(a.quantita, nPassi)), ignota: false }
   }
   return { quantita: limita(a.quantita), ignota: false }
 }
@@ -360,7 +364,7 @@ export function accessoriVoce(
     return preso === a.parametro.valore
   }
   /** Ante del nodo o del primo discendente che le ha (un kit del telaio puo' guardare il peso dell'anta). */
-  const anteDi = (n: NodoStruttura): { ante: MisuraAnta[]; scorrevoli: MisuraAnta[] } | null =>
+  const anteDi = (n: NodoStruttura): { ante: MisuraAnta[]; scorrevoli: MisuraAnta[]; fisse?: MisuraAnta[] } | null =>
     opzioni.ante?.[n.codice] ?? n.figli.map(anteDi).find(x => x !== null) ?? null
   const scelto = (a: AccessorioStruttura, chiave: string) => !a.opzionale || (accessoriScelti[chiave] ?? a.confermato)
   const valePerSerie = (kit: string, codice: string) => {
@@ -375,7 +379,7 @@ export function accessoriVoce(
       const ante = profiliAnta >= 4 ? Math.round(profiliAnta / 4) : 1
       // Senza misure delle ante dal calcolo: ante uguali, peso del serramento diviso fra le ante.
       const uguali = Array.from({ length: ante }, () => ({ l: z.L / ante, h: z.H, peso: peso / ante }))
-      const misureAnte = anteDi(n) ?? { ante: n.tipo === 8620 ? [] : uguali, scorrevoli: n.tipo === 8620 ? uguali : [] }
+      const misureAnte: { ante: MisuraAnta[]; scorrevoli: MisuraAnta[]; fisse?: MisuraAnta[] } = anteDi(n) ?? { ante: n.tipo === 8620 ? [] : uguali, scorrevoli: n.tipo === 8620 ? uguali : [] }
       const rif: MisureRif = { L: z.L, H: z.H, peso, ...misureAnte }
       const d: Misure = { L: z.L, H: z.H, w: peso, h: z.H, a: z.L / ante, rif }
       for (const a of n.accessori) {
@@ -389,7 +393,14 @@ export function accessoriVoce(
         // Kit per anta (CodiceMacro = 1, es. cerniere ES40): le righe si contano su ogni anta,
         // con le misure di quell'anta (una cerniera ogni 600 mm della sua altezza).
         const anteKit = k.perAnta ? (misureAnte.ante.length > 0 ? misureAnte.ante : misureAnte.scorrevoli) : []
-        const misurePer = anteKit.length > 0 ? anteKit.map(an => ({ ...d, L: an.l, H: an.h, h: an.h, a: an.l })) : [d]
+        // Kit ripetuto per ogni anta scorrevole del suo tipo (CodiceMacro 3 + TipoAnta, TOPSLIDE): 2 = le
+        // fisse, 3 e 4 = le mobili, ognuna con le sue misure (SX, HSX, 22-24). 101-26G voce 21,
+        // 2 mobili + 2 fisse: AGP 8005 = 2 x 2 x HSX + 2 x HSX = 15,46 m come FP PRO.
+        // Solo sul nodo delle ante scorrevoli: il kit del telaio ha la stessa marcatura ma vale una volta.
+        const antePerTipo = n.tipo !== 8620 ? [] : k.tipoAnta === 2 ? misureAnte.fisse ?? [] : k.tipoAnta ? misureAnte.scorrevoli : []
+        const misurePer = antePerTipo.length > 0
+          ? antePerTipo.map(an => ({ ...d, rif: { ...rif, scorrevoli: [an] } }))
+          : anteKit.length > 0 ? anteKit.map(an => ({ ...d, L: an.l, H: an.h, h: an.h, a: an.l })) : [d]
         for (const a of righe) {
           espliciti.add(a.codice)
           if (!(scelto(a, chiaveAccessorio(n.codice, i, a.codice)) && valePerSerie(k.codice, a.codice) && valeParametro(a, `${n.codice}:${i}`))) continue

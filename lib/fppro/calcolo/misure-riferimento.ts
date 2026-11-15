@@ -5,7 +5,11 @@
 // Un codice che qui non c'e' NON diventa mai "altezza": la riga non vale e si segnala.
 import type { CondizioneRiga } from '../strutture-xml'
 
-export interface MisuraAnta { l: number; h: number; peso: number }
+export interface MisuraAnta {
+  l: number; h: number; peso: number
+  /** Posizione dell'anta nel nodo (0 = la prima a sinistra): dice su quale binario scorre */
+  indice?: number
+}
 
 export interface MisureRif {
   /** Zona del nodo (mm) */
@@ -52,6 +56,10 @@ export function condizioneVera(c: CondizioneRiga, m: MisureRif): { vera: boolean
   // 901-904: numero di ante del nodo (90n = esattamente n ante). Verificato su FP PRO: A4011.20
   // x2 con 902, x4 con 903, x6 con 904 nello stesso kit (95-2026G); catenacci 902 solo sulle 2 ante.
   if (c.dim >= 901 && c.dim <= 904) return { vera: (m.ante.length || m.scorrevoli.length) === c.dim - 900 }
+  // 25 / 26: anta scorrevole sul binario minore / maggiore (FP_PRO.MSG RIF_SCORR_BINARIO_INF/SUP).
+  // Un'anta sta su un binario solo: delle due righe ne vale una (TOPSLIDE, 101-26G: AGP 8005 una
+  // volta per anta fissa). Le ante si alternano sui binari; senza posizione vale la 25.
+  if (c.dim === 25 || c.dim === 26) return { vera: ((m.scorrevoli[0]?.indice ?? 0) % 2 === 0) === (c.dim === 25) }
   if (c.min === null || c.max === null || c.max <= 0) return { vera: true }
   if (!codiceNoto(c.dim)) return { vera: false, ignoto: c.dim }
   const v = misuraRif(c.dim, m)

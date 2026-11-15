@@ -140,7 +140,7 @@ describe('kit scelto senza righe nella struttura (caso Palazzotto, SLIDE 60)', (
   const acc = accessoriVoce(albero, { '2:1': true }, { 2: { L: 1920, H: 1240 } }, 40, regole)
   const q = (codice: string) => acc.filter(a => a.codice === codice).reduce((t, a) => t + a.quantita, 0)
 
-  it('kit obbligatorio senza righe nello STR: righe dal catalogo (rapid block a passo su 2H)', () => expect(q('RB304')).toBe(4))
+  it('kit obbligatorio senza righe nello STR: righe dal catalogo (rapid block a passo su 2H, per difetto: 2480 / 700 = 3)', () => expect(q('RB304')).toBe(3))
   it('kit scelto in cantiere: carrelli, spazzolino a metro e fasce come da catalogo', () => {
     expect(q('ACP 6012')).toBe(1)
     entro(q('AGP 6906'), 4 * 1.92 * 1.06, 0.001)
@@ -364,4 +364,47 @@ describe('accessori a metro quadro (FP PRO tipo 3: tapparelle)', () => {
     expect(a.metri).toBe(false)
   })
   it('senza formule: misure della zona del nodo', () => entro(q(tapparella())[0].quantita, 2.32 * 3.08, 0.0001))
+})
+
+describe('kit ripetuti per tipo di anta scorrevole e moltiplicatore del kit (TOPSLIDE, scorrevoli 3 ante)', () => {
+  const riga = (codice: string, extra: object = {}) => ({
+    codice, descrizione: '', serie: 'S', tipo: 1, quantita: 1, opzionale: false, confermato: true,
+    dimRif: 0, dimCalcolo: 0, min: null, max: null, passo: null, formula: null, ...extra,
+  })
+  const kit = (codice: string, accessori: object[], extra: object = {}) =>
+    ({ codice, descrizione: '', serie: 'S', opzionale: false, confermato: true, accessori, ...extra })
+  const nodo = (tipo: number, codice: number, kitNodo: object[], figli: object[] = []) =>
+    ({ tipo, codice, elementi: 4, x: null, y: null, prm: [], macro: null, ante: [], ird: [], pezzi: [], accessori: [], kit: kitNodo, figli })
+  const regole = regoleDaElenchi(['S'], [], [], {})
+  const anta = (indice: number) => ({ l: 1900, h: 2400, peso: 200, indice })
+  // 101-26G voce 21: 4 ante, 2 mobili (1, 2) e 2 fisse (0, 3).
+  const opzioni = { ante: { 2: { ante: [], scorrevoli: [anta(1), anta(2)], fisse: [anta(0), anta(3)] } } }
+  const conta = (albero: object[]) => {
+    const acc = accessoriVoce(albero as never, {}, { 1: { L: 7500, H: 2400 }, 2: { L: 7400, H: 2343 } }, 800, regole, {}, opzioni)
+    return (codice: string) => acc.filter(a => a.codice === codice).reduce((t, a) => t + a.quantita, 0)
+  }
+  it('kit delle ante mobili (TipoAnta 4) sul nodo scorrevole: una volta per anta mobile, con la sua altezza', () => {
+    const q = conta([nodo(8620, 2, [kit('ALZ', [riga('MANIGLIA'), riga('SPAZZ', { tipo: 4, quantita: 2, formulaL: 'hsx' })], { tipoAnta: 4 })])])
+    expect(q('MANIGLIA')).toBe(2)
+    entro(q('SPAZZ'), 2 * 2 * 2.4 * 1.06, 0.001)
+  })
+  it('kit delle ante fisse (TipoAnta 2): una volta per anta fissa; righe binario 25 / 26, ne vale una per anta', () => {
+    const q = conta([nodo(8620, 2, [kit('FIX', [riga('SPAZZ', { tipo: 4, dimRif: 25, formulaL: 'HSX' }), riga('SPAZZ', { tipo: 4, dimRif: 26, formulaL: 'HSX' })], { tipoAnta: 2 })])])
+    entro(q('SPAZZ'), 2 * 2.4 * 1.06, 0.001)
+  })
+  it('stessa marcatura sul kit del telaio: vale una volta sola', () => {
+    expect(conta([nodo(8600, 1, [kit('TEL', [riga('TAPPO', { quantita: 2 })], { tipoAnta: 4 })], [nodo(8620, 2, [])])])('TAPPO')).toBe(2)
+  })
+  it('moltiplicatore del kit (30-2026G: kit x 2 = 4 carrelli); non sui kit per anta', () => {
+    expect(conta([nodo(8620, 2, [kit('SLIDE 3A', [riga('ACP 6012', { quantita: 2 })], { moltiplica: 2 })])])('ACP 6012')).toBe(4)
+    const battente = { ante: { 2: { ante: [anta(0), anta(1), anta(2)], scorrevoli: [] } } }
+    const acc = accessoriVoce([nodo(8610, 2, [kit('CERN', [riga('CERNIERA', { quantita: 2 })], { moltiplica: 3, perAnta: true })])] as never, {}, { 2: { L: 2000, H: 1400 } }, 60, regole, {}, battente)
+    expect(acc.reduce((t, a) => t + a.quantita, 0)).toBe(6)
+  })
+  it('righe a passo: per difetto (2343 / 600 = 3, come FP PRO), mai sotto la quantita di base', () => {
+    const q = conta([nodo(8620, 2, [kit('FIX', [riga('DIST', { quantita: 2, passo: 600, dimDistribuzione: 24, numMax: 5 })], { tipoAnta: 2 })])])
+    expect(q('DIST')).toBe(8) // 2 ante fisse x floor(2400 / 600) = 4
+    const corta = conta([nodo(8600, 1, [kit('K', [riga('RB', { quantita: 2, passo: 500, dimDistribuzione: 1 })])])])
+    expect(corta('RB')).toBe(4) // H 2400 / 500 = 4,8 -> 4
+  })
 })
