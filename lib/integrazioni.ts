@@ -27,12 +27,12 @@ export async function tokenFirmaObbligatorio(orgId: string): Promise<string> {
 }
 
 /** Scrive o cancella una chiave (Vault + riga di stato). Solo da server action che hanno gia' controllato il permesso. */
-export async function scriviSegreto(orgId: string, servizio: Servizio, campo: CampoIntegrazione, valore: string) {
+export async function scriviSegreto(orgId: string, servizio: Servizio, campo: CampoIntegrazione, valore: string, mostra?: string) {
   const service = createServiceClient()
   const { error } = await service.rpc('integrazione_salva', { p_org: orgId, p_nome: nomeSegreto(servizio, campo), p_valore: valore })
   if (error) throw new Error(`Vault: ${error.message}`)
   const { error: e2 } = await service.from('integrazioni').upsert({
-    organization_id: orgId, servizio, campo, ultime4: campo === 'email' ? valore : ultime4(valore), aggiornato_at: new Date().toISOString(),
+    organization_id: orgId, servizio, campo, ultime4: mostra ?? (campo === 'email' ? valore : ultime4(valore)), aggiornato_at: new Date().toISOString(),
   }, { onConflict: 'organization_id,servizio,campo' })
   if (e2) throw new Error(e2.message)
 }

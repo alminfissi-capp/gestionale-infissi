@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import CampoSegreto from '@/components/impostazioni/CampoSegreto'
 import CreditoOpenapi from '@/components/impostazioni/CreditoOpenapi'
+import CollegamentoStripe from '@/components/impostazioni/CollegamentoStripe'
 import type { StatoIntegrazioni } from '@/actions/integrazioni'
 
 interface Props {
@@ -30,6 +31,19 @@ export default function SezioneCollegamenti({ stato, puoModificare }: Props) {
             <p className="text-sm font-medium mb-2">Crediti</p>
             <CreditoOpenapi />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Stripe — pagamenti online</CardTitle>
+          <CardDescription>
+            Con la chiave segreta WinStudio si collega da solo: crea su Stripe il collegamento per le ricevute
+            dei pagamenti. I metodi (carta, PayPal, Klarna…) si attivano dalla dashboard di Stripe.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CollegamentoStripe chiave={stato['stripe.chiave_segreta']} webhook={stato['stripe.id_webhook']} puoModificare={puoModificare} />
         </CardContent>
       </Card>
     </>
