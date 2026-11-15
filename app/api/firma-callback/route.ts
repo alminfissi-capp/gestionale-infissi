@@ -31,6 +31,8 @@ export async function POST(req: NextRequest) {
 
   // Stato intermedio (es. WAIT_VALIDATION) — nessuna azione
   if (!firmaStato) return Response.json({ ok: true })
+  // Sicurezza: l'id del documento e' obbligatorio e deve essere quello salvato col preventivo.
+  if (!documentId) return Response.json({ error: 'id documento mancante' }, { status: 400 })
 
   const service = createServiceClient()
 
@@ -39,7 +41,7 @@ export async function POST(req: NextRequest) {
     .select('id')
     .eq('token_conferma', token)
 
-  if (documentId) q = q.eq('firma_documento_id', documentId)
+  q = q.eq('firma_documento_id', documentId)
 
   const { data: prev } = await q.single()
   if (!prev) return Response.json({ error: 'preventivo non trovato' }, { status: 404 })
@@ -101,6 +103,13 @@ export async function POST(req: NextRequest) {
         console.error('[firma-callback] errore download PDF firmato:', e)
       }
     }
+  }
+
+  // Sicurezza: "firmato" solo se openapi.it ci consegna davvero il documento firmato (col nostro token).
+  // Lo stato scritto nell'avviso da solo non basta: chiunque potrebbe mandare un POST con COMPLETED.
+  if (firmaStato === 'firmato' && !updates.firma_pdf_path) {
+    console.warn('[firma-callback] COMPLETED non confermato da openapi.it: preventivo non segnato come firmato', prev.id)
+    return Response.json({ error: 'firma non confermata da openapi.it' }, { status: 409 })
   }
 
   await service.from('preventivi').update(updates).eq('id', prev.id)
