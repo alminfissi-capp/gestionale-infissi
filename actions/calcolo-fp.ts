@@ -15,6 +15,7 @@ import { calcolaVoce, codiceDaDxf, type CalcoloVoce, type InputVoce, type Listin
 import { fattoreBarreCommessa } from '@/lib/fppro/calcolo/commessa'
 import type { CorrezioniVoce, OreVoce, PercentualiCalcolo, ProfiloCalcolo } from '@/lib/fppro/calcolo/tipi'
 import { tempiConMinuti } from '@/lib/fppro/calcolo/correzioni'
+import type { VarianteAccostamenti } from '@/lib/fppro/calcolo/accostamenti'
 import type { NodoStruttura } from '@/lib/fppro/strutture-xml'
 import { aggiungiRigheRilievoAPreventivo, createPreventivo } from '@/actions/preventivi'
 import type { PreventivoInput } from '@/types/preventivo'
@@ -150,6 +151,17 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
     const strutture = await inLista<RigaStruttura>(supabase, orgId, 'fp_strutture',
       'id, nome, serie, albero, poligoni, tempi, l_nominale, h_nominale, immagine, errore', 'id', righeVoci.map(v => v.fp.strutturaId), 'id')
     const perStruttura = new Map(strutture.map(s => [s.id, s]))
+    // Accostamenti delle sezioni disegnati da FP PRO (li scrive il ponte dalle commesse calcolate), per nome
+    // della struttura. Tabella assente (ponte vecchio): il calcolo va avanti con le stime, senza avvisi.
+    let accostamentiPer: Map<string, VarianteAccostamenti[]> | null = null
+    try {
+      const righe = await inLista<{ nome: string; profili: string; nodi: VarianteAccostamenti['nodi'] }>(supabase, orgId, 'fp_accostamenti',
+        'id, nome, profili, nodi', 'nome', strutture.map(s => s.nome), 'id')
+      accostamentiPer = new Map()
+      for (const r of righe) accostamentiPer.set(r.nome, [...(accostamentiPer.get(r.nome) ?? []), { profili: r.profili, nodi: r.nodi }])
+    } catch {
+      accostamentiPer = null
+    }
 
     // Codici che servono: profili (anche i telai scelti), accessori, vetri, pannelli, kit.
     const codiciProfili = new Set<string>()
@@ -292,6 +304,7 @@ export async function calcolaRilievoFp(rilievoId: string, configPrevFpId: number
         accessoriAggiunti: v.fp.accessoriAggiunti ?? [],
         telai: v.fp.telai, anta: v.fp.anta ?? undefined, tempi: tempiConMinuti(s.tempi ?? { taglio: 0, lavorazione: 0, montaggio: 0, assemblaggio: 0, posa: 0 }, v.fp.minuti),
         profilo, maggiorazioni, correzioni: v.correzioni_fp ?? undefined,
+        accostamenti: accostamentiPer ? (accostamentiPer.get(s.nome) ?? []) : undefined,
       }
       daCalcolare.push({ v, s, input, listino: listinoPer(colore, coloriAccessori(v.fp)), regole })
     }

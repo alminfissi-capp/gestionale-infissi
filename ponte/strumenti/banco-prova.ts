@@ -1,4 +1,4 @@
-// Banco di prova: ricalcola con il motore di WinStudio le commesse gia' calcolate da FP PRO
+﻿// Banco di prova: ricalcola con il motore di WinStudio le commesse gia' calcolate da FP PRO
 // e confronta gli accessori (codici e quantita') e il loro costo, voce per voce.
 // FP PRO si legge soltanto (MySQL in sessione READ ONLY, file JOB letti e mai scritti).
 //
@@ -16,6 +16,9 @@ import { regoleDaElenchi, type RigaKitCatalogo } from '../../lib/fppro/calcolo/a
 import { LARGHEZZE_PREDEFINITE, pezziECampi } from '../../lib/fppro/calcolo/geometria'
 import { confrontaAccessori, type ConfrontoAccessori } from '../../lib/fppro/calcolo/confronto-fp'
 import { datiFissaggi } from '../../lib/fppro/calcolo/fissaggi'
+import { accostamentiDaCampione, applicaAccostamenti, firmaProfili } from '../../lib/fppro/calcolo/accostamenti'
+import { larghezzeDaPoligoni } from '../../lib/fppro/calcolo/geometria'
+import type { AccostamentoNodo } from '../../lib/fppro/strutture-xml'
 import type { ProfiloCalcolo } from '../../lib/fppro/calcolo/tipi'
 
 process.loadEnvFile(process.env.PONTE_ENV ?? 'C:\\WinStudioPonte\\.env')
@@ -48,7 +51,7 @@ interface EsitoVoce {
   costoAccFp: number
   costoAccWs: number
   scartoAcc: number
-  /** Profili: non confrontati (sempre 0). Vetri: m² WS - FP per pezzo */
+  /** Profili: non confrontati (sempre 0). Vetri: mÂ² WS - FP per pezzo */
   scartoProf: number
   scartoVet: number
   /** Scarto stimato sul prezzo dovuto agli accessori: accessori x ricarico FP della voce */
@@ -87,6 +90,24 @@ function sezione(dxf: string) {
     }
   }
   return sezioni.get(dxf) ?? null
+}
+
+// Accostamenti di FP PRO (ACCOSTAMENTI=1): per ogni struttura una voce campione (un'altra voce)
+// (la prima trovata) da cui si leggono gli accostamenti; si verificano sulle altre voci.
+const ACCOSTAMENTI = process.env.ACCOSTAMENTI === '1'
+const campioni = new Map<string, { commessa: string; voce: number; acc: Record<string, AccostamentoNodo> }>()
+let usatiAccostamenti = 0
+
+// Chiave del campione: struttura + profili usati (vetri e pannelli esclusi): un telaio diverso sposta le ante
+// (02-MOND_FIN2A_ZOCC: ES2352 -7,6 mm, ES2350 +12,35 mm).
+
+function campioneDi(nomeCommessa: string, nv: number, nomeStruttura: string, albero: ReturnType<typeof strutturaDaXml>, L: number, H: number) {
+  const struttura = `${nomeStruttura}|${firmaProfili(albero.albero)}`
+  const c = campioni.get(struttura)
+  if (c) return c.commessa === nomeCommessa && c.voce === nv ? null : c
+  const acc = accostamentiDaCampione(albero.albero, { L, H }, larghezzeDaPoligoni(albero.poligoni), d => sezione(d))
+  campioni.set(struttura, { commessa: nomeCommessa, voce: nv, acc })
+  return null
 }
 
 async function bancoCommessa(nome: string): Promise<EsitoVoce[]> {
@@ -203,8 +224,17 @@ async function bancoCommessa(nome: string): Promise<EsitoVoce[]> {
       }
       const L = n(rv.l) || n(jr.StyleL)
       const H = n(rv.h) || n(jr.StyleH)
+      let albero = st.albero
+      if (ACCOSTAMENTI) {
+        const c = campioneDi(nome, nv, base.struttura, st, L, H)
+        if (c) { albero = applicaAccostamenti(st.albero, c.acc); usatiAccostamenti++ }
+        if (process.env.DEBUG_VOCE === `${nome}:${nv}`) {
+          console.log('campione', c && `${c.commessa}:${c.voce}`, JSON.stringify(c?.acc))
+          console.log('proprio ', JSON.stringify(accostamentiDaCampione(st.albero, { L, H }, larghezzeDaPoligoni(st.poligoni), d => sezione(d))))
+        }
+      }
       const input: InputVoce = {
-        albero: st.albero, serie: st.serie, poligoni: st.poligoni, L, H, L0: L, H0: H, quote: {},
+        albero, serie: st.serie, poligoni: st.poligoni, L, H, L0: L, H0: H, quote: {},
         kitScelti: {}, vetriScelti: {}, tempi: st.tempi ?? { taglio: 0, lavorazione: 0, montaggio: 0, assemblaggio: 0, posa: 0 },
         profilo: PROFILO, maggiorazioni: { vetri: 0, pannelli: 0 }, mano: base.mano as 'sx' | 'dx' | null,
         fattoreBarre: 1,
@@ -215,12 +245,13 @@ async function bancoCommessa(nome: string): Promise<EsitoVoce[]> {
         console.log('\nante', JSON.stringify(r.ante))
         console.log('accessori WS', JSON.stringify(r.righe.filter(x => x.gruppo === 'accessori').map(x => [x.codice, x.quantita])))
         console.log('accessori FP', JSON.stringify(accVoce.map(a => [a.codice, a.qta])))
-        console.log('vetri WS', JSON.stringify(r.righe.filter(x => x.gruppo === 'vetri').map(x => [x.codice, x.descrizione])))
+        console.log('vetri WS', JSON.stringify(r.righe.filter(x => x.gruppo === 'vetri').map(x => [x.codice, x.descrizione, x.quantita])))
+        console.log('vetri FP', JSON.stringify(vetFp.filter(x => n(x.voce) === nv).map(x => [s(x.codice), n(x.l), n(x.h), n(x.qta)])))
         const kitNodi = (nodi: typeof st.albero): string[] => nodi.flatMap(nd => [
           ...nd.kit.map((k, i) => `${nd.codice}:${i} ${k.codice} conf=${k.confermato} righe=${k.accessori.map(a => `${a.codice}[${a.dimRif};${(a.altreCondizioni ?? []).map(c => c.dim).join(',')}]`).join(' ')}`),
           ...kitNodi(nd.figli)])
         console.log(kitNodi(st.albero).join('\n'))
-        const { pezzi } = pezziECampi(st.albero, input, LARGHEZZE_PREDEFINITE, d => listino.sezione(codiceDaDxf(d)))
+        const { pezzi } = pezziECampi(albero, input, LARGHEZZE_PREDEFINITE, d => listino.sezione(codiceDaDxf(d)))
         console.log('pezzi', JSON.stringify(pezzi.map(p => [p.tipo, codiceDaDxf(p.dxf), Math.round(p.lunghezza)])))
         console.log('fissaggi FP', JSON.stringify(fiss.map(f => [s(f.prof), s(f.acc), n(f.num_base), n(f.dim_rif), s(f.filtro).slice(0, 8), n(f.ordine)])))
         // Costo per codice: quantita' e costo di WinStudio contro FP PRO (per un pezzo), scarti maggiori prima.
@@ -249,7 +280,7 @@ async function bancoCommessa(nome: string): Promise<EsitoVoce[]> {
       const mqFp = somma(vetVoce, x => n(x.qta) * n(x.l) * n(x.h) / 1e6) / base.pezzi
       const costoVetFp = somma(vetVoce, x => n(x.costonetto)) / base.pezzi
       const mqWs = r.righe.filter(x => x.gruppo === "vetri").reduce((t, x) => t + x.quantita, 0)
-      base.scartoVet = mqWs - mqFp // m² di vetro in piu' (+) o in meno (-) per pezzo; costoVetFp solo per il riepilogo
+      base.scartoVet = mqWs - mqFp // mÂ² di vetro in piu' (+) o in meno (-) per pezzo; costoVetFp solo per il riepilogo
       void costoVetFp
       const matFp = n(rv.costoprofili) + n(rv.costoaccessori) + n(rv.costoguarnizioni) + n(rv.costovetri) + n(rv.costopannelli)
       // Stima sul prezzo da accessori: ricarico medio di FP PRO sui materiali (imponibile / materiali della voce).
@@ -272,6 +303,8 @@ for (const c of commesse) {
 }
 await db.chiudi()
 
+if (ACCOSTAMENTI) console.log(`
+accostamenti: ${campioni.size} strutture campione, usati su ${usatiAccostamenti} voci`)
 const valide = tutti.filter(e => !e.errore)
 const fascia = (e: EsitoVoce) => Math.abs(e.scartoPrezzo)
 const conteggio = {
@@ -292,7 +325,7 @@ writeFileSync(join(USCITA, 'banco-prova.json'), JSON.stringify({ conteggio, rego
 console.log('\n', conteggio)
 console.log('codici di misura non gestiti:', Object.fromEntries(regoleNonGestite))
 for (const e of peggiori) {
-  console.log(`${e.commessa} v${e.voce} ${e.struttura} mano=${e.mano} x${e.pezzi}: prezzo~ ${e.scartoPrezzo.toFixed(0)} | accessori ${e.scartoAcc.toFixed(2)} | vetro m² ${e.scartoVet.toFixed(3)}`,
+  console.log(`${e.commessa} v${e.voce} ${e.struttura} mano=${e.mano} x${e.pezzi}: prezzo~ ${e.scartoPrezzo.toFixed(0)} | accessori ${e.scartoAcc.toFixed(2)} | vetro mÂ² ${e.scartoVet.toFixed(3)}`,
     'piu', JSON.stringify(e.confronto.inPiu.slice(0, 6)), 'meno', JSON.stringify(e.confronto.mancanti.slice(0, 6)), 'diverse', JSON.stringify(e.confronto.diverse.slice(0, 4)))
 }
 for (const e of tutti.filter(x => x.errore).slice(0, 10)) console.log('ERRORE', e.commessa, e.voce, e.errore)

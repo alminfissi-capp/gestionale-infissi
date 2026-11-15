@@ -9,6 +9,8 @@ import type { Riga, RigaEsistente, RigaFp, TabellaSync } from '../../lib/fppro/s
 import { log } from './log.ts'
 import { sezioniProfili } from './sezioni-profili.ts'
 import { sincronizzaStrutture } from './sincronizza-strutture.ts'
+import { sincronizzaAccostamenti } from './sincronizza-accostamenti.ts'
+import { join } from 'node:path'
 
 const BLOCCO = 500
 // Non oltre il "Max rows" di PostgREST (1000), altrimenti le pagine tornano troncate.
@@ -31,6 +33,8 @@ export async function sincronizza(
   supabase: SupabaseClient,
   orgId: string,
   cartellaStrutture: string,
+  /** Cartella dei file del ponte (log): ci sta la cache dei jobrecord gia' letti per gli accostamenti */
+  cartellaPonte?: string,
 ): Promise<Record<string, number>> {
   const lette: { t: TabellaSync; righe: RigaFp[] }[] = []
   for (const t of TABELLE_SYNC) {
@@ -87,5 +91,15 @@ export async function sincronizza(
   const strutture = await sincronizzaStrutture(supabase, orgId, cartellaStrutture)
   esito.fp_strutture = strutture.lette
   esito.fp_strutture_errori = strutture.errori
+  // Accostamenti dalle commesse calcolate: un di piu', se non riesce il resto della sincronizzazione vale.
+  if (cartellaPonte) {
+    try {
+      const acc = await sincronizzaAccostamenti(supabase, orgId, cartellaStrutture, join(cartellaPonte, 'accostamenti-cache.json'))
+      esito.fp_accostamenti = acc.campioni
+    } catch (e) {
+      log(`Accostamenti non sincronizzati: ${e instanceof Error ? e.message : String(e)}`)
+      esito.fp_accostamenti_errori = 1
+    }
+  }
   return esito
 }

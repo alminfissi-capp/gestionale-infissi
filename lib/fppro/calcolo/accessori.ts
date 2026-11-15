@@ -19,8 +19,13 @@ import type { DatiFissaggi } from './fissaggi'
 export const chiaveAccessorio = (nodo: number, kit: number | null, codice: string): string =>
   kit === null ? `${nodo}:a:${codice}` : `${nodo}:${kit}:${codice}`
 
-/** Maggiorazione degli accessori a metro (guarnizioni, spazzolini) */
-export const MAGGIORAZIONE_METRO = 1.06
+/**
+ * Maggiorazione degli accessori a metro (guarnizioni, spazzolini): "Tolleranza % guarnizioni" di FP PRO
+ * (FP_PRO.MSG TOLLERANZA_GUARNIZIONI), impostata al 10%. Verificato sul banco (2026-11-15): FP PRO / perimetro
+ * della zona = 1,10 su 1352 righe (02-2026G voce 5: AGP 7007 = 2 x (315 + 815) x 1,10 = 2486 mm, come FP PRO).
+ * Il valore non e' nel MySQL ne' nei file INI: se si cambia in FP PRO va cambiato qui.
+ */
+export const MAGGIORAZIONE_METRO = 1.1
 
 export interface QuantitaAccessorio {
   codice: string

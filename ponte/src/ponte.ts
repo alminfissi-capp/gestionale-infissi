@@ -117,7 +117,7 @@ async function eseguiProssima(): Promise<void> {
     // Qualunque sync (giornaliera, pulsante) legge le strutture di adesso: non serve ripeterla.
     const impronta = await improntaStrutture(cfg.strPath)
     if (impronta) guardiaStrutture = { base: impronta, ultima: impronta }
-    const lavoro = sincronizza(db, supabase, cfg.orgId, cfg.strPath)
+    const lavoro = sincronizza(db, supabase, cfg.orgId, cfg.strPath, cfg.logDir)
     syncInCorso = lavoro
     lavoro.catch(() => {}).finally(() => { syncInCorso = null })
     const esito = await conTempoMassimo(
@@ -172,7 +172,7 @@ async function sbloccaRichieste(ora: Date): Promise<void> {
 async function main(): Promise<void> {
   db = await apriDbSolaLettura(cfg.mysql)
   if (process.argv.includes('--una-volta')) {
-    const esito = await sincronizza(db, supabase, cfg.orgId, cfg.strPath)
+    const esito = await sincronizza(db, supabase, cfg.orgId, cfg.strPath, cfg.logDir)
     console.log(JSON.stringify(esito, null, 2))
     await db.chiudi()
     return

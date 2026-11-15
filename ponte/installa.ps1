@@ -17,6 +17,13 @@ New-Item -ItemType Directory -Force "$Destinazione\ponte\src", "$Destinazione\li
 Copy-Item "$repo\ponte\package.json", "$repo\ponte\package-lock.json" "$Destinazione\ponte\" -Force
 Copy-Item "$repo\ponte\src\*.ts" "$Destinazione\ponte\src\" -Force
 Copy-Item "$repo\lib\fppro\sync-tabelle.ts", "$repo\lib\fppro\ponte-regole.ts", "$repo\lib\fppro\strutture-xml.ts", "$repo\lib\fppro\bmp.ts", "$repo\lib\fppro\dxf-sezione.ts", "$repo\lib\fppro\dxf-svg.ts" "$Destinazione\lib\fppro\" -Force
+# Calcolo usato dal ponte (accostamenti): Node senza compilazione vuole gli import con l'estensione .ts.
+New-Item -ItemType Directory -Force "$Destinazione\lib\fppro\calcolo" | Out-Null
+foreach ($f in 'geometria.ts', 'accostamenti.ts') {
+  $testo = [System.IO.File]::ReadAllText("$repo\lib\fppro\calcolo\$f")
+  $testo = [regex]::Replace($testo, "from '(\.\.?/[^']+?)(?<!\.ts)'", "from '`$1.ts'")
+  [System.IO.File]::WriteAllText("$Destinazione\lib\fppro\calcolo\$f", $testo)
+}
 # Fuori dal repository non c'e' un package.json sopra lib/: lo dichiariamo ESM.
 Set-Content "$Destinazione\lib\package.json" '{ "type": "module" }' -Encoding ascii
 

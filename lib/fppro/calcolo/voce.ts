@@ -7,6 +7,11 @@ import { accessoriVoce, type OpzioniAccessori, type QuantitaAccessorio, type Reg
 import { ottimizzaBarre } from './barre'
 import { fissaggiStruttura } from './fissaggi'
 import { larghezzeDaPoligoni, pezziECampi, type CampoCalcolo, type Larghezze } from './geometria'
+import { applicaAccostamenti, sceltaAccostamenti, type VarianteAccostamenti } from './accostamenti'
+
+/** La struttura ha ante o riempimenti, cioe' qualcosa che gli accostamenti cambierebbero */
+const haAnteORiempimenti = (nodi: NodoStruttura[]): boolean =>
+  nodi.some(n => n.tipo === 8610 || n.tipo === 8620 || n.pezzi.some(p => p.tipo === 8510 || p.tipo === 8500) || haAnteORiempimenti(n.figli))
 import { applicaCorrezioni, prezzoComeFp, type PrezzoVoce } from './prezzo'
 import type { CorrezioniVoce, OreVoce, ProfiloCalcolo } from './tipi'
 
@@ -106,11 +111,21 @@ export interface InputVoce {
    * come pezzi x fattore. Assente = barre ottimizzate sulla sola voce.
    */
   fattoreBarre?: number
+  /**
+   * Accostamenti delle sezioni disegnati da FP PRO per questa struttura (fp_accostamenti), uno per insieme
+   * di profili: si usa quello con gli stessi profili della voce, altrimenti ante e vetri restano stimati.
+   */
+  accostamenti?: VarianteAccostamenti[]
   /** Mano della voce: sceglie le righe destre/sinistre dei kit (FP PRO: Apertura). Assente = destra */
   mano?: 'sx' | 'dx' | null
 }
 
 const LATI = ['sinistra', 'alto', 'destra', 'basso'] as const
+
+/** Albero della voce con telai e anta scelti in cantiere: quello che il calcolo usa davvero. */
+export function alberoDellaVoce(input: Pick<InputVoce, 'albero' | 'telai' | 'anta'>): NodoStruttura[] {
+  return conAntaScelta(conTelaiScelti(input.albero, input.telai), input.anta)
+}
 
 /** Albero con i pezzi di telaio sostituiti dai profili scelti per lato (stessa cartella del DXF). */
 function conTelaiScelti(albero: NodoStruttura[], telai: InputVoce['telai']): NodoStruttura[] {
@@ -157,7 +172,13 @@ export function calcolaVoce(input: InputVoce, listino: ListinoCalcolo, regole: R
   const righe: RigaMateriale[] = []
   // I poligoni dell'anteprima di FP PRO sono schematici: servono solo se mancano le sezioni dei DXF.
   const larghezze = input.larghezze ?? larghezzeDaPoligoni(input.poligoni)
-  const albero = conAntaScelta(conTelaiScelti(input.albero, input.telai), input.anta)
+  const alberoScelto = alberoDellaVoce(input)
+  // Ante e vetri come li ha disegnati FP PRO, se la struttura e' stata calcolata con questi profili.
+  const variante = sceltaAccostamenti(alberoScelto, input.accostamenti)
+  const albero = variante ? applicaAccostamenti(alberoScelto, variante.nodi) : alberoScelto
+  if (input.accostamenti !== undefined && !variante && haAnteORiempimenti(alberoScelto)) {
+    avvisi.push('Misure di ante e vetri stimate: struttura mai calcolata in FP PRO (calcolarla una volta in FP PRO)')
+  }
   const { pezzi, campi, zone, ante: geoAnte } = pezziECampi(albero, input, larghezze, dxf => listino.sezione(codiceDaDxf(dxf)))
 
   // Profili: si risale al codice, i composti si dividono nei componenti, poi barre per codice.
