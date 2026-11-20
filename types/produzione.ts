@@ -123,12 +123,16 @@ export type OrdineFornitore = {
   /** Il fornitore deve caricare una conferma d'ordine, da firmare e rimandare. */
   richiede_conferma: boolean
   note: string | null
+  /** Nominativo scritto a mano quando l'ordine non ha commessa (es. garanzia); null = magazzino */
+  riferimento_libero: string | null
   created_at: string
   updated_at: string
 }
 
 export type OrdineInput = {
   commessa_id: string | null
+  /** Nominativo libero, solo senza commessa (si azzera se c'e' una commessa) */
+  riferimento_libero?: string | null
   fornitore_id: string | null
   numero_ordine: string
   data_ordine: string
