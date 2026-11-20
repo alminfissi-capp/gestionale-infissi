@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   interpretaQuantita,
+  riferimentoOrdine,
   rigaSenzaContenuto,
   calcolaTotaleRigaOrdine,
   calcolaTotaleOrdine,
@@ -266,5 +267,23 @@ describe('noteEventoOrdine', () => {
   it('senza fornitore scrive solo l\'ordine', () => {
     expect(noteEventoOrdine(null, '011-2026')).toBe('Ordine: ORD 011-2026')
     expect(noteEventoOrdine('  ', '011-2026')).toBe('Ordine: ORD 011-2026')
+  })
+})
+
+describe('riferimento dell’ordine (commessa, nominativo libero o magazzino)', () => {
+  it('con commessa: numero e cliente', () => {
+    expect(riferimentoOrdine({ commessa_id: 'c1', numero_commessa: '152-26G', cliente_nome: 'Rossi Mario', riferimento_libero: null }))
+      .toEqual({ tipo: 'commessa', etichetta: 'Commessa', testo: '152-26G — Rossi Mario' })
+  })
+  it('senza commessa e con nominativo: il nominativo', () => {
+    expect(riferimentoOrdine({ commessa_id: null, numero_commessa: null, cliente_nome: null, riferimento_libero: '  Garanzia 2022 – Rossi Mario ' }))
+      .toEqual({ tipo: 'libero', etichetta: 'Riferimento', testo: 'Garanzia 2022 – Rossi Mario' })
+  })
+  it('senza commessa e senza nominativo: Magazzino, come prima', () => {
+    expect(riferimentoOrdine({ commessa_id: null, numero_commessa: null, cliente_nome: null, riferimento_libero: '' }))
+      .toEqual({ tipo: 'magazzino', etichetta: 'Commessa', testo: 'Magazzino' })
+  })
+  it('la commessa vince sul nominativo rimasto', () => {
+    expect(riferimentoOrdine({ commessa_id: 'c1', numero_commessa: null, cliente_nome: '', riferimento_libero: 'vecchio' }).testo).toBe('Commessa')
   })
 })

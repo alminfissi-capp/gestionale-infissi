@@ -529,6 +529,7 @@ export async function createOrdine(input: OrdineInput): Promise<string> {
     .from('ordini_fornitore')
     .insert({
       ...testata,
+      riferimento_libero: testata.commessa_id ? null : (testata.riferimento_libero?.trim() || null),
       numero_ordine: normalizzaNumeroOrdine(testata.numero_ordine),
       organization_id: orgId,
     })
@@ -554,6 +555,7 @@ export async function updateOrdine(id: string, input: OrdineInput): Promise<void
     .from('ordini_fornitore')
     .update({
       ...testata,
+      riferimento_libero: testata.commessa_id ? null : (testata.riferimento_libero?.trim() || null),
       numero_ordine: normalizzaNumeroOrdine(testata.numero_ordine),
       updated_at: new Date().toISOString(),
     })

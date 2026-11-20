@@ -7,7 +7,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,6 +37,8 @@ interface Props {
 
 const oggiISO = () => new Date().toISOString().slice(0, 10)
 const MAGAZZINO = '__magazzino__'
+/** Nominativo scritto a mano (es. sostituzione in garanzia senza commessa) */
+const ALTRO = '__altro__'
 const ORARI_CALENDARIO = { ora_inizio: '08:00', ora_fine: '10:00' }
 
 /** Tipo proposto per l'arrivo: il primo "ricezione" dell'anagrafica, altrimenti il primo di Produzione. */
@@ -53,6 +55,7 @@ export default function DialogOrdine({
   const [saving, setSaving] = useState(false)
   const [fornitoreId, setFornitoreId] = useState<string>('')
   const [commessaSel, setCommessaSel] = useState<string>(MAGAZZINO)
+  const [nominativo, setNominativo] = useState('')
   const [numero, setNumero] = useState('')
   const [dataOrdine, setDataOrdine] = useState(oggiISO())
   const [consegna, setConsegna] = useState('')
@@ -96,7 +99,8 @@ export default function DialogOrdine({
   useEffect(() => {
     if (!open) return
     setFornitoreId(ordine?.fornitore_id ?? '')
-    setCommessaSel(ordine?.commessa_id ?? commessaId ?? MAGAZZINO)
+    setCommessaSel(ordine?.commessa_id ?? commessaId ?? (ordine?.riferimento_libero ? ALTRO : MAGAZZINO))
+    setNominativo(ordine?.riferimento_libero ?? '')
     setNumero(ordine ? normalizzaNumeroOrdine(ordine.numero_ordine) : numeroProposto)
     setDataOrdine(ordine?.data_ordine ?? oggiISO())
     setConsegna(ordine?.data_consegna_prevista ?? '')
@@ -154,6 +158,10 @@ export default function DialogOrdine({
       toast.error(`Inserisci la quantità della riga ${senzaQuantita + 1}`)
       return
     }
+    if (commesse && commessaSel === ALTRO && !nominativo.trim()) {
+      toast.error('Scrivi il nominativo a cui è destinato l’ordine')
+      return
+    }
     if (inCalendario) {
       if (!consegna) {
         toast.error('Per inserire l’arrivo in calendario serve la consegna prevista')
@@ -171,10 +179,11 @@ export default function DialogOrdine({
     setSaving(true)
     try {
       const commessa_id = commesse
-        ? (commessaSel === MAGAZZINO ? null : commessaSel)
+        ? (commessaSel === MAGAZZINO || commessaSel === ALTRO ? null : commessaSel)
         : commessaId
       const input = {
         commessa_id,
+        riferimento_libero: commesse && commessaSel === ALTRO ? nominativo.trim() : null,
         fornitore_id: fornitoreId || null,
         numero_ordine: numero.trim(),
         data_ordine: dataOrdine,
@@ -226,8 +235,17 @@ export default function DialogOrdine({
                         {c.numero_commessa || 'Senza numero'} — {c.cliente_nome}
                       </SelectItem>
                     ))}
+                    <SelectSeparator />
+                    <SelectItem value={ALTRO}>✎ Altro nominativo…</SelectItem>
                   </SelectContent>
                 </Select>
+                {commessaSel === ALTRO && (
+                  <div className="space-y-1.5 pt-1">
+                    <Label htmlFor="ordine-nominativo">Nominativo</Label>
+                    <Input id="ordine-nominativo" value={nominativo} maxLength={200} autoFocus
+                      onChange={(e) => setNominativo(e.target.value)} placeholder="Es. Garanzia 2022 – Rossi Mario" />
+                  </div>
+                )}
               </div>
             )}
             <div className="space-y-1.5">

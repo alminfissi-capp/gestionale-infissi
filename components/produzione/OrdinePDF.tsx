@@ -2,7 +2,7 @@
 
 import { Document, Page, Text, View, Image, StyleSheet, Font } from '@react-pdf/renderer'
 import { formatEuro } from '@/lib/pricing'
-import { formattaNumeroOrdine } from '@/lib/produzione'
+import { formattaNumeroOrdine, riferimentoOrdine } from '@/lib/produzione'
 import { preservaSpazi } from '@/lib/testo-pdf'
 import { isModificatoDopoInvio, righeFooterPdf } from '@/lib/produzione-tracking'
 import type { OrdineCompleto, TrackingOrdine } from '@/types/produzione'
@@ -93,10 +93,18 @@ export default function OrdinePDF({
           {ordine.data_consegna_prevista ? (
             <Text><Text style={styles.grassetto}>Consegna prevista: </Text>{ordine.data_consegna_prevista}</Text>
           ) : null}
-          <Text>
-            <Text style={styles.grassetto}>Commessa: </Text>
-            {clienteNome ? `${numeroCommessa} — ${clienteNome}` : numeroCommessa}
-          </Text>
+          {/* Senza commessa con nominativo scritto a mano (es. garanzia): "Riferimento" al posto di "Magazzino". */}
+          {riferimentoOrdine({ ...ordine, numero_commessa: null, cliente_nome: null }).tipo === 'libero' ? (
+            <Text>
+              <Text style={styles.grassetto}>Riferimento: </Text>
+              {riferimentoOrdine({ ...ordine, numero_commessa: null, cliente_nome: null }).testo}
+            </Text>
+          ) : (
+            <Text>
+              <Text style={styles.grassetto}>Commessa: </Text>
+              {clienteNome ? `${numeroCommessa} — ${clienteNome}` : numeroCommessa}
+            </Text>
+          )}
         </View>
 
         <View style={styles.intestazioneTabella}>

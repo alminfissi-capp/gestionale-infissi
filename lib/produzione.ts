@@ -164,3 +164,22 @@ export function nomeFilePdfOrdine(
   return `${base.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim()}.pdf`
 }
 
+
+/**
+ * Cosa indicare come destinazione di un ordine fornitore: la commessa, un nominativo scritto a mano
+ * (es. sostituzione in garanzia di un lavoro senza commessa) oppure il magazzino.
+ */
+export function riferimentoOrdine(o: {
+  commessa_id: string | null
+  numero_commessa: string | null
+  cliente_nome: string | null
+  riferimento_libero: string | null
+}): { tipo: 'commessa' | 'libero' | 'magazzino'; etichetta: 'Commessa' | 'Riferimento'; testo: string } {
+  if (o.commessa_id) {
+    const numero = o.numero_commessa || 'Commessa'
+    return { tipo: 'commessa', etichetta: 'Commessa', testo: o.cliente_nome ? `${numero} — ${o.cliente_nome}` : numero }
+  }
+  const libero = o.riferimento_libero?.trim()
+  if (libero) return { tipo: 'libero', etichetta: 'Riferimento', testo: libero }
+  return { tipo: 'magazzino', etichetta: 'Commessa', testo: 'Magazzino' }
+}

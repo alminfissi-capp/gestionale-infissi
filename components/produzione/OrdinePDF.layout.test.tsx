@@ -209,3 +209,19 @@ describe('righe separatore', () => {
     expect(inMezzo.map((i) => i.t)).toEqual([])
   })
 })
+
+describe('destinazione dell’ordine nel PDF', () => {
+  it('nominativo libero senza commessa: "Riferimento:" e il nome, non "Magazzino"', async () => {
+    const libero = { ...ordine, commessa_id: null, riferimento_libero: 'Garanzia 2022 – Rossi Mario' } as unknown as OrdineCompleto
+    const buffer = await renderToBuffer(
+      <OrdinePDF ordine={libero} intestazione={intestazione} fornitoreNome="PROFILSIDER SRL"
+        numeroCommessa="Magazzino" clienteNome="" tracking={undefined} />
+    )
+    const pdf = await pdfjs.getDocument({ data: new Uint8Array(buffer), useSystemFonts: true }).promise
+    const testo = (await pdf.getPage(1).then((p) => p.getTextContent())).items
+      .map((i) => ('str' in i ? i.str : '')).join(' ')
+    expect(testo).toContain('Riferimento:')
+    expect(testo).toContain('Garanzia 2022 – Rossi Mario')
+    expect(testo).not.toContain('Magazzino')
+  })
+})

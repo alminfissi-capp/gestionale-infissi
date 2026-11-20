@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Pencil, Trash2, AlertTriangle, Eye, Mail, Warehouse } from 'lucide-react'
+import { Plus, Pencil, Trash2, AlertTriangle, Eye, Mail, Warehouse, PenLine } from 'lucide-react'
 import { pdf } from '@react-pdf/renderer'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -17,8 +17,7 @@ import StatoInvioOrdine from '@/components/produzione/StatoInvioOrdine'
 import FileFornitoreOrdine from '@/components/produzione/FileFornitoreOrdine'
 import { formatEuro } from '@/lib/pricing'
 import {
-  formattaNumeroOrdine, nomeFilePdfOrdine, puoInviareOrdine, MOTIVO_INVIO_BLOCCATO,
-} from '@/lib/produzione'
+  formattaNumeroOrdine, nomeFilePdfOrdine, puoInviareOrdine, MOTIVO_INVIO_BLOCCATO, riferimentoOrdine } from '@/lib/produzione'
 import { deleteOrdine, setStatoOrdine } from '@/actions/produzione'
 import { salvaPdfOrdine, aggiornaPdfDocumentoOrdine } from '@/actions/produzione-pdf'
 import { caricaPdfOrdine } from '@/lib/produzione-pdf-upload'
@@ -287,6 +286,10 @@ export default function ElencoOrdini({
                       <span className="text-gray-900 dark:text-gray-100">
                         {o.numero_commessa || 'Commessa'}
                         {o.cliente_nome ? <span className="text-gray-500 dark:text-gray-400"> · {o.cliente_nome}</span> : null}
+                      </span>
+                    ) : riferimentoOrdine(o).tipo === 'libero' ? (
+                      <span className="inline-flex items-center gap-1 text-gray-900 dark:text-gray-100">
+                        <PenLine className="h-3.5 w-3.5 text-gray-500" /> {riferimentoOrdine(o).testo}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400">
